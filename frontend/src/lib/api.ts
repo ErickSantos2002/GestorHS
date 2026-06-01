@@ -34,9 +34,11 @@ async function doRefresh(): Promise<boolean> {
 
 function refreshOnce(): Promise<boolean> {
   if (!refreshPromise) {
-    refreshPromise = doRefresh().finally(() => {
-      refreshPromise = null
-    })
+    refreshPromise = doRefresh()
+      .catch(() => false)
+      .finally(() => {
+        refreshPromise = null
+      })
   }
   return refreshPromise
 }
@@ -48,6 +50,7 @@ export async function apiFetch(path: string, options: RequestInit = {}, retry = 
 
   const res = await fetch(`${BASE_URL}${path}`, { ...options, headers })
 
+  // só tenta refresh se já havia refresh_token no início desta request
   if (res.status === 401 && retry && tokens?.refresh_token) {
     const ok = await refreshOnce()
     if (ok) return apiFetch(path, options, false)

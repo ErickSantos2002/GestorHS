@@ -90,6 +90,22 @@ describe('api', () => {
     expect(onUnauth).toHaveBeenCalledTimes(1)
   })
 
+  it('refresh com erro de rede limpa tokens e chama onUnauthorized', async () => {
+    setTokens({ access_token: 'velho', refresh_token: 'r' })
+    const onUnauth = vi.fn()
+    setOnUnauthorized(onUnauth)
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ detail: 'expirado' }, 401))
+      .mockRejectedValueOnce(new TypeError('Network request failed'))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const res = await apiFetch('/x')
+
+    expect(getTokens()).toBeNull()
+    expect(onUnauth).toHaveBeenCalledTimes(1)
+    expect(res.status).toBe(401)
+  })
+
   it('apiJson lança ApiError com o detail no erro', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ detail: 'Credenciais inválidas' }, 401))
     vi.stubGlobal('fetch', fetchMock)
