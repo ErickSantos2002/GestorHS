@@ -191,6 +191,10 @@ Sobre o schema migrado, o v1 acrescenta:
 3. **Funções:** nova tabela `funcoes`; FK `funcao` em `usuarios`; coluna `funcao_responsavel` em `fases`.
 4. **`solicitacoes`:** nova tabela — solicitações de recalibração vindas do portal (cliente, equipamento, status, datas, quem atendeu).
 5. **`fases`:** redefinir as nove fases legadas para as cinco novas + Cancelada, com cores atribuídas. As OS antigas (9.583 "Entregue") mapeiam para "Finalizada".
+6. **Segurança de credenciais** (apontado pelo review de segurança):
+   - Alargar `senha` para `text` em `usuarios` e `usuarios_cliente` — `varchar(12)` não comporta um hash bcrypt/argon2. A aplicação grava só o hash; os valores legados de 12 caracteres entram marcados para **redefinição forçada no primeiro login**.
+   - `usuarios.login` já é `UNIQUE`; adicionar `UNIQUE (cliente, login)` em `usuarios_cliente`.
+7. **Chaves de acesso** (hardening, quando os recursos forem construídos): alargar `acesso.chave` e `ordens.chave` para `text`, gerar tokens aleatórios (32 bytes), com expiração e *rate-limit* em qualquer consulta pública por chave.
 
 ## 11. Superfície de API (alto nível)
 
