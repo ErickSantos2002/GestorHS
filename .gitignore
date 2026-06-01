@@ -1,0 +1,28 @@
+# Brainstorming visual companion
+.superpowers/
+
+# Segredos / ambiente
+.env
+.env.*
+!.env.example
+
+# Python (backend)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Node (caso haja na raiz; o frontend tem o seu próprio .gitignore)
+node_modules/
+
+# Sistema operacional / editores
+.DS_Store
+Thumbs.db
+.idea/
+
+# Logs
+*.log
