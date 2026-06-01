@@ -7,3 +7,4 @@ def test_settings_carrega_do_ambiente(monkeypatch):
     assert s.JWT_SECRET_KEY == "segredo-de-teste"
     assert s.JWT_ALGORITHM == "HS256"
     assert s.ACCESS_TOKEN_EXPIRE_MINUTES == 30
+    assert s.REFRESH_TOKEN_EXPIRE_DAYS == 7
