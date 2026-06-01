@@ -1,0 +1,16 @@
+# GestorHS — ambiente de desenvolvimento local.
+# Sobe apenas a API; o PostgreSQL é remoto (62.72.11.28:9998), configurado em backend/.env.
+services:
+  backend:
+    build: ./backend
+    image: gestorhs-backend
+    container_name: gestorhs-backend
+    env_file:
+      - ./backend/.env
+    ports:
+      - "8000:8000"
+    # Monta o código e usa --reload: editar em backend/ recarrega a API na hora.
+    volumes:
+      - ./backend:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped

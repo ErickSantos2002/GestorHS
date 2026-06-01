@@ -1,0 +1,22 @@
+# Ambientes virtuais e caches
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Git / IDE
+.git/
+.gitignore
+.idea/
+.vscode/
+
+# Os segredos entram via env_file do compose, não na imagem
+.env
+
+# Testes e artefatos de migração não vão na imagem
+tests/
+migration/
+*.md
