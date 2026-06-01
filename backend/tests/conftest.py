@@ -43,6 +43,21 @@ def client(db_session):
 
 
 @pytest.fixture()
+def cliente_portal(db_session):
+    c = UsuarioCliente(
+        cliente=1,
+        nome="Cliente Teste",
+        login="cliente1",
+        senha=hash_senha("portal123"),
+        precisa_redefinir_senha=False,
+    )
+    db_session.add(c)
+    db_session.commit()
+    db_session.refresh(c)
+    return c
+
+
+@pytest.fixture()
 def usuario_admin(db_session):
     funcao = Funcao(descricao="Administrador")
     db_session.add(funcao)

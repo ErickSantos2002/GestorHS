@@ -36,3 +36,7 @@ def test_refresh_token_marca_uso():
 def test_token_invalido_levanta_erro():
     with pytest.raises(JWTError):
         decodificar_token("nao-e-um-token")
+
+
+def test_verificar_senha_hash_vazio_retorna_false():
+    assert verificar_senha("qualquer", "") is False

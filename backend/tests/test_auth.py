@@ -61,3 +61,24 @@ def test_refresh_sem_claims_retorna_401(client):
     )
     r = client.post("/auth/refresh", json={"refresh_token": token})
     assert r.status_code == 401
+
+
+def test_login_portal_sucesso(client, cliente_portal):
+    r = client.post("/auth/login-portal", json={"login": "cliente1", "senha": "portal123"})
+    assert r.status_code == 200
+    corpo = r.json()
+    assert corpo["token_type"] == "bearer"
+    assert corpo["access_token"]
+    assert corpo["refresh_token"]
+
+
+def test_login_portal_senha_errada_401(client, cliente_portal):
+    r = client.post("/auth/login-portal", json={"login": "cliente1", "senha": "errada"})
+    assert r.status_code == 401
+
+
+def test_token_portal_nao_acessa_me_de_usuario(client, cliente_portal):
+    # um token de cliente (portal) NÃO pode acessar /auth/me (endpoint de usuário/equipe)
+    tokens = client.post("/auth/login-portal", json={"login": "cliente1", "senha": "portal123"}).json()
+    r = client.get("/auth/me", headers={"Authorization": f"Bearer {tokens['access_token']}"})
+    assert r.status_code == 401

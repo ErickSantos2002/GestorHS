@@ -1,4 +1,9 @@
+from datetime import datetime, timedelta, timezone
+
+from jose import jwt
 from passlib.context import CryptContext
+
+from app.core.config import settings
 
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
@@ -15,11 +20,6 @@ def verificar_senha(senha: str, hash_armazenado: str) -> bool:
     except ValueError:
         # hash em formato inválido (ex.: valor legado) — nunca autentica
         return False
-
-
-from datetime import datetime, timedelta, timezone
-from jose import jwt
-from app.core.config import settings
 
 
 def _criar_token(sub: str, tipo: str, token_use: str, expira_em: timedelta) -> str:
