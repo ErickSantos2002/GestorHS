@@ -145,9 +145,12 @@ Roadmap para acompanhar a construção do GestorHS v1. Estrutura pensada para o 
 *A visão do cliente. Depende das Fases 2, 3 e 4.*
 
 ### Épico 5.1 — Backend do portal (M)
-- [ ] Login e escopo por cliente
-- [ ] Endpoints: minha frota, certificados, minhas OS
+- [ ] Login e escopo por cliente *(backend já exige `cliente` e filtra por `(cliente, login)`)*
+- [ ] **Definir a UX do tenant no login** (subdomínio / código da empresa / e-mail global-único)
+- [ ] Endpoints: minha frota, certificados, minhas OS — protegidos por `get_current_cliente`
+- [ ] Teste e2e de rota protegida por `get_current_cliente` (claim de tenant adulterado → 401)
 - [ ] Endpoint `POST /portal/solicitar-recalibracao` (gera solicitação)
+- [ ] (Evolução) Revogação de refresh server-side por `jti`
 
 ### Épico 5.2 — Frontend do portal (M)
 - [ ] Login do cliente e dashboard (indicadores + banner de vencidos)

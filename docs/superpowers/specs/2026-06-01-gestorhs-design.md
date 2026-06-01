@@ -85,6 +85,9 @@ Dados-âncora da migração:
   - **Funcionários** (`usuarios`) — acessam `/app`, têm uma **função** (papel).
   - **Clientes** (`usuarios_cliente`) — acessam `/portal`, escopados ao próprio cliente.
 - A API valida o público e a função em cada rota.
+- **Login do portal é multi-tenant:** o cliente informa o **tenant** (`cliente`) no login; a API filtra pela chave única `(cliente, login)` e embute o `cliente` no token, validado em cada acesso do portal (`get_current_cliente`). *Como o frontend resolve o `cliente` — subdomínio, código da empresa ou e-mail global-único — é decisão da fase do portal.*
+- **Refresh revalida o usuário** no banco a cada uso: nega se a conta sumiu ou está marcada para redefinir senha. Revogação server-side por `jti` fica como evolução.
+- **Anti-enumeração:** o timing do login é achatado (verify contra um hash dummy quando o login não existe). O 403 de "redefinir senha" antes da checagem de senha é um trade-off de UX consciente.
 
 ## 5. Modelo de domínio
 
@@ -226,3 +229,4 @@ Estes ficam para evoluções futuras:
 - **PDF do certificado:** o v1 anexa um PDF existente. A geração automática fica para depois — **confirmar**.
 - **Migração de senhas:** redefinição forçada vs. re-hash no primeiro login — **confirmar**.
 - **Armazenamento de imagens:** o legado guarda apenas o nome do arquivo. Precisamos definir onde os arquivos vivem (sistema de arquivos ou storage de objetos) — **confirmar**.
+- **Tenant no login do portal:** como o cliente informa/deriva o `cliente` no login (subdomínio? código da empresa? e-mail global-único?) — **definir na fase do portal**. O backend já exige e valida o `cliente`; falta só a UX.
