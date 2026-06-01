@@ -28,7 +28,11 @@ def _payload_valido(token: str, tipo_esperado: str) -> dict:
 
 def get_current_usuario(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> Usuario:
     dados = _payload_valido(token, "usuario")
-    usuario = db.query(Usuario).filter(Usuario.id == int(dados["sub"])).first()
+    try:
+        sub_id = int(dados["sub"])
+    except (KeyError, ValueError, TypeError):
+        raise _cred_invalida
+    usuario = db.query(Usuario).filter(Usuario.id == sub_id).first()
     if usuario is None:
         raise _cred_invalida
     return usuario
@@ -36,7 +40,11 @@ def get_current_usuario(token: str = Depends(oauth2_scheme), db: Session = Depen
 
 def get_current_cliente(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> UsuarioCliente:
     dados = _payload_valido(token, "cliente")
-    cli = db.query(UsuarioCliente).filter(UsuarioCliente.id == int(dados["sub"])).first()
+    try:
+        sub_id = int(dados["sub"])
+    except (KeyError, ValueError, TypeError):
+        raise _cred_invalida
+    cli = db.query(UsuarioCliente).filter(UsuarioCliente.id == sub_id).first()
     if cli is None:
         raise _cred_invalida
     return cli

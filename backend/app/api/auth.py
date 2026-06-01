@@ -58,7 +58,10 @@ def refresh(dados: RefreshRequest):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh inválido")
     if payload.get("token_use") != "refresh":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh inválido")
-    sub, tipo = payload["sub"], payload["tipo"]
+    sub = payload.get("sub")
+    tipo = payload.get("tipo")
+    if sub is None or tipo is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh inválido")
     return Token(
         access_token=criar_access_token(sub=sub, tipo=tipo),
         refresh_token=criar_refresh_token(sub=sub, tipo=tipo),
