@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../auth/AuthContext'
 import { ApiError } from '../../lib/api'
 import { Input } from '../../components/ui/Input'
@@ -7,12 +7,21 @@ import { Spinner } from '../../components/ui/Spinner'
 import { IconAlertCircle } from '../../components/ui/icons'
 
 export function LoginPage() {
-  const { login } = useAuth()
+  const { login, user, loading } = useAuth()
   const navigate = useNavigate()
   const [usuario, setUsuario] = useState('')
   const [senha, setSenha] = useState('')
   const [erro, setErro] = useState('')
   const [enviando, setEnviando] = useState(false)
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <Spinner className="w-8 h-8" />
+      </div>
+    )
+  }
+  if (user) return <Navigate to="/app" replace />
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()

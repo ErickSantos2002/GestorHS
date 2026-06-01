@@ -47,4 +47,11 @@ describe('ProtectedRoute', () => {
     renderAt('/app')
     await waitFor(() => expect(screen.getByText('conteudo protegido')).toBeInTheDocument())
   })
+
+  it('durante o loading mostra o spinner', () => {
+    setTokens({ access_token: 'a', refresh_token: 'r' })
+    vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {}))) // nunca resolve → fica em loading
+    renderAt('/app')
+    expect(screen.getByRole('status')).toBeInTheDocument()
+  })
 })
