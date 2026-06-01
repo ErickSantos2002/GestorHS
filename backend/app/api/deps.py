@@ -47,6 +47,8 @@ def get_current_cliente(token: str = Depends(oauth2_scheme), db: Session = Depen
     cli = db.query(UsuarioCliente).filter(UsuarioCliente.id == sub_id).first()
     if cli is None:
         raise _cred_invalida
+    if dados.get("cliente") != cli.cliente:
+        raise _cred_invalida
     return cli
 
 

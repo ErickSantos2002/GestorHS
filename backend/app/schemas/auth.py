@@ -25,3 +25,9 @@ class UsuarioOut(BaseModel):
     funcao_id: Optional[int]
 
     model_config = {"from_attributes": True}
+
+
+class PortalLoginRequest(BaseModel):
+    cliente: int
+    login: str
+    senha: str

@@ -22,7 +22,7 @@ def verificar_senha(senha: str, hash_armazenado: str) -> bool:
         return False
 
 
-def _criar_token(sub: str, tipo: str, token_use: str, expira_em: timedelta) -> str:
+def _criar_token(sub: str, tipo: str, token_use: str, expira_em: timedelta, cliente: int | None = None) -> str:
     agora = datetime.now(timezone.utc)
     payload = {
         "sub": sub,
@@ -31,15 +31,17 @@ def _criar_token(sub: str, tipo: str, token_use: str, expira_em: timedelta) -> s
         "iat": agora,
         "exp": agora + expira_em,
     }
+    if cliente is not None:
+        payload["cliente"] = cliente
     return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
 
-def criar_access_token(sub: str, tipo: str) -> str:
-    return _criar_token(sub, tipo, "access", timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
+def criar_access_token(sub: str, tipo: str, cliente: int | None = None) -> str:
+    return _criar_token(sub, tipo, "access", timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES), cliente=cliente)
 
 
-def criar_refresh_token(sub: str, tipo: str) -> str:
-    return _criar_token(sub, tipo, "refresh", timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS))
+def criar_refresh_token(sub: str, tipo: str, cliente: int | None = None) -> str:
+    return _criar_token(sub, tipo, "refresh", timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS), cliente=cliente)
 
 
 def decodificar_token(token: str) -> dict:
