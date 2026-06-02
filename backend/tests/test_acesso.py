@@ -85,3 +85,17 @@ def test_patch_nega_rebaixar_ultimo_admin(client, usuario_admin, db_session):
     # admin é o único Administrador; tentar tirar sua função admin -> 400
     r = client.patch(f"/usuarios/{usuario_admin.id}", json={"funcao_id": lab.id}, headers=h)
     assert r.status_code == 400
+
+
+def test_excluir_a_si_mesmo_400(client, usuario_admin):
+    h = _headers(client, "admin", "senha123")
+    r = client.delete(f"/usuarios/{usuario_admin.id}", headers=h)
+    assert r.status_code == 400
+
+
+def test_excluir_usuario_comum_ok(client, usuario_admin):
+    h = _headers(client, "admin", "senha123")
+    novo = _criar(client, h, login="temp", senha="segredo123").json()
+    r = client.delete(f"/usuarios/{novo['id']}", headers=h)
+    assert r.status_code == 204
+    assert client.get(f"/usuarios/{novo['id']}", headers=h).status_code == 404

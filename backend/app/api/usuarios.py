@@ -76,3 +76,16 @@ def atualizar(usuario_id: int, dados: UsuarioUpdate, db: Session = Depends(get_d
     db.commit()
     db.refresh(u)
     return u
+
+
+@router.delete("/{usuario_id}", status_code=status.HTTP_204_NO_CONTENT)
+def excluir(usuario_id: int, db: Session = Depends(get_db), atual: Usuario = Depends(require_funcao(ADMIN))):
+    u = db.query(Usuario).filter(Usuario.id == usuario_id).first()
+    if u is None:
+        raise HTTPException(status_code=404, detail="usuário não encontrado")
+    if u.id == atual.id:
+        raise HTTPException(status_code=400, detail="não é possível excluir o próprio usuário")
+    if _eh_admin(db, u) and _conta_admins(db) <= 1:
+        raise HTTPException(status_code=400, detail="não é possível excluir o último administrador")
+    db.delete(u)
+    db.commit()
