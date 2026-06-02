@@ -99,3 +99,24 @@ def test_excluir_usuario_comum_ok(client, usuario_admin):
     r = client.delete(f"/usuarios/{novo['id']}", headers=h)
     assert r.status_code == 204
     assert client.get(f"/usuarios/{novo['id']}", headers=h).status_code == 404
+
+
+def test_admin_redefine_senha(client, usuario_admin):
+    h = _headers(client, "admin", "senha123")
+    novo = _criar(client, h, login="ana", senha="segredo123").json()
+    r = client.post(f"/usuarios/{novo['id']}/redefinir-senha", json={"nova_senha": "novaSenha9"}, headers=h)
+    assert r.status_code == 204
+    assert client.post("/auth/login", json={"login": "ana", "senha": "novaSenha9"}).status_code == 200
+
+
+def test_trocar_minha_senha_ok(client, usuario_comum):
+    h = _headers(client, "comum", "senha123")
+    r = client.post("/auth/trocar-senha", json={"senha_atual": "senha123", "nova_senha": "outraSenha9"}, headers=h)
+    assert r.status_code == 204
+    assert client.post("/auth/login", json={"login": "comum", "senha": "outraSenha9"}).status_code == 200
+
+
+def test_trocar_minha_senha_atual_errada(client, usuario_comum):
+    h = _headers(client, "comum", "senha123")
+    r = client.post("/auth/trocar-senha", json={"senha_atual": "errada", "nova_senha": "outraSenha9"}, headers=h)
+    assert r.status_code == 400

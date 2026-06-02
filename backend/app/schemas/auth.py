@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 
 
@@ -32,3 +32,8 @@ class PortalLoginRequest(BaseModel):
     cliente: int
     login: str
     senha: str
+
+
+class TrocarSenhaIn(BaseModel):
+    senha_atual: str
+    nova_senha: str = Field(min_length=8)

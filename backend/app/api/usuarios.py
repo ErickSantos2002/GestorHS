@@ -5,7 +5,7 @@ from app.models.database import get_db
 from app.models import Usuario, Funcao
 from app.core.security import hash_senha
 from app.api.deps import require_funcao
-from app.schemas.acesso import UsuarioListOut, UsuarioCreate, UsuarioUpdate
+from app.schemas.acesso import UsuarioListOut, UsuarioCreate, UsuarioUpdate, RedefinirSenhaIn
 
 router = APIRouter(prefix="/usuarios", tags=["usuarios"])
 
@@ -88,4 +88,14 @@ def excluir(usuario_id: int, db: Session = Depends(get_db), atual: Usuario = Dep
     if _eh_admin(db, u) and _conta_admins(db) <= 1:
         raise HTTPException(status_code=400, detail="não é possível excluir o último administrador")
     db.delete(u)
+    db.commit()
+
+
+@router.post("/{usuario_id}/redefinir-senha", status_code=status.HTTP_204_NO_CONTENT)
+def redefinir_senha(usuario_id: int, dados: RedefinirSenhaIn, db: Session = Depends(get_db), _: Usuario = Depends(require_funcao(ADMIN))):
+    u = db.query(Usuario).filter(Usuario.id == usuario_id).first()
+    if u is None:
+        raise HTTPException(status_code=404, detail="usuário não encontrado")
+    u.senha = hash_senha(dados.nova_senha)
+    u.precisa_redefinir_senha = False
     db.commit()
