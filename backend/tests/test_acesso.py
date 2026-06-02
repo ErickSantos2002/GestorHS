@@ -43,3 +43,45 @@ def test_criar_usuario_senha_curta(client, usuario_admin):
     h = _headers(client, "admin", "senha123")
     r = client.post("/usuarios", json={"login": "curto", "senha": "1234"}, headers=h)
     assert r.status_code == 422
+
+
+def _criar(client, h, **kw):
+    return client.post("/usuarios", json=kw, headers=h)
+
+
+def test_obter_usuario_inexistente_404(client, usuario_admin):
+    h = _headers(client, "admin", "senha123")
+    r = client.get("/usuarios/99999", headers=h)
+    assert r.status_code == 404
+
+
+def test_atualizar_troca_funcao(client, usuario_admin, db_session):
+    from app.models import Funcao
+    lab = Funcao(descricao="Laboratório")
+    db_session.add(lab)
+    db_session.commit()
+    h = _headers(client, "admin", "senha123")
+    novo = _criar(client, h, login="maria", senha="segredo123").json()
+    r = client.patch(f"/usuarios/{novo['id']}", json={"funcao_id": lab.id}, headers=h)
+    assert r.status_code == 200
+    assert r.json()["funcao"] == "Laboratório"
+
+
+def test_atualizar_login_duplicado_409(client, usuario_admin):
+    h = _headers(client, "admin", "senha123")
+    novo = _criar(client, h, login="pedro", senha="segredo123").json()
+    r = client.patch(f"/usuarios/{novo['id']}", json={"login": "admin"}, headers=h)
+    assert r.status_code == 409
+
+
+def test_patch_nega_rebaixar_ultimo_admin(client, usuario_admin, db_session):
+    from app.models import Funcao
+    lab = db_session.query(Funcao).filter(Funcao.descricao == "Laboratório").first()
+    if lab is None:
+        lab = Funcao(descricao="Laboratório")
+        db_session.add(lab)
+        db_session.commit()
+    h = _headers(client, "admin", "senha123")
+    # admin é o único Administrador; tentar tirar sua função admin -> 400
+    r = client.patch(f"/usuarios/{usuario_admin.id}", json={"funcao_id": lab.id}, headers=h)
+    assert r.status_code == 400
