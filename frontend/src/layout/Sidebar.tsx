@@ -1,18 +1,26 @@
 import { type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { cn } from '../lib/utils'
-import { IconDashboard } from '../components/ui/icons'
+import { useAuth } from '../auth/AuthContext'
+import { isAdmin } from '../auth/roles'
+import { IconDashboard, IconUsers } from '../components/ui/icons'
 
 interface NavItem {
   label: string
   icon: ReactNode
   to: string
+  adminOnly?: boolean
 }
 
-const NAV_ITEMS: NavItem[] = [{ label: 'Dashboard', icon: <IconDashboard />, to: '/app' }]
+const NAV_ITEMS: NavItem[] = [
+  { label: 'Dashboard', icon: <IconDashboard />, to: '/app' },
+  { label: 'Usuários', icon: <IconUsers />, to: '/app/usuarios', adminOnly: true },
+]
 
 export function Sidebar({ collapsed }: { collapsed: boolean }) {
   const location = useLocation()
+  const { user } = useAuth()
+  const itens = NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin(user))
 
   return (
     <aside
@@ -38,8 +46,11 @@ export function Sidebar({ collapsed }: { collapsed: boolean }) {
       </div>
 
       <nav className="flex-1 px-2 py-4 space-y-1">
-        {NAV_ITEMS.map((item) => {
-          const active = location.pathname === item.to || location.pathname.startsWith(item.to + '/')
+        {itens.map((item) => {
+          const active =
+            item.to === '/app'
+              ? location.pathname === '/app'
+              : location.pathname === item.to || location.pathname.startsWith(item.to + '/')
           return (
             <Link
               key={item.to}
