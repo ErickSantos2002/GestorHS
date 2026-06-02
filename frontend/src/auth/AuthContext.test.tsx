@@ -10,7 +10,7 @@ function jsonResponse(body: unknown, status = 200): Response {
   })
 }
 
-const ME = { id: 1, nome: 'Erick', login: 'erick', email: null, funcao_id: 1 }
+const ME = { id: 1, nome: 'Erick', login: 'erick', email: null, funcao_id: 1, funcao: 'Administrador' }
 
 function Probe() {
   const { user, loading, login, logout } = useAuth()

@@ -8,6 +8,7 @@ export interface User {
   login: string
   email: string | null
   funcao_id: number | null
+  funcao: string | null
 }
 
 interface AuthContextValue {
