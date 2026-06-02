@@ -21,11 +21,8 @@ def _conta_admins(db: Session) -> int:
     )
 
 
-def _eh_admin(db: Session, usuario: Usuario) -> bool:
-    if usuario.funcao_id is None:
-        return False
-    f = db.query(Funcao).filter(Funcao.id == usuario.funcao_id).first()
-    return f is not None and f.descricao == ADMIN
+def _eh_admin(usuario: Usuario) -> bool:
+    return usuario.funcao_rel is not None and usuario.funcao_rel.descricao == ADMIN
 
 
 @router.get("", response_model=list[UsuarioListOut])
@@ -68,7 +65,7 @@ def atualizar(usuario_id: int, dados: UsuarioUpdate, db: Session = Depends(get_d
     if "login" in campos and campos["login"] != u.login:
         if db.query(Usuario).filter(Usuario.login == campos["login"]).first() is not None:
             raise HTTPException(status_code=409, detail="login já em uso")
-    if "funcao_id" in campos and campos["funcao_id"] != u.funcao_id and _eh_admin(db, u):
+    if "funcao_id" in campos and campos["funcao_id"] != u.funcao_id and _eh_admin(u):
         if _conta_admins(db) <= 1:
             raise HTTPException(status_code=400, detail="não é possível remover o último administrador")
     for chave, valor in campos.items():
@@ -85,7 +82,7 @@ def excluir(usuario_id: int, db: Session = Depends(get_db), atual: Usuario = Dep
         raise HTTPException(status_code=404, detail="usuário não encontrado")
     if u.id == atual.id:
         raise HTTPException(status_code=400, detail="não é possível excluir o próprio usuário")
-    if _eh_admin(db, u) and _conta_admins(db) <= 1:
+    if _eh_admin(u) and _conta_admins(db) <= 1:
         raise HTTPException(status_code=400, detail="não é possível excluir o último administrador")
     db.delete(u)
     db.commit()

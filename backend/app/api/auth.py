@@ -101,6 +101,8 @@ def trocar_senha(
     usuario: Usuario = Depends(get_current_usuario),
     db: Session = Depends(get_db),
 ):
+    if usuario.precisa_redefinir_senha:
+        raise HTTPException(status_code=403, detail="Senha precisa ser redefinida pelo administrador")
     if not verificar_senha(dados.senha_atual, usuario.senha):
         raise HTTPException(status_code=400, detail="senha atual incorreta")
     usuario.senha = hash_senha(dados.nova_senha)

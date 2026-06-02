@@ -120,3 +120,14 @@ def test_trocar_minha_senha_atual_errada(client, usuario_comum):
     h = _headers(client, "comum", "senha123")
     r = client.post("/auth/trocar-senha", json={"senha_atual": "errada", "nova_senha": "outraSenha9"}, headers=h)
     assert r.status_code == 400
+
+
+def test_trocar_senha_negada_se_precisa_redefinir(client, usuario_comum, db_session):
+    from app.models import Usuario
+    h = _headers(client, "comum", "senha123")
+    # marca o usuário para redefinição forçada APÓS o login (token já em mãos)
+    u = db_session.query(Usuario).filter(Usuario.login == "comum").first()
+    u.precisa_redefinir_senha = True
+    db_session.commit()
+    r = client.post("/auth/trocar-senha", json={"senha_atual": "senha123", "nova_senha": "outraSenha9"}, headers=h)
+    assert r.status_code == 403

@@ -31,7 +31,7 @@ class UsuarioUpdate(BaseModel):
     nome: Optional[str] = None
     email: Optional[str] = None
     funcao_id: Optional[int] = None
-    login: Optional[str] = Field(default=None, max_length=20)
+    login: Optional[str] = Field(default=None, min_length=1, max_length=20)
 
 
 class RedefinirSenhaIn(BaseModel):
