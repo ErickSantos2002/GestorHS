@@ -23,6 +23,7 @@ class UsuarioOut(BaseModel):
     login: str
     email: Optional[str]
     funcao_id: Optional[int]
+    funcao: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
