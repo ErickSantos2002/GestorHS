@@ -5,9 +5,9 @@ from sqlalchemy.orm import Session
 from app.models.database import get_db
 from app.models import Usuario, Ordem, Cliente, Fase, LogOS, EquipamentoCliente
 from app.api.deps import get_current_usuario, require_funcao
-from app.api.ordens_acoes import agora, registrar_log
+from app.api.ordens_acoes import agora, registrar_log, exige_funcao_da_fase
 from app.core import os_workflow as wf
-from app.schemas.ordens import OrdemListOut, OrdemPage, QuadroColuna, OrdemOut, LogOut, OrdemAbrirIn
+from app.schemas.ordens import OrdemListOut, OrdemPage, QuadroColuna, OrdemOut, LogOut, OrdemAbrirIn, AvancarIn
 
 router = APIRouter(prefix="/ordens", tags=["ordens"])
 
@@ -106,6 +106,44 @@ def abrir(dados: OrdemAbrirIn, db: Session = Depends(get_db),
     db.flush()
     ec.os_atual = ordem.id
     registrar_log(db, ordem, usuario, "OS aberta — Recebido")
+    db.commit()
+    db.refresh(ordem)
+    return ordem
+
+
+@router.post("/{ordem_id}/avancar", response_model=OrdemOut)
+def avancar(ordem_id: int, dados: AvancarIn, db: Session = Depends(get_db),
+            usuario: Usuario = Depends(get_current_usuario)):
+    ordem = db.query(Ordem).filter(Ordem.id == ordem_id).first()
+    if ordem is None:
+        raise HTTPException(status_code=404, detail="OS não encontrada")
+    if not wf.eh_ativa(ordem.fase):
+        raise HTTPException(status_code=409, detail="OS já encerrada")
+    exige_funcao_da_fase(db, usuario, ordem.fase)
+    destino = wf.proxima_fase(ordem.fase)
+    origem = ordem.fase
+
+    if origem == 5:                       # Laboratório -> Pós-Vendas
+        ordem.data_calibracao = agora()
+        texto = "Calibração/manutenção concluída"
+    elif origem == 6:                     # Pós-Vendas -> Preparando Retorno
+        ordem.aceite = True
+        ordem.data_aceite = agora()
+        texto = "Aceite registrado"
+    elif origem == 7:                     # Preparando Retorno -> Finalizada
+        if not (dados.cod_retorno and dados.cod_retorno.strip()):
+            raise HTTPException(status_code=422, detail="cod_retorno é obrigatório para finalizar")
+        ordem.cod_retorno = dados.cod_retorno.strip()
+        ordem.data_retorno = agora()
+        ordem.situacao = "F"
+        texto = f"Postado para retorno — Finalizada (rastreio: {ordem.cod_retorno})"
+    else:                                 # 4 -> 5 (Recebido -> Laboratório)
+        texto = "Encaminhado ao laboratório"
+
+    if dados.obs:
+        texto = f"{texto} — {dados.obs}"
+    ordem.fase = destino
+    registrar_log(db, ordem, usuario, texto)
     db.commit()
     db.refresh(ordem)
     return ordem
