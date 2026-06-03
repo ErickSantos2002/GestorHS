@@ -4,7 +4,12 @@ import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/Spinner'
 import { ApiError } from '../../lib/api'
-import { ordensApi, TIPO_SERVICO, formatData, type OrdemDetalhe, type LogOS } from './api'
+import { useAuth } from '../../auth/AuthContext'
+import { isAdmin } from '../../auth/roles'
+import { fasesApi, type Fase } from '../cadastros/api'
+import { ordensApi, TIPO_SERVICO, TRANSICOES, formatData, type OrdemDetalhe, type LogOS } from './api'
+import { AvancarModal } from './AvancarModal'
+import { CancelarModal } from './CancelarModal'
 
 function Campo({ label, valor }: { label: string; valor: ReactNode }) {
   return (
@@ -18,22 +23,26 @@ function Campo({ label, valor }: { label: string; valor: ReactNode }) {
 export function OrdemDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const osId = Number(id)
   const [os, setOs] = useState<OrdemDetalhe | null>(null)
   const [logs, setLogs] = useState<LogOS[]>([])
+  const [fases, setFases] = useState<Fase[]>([])
   const [erro, setErro] = useState('')
   const [carregando, setCarregando] = useState(true)
+  const [acao, setAcao] = useState<'avancar' | 'cancelar' | null>(null)
 
   useEffect(() => {
     let ativo = true
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCarregando(true)
     setErro('')
-    Promise.all([ordensApi.obter(osId), ordensApi.logs(osId)])
-      .then(([o, l]) => {
+    Promise.all([ordensApi.obter(osId), ordensApi.logs(osId), fasesApi.listar()])
+      .then(([o, l, fs]) => {
         if (!ativo) return
         setOs(o)
         setLogs(l)
+        setFases(fs)
       })
       .catch((e) => {
         if (!ativo) return
@@ -47,6 +56,12 @@ export function OrdemDetailPage() {
     }
   }, [osId])
 
+  function aoConcluir(novaOS: OrdemDetalhe) {
+    setOs(novaOS)
+    setAcao(null)
+    void ordensApi.logs(osId).then(setLogs).catch(() => {})
+  }
+
   if (carregando) return <div className="flex justify-center py-16"><Spinner className="w-8 h-8" /></div>
   if (erro || !os)
     return (
@@ -58,6 +73,11 @@ export function OrdemDetailPage() {
 
   const tipo = os.tipo_servico && os.tipo_servico in TIPO_SERVICO ? TIPO_SERVICO[os.tipo_servico as keyof typeof TIPO_SERVICO].label : '—'
   const temCalib = os.calib_cert || os.calib_temp || os.calib_pressao || os.calib_teste_media || os.calib_situacao || os.pdf_certificado
+  const faseAtual = fases.find((f) => f.id === os.fase)
+  const responsavelNome = faseAtual?.funcao_nome ?? null
+  const podeAgir = isAdmin(user) || (!!responsavelNome && user?.funcao === responsavelNome)
+  const ativa = os.fase != null && os.fase >= 4 && os.fase <= 7
+  const transicao = os.fase != null ? TRANSICOES[os.fase] : undefined
 
   return (
     <div className="px-4 md:px-6 py-6 space-y-6 max-w-4xl">
@@ -73,7 +93,11 @@ export function OrdemDetailPage() {
             </Badge>
           )}
         </div>
-        <Button variant="secondary" onClick={() => navigate('/app/ordens')}>Voltar</Button>
+        <div className="flex gap-2">
+          {ativa && podeAgir && transicao && <Button onClick={() => setAcao('avancar')}>{transicao.rotulo}</Button>}
+          {ativa && podeAgir && <Button variant="danger" onClick={() => setAcao('cancelar')}>Cancelar OS</Button>}
+          <Button variant="secondary" onClick={() => navigate('/app/ordens')}>Voltar</Button>
+        </div>
       </div>
 
       <section className="rounded-2xl bg-background-surface border border-border p-5 grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -134,6 +158,11 @@ export function OrdemDetailPage() {
           </ol>
         )}
       </section>
+
+      {acao === 'avancar' && transicao && (
+        <AvancarModal os={os} rotulo={transicao.rotulo} pedeCodRetorno={transicao.pedeCodRetorno} onClose={() => setAcao(null)} onConcluido={aoConcluir} />
+      )}
+      {acao === 'cancelar' && <CancelarModal os={os} onClose={() => setAcao(null)} onConcluido={aoConcluir} />}
     </div>
   )
 }
