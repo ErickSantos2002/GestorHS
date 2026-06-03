@@ -5,5 +5,6 @@ from app.models.setor import Setor
 from app.models.categoria import Categoria
 from app.models.marca import Marca
 from app.models.grupo import Grupo
+from app.models.equipamento import Equipamento
 
-__all__ = ["Funcao", "Usuario", "UsuarioCliente", "Setor", "Categoria", "Marca", "Grupo"]
+__all__ = ["Funcao", "Usuario", "UsuarioCliente", "Setor", "Categoria", "Marca", "Grupo", "Equipamento"]

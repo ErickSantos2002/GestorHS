@@ -66,3 +66,56 @@ class CategoriaUpdate(BaseModel):
     descricao: Optional[str] = Field(default=None, min_length=1)
     setor: Optional[int] = None
     posicao: Optional[int] = None
+
+
+class EquipamentoOut(BaseModel):
+    id: int
+    descricao: Optional[str] = None
+    categoria: Optional[int] = None
+    marca: Optional[int] = None
+    detalhes: Optional[str] = None
+    especificacao: Optional[str] = None
+    preco_cod: float = 0
+    preco_por: float = 0
+    custo: float = 0
+    peso_calibragem: float = 0
+    peso: float = 0
+    estoque: int = 0
+    estoque_min: int = 0
+    ativo: bool = False
+    destaque: bool = False
+    model_config = {"from_attributes": True}
+
+
+class EquipamentoCreate(BaseModel):
+    descricao: str = Field(min_length=1)
+    categoria: Optional[int] = None
+    marca: Optional[int] = None
+    detalhes: Optional[str] = None
+    especificacao: Optional[str] = None
+    preco_cod: float = 0
+    preco_por: float = 0
+    custo: float = 0
+    peso_calibragem: float = 0
+    peso: float = 0
+    estoque: int = 0
+    estoque_min: int = 0
+    ativo: bool = False
+    destaque: bool = False
+
+
+class EquipamentoUpdate(BaseModel):
+    descricao: Optional[str] = Field(default=None, min_length=1)
+    categoria: Optional[int] = None
+    marca: Optional[int] = None
+    detalhes: Optional[str] = None
+    especificacao: Optional[str] = None
+    preco_cod: Optional[float] = None
+    preco_por: Optional[float] = None
+    custo: Optional[float] = None
+    peso_calibragem: Optional[float] = None
+    peso: Optional[float] = None
+    estoque: Optional[int] = None
+    estoque_min: Optional[int] = None
+    ativo: Optional[bool] = None
+    destaque: Optional[bool] = None
