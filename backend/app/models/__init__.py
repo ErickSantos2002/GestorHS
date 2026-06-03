@@ -10,9 +10,13 @@ from app.models.cliente import Cliente
 from app.models.funcionario import Funcionario
 from app.models.equipamento_cliente import EquipamentoCliente
 from app.models.historico_equipamento import HistoricoEquipamento
+from app.models.fase import Fase
+from app.models.log_os import LogOS
+from app.models.ordem import Ordem
 
 __all__ = [
     "Funcao", "Usuario", "UsuarioCliente", "Setor", "Categoria",
     "Marca", "Grupo", "Equipamento", "Cliente", "Funcionario",
     "EquipamentoCliente", "HistoricoEquipamento",
+    "Fase", "LogOS", "Ordem",
 ]

@@ -102,3 +102,60 @@ def usuario_comum(db_session):
     db_session.commit()
     db_session.refresh(u)
     return u
+
+
+def _get_or_create_funcao(db_session, descricao):
+    f = db_session.query(Funcao).filter(Funcao.descricao == descricao).first()
+    if f is None:
+        f = Funcao(descricao=descricao)
+        db_session.add(f)
+        db_session.flush()
+    return f
+
+
+@pytest.fixture()
+def fases_seed(db_session):
+    from app.models import Fase
+    exp = _get_or_create_funcao(db_session, "Expedição")
+    lab = _get_or_create_funcao(db_session, "Laboratório")
+    com = _get_or_create_funcao(db_session, "Comercial Pós-Vendas")
+    db_session.add_all([
+        Fase(id=4, descricao="Recebido", cor="3b82f6", funcao_responsavel=exp.id),
+        Fase(id=5, descricao="Laboratório", cor="6366f1", funcao_responsavel=lab.id),
+        Fase(id=6, descricao="Pós-Vendas", cor="f59e0b", funcao_responsavel=com.id),
+        Fase(id=7, descricao="Preparando Retorno", cor="14b8a6", funcao_responsavel=exp.id),
+        Fase(id=8, descricao="Finalizada", cor="10b981", funcao_responsavel=None),
+        Fase(id=9, descricao="Cancelada", cor="ef4444", funcao_responsavel=None),
+    ])
+    db_session.commit()
+    return {"exp": exp.id, "lab": lab.id, "com": com.id}
+
+
+@pytest.fixture()
+def usuario_lab(db_session):
+    f = _get_or_create_funcao(db_session, "Laboratório")
+    u = Usuario(nome="Lab", login="lab", senha=hash_senha("senha123"),
+                email="lab@hs.com", funcao_id=f.id, precisa_redefinir_senha=False)
+    db_session.add(u); db_session.commit(); db_session.refresh(u)
+    return u
+
+
+@pytest.fixture()
+def usuario_comercial(db_session):
+    f = _get_or_create_funcao(db_session, "Comercial Pós-Vendas")
+    u = Usuario(nome="Comercial", login="comercial", senha=hash_senha("senha123"),
+                email="comercial@hs.com", funcao_id=f.id, precisa_redefinir_senha=False)
+    db_session.add(u); db_session.commit(); db_session.refresh(u)
+    return u
+
+
+@pytest.fixture()
+def os_base(db_session):
+    """Cria um cliente + equipamento + equipamento_cliente e devolve seus ids."""
+    from app.models import Cliente, Equipamento, EquipamentoCliente
+    cli = Cliente(nome="Cliente OS")
+    eq = Equipamento(descricao="Bafômetro")
+    db_session.add_all([cli, eq]); db_session.flush()
+    ec = EquipamentoCliente(cliente=cli.id, equipamento=eq.id, serie="SER-1", patrimonio="PAT-1")
+    db_session.add(ec); db_session.commit(); db_session.refresh(ec)
+    return {"cliente": cli.id, "equipamento": eq.id, "equipamento_cliente": ec.id}
