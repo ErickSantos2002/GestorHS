@@ -62,3 +62,36 @@ def test_ocultar_recentes(client, usuario_comum, db_session):
     clientes = [i["cliente"] for i in r.json()["items"]]
     assert ids["A"] not in clientes
     assert ids["B"] in clientes
+
+
+def test_registrar_contato_comercial(client, usuario_comercial, db_session):
+    ids = _setup(db_session)
+    r = client.post(f"/alertas/{ids['A']}/contato", headers=_headers(client, "comercial", "senha123"))
+    assert r.status_code == 200
+    assert r.json()["atualizados"] == 3   # 2 vencidos + 1 vencendo (não em_dia/inativo)
+    assert r.json()["ult_contato"] is not None
+
+
+def test_registrar_contato_admin(client, usuario_admin, db_session):
+    ids = _setup(db_session)
+    r = client.post(f"/alertas/{ids['B']}/contato", headers=_headers(client, "admin", "senha123"))
+    assert r.json()["atualizados"] == 1
+
+
+def test_registrar_contato_403(client, usuario_lab, db_session):
+    ids = _setup(db_session)
+    r = client.post(f"/alertas/{ids['A']}/contato", headers=_headers(client, "lab", "senha123"))
+    assert r.status_code == 403
+
+
+def test_registrar_contato_404(client, usuario_comercial, db_session):
+    r = client.post("/alertas/99999/contato", headers=_headers(client, "comercial", "senha123"))
+    assert r.status_code == 404
+
+
+def test_contato_reflete_em_ult_contato(client, usuario_comercial, db_session):
+    ids = _setup(db_session)
+    h = _headers(client, "comercial", "senha123")
+    client.post(f"/alertas/{ids['A']}/contato", headers=h)
+    item = next(i for i in client.get("/alertas", headers=h).json()["items"] if i["cliente"] == ids["A"])
+    assert item["ult_contato"] is not None

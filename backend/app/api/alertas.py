@@ -1,13 +1,14 @@
 from datetime import date, datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy import func, case, or_
 from sqlalchemy.orm import Session
 
 from app.models.database import get_db
 from app.models import Usuario, EquipamentoCliente, Cliente
-from app.api.deps import get_current_usuario
-from app.schemas.alertas import AlertaItem, AlertaPage
+from app.api.deps import get_current_usuario, require_funcao
+from app.api.ordens_acoes import agora
+from app.schemas.alertas import AlertaItem, AlertaPage, ContatoOut
 
 router = APIRouter(prefix="/alertas", tags=["alertas"])
 
@@ -64,3 +65,31 @@ def listar(
         for r in pagina
     ]
     return AlertaPage(items=items, total=total)
+
+
+@router.post("/{cliente_id}/contato", response_model=ContatoOut)
+def registrar_contato(
+    cliente_id: int,
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(require_funcao("Comercial Pós-Vendas", "Administrador")),
+):
+    if db.query(Cliente).filter(Cliente.id == cliente_id).first() is None:
+        raise HTTPException(status_code=404, detail="cliente não encontrado")
+    hoje = date.today()
+    limite = hoje + timedelta(days=90)
+    agora_dt = agora()
+    elegiveis = (
+        db.query(EquipamentoCliente)
+        .filter(
+            EquipamentoCliente.cliente == cliente_id,
+            EquipamentoCliente.ativo.is_(True),
+            EquipamentoCliente.prox_calibragem.isnot(None),
+            EquipamentoCliente.prox_calibragem <= limite,
+        )
+        .all()
+    )
+    for ec in elegiveis:
+        ec.ult_aviso = agora_dt
+    db.commit()
+    n = len(elegiveis)
+    return ContatoOut(cliente=cliente_id, atualizados=n, ult_contato=agora_dt if n else None)
