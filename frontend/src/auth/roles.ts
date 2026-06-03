@@ -11,3 +11,9 @@ export const FUNCAO_EXPEDICAO = 'Expedição'
 export function podeAbrirOS(user: User | null): boolean {
   return isAdmin(user) || user?.funcao === FUNCAO_EXPEDICAO
 }
+
+export const FUNCAO_COMERCIAL = 'Comercial Pós-Vendas'
+
+export function podeRegistrarContato(user: User | null): boolean {
+  return isAdmin(user) || user?.funcao === FUNCAO_COMERCIAL
+}
