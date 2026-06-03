@@ -90,3 +90,9 @@ class LogOut(BaseModel):
     autor: str
     datalog: datetime | None = None
     texto: str | None = None
+
+
+class TipoCalibragemOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    descricao: str
