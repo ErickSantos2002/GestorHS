@@ -82,3 +82,24 @@ export interface EquipamentoPayload {
   destaque: boolean
 }
 export const equipamentosApi = crudClient<Equipamento, EquipamentoPayload, Partial<EquipamentoPayload>>('/equipamentos')
+
+export interface Funcao {
+  id: number
+  descricao: string
+}
+
+export const funcoesApi = crudClient<Funcao, { descricao: string }, { descricao?: string }>('/funcoes')
+
+export interface Fase {
+  id: number
+  descricao: string
+  cor: string
+  funcao_responsavel: number | null
+  funcao_nome: string | null
+}
+
+export const fasesApi = {
+  listar: (): Promise<Fase[]> => apiJson<Fase[]>('/fases'),
+  atualizar: (id: number, payload: { funcao_responsavel: number | null }): Promise<Fase> =>
+    apiJson<Fase>(`/fases/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+}
