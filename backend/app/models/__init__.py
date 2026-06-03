@@ -6,5 +6,10 @@ from app.models.categoria import Categoria
 from app.models.marca import Marca
 from app.models.grupo import Grupo
 from app.models.equipamento import Equipamento
+from app.models.cliente import Cliente
+from app.models.funcionario import Funcionario
 
-__all__ = ["Funcao", "Usuario", "UsuarioCliente", "Setor", "Categoria", "Marca", "Grupo", "Equipamento"]
+__all__ = [
+    "Funcao", "Usuario", "UsuarioCliente", "Setor", "Categoria",
+    "Marca", "Grupo", "Equipamento", "Cliente", "Funcionario",
+]
