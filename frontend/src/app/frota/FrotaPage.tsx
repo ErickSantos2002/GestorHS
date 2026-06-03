@@ -29,6 +29,11 @@ export function FrotaPage() {
   const [erro, setErro] = useState('')
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setOffset(0)
+  }, [clienteId])
+
+  useEffect(() => {
     let ativo = true
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setItens(null)
@@ -64,8 +69,14 @@ export function FrotaPage() {
     <div className="px-4 md:px-6 py-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-extrabold text-slate-100">Frota</h1>
-        {isAdmin(user) && clienteId && (
-          <Button onClick={() => navigate(`/app/frota/novo?cliente=${clienteId}`)}>Novo aparelho</Button>
+        {isAdmin(user) && (
+          <Button
+            onClick={() => { if (clienteId) navigate(`/app/frota/novo?cliente=${clienteId}`) }}
+            disabled={!clienteId}
+            title={clienteId ? undefined : 'Filtre por um cliente para adicionar'}
+          >
+            Novo aparelho
+          </Button>
         )}
       </div>
 

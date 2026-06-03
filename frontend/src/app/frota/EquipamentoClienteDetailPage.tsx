@@ -84,7 +84,8 @@ export function EquipamentoClienteDetailPage() {
       if (editando) {
         const { cliente: _c, ...resto } = form
         void _c
-        await equipamentosClienteApi.atualizar(Number(id), resto)
+        const atualizado = await equipamentosClienteApi.atualizar(Number(id), resto)
+        setObj(atualizado)
       } else {
         const novo = await equipamentosClienteApi.criar(form)
         navigate(`/app/frota/${novo.id}`, { replace: true })
