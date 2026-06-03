@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isAdmin, podeAbrirOS } from './roles'
+import { isAdmin, podeAbrirOS, podeRegistrarContato } from './roles'
 import { type User } from './AuthContext'
 
 const admin: User = { id: 1, nome: null, login: 'a', email: null, funcao_id: 1, funcao: 'Administrador' }
@@ -20,4 +20,13 @@ describe('auth/roles — podeAbrirOS', () => {
   it('Expedição pode', () => expect(podeAbrirOS(u('Expedição'))).toBe(true))
   it('Laboratório não pode', () => expect(podeAbrirOS(u('Laboratório'))).toBe(false))
   it('null não pode', () => expect(podeAbrirOS(null)).toBe(false))
+})
+
+describe('auth/roles — podeRegistrarContato', () => {
+  it('podeRegistrarContato: admin e Comercial sim, outros não', () => {
+    expect(podeRegistrarContato(u('Administrador'))).toBe(true)
+    expect(podeRegistrarContato(u('Comercial Pós-Vendas'))).toBe(true)
+    expect(podeRegistrarContato(u('Laboratório'))).toBe(false)
+    expect(podeRegistrarContato(null)).toBe(false)
+  })
 })
