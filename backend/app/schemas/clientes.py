@@ -95,3 +95,51 @@ class ClienteUpdate(BaseModel):
     insc_est: Optional[str] = None
     obs: Optional[str] = None
     ativo: Optional[bool] = None
+
+
+class FuncionarioOut(BaseModel):
+    id: int
+    cliente: int
+    setor: Optional[int] = None
+    matricula: Optional[str] = None
+    centro: Optional[str] = None
+    nome: Optional[str] = None
+    email: Optional[str] = None
+    cargo: Optional[str] = None
+    admissao: Optional[date] = None
+    idade: Optional[int] = None
+    sexo: Optional[str] = None
+    estado: Optional[str] = None
+    cidade: Optional[str] = None
+    ativo: bool
+    model_config = {"from_attributes": True}
+
+
+class FuncionarioCreate(BaseModel):
+    nome: str = Field(min_length=1)
+    setor: Optional[int] = None
+    matricula: Optional[str] = None
+    centro: Optional[str] = None
+    email: Optional[str] = None
+    cargo: Optional[str] = None
+    admissao: Optional[date] = None
+    idade: Optional[int] = None
+    sexo: Optional[str] = None
+    estado: Optional[str] = None
+    cidade: Optional[str] = None
+    ativo: bool = True
+
+
+class FuncionarioUpdate(BaseModel):
+    nome: Optional[str] = Field(default=None, min_length=1)
+    setor: Optional[int] = None
+    matricula: Optional[str] = None
+    centro: Optional[str] = None
+    email: Optional[str] = None
+    cargo: Optional[str] = None
+    admissao: Optional[date] = None
+    idade: Optional[int] = None
+    sexo: Optional[str] = None
+    estado: Optional[str] = None
+    cidade: Optional[str] = None
+    ativo: Optional[bool] = None
