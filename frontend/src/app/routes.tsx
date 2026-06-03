@@ -3,6 +3,7 @@ import { MainLayout } from '../layout/MainLayout'
 import { DashboardPage } from './pages/DashboardPage'
 import { MinhaContaPage } from './pages/MinhaContaPage'
 import { UsuariosPage } from './acesso/UsuariosPage'
+import { CadastrosPage } from './cadastros/CadastrosPage'
 
 export default function AppRoutes() {
   return (
@@ -10,6 +11,7 @@ export default function AppRoutes() {
       <Routes>
         <Route index element={<DashboardPage />} />
         <Route path="usuarios" element={<UsuariosPage />} />
+        <Route path="cadastros" element={<CadastrosPage />} />
         <Route path="conta" element={<MinhaContaPage />} />
         <Route path="*" element={<Navigate to="/app" replace />} />
       </Routes>

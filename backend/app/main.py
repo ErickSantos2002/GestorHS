@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, funcoes, usuarios
+from app.api import auth, funcoes, usuarios, setores, marcas, grupos, categorias, equipamentos
 from app.core.config import settings
 
 app = FastAPI(title="GestorHS API")
@@ -17,6 +17,11 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(funcoes.router)
 app.include_router(usuarios.router)
+app.include_router(setores.router)
+app.include_router(marcas.router)
+app.include_router(grupos.router)
+app.include_router(categorias.router)
+app.include_router(equipamentos.router)
 
 
 @app.get("/health", tags=["infra"])
