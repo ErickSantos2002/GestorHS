@@ -27,9 +27,7 @@ export function EquipamentosPanel() {
   const [enviando, setEnviando] = useState(false)
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void categoriasApi.listar().then(setCategorias).catch(() => setCategorias([]))
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void marcasApi.listar().then(setMarcas).catch(() => setMarcas([]))
   }, [])
 

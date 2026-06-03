@@ -21,7 +21,6 @@ export function CategoriasPanel() {
   const [enviando, setEnviando] = useState(false)
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void setoresApi.listar().then(setSetores).catch(() => setSetores([]))
   }, [])
 
