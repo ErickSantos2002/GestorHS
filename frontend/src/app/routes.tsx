@@ -6,6 +6,8 @@ import { UsuariosPage } from './acesso/UsuariosPage'
 import { CadastrosPage } from './cadastros/CadastrosPage'
 import { ClientesPage } from './clientes/ClientesPage'
 import { ClienteDetailPage } from './clientes/ClienteDetailPage'
+import { FrotaPage } from './frota/FrotaPage'
+import { EquipamentoClienteDetailPage } from './frota/EquipamentoClienteDetailPage'
 
 export default function AppRoutes() {
   return (
@@ -17,6 +19,9 @@ export default function AppRoutes() {
         <Route path="clientes" element={<ClientesPage />} />
         <Route path="clientes/novo" element={<ClienteDetailPage />} />
         <Route path="clientes/:id" element={<ClienteDetailPage />} />
+        <Route path="frota" element={<FrotaPage />} />
+        <Route path="frota/novo" element={<EquipamentoClienteDetailPage />} />
+        <Route path="frota/:id" element={<EquipamentoClienteDetailPage />} />
         <Route path="conta" element={<MinhaContaPage />} />
         <Route path="*" element={<Navigate to="/app" replace />} />
       </Routes>

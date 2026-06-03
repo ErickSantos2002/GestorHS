@@ -101,3 +101,11 @@ export function IconClientes({ className }: IconProps) {
     </svg>
   )
 }
+
+export function IconFrota({ className }: IconProps) {
+  return (
+    <svg className={base(className)} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h11v8H4z M15 10h4l2 3v2h-6z M7.5 18a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z M18.5 18a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
+    </svg>
+  )
+}
