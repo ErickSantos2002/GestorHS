@@ -136,7 +136,9 @@ export function OrdemDetailPage() {
             <Campo label="Pressão" valor={os.calib_pressao} />
             <Campo label="Média dos testes" valor={os.calib_teste_media} />
             <Campo label="Situação" valor={os.calib_situacao} />
-            <Campo label="PDF" valor={os.pdf_certificado} />
+            <Campo label="PDF" valor={os.pdf_certificado && os.pdf_certificado.startsWith('http')
+              ? <a href={os.pdf_certificado} target="_blank" rel="noreferrer" className="text-primary hover:underline">abrir</a>
+              : os.pdf_certificado} />
           </div>
         ) : (
           <p className="text-sm text-slate-500">Sem resultados de calibração ainda.</p>
@@ -160,7 +162,7 @@ export function OrdemDetailPage() {
       </section>
 
       {acao === 'avancar' && transicao && (
-        <AvancarModal os={os} rotulo={transicao.rotulo} pedeCodRetorno={transicao.pedeCodRetorno} onClose={() => setAcao(null)} onConcluido={aoConcluir} />
+        <AvancarModal os={os} rotulo={transicao.rotulo} pedeCodRetorno={transicao.pedeCodRetorno} pedeCalibracao={transicao.pedeCalibracao} onClose={() => setAcao(null)} onConcluido={aoConcluir} />
       )}
       {acao === 'cancelar' && <CancelarModal os={os} onClose={() => setAcao(null)} onConcluido={aoConcluir} />}
     </div>

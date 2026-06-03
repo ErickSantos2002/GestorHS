@@ -42,4 +42,12 @@ describe('cadastros/api — funcoes e fases', () => {
     expect(f.mock.calls[0][1]).toMatchObject({ method: 'PATCH' })
     expect(String(f.mock.calls[0][1].body)).toContain('funcao_responsavel')
   })
+
+  it('tiposCalibragemApi.listar faz GET /tipos-calibragem', async () => {
+    const f = vi.fn().mockResolvedValue(jsonResponse([]))
+    vi.stubGlobal('fetch', f)
+    const { tiposCalibragemApi } = await import('./api')
+    await tiposCalibragemApi.listar()
+    expect(String(f.mock.calls[0][0])).toContain('/tipos-calibragem')
+  })
 })
