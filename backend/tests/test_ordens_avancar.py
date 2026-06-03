@@ -65,3 +65,59 @@ def test_avancar_os_encerrada_409(client, usuario_admin, fases_seed, os_base, db
 def test_avancar_os_inexistente_404(client, usuario_admin, fases_seed):
     ha = _headers(client, "admin", "senha123")
     assert client.post("/ordens/9999/avancar", json={}, headers=ha).status_code == 404
+
+
+def test_avancar_lab_com_calibracao_espelha(client, usuario_lab, fases_seed, os_base, db_session):
+    from app.models import Ordem, EquipamentoCliente
+    o = Ordem(cliente=os_base["cliente"], equipamento_cliente=os_base["equipamento_cliente"], fase=5, situacao="E")
+    db_session.add(o); db_session.commit(); db_session.refresh(o)
+    h = _headers(client, "lab", "senha123")
+    r = client.post(f"/ordens/{o.id}/avancar", json={
+        "calib_cert": "HF999", "calib_temp": "22.0", "calib_teste_media": "0,16",
+        "calib_situacao": "Aprovado", "prox_calibragem": "2027-06-03",
+    }, headers=h)
+    assert r.status_code == 200
+    assert r.json()["fase"] == 6
+    assert r.json()["calib_cert"] == "HF999"
+    assert r.json()["calib_situacao"] == "Aprovado"
+    ec = db_session.get(EquipamentoCliente, os_base["equipamento_cliente"])
+    db_session.refresh(ec)
+    assert ec.calib_cert == "HF999"
+    assert ec.calib_situacao == "Aprovado"
+    assert str(ec.prox_calibragem) == "2027-06-03"
+    assert ec.ult_calibragem is not None
+
+
+def test_avancar_lab_manutencao_pura_nao_espelha(client, usuario_lab, fases_seed, os_base, db_session):
+    from app.models import Ordem, EquipamentoCliente
+    ec0 = db_session.get(EquipamentoCliente, os_base["equipamento_cliente"])
+    ec0.calib_cert = "ORIG"
+    db_session.commit()
+    o = Ordem(cliente=os_base["cliente"], equipamento_cliente=os_base["equipamento_cliente"], fase=5, situacao="E")
+    db_session.add(o); db_session.commit(); db_session.refresh(o)
+    h = _headers(client, "lab", "senha123")
+    r = client.post(f"/ordens/{o.id}/avancar", json={"obs": "só manutenção"}, headers=h)
+    assert r.status_code == 200 and r.json()["fase"] == 6
+    ec = db_session.get(EquipamentoCliente, os_base["equipamento_cliente"])
+    db_session.refresh(ec)
+    assert ec.calib_cert == "ORIG"  # inalterado
+
+
+def test_avancar_lab_sem_equipamento_nao_quebra(client, usuario_lab, fases_seed, os_base, db_session):
+    from app.models import Ordem
+    o = Ordem(cliente=os_base["cliente"], equipamento_cliente=None, fase=5, situacao="E")
+    db_session.add(o); db_session.commit(); db_session.refresh(o)
+    h = _headers(client, "lab", "senha123")
+    r = client.post(f"/ordens/{o.id}/avancar", json={"calib_cert": "X"}, headers=h)
+    assert r.status_code == 200 and r.json()["fase"] == 6
+
+
+def test_calibracao_ignorada_fora_da_fase_lab(client, usuario_comum, fases_seed, os_base, db_session):
+    # usuario_comum = Expedição (responsável pela fase 4); calib enviado em 4->5 deve ser ignorado
+    from app.models import Ordem
+    o = Ordem(cliente=os_base["cliente"], equipamento_cliente=os_base["equipamento_cliente"], fase=4, situacao="E")
+    db_session.add(o); db_session.commit(); db_session.refresh(o)
+    h = _headers(client, "comum", "senha123")
+    r = client.post(f"/ordens/{o.id}/avancar", json={"calib_cert": "NAOAPLICA"}, headers=h)
+    assert r.status_code == 200 and r.json()["fase"] == 5
+    assert r.json()["calib_cert"] is None
