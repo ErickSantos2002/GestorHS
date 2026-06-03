@@ -69,3 +69,32 @@ def historico(item_id: int, db: Session = Depends(get_db), _: Usuario = Depends(
         .order_by(HistoricoEquipamento.id)
         .all()
     )
+
+
+@router.post("", response_model=EquipamentoClienteOut, status_code=http_status.HTTP_201_CREATED)
+def criar(dados: EquipamentoClienteCreate, db: Session = Depends(get_db), _: Usuario = Depends(require_funcao(ADMIN))):
+    obj = EquipamentoCliente(**dados.model_dump())
+    db.add(obj)
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+@router.patch("/{item_id}", response_model=EquipamentoClienteOut)
+def atualizar(item_id: int, dados: EquipamentoClienteUpdate, db: Session = Depends(get_db), _: Usuario = Depends(require_funcao(ADMIN))):
+    obj = db.query(EquipamentoCliente).filter(EquipamentoCliente.id == item_id).first()
+    if obj is None:
+        raise HTTPException(status_code=404, detail="não encontrado")
+    for chave, valor in dados.model_dump(exclude_unset=True).items():
+        setattr(obj, chave, valor)
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+@router.delete("/{item_id}", status_code=http_status.HTTP_204_NO_CONTENT)
+def excluir(item_id: int, db: Session = Depends(get_db), _: Usuario = Depends(require_funcao(ADMIN))):
+    obj = db.query(EquipamentoCliente).filter(EquipamentoCliente.id == item_id).first()
+    if obj is None:
+        raise HTTPException(status_code=404, detail="não encontrado")
+    excluir_protegido(db, obj)
