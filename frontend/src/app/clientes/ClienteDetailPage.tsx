@@ -73,6 +73,18 @@ export function ClienteDetailPage() {
     setForm((f) => ({ ...f, [chave]: valor }))
   }
 
+  async function excluir() {
+    if (!editando) return
+    if (!window.confirm('Excluir este cliente?')) return
+    setErro('')
+    try {
+      await clientesApi.excluir(Number(id))
+      navigate('/app/clientes', { replace: true })
+    } catch (err) {
+      setErro(err instanceof ApiError ? err.message : 'Falha ao excluir')
+    }
+  }
+
   async function salvar(e: FormEvent) {
     e.preventDefault(); setErro(''); setEnviando(true)
     try {
@@ -109,7 +121,10 @@ export function ClienteDetailPage() {
     <div className="px-4 md:px-6 py-6 space-y-6 max-w-3xl">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-extrabold text-slate-100">{editando ? (form.nome || 'Cliente') : 'Novo cliente'}</h1>
-        <Button variant="secondary" onClick={() => navigate('/app/clientes')}>Voltar</Button>
+        <div className="flex gap-2">
+          {editando && podeEditar && <Button variant="danger" onClick={excluir}>Excluir</Button>}
+          <Button variant="secondary" onClick={() => navigate('/app/clientes')}>Voltar</Button>
+        </div>
       </div>
 
       {erro && <div className="rounded-lg bg-danger/10 border border-danger/20 px-3 py-2.5 text-sm text-danger">{erro}</div>}
