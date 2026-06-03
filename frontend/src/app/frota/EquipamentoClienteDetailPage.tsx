@@ -8,7 +8,8 @@ import { Spinner } from '../../components/ui/Spinner'
 import { Table, TH, TD } from '../../components/ui/Table'
 import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
-import { isAdmin } from '../../auth/roles'
+import { isAdmin, podeAbrirOS } from '../../auth/roles'
+import { AbrirOSModal } from '../ordens/AbrirOSModal'
 import { equipamentosClienteApi, STATUS_CALIBRACAO, type EquipamentoCliente, type EquipamentoClientePayload, type Historico, type StatusCalibracao } from './api'
 import { equipamentosApi, type Equipamento } from '../cadastros/api'
 
@@ -43,6 +44,7 @@ export function EquipamentoClienteDetailPage() {
   const [carregando, setCarregando] = useState(editando)
   const [erro, setErro] = useState('')
   const [enviando, setEnviando] = useState(false)
+  const [abrindoOS, setAbrindoOS] = useState(false)
 
   useEffect(() => {
     void equipamentosApi.listar().then(setCatalogo).catch(() => setCatalogo([]))
@@ -136,6 +138,7 @@ export function EquipamentoClienteDetailPage() {
           {sc && <Badge tone={sc.tone}>{sc.label}</Badge>}
         </div>
         <div className="flex gap-2">
+          {editando && podeAbrirOS(user) && <Button onClick={() => setAbrindoOS(true)}>Abrir OS</Button>}
           {editando && podeEditar && <Button variant="danger" onClick={excluir}>Excluir</Button>}
           <Button variant="secondary" onClick={() => navigate('/app/frota')}>Voltar</Button>
         </div>
@@ -211,6 +214,9 @@ export function EquipamentoClienteDetailPage() {
             </Table>
           )}
         </Secao>
+      )}
+      {abrindoOS && obj && (
+        <AbrirOSModal equipamentoClienteId={obj.id} osAtual={obj.os_atual} onClose={() => setAbrindoOS(false)} />
       )}
     </div>
   )

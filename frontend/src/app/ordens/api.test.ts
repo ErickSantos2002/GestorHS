@@ -64,4 +64,38 @@ describe('ordens/api', () => {
     vi.stubGlobal('fetch', f)
     await expect(ordensApi.obter(99)).rejects.toMatchObject({ status: 404 })
   })
+
+  it('abrir faz POST /ordens com o corpo certo', async () => {
+    const f = vi.fn().mockResolvedValue(jsonResponse({ id: 1 }, 201))
+    vi.stubGlobal('fetch', f)
+    await ordensApi.abrir({ equipamento_cliente: 7, tipo_servico: 'C', condicao_chegada: 'ok', acessorios: null })
+    expect(String(f.mock.calls[0][0])).toContain('/ordens')
+    expect(f.mock.calls[0][1]).toMatchObject({ method: 'POST' })
+    const body = String(f.mock.calls[0][1].body)
+    expect(body).toContain('equipamento_cliente')
+    expect(body).toContain('tipo_servico')
+  })
+
+  it('avancar faz POST /ordens/{id}/avancar com obs/cod_retorno', async () => {
+    const f = vi.fn().mockResolvedValue(jsonResponse({ id: 1 }))
+    vi.stubGlobal('fetch', f)
+    await ordensApi.avancar(5, { obs: 'x', cod_retorno: 'BR9' })
+    expect(String(f.mock.calls[0][0])).toContain('/ordens/5/avancar')
+    expect(f.mock.calls[0][1]).toMatchObject({ method: 'POST' })
+    expect(String(f.mock.calls[0][1].body)).toContain('cod_retorno')
+  })
+
+  it('cancelar faz POST /ordens/{id}/cancelar com motivo', async () => {
+    const f = vi.fn().mockResolvedValue(jsonResponse({ id: 1 }))
+    vi.stubGlobal('fetch', f)
+    await ordensApi.cancelar(9, { motivo: 'desistência' })
+    expect(String(f.mock.calls[0][0])).toContain('/ordens/9/cancelar')
+    expect(String(f.mock.calls[0][1].body)).toContain('motivo')
+  })
+
+  it('abrir propaga ApiError 409', async () => {
+    const f = vi.fn().mockResolvedValue(jsonResponse({ detail: 'aparelho já possui OS ativa' }, 409))
+    vi.stubGlobal('fetch', f)
+    await expect(ordensApi.abrir({ equipamento_cliente: 7, tipo_servico: 'C' })).rejects.toMatchObject({ status: 409 })
+  })
 })

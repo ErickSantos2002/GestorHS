@@ -88,6 +88,25 @@ export interface OrdensParams {
   limit?: number
 }
 
+export interface AbrirPayload {
+  equipamento_cliente: number
+  tipo_servico: TipoServico
+  condicao_chegada?: string | null
+  acessorios?: string | null
+}
+
+export interface AvancarPayload {
+  obs?: string | null
+  cod_retorno?: string | null
+}
+
+export const TRANSICOES: Record<number, { rotulo: string; pedeCodRetorno?: boolean }> = {
+  4: { rotulo: 'Encaminhar ao laboratório' },
+  5: { rotulo: 'Concluir laboratório' },
+  6: { rotulo: 'Registrar aceite' },
+  7: { rotulo: 'Postar retorno', pedeCodRetorno: true },
+}
+
 export const ordensApi = {
   listar: (params: OrdensParams = {}): Promise<OrdemPage> => {
     const sp = new URLSearchParams()
@@ -107,4 +126,10 @@ export const ordensApi = {
   },
   obter: (id: number): Promise<OrdemDetalhe> => apiJson<OrdemDetalhe>(`/ordens/${id}`),
   logs: (id: number): Promise<LogOS[]> => apiJson<LogOS[]>(`/ordens/${id}/logs`),
+  abrir: (payload: AbrirPayload): Promise<OrdemDetalhe> =>
+    apiJson<OrdemDetalhe>('/ordens', { method: 'POST', body: JSON.stringify(payload) }),
+  avancar: (id: number, payload: AvancarPayload): Promise<OrdemDetalhe> =>
+    apiJson<OrdemDetalhe>(`/ordens/${id}/avancar`, { method: 'POST', body: JSON.stringify(payload) }),
+  cancelar: (id: number, payload: { motivo: string }): Promise<OrdemDetalhe> =>
+    apiJson<OrdemDetalhe>(`/ordens/${id}/cancelar`, { method: 'POST', body: JSON.stringify(payload) }),
 }
