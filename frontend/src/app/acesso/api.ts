@@ -55,6 +55,10 @@ export function listarUsuarios(): Promise<UsuarioItem[]> {
   return apiJson<UsuarioItem[]>('/usuarios')
 }
 
+export function obterUsuario(id: number): Promise<UsuarioItem> {
+  return apiJson<UsuarioItem>(`/usuarios/${id}`)
+}
+
 export function criarUsuario(payload: UsuarioCreatePayload): Promise<UsuarioItem> {
   return apiJson<UsuarioItem>('/usuarios', { method: 'POST', body: JSON.stringify(payload) })
 }

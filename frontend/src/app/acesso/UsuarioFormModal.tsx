@@ -28,10 +28,12 @@ export function UsuarioFormModal({ funcoes, usuario, onClose, onSalvo }: Props) 
     setEnviando(true)
     try {
       const funcao_id = funcaoId ? Number(funcaoId) : null
+      const nomeVal = nome.trim() || null
+      const emailVal = email.trim() || null
       if (usuario) {
-        await atualizarUsuario(usuario.id, { nome, email, funcao_id, login })
+        await atualizarUsuario(usuario.id, { nome: nomeVal, email: emailVal, funcao_id, login })
       } else {
-        await criarUsuario({ nome, login, email, senha, funcao_id })
+        await criarUsuario({ nome: nomeVal, login, email: emailVal, senha, funcao_id })
       }
       onSalvo()
     } catch (err) {

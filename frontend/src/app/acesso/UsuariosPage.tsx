@@ -130,7 +130,16 @@ export function UsuariosPage() {
         />
       )}
 
-      {senhaDe && <RedefinirSenhaModal usuario={senhaDe} onClose={() => setSenhaDe(null)} onSalvo={() => setSenhaDe(null)} />}
+      {senhaDe && (
+        <RedefinirSenhaModal
+          usuario={senhaDe}
+          onClose={() => setSenhaDe(null)}
+          onSalvo={() => {
+            setSenhaDe(null)
+            void carregar()
+          }}
+        />
+      )}
     </div>
   )
 }
