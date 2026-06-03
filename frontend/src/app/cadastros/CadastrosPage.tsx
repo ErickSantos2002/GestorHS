@@ -6,9 +6,10 @@ import { CadastroSimples } from './CadastroSimples'
 import { GruposPanel } from './GruposPanel'
 import { CategoriasPanel } from './CategoriasPanel'
 import { EquipamentosPanel } from './EquipamentosPanel'
-import { setoresApi, marcasApi, type Setor, type Marca } from './api'
+import { FasesPanel } from './FasesPanel'
+import { setoresApi, marcasApi, funcoesApi, type Setor, type Marca, type Funcao } from './api'
 
-const ABAS = ['Setores', 'Marcas', 'Grupos', 'Categorias', 'Equipamentos'] as const
+const ABAS = ['Setores', 'Marcas', 'Grupos', 'Categorias', 'Equipamentos', 'Funções', 'Fases'] as const
 type Aba = (typeof ABAS)[number]
 
 export function CadastrosPage() {
@@ -46,6 +47,8 @@ export function CadastrosPage() {
         {aba === 'Grupos' && <GruposPanel />}
         {aba === 'Categorias' && <CategoriasPanel />}
         {aba === 'Equipamentos' && <EquipamentosPanel />}
+        {aba === 'Funções' && <CadastroSimples<Funcao> titulo="Funções" client={funcoesApi} />}
+        {aba === 'Fases' && <FasesPanel />}
       </div>
     </div>
   )

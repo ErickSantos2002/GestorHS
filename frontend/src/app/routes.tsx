@@ -8,6 +8,8 @@ import { ClientesPage } from './clientes/ClientesPage'
 import { ClienteDetailPage } from './clientes/ClienteDetailPage'
 import { FrotaPage } from './frota/FrotaPage'
 import { EquipamentoClienteDetailPage } from './frota/EquipamentoClienteDetailPage'
+import { OrdensPage } from './ordens/OrdensPage'
+import { OrdemDetailPage } from './ordens/OrdemDetailPage'
 
 export default function AppRoutes() {
   return (
@@ -22,6 +24,8 @@ export default function AppRoutes() {
         <Route path="frota" element={<FrotaPage />} />
         <Route path="frota/novo" element={<EquipamentoClienteDetailPage />} />
         <Route path="frota/:id" element={<EquipamentoClienteDetailPage />} />
+        <Route path="ordens" element={<OrdensPage />} />
+        <Route path="ordens/:id" element={<OrdemDetailPage />} />
         <Route path="conta" element={<MinhaContaPage />} />
         <Route path="*" element={<Navigate to="/app" replace />} />
       </Routes>
