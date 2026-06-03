@@ -65,5 +65,20 @@ export const categoriasApi = crudClient<
   { descricao: string; setor?: number | null; posicao?: number },
   { descricao?: string; setor?: number | null; posicao?: number }
 >('/categorias')
-export type EquipamentoPayload = Omit<Equipamento, 'id'>
+export interface EquipamentoPayload {
+  descricao: string
+  categoria: number | null
+  marca: number | null
+  detalhes: string | null
+  especificacao: string | null
+  preco_cod: number
+  preco_por: number
+  custo: number
+  peso_calibragem: number
+  peso: number
+  estoque: number
+  estoque_min: number
+  ativo: boolean
+  destaque: boolean
+}
 export const equipamentosApi = crudClient<Equipamento, EquipamentoPayload, Partial<EquipamentoPayload>>('/equipamentos')

@@ -4,8 +4,11 @@ def _headers(client, login, senha):
 
 
 def test_equipamentos_read_interno_write_admin(client, usuario_admin, usuario_comum):
-    assert client.get("/equipamentos", headers=_headers(client, "comum", "senha123")).status_code == 200
-    assert client.post("/equipamentos", json={"descricao": "X"}, headers=_headers(client, "comum", "senha123")).status_code == 403
+    h_comum = _headers(client, "comum", "senha123")
+    assert client.get("/equipamentos", headers=h_comum).status_code == 200
+    assert client.post("/equipamentos", json={"descricao": "X"}, headers=h_comum).status_code == 403
+    assert client.patch("/equipamentos/1", json={"descricao": "X"}, headers=h_comum).status_code == 403
+    assert client.delete("/equipamentos/1", headers=h_comum).status_code == 403
 
 
 def test_equipamento_crud_com_fks(client, usuario_admin, db_session):
@@ -23,6 +26,7 @@ def test_equipamento_crud_com_fks(client, usuario_admin, db_session):
     assert float(criado.json()["preco_por"]) == 1500.50
     assert client.patch(f"/equipamentos/{eid}", json={"estoque": 5}, headers=h).json()["estoque"] == 5
     assert client.delete(f"/equipamentos/{eid}", headers=h).status_code == 204
+    assert client.get("/equipamentos/99999", headers=h).status_code == 404
 
 
 def test_excluir_marca_em_uso_409(client, usuario_admin, db_session):

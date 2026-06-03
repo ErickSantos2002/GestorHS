@@ -140,6 +140,10 @@ export function EquipamentosPanel() {
               <input type="checkbox" checked={form.ativo} onChange={(ev) => set('ativo', ev.target.checked)} className="accent-primary" />
               Ativo
             </label>
+            <label className="flex items-center gap-2 text-sm text-slate-300">
+              <input type="checkbox" checked={form.destaque} onChange={(ev) => set('destaque', ev.target.checked)} className="accent-primary" />
+              Destaque
+            </label>
             {erroForm && <div className="rounded-lg bg-danger/10 border border-danger/20 px-3 py-2.5 text-sm text-danger">{erroForm}</div>}
           </form>
         </Modal>
