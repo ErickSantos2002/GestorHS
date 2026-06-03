@@ -74,3 +74,24 @@ def usuario_admin(db_session):
     db_session.commit()
     db_session.refresh(u)
     return u
+
+
+@pytest.fixture()
+def usuario_comum(db_session):
+    funcao = db_session.query(Funcao).filter(Funcao.descricao == "Expedição").first()
+    if funcao is None:
+        funcao = Funcao(descricao="Expedição")
+        db_session.add(funcao)
+        db_session.flush()
+    u = Usuario(
+        nome="Comum",
+        login="comum",
+        senha=hash_senha("senha123"),
+        email="comum@hs.com",
+        funcao_id=funcao.id,
+        precisa_redefinir_senha=False,
+    )
+    db_session.add(u)
+    db_session.commit()
+    db_session.refresh(u)
+    return u

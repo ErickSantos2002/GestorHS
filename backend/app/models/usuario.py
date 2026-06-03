@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, Text, Boolean, ForeignKey
+from sqlalchemy.orm import relationship
 from app.models.database import Base
 
 
@@ -12,3 +13,9 @@ class Usuario(Base):
     email = Column(String(200), nullable=True)
     funcao_id = Column(Integer, ForeignKey("funcoes.id"), nullable=True)
     precisa_redefinir_senha = Column(Boolean, nullable=False, default=False)
+
+    funcao_rel = relationship("Funcao", lazy="joined")
+
+    @property
+    def funcao(self) -> str | None:
+        return self.funcao_rel.descricao if self.funcao_rel else None

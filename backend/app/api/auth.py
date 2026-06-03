@@ -11,7 +11,7 @@ from app.core.security import (
     criar_refresh_token,
     decodificar_token,
 )
-from app.schemas.auth import LoginRequest, PortalLoginRequest, Token, RefreshRequest, UsuarioOut
+from app.schemas.auth import LoginRequest, PortalLoginRequest, Token, RefreshRequest, UsuarioOut, TrocarSenhaIn
 from app.api.deps import get_current_usuario
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -93,3 +93,17 @@ def refresh(dados: RefreshRequest, db: Session = Depends(get_db)):
         access_token=criar_access_token(sub=sub, tipo=tipo, cliente=cliente_claim),
         refresh_token=criar_refresh_token(sub=sub, tipo=tipo, cliente=cliente_claim),
     )
+
+
+@router.post("/trocar-senha", status_code=status.HTTP_204_NO_CONTENT)
+def trocar_senha(
+    dados: TrocarSenhaIn,
+    usuario: Usuario = Depends(get_current_usuario),
+    db: Session = Depends(get_db),
+):
+    if usuario.precisa_redefinir_senha:
+        raise HTTPException(status_code=403, detail="Senha precisa ser redefinida pelo administrador")
+    if not verificar_senha(dados.senha_atual, usuario.senha):
+        raise HTTPException(status_code=400, detail="senha atual incorreta")
+    usuario.senha = hash_senha(dados.nova_senha)
+    db.commit()

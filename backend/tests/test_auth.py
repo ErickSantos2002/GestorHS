@@ -116,3 +116,10 @@ def test_cliente_token_com_tenant_adulterado_e_negado(client, cliente_portal):
     # garante que o login-portal emite o claim correto
     tok = client.post("/auth/login-portal", json={"cliente": 1, "login": "cliente1", "senha": "portal123"}).json()
     assert decodificar_token(tok["access_token"]).get("cliente") == 1
+
+
+def test_me_retorna_descricao_da_funcao(client, usuario_admin):
+    tokens = client.post("/auth/login", json={"login": "admin", "senha": "senha123"}).json()
+    r = client.get("/auth/me", headers={"Authorization": f"Bearer {tokens['access_token']}"})
+    assert r.status_code == 200
+    assert r.json()["funcao"] == "Administrador"
