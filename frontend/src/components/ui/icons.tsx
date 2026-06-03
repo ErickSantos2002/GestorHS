@@ -85,3 +85,11 @@ export function IconUser({ className }: IconProps) {
     </svg>
   )
 }
+
+export function IconCadastros({ className }: IconProps) {
+  return (
+    <svg className={base(className)} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h9l5 5v9a2 2 0 01-2 2H6a2 2 0 01-2-2V6z M8 10h8 M8 14h5" />
+    </svg>
+  )
+}
