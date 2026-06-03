@@ -98,11 +98,22 @@ export interface AbrirPayload {
 export interface AvancarPayload {
   obs?: string | null
   cod_retorno?: string | null
+  tipo_calibragem?: number | null
+  calib_cert?: string | null
+  calib_temp?: string | null
+  calib_pressao?: string | null
+  calib_teste1?: string | null
+  calib_teste2?: string | null
+  calib_teste3?: string | null
+  calib_teste_media?: string | null
+  calib_situacao?: string | null
+  pdf_certificado?: string | null
+  prox_calibragem?: string | null
 }
 
-export const TRANSICOES: Record<number, { rotulo: string; pedeCodRetorno?: boolean }> = {
+export const TRANSICOES: Record<number, { rotulo: string; pedeCodRetorno?: boolean; pedeCalibracao?: boolean }> = {
   4: { rotulo: 'Encaminhar ao laboratório' },
-  5: { rotulo: 'Concluir laboratório' },
+  5: { rotulo: 'Concluir laboratório', pedeCalibracao: true },
   6: { rotulo: 'Registrar aceite' },
   7: { rotulo: 'Postar retorno', pedeCodRetorno: true },
 }

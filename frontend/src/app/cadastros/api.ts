@@ -103,3 +103,12 @@ export const fasesApi = {
   atualizar: (id: number, payload: { funcao_responsavel: number | null }): Promise<Fase> =>
     apiJson<Fase>(`/fases/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
 }
+
+export interface TipoCalibragem {
+  id: number
+  descricao: string
+}
+
+export const tiposCalibragemApi = {
+  listar: (): Promise<TipoCalibragem[]> => apiJson<TipoCalibragem[]>('/tipos-calibragem'),
+}
