@@ -1,0 +1,73 @@
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from sqlalchemy import or_
+from sqlalchemy.orm import Session
+
+from app.models.database import get_db
+from app.models import Usuario, Cliente
+from app.api.deps import get_current_usuario, require_funcao
+from app.api.cadastros_common import excluir_protegido
+from app.schemas.clientes import ClienteListOut, ClientesPage, ClienteOut, ClienteCreate, ClienteUpdate
+
+router = APIRouter(prefix="/clientes", tags=["clientes"])
+ADMIN = "Administrador"
+
+
+@router.get("", response_model=ClientesPage)
+def listar(
+    q: str | None = None,
+    offset: int = 0,
+    limit: int = Query(25, ge=1, le=100),
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(get_current_usuario),
+):
+    query = db.query(Cliente)
+    if q:
+        termo = f"%{q}%"
+        query = query.filter(
+            or_(
+                Cliente.nome.ilike(termo),
+                Cliente.cgc.ilike(termo),
+                Cliente.cpf.ilike(termo),
+                Cliente.municipio.ilike(termo),
+            )
+        )
+    total = query.count()
+    items = query.order_by(Cliente.nome).offset(offset).limit(limit).all()
+    return ClientesPage(items=[ClienteListOut.model_validate(c) for c in items], total=total)
+
+
+@router.get("/{cliente_id}", response_model=ClienteOut)
+def obter(cliente_id: int, db: Session = Depends(get_db), _: Usuario = Depends(get_current_usuario)):
+    obj = db.query(Cliente).filter(Cliente.id == cliente_id).first()
+    if obj is None:
+        raise HTTPException(status_code=404, detail="não encontrado")
+    return obj
+
+
+@router.post("", response_model=ClienteOut, status_code=status.HTTP_201_CREATED)
+def criar(dados: ClienteCreate, db: Session = Depends(get_db), _: Usuario = Depends(require_funcao(ADMIN))):
+    obj = Cliente(**dados.model_dump())
+    db.add(obj)
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+@router.patch("/{cliente_id}", response_model=ClienteOut)
+def atualizar(cliente_id: int, dados: ClienteUpdate, db: Session = Depends(get_db), _: Usuario = Depends(require_funcao(ADMIN))):
+    obj = db.query(Cliente).filter(Cliente.id == cliente_id).first()
+    if obj is None:
+        raise HTTPException(status_code=404, detail="não encontrado")
+    for chave, valor in dados.model_dump(exclude_unset=True).items():
+        setattr(obj, chave, valor)
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+@router.delete("/{cliente_id}", status_code=status.HTTP_204_NO_CONTENT)
+def excluir(cliente_id: int, db: Session = Depends(get_db), _: Usuario = Depends(require_funcao(ADMIN))):
+    obj = db.query(Cliente).filter(Cliente.id == cliente_id).first()
+    if obj is None:
+        raise HTTPException(status_code=404, detail="não encontrado")
+    excluir_protegido(db, obj)
