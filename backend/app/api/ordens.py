@@ -7,7 +7,7 @@ from app.models import Usuario, Ordem, Cliente, Fase, LogOS, EquipamentoCliente
 from app.api.deps import get_current_usuario, require_funcao
 from app.api.ordens_acoes import agora, registrar_log, exige_funcao_da_fase
 from app.core import os_workflow as wf
-from app.schemas.ordens import OrdemListOut, OrdemPage, QuadroColuna, OrdemOut, LogOut, OrdemAbrirIn, AvancarIn
+from app.schemas.ordens import OrdemListOut, OrdemPage, QuadroColuna, OrdemOut, LogOut, OrdemAbrirIn, AvancarIn, CancelarIn
 
 router = APIRouter(prefix="/ordens", tags=["ordens"])
 
@@ -144,6 +144,23 @@ def avancar(ordem_id: int, dados: AvancarIn, db: Session = Depends(get_db),
         texto = f"{texto} — {dados.obs}"
     ordem.fase = destino
     registrar_log(db, ordem, usuario, texto)
+    db.commit()
+    db.refresh(ordem)
+    return ordem
+
+
+@router.post("/{ordem_id}/cancelar", response_model=OrdemOut)
+def cancelar(ordem_id: int, dados: CancelarIn, db: Session = Depends(get_db),
+             usuario: Usuario = Depends(get_current_usuario)):
+    ordem = db.query(Ordem).filter(Ordem.id == ordem_id).first()
+    if ordem is None:
+        raise HTTPException(status_code=404, detail="OS não encontrada")
+    if not wf.eh_ativa(ordem.fase):
+        raise HTTPException(status_code=409, detail="OS já encerrada")
+    exige_funcao_da_fase(db, usuario, ordem.fase)
+    ordem.fase = wf.FASE_CANCELADA
+    ordem.situacao = "C"
+    registrar_log(db, ordem, usuario, f"OS cancelada: {dados.motivo}")
     db.commit()
     db.refresh(ordem)
     return ordem
