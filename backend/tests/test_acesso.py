@@ -101,12 +101,19 @@ def test_excluir_usuario_comum_ok(client, usuario_admin):
     assert client.get(f"/usuarios/{novo['id']}", headers=h).status_code == 404
 
 
-def test_admin_redefine_senha(client, usuario_admin):
-    h = _headers(client, "admin", "senha123")
-    novo = _criar(client, h, login="ana", senha="segredo123").json()
-    r = client.post(f"/usuarios/{novo['id']}/redefinir-senha", json={"nova_senha": "novaSenha9"}, headers=h)
+def test_redefinir_senha_admin_deixa_temporaria(client, usuario_admin, db_session):
+    from app.models import Usuario
+    from app.core.security import hash_senha
+    h = {"Authorization": f"Bearer {client.post('/auth/login', json={'login':'admin','senha':'senha123'}).json()['access_token']}"}
+    alvo = Usuario(nome="Alvo", login="alvo", senha=hash_senha("antiga123"), precisa_redefinir_senha=False)
+    db_session.add(alvo); db_session.commit(); db_session.refresh(alvo)
+    r = client.post(f"/usuarios/{alvo.id}/redefinir-senha", json={"nova_senha": "temp12345"}, headers=h)
     assert r.status_code == 204
-    assert client.post("/auth/login", json={"login": "ana", "senha": "novaSenha9"}).status_code == 200
+    db_session.refresh(alvo)
+    assert alvo.precisa_redefinir_senha is True
+    # login com a temporária sinaliza precisa_redefinir
+    login = client.post("/auth/login", json={"login": "alvo", "senha": "temp12345"}).json()
+    assert login["precisa_redefinir"] is True
 
 
 def test_trocar_minha_senha_ok(client, usuario_comum):

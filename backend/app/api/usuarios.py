@@ -94,5 +94,5 @@ def redefinir_senha(usuario_id: int, dados: RedefinirSenhaIn, db: Session = Depe
     if u is None:
         raise HTTPException(status_code=404, detail="usuário não encontrado")
     u.senha = hash_senha(dados.nova_senha)
-    u.precisa_redefinir_senha = False
+    u.precisa_redefinir_senha = True
     db.commit()
