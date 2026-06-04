@@ -44,3 +44,16 @@ class LoginOut(BaseModel):
     access_token: str | None = None
     refresh_token: str | None = None
     token_type: str = "bearer"
+
+
+class DefinirSenhaIn(BaseModel):
+    login: str
+    senha_atual: str
+    nova_senha: str = Field(min_length=8)
+
+
+class DefinirSenhaPortalIn(BaseModel):
+    documento: str
+    login: str
+    senha_atual: str
+    nova_senha: str = Field(min_length=8)

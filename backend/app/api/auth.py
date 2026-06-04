@@ -12,7 +12,7 @@ from app.core.security import (
     criar_refresh_token,
     decodificar_token,
 )
-from app.schemas.auth import LoginRequest, PortalLoginRequest, Token, RefreshRequest, UsuarioOut, TrocarSenhaIn, LoginOut
+from app.schemas.auth import LoginRequest, PortalLoginRequest, Token, RefreshRequest, UsuarioOut, TrocarSenhaIn, LoginOut, DefinirSenhaIn, DefinirSenhaPortalIn
 from app.api.deps import get_current_usuario
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -115,3 +115,41 @@ def trocar_senha(
         raise HTTPException(status_code=400, detail="senha atual incorreta")
     usuario.senha = hash_senha(dados.nova_senha)
     db.commit()
+
+
+@router.post("/definir-senha", response_model=Token)
+def definir_senha(dados: DefinirSenhaIn, db: Session = Depends(get_db)):
+    usuario = db.query(Usuario).filter(Usuario.login == dados.login).first()
+    _verificar_credenciais(usuario, dados.senha_atual)
+    if not usuario.precisa_redefinir_senha:
+        raise HTTPException(status_code=400, detail="conta não requer redefinição")
+    usuario.senha = hash_senha(dados.nova_senha)
+    usuario.precisa_redefinir_senha = False
+    db.commit()
+    return Token(
+        access_token=criar_access_token(sub=str(usuario.id), tipo="usuario"),
+        refresh_token=criar_refresh_token(sub=str(usuario.id), tipo="usuario"),
+    )
+
+
+@router.post("/definir-senha-portal", response_model=Token)
+def definir_senha_portal(dados: DefinirSenhaPortalIn, db: Session = Depends(get_db)):
+    doc = "".join(c for c in dados.documento if c.isdigit())
+    empresa = db.query(Cliente).filter(or_(Cliente.cgc == doc, Cliente.cpf == doc)).first() if doc else None
+    if empresa is None:
+        _verificar_credenciais(None, dados.senha_atual)
+    cli = (
+        db.query(UsuarioCliente)
+        .filter(UsuarioCliente.cliente == empresa.id, UsuarioCliente.login == dados.login)
+        .first()
+    )
+    _verificar_credenciais(cli, dados.senha_atual)
+    if not cli.precisa_redefinir_senha:
+        raise HTTPException(status_code=400, detail="conta não requer redefinição")
+    cli.senha = hash_senha(dados.nova_senha)
+    cli.precisa_redefinir_senha = False
+    db.commit()
+    return Token(
+        access_token=criar_access_token(sub=str(cli.id), tipo="cliente", cliente=cli.cliente),
+        refresh_token=criar_refresh_token(sub=str(cli.id), tipo="cliente", cliente=cli.cliente),
+    )
