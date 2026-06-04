@@ -88,3 +88,11 @@ def test_baixar_foto_de_outra_os_404(client, usuario_comum, upload_tmp, db_sessi
     foto = client.post(f"/ordens/{os_a}/fotos", files=_img(), headers=h).json()
     # pede o arquivo da foto de os_a usando o id de os_b na URL -> 404
     assert client.get(f"/ordens/{os_b}/fotos/{foto['id']}/arquivo", headers=h).status_code == 404
+
+
+def test_baixar_foto_exige_auth(client, usuario_comum, upload_tmp, db_session):
+    h = _headers(client, "comum", "senha123")
+    os_id = _abrir_os(db_session)
+    foto = client.post(f"/ordens/{os_id}/fotos", files=_img(), headers=h).json()
+    # sem header de autorização -> 401
+    assert client.get(foto["url"]).status_code == 401

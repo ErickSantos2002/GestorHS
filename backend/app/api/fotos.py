@@ -44,6 +44,7 @@ def enviar_foto(
 
 @router.get("/ordens/{ordem_id}/fotos", response_model=list[FotoOut])
 def listar_fotos(ordem_id: int, db: Session = Depends(get_db), _: Usuario = Depends(get_current_usuario)):
+    _os_ou_404(db, ordem_id)
     fotos = db.query(Foto).filter(Foto.os == ordem_id).order_by(Foto.id).all()
     return [_to_out(f) for f in fotos]
 
@@ -64,5 +65,7 @@ def excluir_foto(foto_id: int, db: Session = Depends(get_db), _: Usuario = Depen
     foto = db.query(Foto).filter(Foto.id == foto_id).first()
     if foto is None:
         raise HTTPException(404, "foto não encontrada")
-    storage.remover_arquivo(f"os/{foto.os}", foto.arquivo)
+    subdir = f"os/{foto.os}"
+    arquivo = foto.arquivo
     db.delete(foto); db.commit()
+    storage.remover_arquivo(subdir, arquivo)
