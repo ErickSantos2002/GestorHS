@@ -11,11 +11,22 @@ export interface User {
   funcao: string | null
 }
 
+export interface LoginResult {
+  precisa_redefinir: boolean
+}
+
+interface LoginRespBody {
+  precisa_redefinir?: boolean
+  access_token?: string
+  refresh_token?: string
+}
+
 interface AuthContextValue {
   user: User | null
   loading: boolean
-  login: (login: string, senha: string) => Promise<void>
+  login: (login: string, senha: string) => Promise<LoginResult>
   logout: () => void
+  definirSenha: (login: string, senhaAtual: string, novaSenha: string) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -52,10 +63,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  async function login(login: string, senha: string) {
-    const tokens = await apiJson<Tokens>('/auth/login', {
+  async function login(login: string, senha: string): Promise<LoginResult> {
+    const r = await apiJson<LoginRespBody>('/auth/login', { method: 'POST', body: JSON.stringify({ login, senha }) })
+    if (r.precisa_redefinir) return { precisa_redefinir: true }
+    setTokens({ access_token: r.access_token as string, refresh_token: r.refresh_token as string })
+    const me = await apiJson<User>('/auth/me')
+    setUser(me)
+    return { precisa_redefinir: false }
+  }
+
+  async function definirSenha(login: string, senhaAtual: string, novaSenha: string) {
+    const tokens = await apiJson<Tokens>('/auth/definir-senha', {
       method: 'POST',
-      body: JSON.stringify({ login, senha }),
+      body: JSON.stringify({ login, senha_atual: senhaAtual, nova_senha: novaSenha }),
     })
     setTokens(tokens)
     const me = await apiJson<User>('/auth/me')
@@ -67,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
   }
 
-  return <AuthContext.Provider value={{ user, loading, login, logout }}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{ user, loading, login, logout, definirSenha }}>{children}</AuthContext.Provider>
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
