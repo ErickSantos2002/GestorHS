@@ -162,3 +162,14 @@ def os_base(db_session):
     ec = EquipamentoCliente(cliente=cli.id, equipamento=eq.id, serie="SER-1", patrimonio="PAT-1")
     db_session.add(ec); db_session.commit(); db_session.refresh(ec)
     return {"cliente": cli.id, "equipamento": eq.id, "equipamento_cliente": ec.id}
+
+
+@pytest.fixture()
+def upload_tmp(tmp_path):
+    from app.core.config import settings
+    anterior = settings.UPLOAD_DIR
+    settings.UPLOAD_DIR = str(tmp_path)
+    try:
+        yield tmp_path
+    finally:
+        settings.UPLOAD_DIR = anterior
