@@ -140,3 +140,31 @@ export const funcionariosApi = {
     apiJson<Funcionario>(`/funcionarios/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
   excluir: (id: number): Promise<void> => apiVoid(`/funcionarios/${id}`, { method: 'DELETE' }),
 }
+
+export interface UsuarioPortal {
+  id: number
+  cliente: number
+  login: string
+  nome: string | null
+  email: string | null
+  precisa_redefinir_senha: boolean
+}
+
+export interface UsuarioPortalPayload {
+  login: string
+  nome: string | null
+  email: string | null
+  senha: string
+}
+
+export const usuariosPortalApi = {
+  listarPorCliente: (clienteId: number): Promise<UsuarioPortal[]> =>
+    apiJson<UsuarioPortal[]>(`/clientes/${clienteId}/usuarios-portal`),
+  criar: (clienteId: number, payload: UsuarioPortalPayload): Promise<UsuarioPortal> =>
+    apiJson<UsuarioPortal>(`/clientes/${clienteId}/usuarios-portal`, { method: 'POST', body: JSON.stringify(payload) }),
+  atualizar: (id: number, payload: { login?: string; nome?: string | null; email?: string | null }): Promise<UsuarioPortal> =>
+    apiJson<UsuarioPortal>(`/usuarios-portal/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  redefinirSenha: (id: number, novaSenha: string): Promise<void> =>
+    apiVoid(`/usuarios-portal/${id}/redefinir-senha`, { method: 'POST', body: JSON.stringify({ nova_senha: novaSenha }) }),
+  excluir: (id: number): Promise<void> => apiVoid(`/usuarios-portal/${id}`, { method: 'DELETE' }),
+}
