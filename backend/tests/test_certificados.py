@@ -64,6 +64,36 @@ def test_download_url_legada_redireciona(client, usuario_lab, upload_tmp, db_ses
     assert r.status_code in (302, 307)
 
 
+def test_reenvio_substitui_arquivo(client, usuario_lab, upload_tmp, db_session):
+    from app.models import Cliente, Ordem
+    from app.core import storage
+    cli = Cliente(nome="Cli"); db_session.add(cli); db_session.commit()
+    os_id = _os_do_cliente(db_session, cli.id)
+    h = _headers(client, "lab", "senha123")
+    r1 = client.post(f"/ordens/{os_id}/certificado", files=_pdf(), headers=h)
+    antigo = r1.json()["pdf_certificado"]
+    # reenviar outro PDF
+    r2 = client.post(f"/ordens/{os_id}/certificado", files={"file": ("novo.pdf", b"%PDF-1.4 novo", "application/pdf")}, headers=h)
+    novo = r2.json()["pdf_certificado"]
+    assert novo != antigo
+    # o arquivo antigo foi removido do disco; o novo é servido
+    assert not storage.caminho_arquivo(f"certificados/{os_id}", antigo).exists()
+    arq = client.get(f"/ordens/{os_id}/certificado", headers=h)
+    assert arq.content == b"%PDF-1.4 novo"
+    # o registro aponta para o novo basename
+    db_session.expire_all()
+    assert db_session.query(Ordem).get(os_id).pdf_certificado == novo
+
+
+def test_upload_413(client, usuario_lab, upload_tmp, db_session):
+    from app.models import Cliente
+    cli = Cliente(nome="Cli"); db_session.add(cli); db_session.commit()
+    os_id = _os_do_cliente(db_session, cli.id)
+    grande = b"x" * (10 * 1024 * 1024 + 1)
+    r = client.post(f"/ordens/{os_id}/certificado", files={"file": ("g.pdf", grande, "application/pdf")}, headers=_headers(client, "lab", "senha123"))
+    assert r.status_code == 413
+
+
 def _portal_headers(client, db_session, cliente_id):
     from app.models import UsuarioCliente, Cliente
     from app.core.security import hash_senha
@@ -83,4 +113,6 @@ def test_portal_baixa_so_do_proprio_cliente(client, usuario_lab, upload_tmp, db_
     h = _portal_headers(client, db_session, dono.id)
     assert client.get(f"/portal/certificados/{os_id}", headers=h).status_code == 200
     os_outro = _os_do_cliente(db_session, outro.id)
+    # dá um certificado à OS do outro cliente: agora o 404 só pode vir do filtro de tenant
+    client.post(f"/ordens/{os_outro}/certificado", files=_pdf(), headers=_headers(client, "lab", "senha123"))
     assert client.get(f"/portal/certificados/{os_outro}", headers=h).status_code == 404

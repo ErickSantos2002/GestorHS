@@ -24,7 +24,10 @@ def servir_certificado(ordem: Ordem):
         raise HTTPException(404, "sem certificado")
     if pdf.startswith("http"):
         return RedirectResponse(pdf)
-    caminho = storage.caminho_arquivo(f"certificados/{ordem.id}", pdf)
+    try:
+        caminho = storage.caminho_arquivo(f"certificados/{ordem.id}", pdf)
+    except storage.ArquivoInvalido as e:
+        raise HTTPException(e.status, e.detail)
     if not caminho.exists():
         raise HTTPException(404, "arquivo não encontrado")
     return FileResponse(caminho, media_type="application/pdf")
