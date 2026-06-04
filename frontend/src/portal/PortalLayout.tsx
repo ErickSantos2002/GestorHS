@@ -8,6 +8,7 @@ const NAV = [
   { label: 'Minha frota', to: '/portal/frota' },
   { label: 'Certificados', to: '/portal/certificados' },
   { label: 'Minhas OS', to: '/portal/os' },
+  { label: 'Solicitações', to: '/portal/solicitacoes' },
 ]
 
 export function PortalLayout({ children }: { children: ReactNode }) {

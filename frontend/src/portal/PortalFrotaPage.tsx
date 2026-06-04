@@ -18,6 +18,7 @@ export function PortalFrotaPage() {
   const [itens, setItens] = useState<PortalFrotaItem[] | null>(null)
   const [total, setTotal] = useState(0)
   const [erro, setErro] = useState('')
+  const [aviso, setAviso] = useState('')
 
   useEffect(() => {
     let ativo = true
@@ -31,6 +32,18 @@ export function PortalFrotaPage() {
   }, [status, busca, offset])
 
   function onBuscar(e: FormEvent) { e.preventDefault(); setOffset(0); setBusca(termo.trim()) }
+
+  async function solicitar(item: PortalFrotaItem) {
+    if (!window.confirm('Solicitar recalibração deste aparelho?')) return
+    setAviso(''); setErro('')
+    try {
+      await portalApi.solicitar({ equipamento_cliente: item.id })
+      setAviso(`Solicitação enviada para ${item.equipamento_descricao ?? 'o aparelho'}.`)
+    } catch (e) {
+      setErro(e instanceof ApiError ? e.message : 'Falha ao solicitar')
+    }
+  }
+
   const inicio = total === 0 ? 0 : offset + 1
   const fim = Math.min(offset + LIMITE, total)
 
@@ -52,6 +65,7 @@ export function PortalFrotaPage() {
           <Button type="submit" variant="secondary">Buscar</Button>
         </form>
       </div>
+      {aviso && <div className="rounded-lg bg-primary/10 border border-primary/20 px-3 py-2.5 text-sm text-primary">{aviso}</div>}
       {erro && <div className="rounded-lg bg-danger/10 border border-danger/20 px-3 py-2.5 text-sm text-danger">{erro}</div>}
       {itens === null ? (
         <div className="flex justify-center py-12"><Spinner className="w-8 h-8" /></div>
@@ -59,7 +73,7 @@ export function PortalFrotaPage() {
         <p className="text-sm text-slate-500">Nenhum aparelho encontrado.</p>
       ) : (
         <>
-          <Table head={<><TH>Aparelho</TH><TH>Série / Patrimônio</TH><TH>Próx. calibração</TH><TH>Status</TH></>}>
+          <Table head={<><TH>Aparelho</TH><TH>Série / Patrimônio</TH><TH>Próx. calibração</TH><TH>Status</TH><TH>Ações</TH></>}>
             {itens.map((e) => {
               const s = STATUS_CALIB[e.status_calibracao] ?? STATUS_CALIB.sem_data
               return (
@@ -68,6 +82,7 @@ export function PortalFrotaPage() {
                   <TD>{e.serie || e.patrimonio || '—'}</TD>
                   <TD>{formatData(e.prox_calibragem)}</TD>
                   <TD><Badge tone={s.tone}>{s.label}</Badge></TD>
+                  <TD><button onClick={() => solicitar(e)} className="text-xs text-primary hover:underline">Solicitar recalibração</button></TD>
                 </tr>
               )
             })}
