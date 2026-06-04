@@ -38,6 +38,14 @@ export const portalApi = {
     sp.set('limit', String(params.limit ?? 25))
     return apiJson<PortalOSPage>(`/portal/minhas-os?${sp.toString()}`)
   },
+  solicitar: (payload: { equipamento_cliente: number; obs?: string }): Promise<PortalSolicitacaoItem> =>
+    apiJson<PortalSolicitacaoItem>('/portal/solicitar-recalibracao', { method: 'POST', body: JSON.stringify(payload) }),
+  minhasSolicitacoes: (params: { offset?: number; limit?: number } = {}): Promise<PortalSolicitacaoPage> => {
+    const sp = new URLSearchParams()
+    sp.set('offset', String(params.offset ?? 0))
+    sp.set('limit', String(params.limit ?? 25))
+    return apiJson<PortalSolicitacaoPage>(`/portal/minhas-solicitacoes?${sp.toString()}`)
+  },
 }
 
 export function formatData(iso: string | null): string {
@@ -89,3 +97,18 @@ export interface PortalOSItem {
   situacao: string
 }
 export interface PortalOSPage { items: PortalOSItem[]; total: number }
+
+export const STATUS_SOLIC: Record<string, { label: string; tone: 'warning' | 'primary' }> = {
+  pendente: { label: 'Pendente', tone: 'warning' },
+  atendida: { label: 'Atendida', tone: 'primary' },
+}
+
+export interface PortalSolicitacaoItem {
+  id: number
+  equipamento_cliente: number
+  equipamento_descricao: string | null
+  status: string
+  data_solicitacao: string | null
+  data_atendimento: string | null
+}
+export interface PortalSolicitacaoPage { items: PortalSolicitacaoItem[]; total: number }

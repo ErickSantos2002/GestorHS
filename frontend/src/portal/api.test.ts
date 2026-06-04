@@ -58,4 +58,19 @@ describe('portal/api', () => {
     await portalApi.minhasOs({})
     expect(String(f.mock.calls[1][0])).not.toContain('em_andamento')
   })
+
+  it('solicitar faz POST /portal/solicitar-recalibracao', async () => {
+    const f = vi.fn().mockResolvedValue(jsonResponse({ id: 1, status: 'pendente' }, 201))
+    vi.stubGlobal('fetch', f)
+    await portalApi.solicitar({ equipamento_cliente: 7 })
+    expect(String(f.mock.calls[0][0])).toContain('/portal/solicitar-recalibracao')
+    expect(f.mock.calls[0][1]).toMatchObject({ method: 'POST' })
+  })
+
+  it('minhasSolicitacoes bate em /portal/minhas-solicitacoes', async () => {
+    const f = vi.fn().mockResolvedValue(jsonResponse({ items: [], total: 0 }))
+    vi.stubGlobal('fetch', f)
+    await portalApi.minhasSolicitacoes({})
+    expect(String(f.mock.calls[0][0])).toContain('/portal/minhas-solicitacoes')
+  })
 })

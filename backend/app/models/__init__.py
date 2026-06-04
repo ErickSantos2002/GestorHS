@@ -14,10 +14,11 @@ from app.models.fase import Fase
 from app.models.log_os import LogOS
 from app.models.ordem import Ordem
 from app.models.tipo_calibragem import TipoCalibragem
+from app.models.solicitacao import Solicitacao
 
 __all__ = [
     "Funcao", "Usuario", "UsuarioCliente", "Setor", "Categoria",
     "Marca", "Grupo", "Equipamento", "Cliente", "Funcionario",
     "EquipamentoCliente", "HistoricoEquipamento",
-    "Fase", "LogOS", "Ordem", "TipoCalibragem",
+    "Fase", "LogOS", "Ordem", "TipoCalibragem", "Solicitacao",
 ]

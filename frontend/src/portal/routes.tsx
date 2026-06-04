@@ -7,6 +7,7 @@ import { PortalHomePage } from './PortalHomePage'
 import { PortalFrotaPage } from './PortalFrotaPage'
 import { PortalCertificadosPage } from './PortalCertificadosPage'
 import { PortalOSPage } from './PortalOSPage'
+import { PortalSolicitacoesPage } from './PortalSolicitacoesPage'
 
 export default function PortalRoutes() {
   return (
@@ -23,6 +24,7 @@ export default function PortalRoutes() {
                   <Route path="frota" element={<PortalFrotaPage />} />
                   <Route path="certificados" element={<PortalCertificadosPage />} />
                   <Route path="os" element={<PortalOSPage />} />
+                  <Route path="solicitacoes" element={<PortalSolicitacoesPage />} />
                   <Route path="*" element={<Navigate to="/portal" replace />} />
                 </Routes>
               </PortalLayout>
