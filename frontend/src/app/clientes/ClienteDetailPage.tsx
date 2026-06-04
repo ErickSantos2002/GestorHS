@@ -10,6 +10,7 @@ import { isAdmin } from '../../auth/roles'
 import { clientesApi, type ClientePayload } from './api'
 import { gruposApi, type Grupo } from '../cadastros/api'
 import { FuncionariosSection } from './FuncionariosSection'
+import { UsuariosPortalSection } from './UsuariosPortalSection'
 
 const VAZIO: ClientePayload = {
   nome: '', grupo: null, cgc: null, cpf: null, endereco: null, numero: null, complemento: null,
@@ -181,6 +182,7 @@ export function ClienteDetailPage() {
       </form>
 
       {editando && <FuncionariosSection clienteId={Number(id)} podeEditar={podeEditar} />}
+      {editando && podeEditar && <UsuariosPortalSection clienteId={Number(id)} />}
     </div>
   )
 }
