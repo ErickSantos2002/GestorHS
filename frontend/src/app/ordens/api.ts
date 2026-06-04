@@ -154,6 +154,24 @@ export const fotosApi = {
   },
 }
 
+export const certificadoApi = {
+  enviar: async (ordemId: number, file: File): Promise<{ pdf_certificado: string }> => {
+    const fd = new FormData()
+    fd.append('file', file)
+    const res = await apiFetch(`/ordens/${ordemId}/certificado`, { method: 'POST', body: fd })
+    if (!res.ok) {
+      let detail = res.statusText
+      try { const b = await res.json(); if (b.detail) detail = b.detail } catch { /* sem corpo */ }
+      throw new ApiError(res.status, detail)
+    }
+    return (await res.json()) as { pdf_certificado: string }
+  },
+  baixar: async (ordemId: number): Promise<void> => {
+    const url = await buscarBlobUrl(`/ordens/${ordemId}/certificado`)
+    window.open(url, '_blank', 'noopener')
+  },
+}
+
 export const ordensApi = {
   listar: (params: OrdensParams = {}): Promise<OrdemPage> => {
     const sp = new URLSearchParams()

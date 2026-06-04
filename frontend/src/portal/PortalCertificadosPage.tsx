@@ -45,8 +45,8 @@ export function PortalCertificadosPage() {
                 <TD>{c.calib_cert ?? '—'}</TD>
                 <TD>{formatData(c.ult_calibragem)}</TD>
                 <TD>{formatData(c.prox_calibragem)}</TD>
-                <TD>{c.pdf && c.pdf.startsWith('http')
-                  ? <a href={c.pdf} target="_blank" rel="noreferrer" className="text-primary hover:underline">abrir</a>
+                <TD>{c.os != null
+                  ? <button type="button" className="text-primary hover:underline text-sm" onClick={() => { portalApi.baixarCertificado(c.os!).catch(() => setErro('Certificado indisponível')) }}>Baixar</button>
                   : '—'}</TD>
               </tr>
             ))}

@@ -1,4 +1,4 @@
-import { apiJson } from '../lib/api'
+import { apiJson, apiFetch, ApiError } from '../lib/api'
 
 export interface PortalMe {
   id: number
@@ -46,6 +46,12 @@ export const portalApi = {
     sp.set('limit', String(params.limit ?? 25))
     return apiJson<PortalSolicitacaoPage>(`/portal/minhas-solicitacoes?${sp.toString()}`)
   },
+  baixarCertificado: async (ordemId: number): Promise<void> => {
+    const res = await apiFetch(`/portal/certificados/${ordemId}`)
+    if (!res.ok) throw new ApiError(res.status, 'Certificado indisponível')
+    const url = URL.createObjectURL(await res.blob())
+    window.open(url, '_blank', 'noopener')
+  },
 }
 
 export function formatData(iso: string | null): string {
@@ -81,6 +87,7 @@ export interface PortalCertItem {
   ult_calibragem: string | null
   prox_calibragem: string | null
   pdf: string | null
+  os: number | null
 }
 export interface PortalCertPage { items: PortalCertItem[]; total: number }
 

@@ -7,7 +7,7 @@ import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
 import { isAdmin, podeAbrirOS } from '../../auth/roles'
 import { fasesApi, type Fase } from '../cadastros/api'
-import { ordensApi, fotosApi, TIPO_SERVICO, TRANSICOES, formatData, type OrdemDetalhe, type LogOS, type Foto } from './api'
+import { ordensApi, fotosApi, certificadoApi, TIPO_SERVICO, TRANSICOES, formatData, type OrdemDetalhe, type LogOS, type Foto } from './api'
 import { AvancarModal } from './AvancarModal'
 import { CancelarModal } from './CancelarModal'
 import { FotoImg } from './FotoImg'
@@ -34,6 +34,7 @@ export function OrdemDetailPage() {
   const [acao, setAcao] = useState<'avancar' | 'cancelar' | null>(null)
   const [fotos, setFotos] = useState<Foto[]>([])
   const [erroFoto, setErroFoto] = useState('')
+  const [erroCert, setErroCert] = useState('')
 
   useEffect(() => {
     let ativo = true
@@ -94,6 +95,30 @@ export function OrdemDetailPage() {
   const ativa = os.fase != null && os.fase >= 4 && os.fase <= 7
   const transicao = os.fase != null ? TRANSICOES[os.fase] : undefined
   const podeFotos = podeAbrirOS(user)
+  const podeCertificado = isAdmin(user) || user?.funcao === 'Laboratório'
+
+  async function onEnviarCertificado(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setErroCert('')
+    try {
+      await certificadoApi.enviar(osId, file)
+      const o = await ordensApi.obter(osId)
+      setOs(o)
+    } catch (err) {
+      setErroCert(err instanceof ApiError ? err.message : 'Falha ao enviar certificado')
+    } finally {
+      e.target.value = ''
+    }
+  }
+
+  async function onBaixarCertificado() {
+    try {
+      await certificadoApi.baixar(osId)
+    } catch {
+      setErroCert('Falha ao baixar certificado')
+    }
+  }
 
   async function onEnviarFoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -212,12 +237,23 @@ export function OrdemDetailPage() {
             <Campo label="Pressão" valor={os.calib_pressao} />
             <Campo label="Média dos testes" valor={os.calib_teste_media} />
             <Campo label="Situação" valor={os.calib_situacao} />
-            <Campo label="PDF" valor={os.pdf_certificado && os.pdf_certificado.startsWith('http')
-              ? <a href={os.pdf_certificado} target="_blank" rel="noreferrer" className="text-primary hover:underline">abrir</a>
-              : os.pdf_certificado} />
+            <Campo label="PDF" valor={os.pdf_certificado
+              ? <button type="button" onClick={() => void onBaixarCertificado()} className="text-primary hover:underline text-sm">Baixar certificado</button>
+              : '—'} />
           </div>
         ) : (
           <p className="text-sm text-slate-500">Sem resultados de calibração ainda.</p>
+        )}
+        {podeCertificado && (
+          <div className="pt-1">
+            <label className="cursor-pointer">
+              <span className="inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-medium bg-primary text-white hover:opacity-90 transition-opacity">
+                Enviar certificado (PDF)
+              </span>
+              <input type="file" accept="application/pdf" className="hidden" onChange={onEnviarCertificado} />
+            </label>
+            {erroCert && <p className="text-sm text-danger mt-1">{erroCert}</p>}
+          </div>
         )}
       </section>
 
