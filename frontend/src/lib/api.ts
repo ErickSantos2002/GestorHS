@@ -1,6 +1,18 @@
 import { getTokens, setTokens, clearTokens, type Tokens } from './auth-storage'
 
-const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+// Prioridade da URL da API:
+//   1. window.__API_URL__  → injetado em runtime pelo /config.js (produção; sem rebuild)
+//   2. VITE_API_URL        → embutido no build (dev/local via .env)
+//   3. http://localhost:8000 (fallback de desenvolvimento)
+const runtimeApiUrl =
+  typeof window !== 'undefined'
+    ? (window as unknown as { __API_URL__?: string }).__API_URL__
+    : undefined
+
+const BASE_URL =
+  runtimeApiUrl && runtimeApiUrl.trim()
+    ? runtimeApiUrl.trim()
+    : import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
 let onUnauthorized: (() => void) | null = null
 export function setOnUnauthorized(cb: (() => void) | null) {

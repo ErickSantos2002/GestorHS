@@ -9,6 +9,9 @@
       var t = localStorage.getItem("gestorhs-theme");
       if (t !== "light") document.documentElement.classList.add("dark");
     </script>
+    <!-- Configuração de runtime (URL da API). Gerada pelo container no boot a partir
+         da env API_URL; permite trocar a URL sem rebuildar o frontend. -->
+    <script src="/config.js"></script>
   </head>
   <body>
     <div id="root"></div>
