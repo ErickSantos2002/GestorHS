@@ -12,7 +12,7 @@ from app.core.security import (
     criar_refresh_token,
     decodificar_token,
 )
-from app.schemas.auth import LoginRequest, PortalLoginRequest, Token, RefreshRequest, UsuarioOut, TrocarSenhaIn
+from app.schemas.auth import LoginRequest, PortalLoginRequest, Token, RefreshRequest, UsuarioOut, TrocarSenhaIn, LoginOut
 from app.api.deps import get_current_usuario
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -21,42 +21,42 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 _DUMMY_HASH = hash_senha("timing-dummy-gestorhs")
 
 
-def _autenticar(registro, senha: str):
+def _verificar_credenciais(registro, senha: str) -> None:
+    """401 se inexistente (com timing achatado) ou senha incorreta. Não bloqueia por precisa_redefinir."""
     if registro is None:
-        verificar_senha(senha, _DUMMY_HASH)  # gasta o mesmo tempo de um verify real
+        verificar_senha(senha, _DUMMY_HASH)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciais inválidas")
-    if registro.precisa_redefinir_senha:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Senha precisa ser redefinida")
     if not verificar_senha(senha, registro.senha):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciais inválidas")
 
 
-@router.post("/login", response_model=Token)
+@router.post("/login", response_model=LoginOut)
 def login(dados: LoginRequest, db: Session = Depends(get_db)):
     usuario = db.query(Usuario).filter(Usuario.login == dados.login).first()
-    _autenticar(usuario, dados.senha)
-    return Token(
+    _verificar_credenciais(usuario, dados.senha)
+    if usuario.precisa_redefinir_senha:
+        return LoginOut(precisa_redefinir=True)
+    return LoginOut(
         access_token=criar_access_token(sub=str(usuario.id), tipo="usuario"),
         refresh_token=criar_refresh_token(sub=str(usuario.id), tipo="usuario"),
     )
 
 
-@router.post("/login-portal", response_model=Token)
+@router.post("/login-portal", response_model=LoginOut)
 def login_portal(dados: PortalLoginRequest, db: Session = Depends(get_db)):
     doc = "".join(c for c in dados.documento if c.isdigit())
-    empresa = (
-        db.query(Cliente).filter(or_(Cliente.cgc == doc, Cliente.cpf == doc)).first()
-        if doc else None
-    )
+    empresa = db.query(Cliente).filter(or_(Cliente.cgc == doc, Cliente.cpf == doc)).first() if doc else None
     if empresa is None:
-        _autenticar(None, dados.senha)  # timing/401 anti-enumeração (não revela se o documento existe)
+        _verificar_credenciais(None, dados.senha)
     cli = (
         db.query(UsuarioCliente)
         .filter(UsuarioCliente.cliente == empresa.id, UsuarioCliente.login == dados.login)
         .first()
     )
-    _autenticar(cli, dados.senha)
-    return Token(
+    _verificar_credenciais(cli, dados.senha)
+    if cli.precisa_redefinir_senha:
+        return LoginOut(precisa_redefinir=True)
+    return LoginOut(
         access_token=criar_access_token(sub=str(cli.id), tipo="cliente", cliente=cli.cliente),
         refresh_token=criar_refresh_token(sub=str(cli.id), tipo="cliente", cliente=cli.cliente),
     )

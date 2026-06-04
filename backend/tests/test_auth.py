@@ -12,13 +12,12 @@ def test_login_senha_errada_401(client, usuario_admin):
     assert r.status_code == 401
 
 
-def test_login_senha_legada_exige_redefinicao(client, db_session):
+def test_login_legado_hash_vazio_401(client, db_session):
     from app.models import Usuario
     db_session.add(Usuario(nome="Velho", login="velho", senha="", precisa_redefinir_senha=True))
     db_session.commit()
     r = client.post("/auth/login", json={"login": "velho", "senha": "qualquer"})
-    assert r.status_code == 403
-    assert "redefin" in r.json()["detail"].lower()
+    assert r.status_code == 401
 
 
 def test_me_com_token(client, usuario_admin):
@@ -127,3 +126,34 @@ def test_me_retorna_descricao_da_funcao(client, usuario_admin):
     r = client.get("/auth/me", headers={"Authorization": f"Bearer {tokens['access_token']}"})
     assert r.status_code == 200
     assert r.json()["funcao"] == "Administrador"
+
+
+def test_login_precisa_redefinir_sinaliza(client, db_session):
+    from app.models import Usuario
+    from app.core.security import hash_senha
+    db_session.add(Usuario(nome="Temp", login="temp", senha=hash_senha("provisoria1"), precisa_redefinir_senha=True))
+    db_session.commit()
+    r = client.post("/auth/login", json={"login": "temp", "senha": "provisoria1"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["precisa_redefinir"] is True
+    assert body.get("access_token") in (None, "")
+
+
+def test_login_normal_nao_pede_redefinir(client, usuario_admin):
+    r = client.post("/auth/login", json={"login": "admin", "senha": "senha123"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body.get("precisa_redefinir") in (False, None)
+    assert body["access_token"]
+
+
+def test_login_portal_precisa_redefinir(client, cliente_portal, db_session):
+    from app.models import UsuarioCliente
+    from app.core.security import hash_senha
+    cli = db_session.query(UsuarioCliente).filter(UsuarioCliente.id == cliente_portal.id).first()
+    cli.precisa_redefinir_senha = True
+    cli.senha = hash_senha("provisoria1")
+    db_session.commit()
+    r = client.post("/auth/login-portal", json={"documento": "11222333000144", "login": "cliente1", "senha": "provisoria1"})
+    assert r.status_code == 200 and r.json()["precisa_redefinir"] is True
