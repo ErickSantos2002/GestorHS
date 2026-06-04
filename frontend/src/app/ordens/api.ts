@@ -1,4 +1,4 @@
-import { apiJson } from '../../lib/api'
+import { apiJson, apiFetch, ApiError } from '../../lib/api'
 
 export type TipoServico = 'C' | 'M' | 'A'
 
@@ -116,6 +116,42 @@ export const TRANSICOES: Record<number, { rotulo: string; pedeCodRetorno?: boole
   5: { rotulo: 'Concluir laboratório', pedeCalibracao: true },
   6: { rotulo: 'Registrar aceite' },
   7: { rotulo: 'Postar retorno', pedeCodRetorno: true },
+}
+
+export interface Foto {
+  id: number
+  os: number
+  arquivo: string
+  legenda: string | null
+  url: string
+}
+
+// Busca um arquivo protegido (precisa de Bearer) e devolve um object URL.
+export async function buscarBlobUrl(path: string): Promise<string> {
+  const res = await apiFetch(path)
+  if (!res.ok) throw new ApiError(res.status, 'Falha ao carregar arquivo')
+  const blob = await res.blob()
+  return URL.createObjectURL(blob)
+}
+
+export const fotosApi = {
+  listar: (ordemId: number): Promise<Foto[]> => apiJson<Foto[]>(`/ordens/${ordemId}/fotos`),
+  enviar: async (ordemId: number, file: File, legenda?: string): Promise<Foto> => {
+    const fd = new FormData()
+    fd.append('file', file)
+    if (legenda) fd.append('legenda', legenda)
+    const res = await apiFetch(`/ordens/${ordemId}/fotos`, { method: 'POST', body: fd })
+    if (!res.ok) {
+      let detail = res.statusText
+      try { const b = await res.json(); if (b.detail) detail = b.detail } catch { /* sem corpo */ }
+      throw new ApiError(res.status, detail)
+    }
+    return (await res.json()) as Foto
+  },
+  excluir: async (fotoId: number): Promise<void> => {
+    const res = await apiFetch(`/fotos/${fotoId}`, { method: 'DELETE' })
+    if (!res.ok) throw new ApiError(res.status, 'Falha ao excluir')
+  },
 }
 
 export const ordensApi = {

@@ -5,11 +5,12 @@ import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/Spinner'
 import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
-import { isAdmin } from '../../auth/roles'
+import { isAdmin, podeAbrirOS } from '../../auth/roles'
 import { fasesApi, type Fase } from '../cadastros/api'
-import { ordensApi, TIPO_SERVICO, TRANSICOES, formatData, type OrdemDetalhe, type LogOS } from './api'
+import { ordensApi, fotosApi, TIPO_SERVICO, TRANSICOES, formatData, type OrdemDetalhe, type LogOS, type Foto } from './api'
 import { AvancarModal } from './AvancarModal'
 import { CancelarModal } from './CancelarModal'
+import { FotoImg } from './FotoImg'
 
 function Campo({ label, valor }: { label: string; valor: ReactNode }) {
   return (
@@ -31,6 +32,8 @@ export function OrdemDetailPage() {
   const [erro, setErro] = useState('')
   const [carregando, setCarregando] = useState(true)
   const [acao, setAcao] = useState<'avancar' | 'cancelar' | null>(null)
+  const [fotos, setFotos] = useState<Foto[]>([])
+  const [erroFoto, setErroFoto] = useState('')
 
   useEffect(() => {
     let ativo = true
@@ -56,6 +59,18 @@ export function OrdemDetailPage() {
     }
   }, [osId])
 
+  function recarregarFotos() {
+    return fotosApi.listar(osId).then(setFotos).catch(() => {})
+  }
+
+  useEffect(() => {
+    let ativo = true
+    fotosApi.listar(osId)
+      .then((fs) => { if (ativo) setFotos(fs) })
+      .catch(() => {})
+    return () => { ativo = false }
+  }, [osId])
+
   function aoConcluir(novaOS: OrdemDetalhe) {
     setOs(novaOS)
     setAcao(null)
@@ -78,6 +93,31 @@ export function OrdemDetailPage() {
   const podeAgir = isAdmin(user) || (!!responsavelNome && user?.funcao === responsavelNome)
   const ativa = os.fase != null && os.fase >= 4 && os.fase <= 7
   const transicao = os.fase != null ? TRANSICOES[os.fase] : undefined
+  const podeFotos = podeAbrirOS(user)
+
+  async function onEnviarFoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setErroFoto('')
+    try {
+      await fotosApi.enviar(osId, file)
+      await recarregarFotos()
+    } catch (err) {
+      setErroFoto(err instanceof ApiError ? err.message : 'Falha ao enviar foto')
+    } finally {
+      e.target.value = ''
+    }
+  }
+
+  async function onExcluirFoto(fotoId: number) {
+    if (!window.confirm('Excluir esta foto?')) return
+    try {
+      await fotosApi.excluir(fotoId)
+      await recarregarFotos()
+    } catch {
+      setErroFoto('Falha ao excluir foto')
+    }
+  }
 
   return (
     <div className="px-4 md:px-6 py-6 space-y-6 max-w-4xl">
@@ -115,6 +155,42 @@ export function OrdemDetailPage() {
           <Campo label="Acessórios" valor={os.acessorios} />
           <Campo label="Data de chegada" valor={formatData(os.data_chegada)} />
         </div>
+      </section>
+
+      <section className="rounded-2xl bg-background-surface border border-border p-5 space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-slate-100">Fotos</h2>
+          {podeFotos && (
+            <label className="cursor-pointer">
+              <span className="inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-medium bg-primary text-white hover:opacity-90 transition-opacity">
+                Enviar foto
+              </span>
+              <input type="file" accept="image/*" className="hidden" onChange={onEnviarFoto} />
+            </label>
+          )}
+        </div>
+        {erroFoto && <p className="text-sm text-danger">{erroFoto}</p>}
+        {fotos.length === 0 ? (
+          <p className="text-sm text-slate-500">Nenhuma foto.</p>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+            {fotos.map((f) => (
+              <div key={f.id} className="flex flex-col gap-1">
+                <FotoImg url={f.url} alt={f.legenda ?? 'foto'} className="w-full h-28 object-cover rounded-lg" />
+                {f.legenda && <p className="text-xs text-slate-500 truncate">{f.legenda}</p>}
+                {podeFotos && (
+                  <button
+                    type="button"
+                    onClick={() => void onExcluirFoto(f.id)}
+                    className="text-xs text-danger hover:underline text-left"
+                  >
+                    Excluir
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="rounded-2xl bg-background-surface border border-border p-5 space-y-3">
