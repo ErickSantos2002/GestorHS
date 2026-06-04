@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.models.database import get_db
 from app.models import UsuarioCliente, Cliente, EquipamentoCliente, Ordem, Solicitacao
 from app.api.deps import get_current_cliente
+from app.api.certificados import servir_certificado
 from app.api.ordens_acoes import agora
 from app.schemas.portal import (
     PortalMeOut, PortalResumoOut,
@@ -104,6 +105,7 @@ def certificados(
             ult_calibragem=ec.ult_calibragem,
             prox_calibragem=ec.prox_calibragem,
             pdf=pdf,
+            os=ec.os_atual,
         )
         for ec, pdf in linhas
     ]
@@ -160,3 +162,11 @@ def minhas_solicitacoes(
     total = query.count()
     items = query.order_by(Solicitacao.id.desc()).offset(offset).limit(limit).all()
     return PortalSolicitacaoPage(items=[PortalSolicitacaoItem.model_validate(s) for s in items], total=total)
+
+
+@router.get("/certificados/{ordem_id}")
+def baixar_certificado_portal(ordem_id: int, cli: UsuarioCliente = Depends(get_current_cliente), db: Session = Depends(get_db)):
+    o = db.query(Ordem).filter(Ordem.id == ordem_id, Ordem.cliente == cli.cliente).first()
+    if o is None:
+        raise HTTPException(status_code=404, detail="certificado não encontrado")
+    return servir_certificado(o)

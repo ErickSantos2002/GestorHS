@@ -40,6 +40,7 @@ class PortalCertItem(BaseModel):
     ult_calibragem: date | None = None
     prox_calibragem: date | None = None
     pdf: str | None = None
+    os: int | None = None
 
 
 class PortalCertPage(BaseModel):
