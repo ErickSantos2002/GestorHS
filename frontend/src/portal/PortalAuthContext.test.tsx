@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import { PortalAuthProvider, usePortalAuth } from './PortalAuthContext'
-import { getTokens, setTokens } from '../lib/auth-storage'
+import { getTokens } from '../lib/auth-storage'
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
