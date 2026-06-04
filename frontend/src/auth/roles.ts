@@ -17,3 +17,7 @@ export const FUNCAO_COMERCIAL = 'Comercial Pós-Vendas'
 export function podeRegistrarContato(user: User | null): boolean {
   return isAdmin(user) || user?.funcao === FUNCAO_COMERCIAL
 }
+
+export function podeAtenderSolicitacao(user: User | null): boolean {
+  return isAdmin(user) || user?.funcao === FUNCAO_COMERCIAL
+}

@@ -125,3 +125,11 @@ export function IconCobranca({ className }: IconProps) {
     </svg>
   )
 }
+
+export function IconSolicitacoes({ className }: IconProps) {
+  return (
+    <svg className={base(className)} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h8M8 14h5m-5 7l-4-4h12a3 3 0 003-3V7a3 3 0 00-3-3H6a3 3 0 00-3 3v14z" />
+    </svg>
+  )
+}

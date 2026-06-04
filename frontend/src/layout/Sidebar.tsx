@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { cn } from '../lib/utils'
 import { useAuth } from '../auth/AuthContext'
 import { isAdmin } from '../auth/roles'
-import { IconDashboard, IconUsers, IconCadastros, IconClientes, IconFrota, IconOrdens, IconCobranca } from '../components/ui/icons'
+import { IconDashboard, IconUsers, IconCadastros, IconClientes, IconFrota, IconOrdens, IconCobranca, IconSolicitacoes } from '../components/ui/icons'
 
 interface NavItem {
   label: string
@@ -20,6 +20,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Frota', icon: <IconFrota />, to: '/app/frota' },
   { label: 'Ordens', icon: <IconOrdens />, to: '/app/ordens' },
   { label: 'Cobrança', icon: <IconCobranca />, to: '/app/cobranca' },
+  { label: 'Solicitações', icon: <IconSolicitacoes />, to: '/app/solicitacoes' },
 ]
 
 export function Sidebar({ collapsed }: { collapsed: boolean }) {

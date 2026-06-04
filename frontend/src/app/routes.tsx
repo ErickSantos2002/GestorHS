@@ -11,6 +11,7 @@ import { EquipamentoClienteDetailPage } from './frota/EquipamentoClienteDetailPa
 import { OrdensPage } from './ordens/OrdensPage'
 import { OrdemDetailPage } from './ordens/OrdemDetailPage'
 import { CobrancaPage } from './alertas/CobrancaPage'
+import { SolicitacoesPage } from './solicitacoes/SolicitacoesPage'
 
 export default function AppRoutes() {
   return (
@@ -28,6 +29,7 @@ export default function AppRoutes() {
         <Route path="ordens" element={<OrdensPage />} />
         <Route path="ordens/:id" element={<OrdemDetailPage />} />
         <Route path="cobranca" element={<CobrancaPage />} />
+        <Route path="solicitacoes" element={<SolicitacoesPage />} />
         <Route path="conta" element={<MinhaContaPage />} />
         <Route path="*" element={<Navigate to="/app" replace />} />
       </Routes>
