@@ -38,9 +38,9 @@ export function DashboardPage() {
 
       {erro && <div className="rounded-lg bg-danger/10 border border-danger/20 px-3 py-2.5 text-sm text-danger">{erro}</div>}
 
-      {dados === null ? (
+      {dados === null && !erro ? (
         <div className="flex justify-center py-12"><Spinner className="w-8 h-8" /></div>
-      ) : (
+      ) : dados ? (
         <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <button onClick={() => navigate('/app/frota')} className="text-left">
@@ -86,7 +86,7 @@ export function DashboardPage() {
                   onClick={() => navigate('/app/ordens')}
                   className="flex items-center gap-3 rounded-xl bg-background-surface border border-border px-4 py-3 text-left hover:bg-background-elevated transition-colors"
                 >
-                  <span className="w-3 h-3 rounded-full shrink-0" style={{ background: `#${f.cor}` }} />
+                  <span className="w-3 h-3 rounded-full shrink-0" style={{ background: f.cor ? `#${f.cor}` : '#6b7280' }} />
                   <span className="flex-1 text-sm text-slate-300 truncate">{f.descricao}</span>
                   <span className="text-lg font-extrabold text-slate-100">{f.total}</span>
                 </button>
@@ -94,7 +94,7 @@ export function DashboardPage() {
             </div>
           </div>
         </>
-      )}
+      ) : null}
     </div>
   )
 }
