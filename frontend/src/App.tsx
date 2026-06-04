@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthContext'
 import { ProtectedRoute } from './auth/ProtectedRoute'
 import { LoginPage } from './app/pages/LoginPage'
@@ -16,27 +16,28 @@ function FullScreenSpinner() {
   )
 }
 
-export default function App() {
+function AppAuthLayout() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <Suspense fallback={<FullScreenSpinner />}>
-          <Routes>
-            <Route path="/" element={<Navigate to="/app" replace />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route
-              path="/app/*"
-              element={
-                <ProtectedRoute>
-                  <AppRoutes />
-                </ProtectedRoute>
-              }
-            />
-            <Route path="/portal/*" element={<PortalRoutes />} />
-            <Route path="*" element={<Navigate to="/app" replace />} />
-          </Routes>
-        </Suspense>
-      </BrowserRouter>
+      <Outlet />
     </AuthProvider>
+  )
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Suspense fallback={<FullScreenSpinner />}>
+        <Routes>
+          <Route path="/" element={<Navigate to="/app" replace />} />
+          <Route element={<AppAuthLayout />}>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/app/*" element={<ProtectedRoute><AppRoutes /></ProtectedRoute>} />
+          </Route>
+          <Route path="/portal/*" element={<PortalRoutes />} />
+          <Route path="*" element={<Navigate to="/app" replace />} />
+        </Routes>
+      </Suspense>
+    </BrowserRouter>
   )
 }

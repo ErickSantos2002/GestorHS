@@ -5,7 +5,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.models.database import Base, get_db
-from app.models import Funcao, Usuario, UsuarioCliente  # registra as tabelas no metadata
+from app.models import Funcao, Usuario, UsuarioCliente, Cliente  # registra as tabelas no metadata
 from app.core.security import hash_senha
 
 
@@ -51,8 +51,11 @@ def client(db_session):
 
 @pytest.fixture()
 def cliente_portal(db_session):
+    empresa = Cliente(nome="Cliente Teste", cgc="11222333000144")
+    db_session.add(empresa)
+    db_session.flush()
     c = UsuarioCliente(
-        cliente=1,
+        cliente=empresa.id,
         nome="Cliente Teste",
         login="cliente1",
         senha=hash_senha("portal123"),

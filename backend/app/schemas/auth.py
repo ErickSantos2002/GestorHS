@@ -29,7 +29,7 @@ class UsuarioOut(BaseModel):
 
 
 class PortalLoginRequest(BaseModel):
-    cliente: int
+    documento: str
     login: str
     senha: str
 
