@@ -90,3 +90,37 @@ describe('AuthContext', () => {
     expect(getTokens()).toBeNull()
   })
 })
+
+function ProbeReset() {
+  const { user, login, definirSenha } = useAuth()
+  return (
+    <div>
+      <span data-testid="user2">{user ? user.login : 'anon'}</span>
+      <span data-testid="res" />
+      <button onClick={async () => { const r = await login('temp', 'prov'); document.querySelector('[data-testid=res]')!.textContent = String(r.precisa_redefinir) }}>login</button>
+      <button onClick={() => definirSenha('temp', 'prov', 'novasenha123')}>definir</button>
+    </div>
+  )
+}
+
+describe('AuthContext — reset forçado', () => {
+  beforeEach(() => { localStorage.clear(); vi.restoreAllMocks() })
+
+  it('login com precisa_redefinir não autentica', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ precisa_redefinir: true })))
+    render(<AuthProvider><ProbeReset /></AuthProvider>)
+    await act(async () => { screen.getByText('login').click() })
+    await waitFor(() => expect(screen.getByTestId('res').textContent).toBe('true'))
+    expect(screen.getByTestId('user2').textContent).toBe('anon')
+  })
+
+  it('definirSenha guarda tokens e carrega o usuário', async () => {
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ access_token: 'a', refresh_token: 'r' }))  // definir-senha
+      .mockResolvedValueOnce(jsonResponse(ME)))  // /auth/me
+    render(<AuthProvider><ProbeReset /></AuthProvider>)
+    await act(async () => { screen.getByText('definir').click() })
+    await waitFor(() => expect(screen.getByTestId('user2').textContent).toBe('erick'))
+    expect(getTokens()?.access_token).toBe('a')
+  })
+})
