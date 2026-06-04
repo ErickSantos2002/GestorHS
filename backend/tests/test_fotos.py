@@ -62,3 +62,29 @@ def test_upload_403_nao_autorizado(client, usuario_lab, upload_tmp, db_session):
     h = _headers(client, "lab", "senha123")  # Laboratório não pode subir foto de recebimento
     os_id = _abrir_os(db_session)
     assert client.post(f"/ordens/{os_id}/fotos", files=_img(), headers=h).status_code == 403
+
+
+def test_excluir_403_nao_autorizado(client, usuario_comum, usuario_lab, upload_tmp, db_session):
+    # cria a foto como Expedição (comum), tenta excluir como Laboratório (lab) -> 403
+    hcom = _headers(client, "comum", "senha123")
+    os_id = _abrir_os(db_session)
+    foto = client.post(f"/ordens/{os_id}/fotos", files=_img(), headers=hcom).json()
+    hlab = _headers(client, "lab", "senha123")
+    assert client.delete(f"/fotos/{foto['id']}", headers=hlab).status_code == 403
+
+
+def test_upload_413_acima_do_limite(client, usuario_comum, upload_tmp, db_session):
+    h = _headers(client, "comum", "senha123")
+    os_id = _abrir_os(db_session)
+    grande = b"x" * (10 * 1024 * 1024 + 1)
+    r = client.post(f"/ordens/{os_id}/fotos", files={"file": ("g.jpg", grande, "image/jpeg")}, headers=h)
+    assert r.status_code == 413
+
+
+def test_baixar_foto_de_outra_os_404(client, usuario_comum, upload_tmp, db_session):
+    h = _headers(client, "comum", "senha123")
+    os_a = _abrir_os(db_session)
+    os_b = _abrir_os(db_session)
+    foto = client.post(f"/ordens/{os_a}/fotos", files=_img(), headers=h).json()
+    # pede o arquivo da foto de os_a usando o id de os_b na URL -> 404
+    assert client.get(f"/ordens/{os_b}/fotos/{foto['id']}/arquivo", headers=h).status_code == 404
