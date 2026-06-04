@@ -20,3 +20,6 @@ __pycache__/
 tests/
 migration/
 *.md
+
+# Uploads locais (em produção vêm do volume montado em /data/uploads)
+uploads/

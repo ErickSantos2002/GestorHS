@@ -1,0 +1,19 @@
+# Dependências e build (reinstalados/refeitos dentro da imagem)
+node_modules
+dist
+
+# Git / IDE
+.git
+.gitignore
+.idea
+.vscode
+
+# Docs e env locais (a URL da API entra via build arg VITE_API_URL)
+*.md
+.env
+.env.*
+!.env.example
+
+# Testes / coverage
+coverage
+.vitest
