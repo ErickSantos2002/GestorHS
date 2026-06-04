@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from jose import JWTError
 
 from app.models.database import get_db
-from app.models import Usuario, UsuarioCliente
+from app.models import Usuario, UsuarioCliente, Cliente
 from app.core.security import (
     hash_senha,
     verificar_senha,
@@ -42,11 +43,18 @@ def login(dados: LoginRequest, db: Session = Depends(get_db)):
 
 @router.post("/login-portal", response_model=Token)
 def login_portal(dados: PortalLoginRequest, db: Session = Depends(get_db)):
-    # Filtra pela CHAVE ÚNICA (cliente, login) — login não é único globalmente.
-    cli = db.query(UsuarioCliente).filter(
-        UsuarioCliente.cliente == dados.cliente,
-        UsuarioCliente.login == dados.login,
-    ).first()
+    doc = "".join(c for c in dados.documento if c.isdigit())
+    empresa = (
+        db.query(Cliente).filter(or_(Cliente.cgc == doc, Cliente.cpf == doc)).first()
+        if doc else None
+    )
+    if empresa is None:
+        _autenticar(None, dados.senha)  # timing/401 anti-enumeração (não revela se o documento existe)
+    cli = (
+        db.query(UsuarioCliente)
+        .filter(UsuarioCliente.cliente == empresa.id, UsuarioCliente.login == dados.login)
+        .first()
+    )
     _autenticar(cli, dados.senha)
     return Token(
         access_token=criar_access_token(sub=str(cli.id), tipo="cliente", cliente=cli.cliente),
