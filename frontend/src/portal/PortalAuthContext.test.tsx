@@ -45,3 +45,38 @@ describe('PortalAuthProvider', () => {
     expect(getTokens()).toBeNull()
   })
 })
+
+function SondaReset() {
+  const { cliente, login, definirSenha } = usePortalAuth()
+  return (
+    <div>
+      <span data-testid="cli2">{cliente ? (cliente.cliente_nome ?? 'sem-nome') : 'deslogado'}</span>
+      <span data-testid="res2" />
+      <button onClick={async () => { const r = await login('11222333000144', 'cliente1', 'prov'); document.querySelector('[data-testid=res2]')!.textContent = String(r.precisa_redefinir) }}>login</button>
+      <button onClick={() => definirSenha('11222333000144', 'cliente1', 'prov', 'novasenha123')}>definir</button>
+    </div>
+  )
+}
+
+describe('PortalAuthProvider — reset forçado', () => {
+  beforeEach(() => { localStorage.clear(); vi.restoreAllMocks() })
+
+  it('login com precisa_redefinir não autentica', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ precisa_redefinir: true })))
+    const { default: userEvent } = await import('@testing-library/user-event')
+    render(<PortalAuthProvider><SondaReset /></PortalAuthProvider>)
+    await userEvent.click(screen.getByText('login'))
+    await waitFor(() => expect(screen.getByTestId('res2').textContent).toBe('true'))
+    expect(screen.getByTestId('cli2').textContent).toBe('deslogado')
+  })
+
+  it('definirSenha guarda tokens e carrega o cliente', async () => {
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ access_token: 'a', refresh_token: 'r' }))  // definir-senha-portal
+      .mockResolvedValueOnce(jsonResponse({ id: 1, login: 'cliente1', cliente: 5, cliente_nome: 'Empresa X' })))  // /portal/me
+    const { default: userEvent } = await import('@testing-library/user-event')
+    render(<PortalAuthProvider><SondaReset /></PortalAuthProvider>)
+    await userEvent.click(screen.getByText('definir'))
+    await waitFor(() => expect(screen.getByTestId('cli2').textContent).toBe('Empresa X'))
+  })
+})
