@@ -1,4 +1,22 @@
-import { apiJson } from '../../lib/api'
+import { apiJson, apiFetch, ApiError } from '../../lib/api'
+
+// DELETE/204 não tem corpo — apiJson faz res.json() e quebraria. Mesmo padrão de acesso/api.ts.
+async function apiVoid(path: string, options: RequestInit = {}): Promise<void> {
+  const res = await apiFetch(path, {
+    ...options,
+    headers: { 'Content-Type': 'application/json', ...(options.headers as Record<string, string>) },
+  })
+  if (!res.ok) {
+    let detail = res.statusText
+    try {
+      const body = (await res.json()) as { detail?: string }
+      if (body.detail) detail = body.detail
+    } catch {
+      // sem corpo JSON
+    }
+    throw new ApiError(res.status, detail)
+  }
+}
 
 export function formatData(iso: string | null): string {
   if (!iso) return '—'
@@ -61,9 +79,9 @@ export const caixasApi = {
   finalizar: (id: number): Promise<CaixaListItem> =>
     apiJson<CaixaListItem>(`/caixas/${id}/finalizar`, { method: 'POST' }),
   excluir: (id: number): Promise<void> =>
-    apiJson<void>(`/caixas/${id}`, { method: 'DELETE' }),
+    apiVoid(`/caixas/${id}`, { method: 'DELETE' }),
   vincularOrdem: (id: number, ordem_id: number): Promise<CaixaDetalhe> =>
     apiJson<CaixaDetalhe>(`/caixas/${id}/ordens`, { method: 'POST', body: JSON.stringify({ ordem_id }) }),
   desvincularOrdem: (id: number, ordem_id: number): Promise<void> =>
-    apiJson<void>(`/caixas/${id}/ordens/${ordem_id}`, { method: 'DELETE' }),
+    apiVoid(`/caixas/${id}/ordens/${ordem_id}`, { method: 'DELETE' }),
 }
