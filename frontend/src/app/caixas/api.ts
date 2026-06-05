@@ -26,10 +26,11 @@ export function formatData(iso: string | null): string {
 
 export type StatusCaixa = 'P' | 'A' | 'F'
 
-export const STATUS_CAIXA: Record<string, { label: string; tone: 'warning' | 'info' | 'success' }> = {
+// tons válidos do componente Badge: primary | danger | warning | info | neutral (sem 'success').
+export const STATUS_CAIXA: Record<string, { label: string; tone: 'warning' | 'info' | 'primary' }> = {
   P: { label: 'Pendente', tone: 'warning' },
   A: { label: 'Aberta', tone: 'info' },
-  F: { label: 'Finalizada', tone: 'success' },
+  F: { label: 'Finalizada', tone: 'primary' },
 }
 
 export interface OrdemResumoCaixa {
