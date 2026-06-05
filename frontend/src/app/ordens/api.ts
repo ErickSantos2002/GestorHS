@@ -68,6 +68,7 @@ export interface OrdemDetalhe extends OrdemListItem {
   calib_teste_media: string | null
   calib_situacao: string | null
   pdf_certificado: string | null
+  caixa: number | null
 }
 
 export interface LogOS {
