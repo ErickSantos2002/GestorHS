@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/Spinner'
@@ -179,6 +179,12 @@ export function OrdemDetailPage() {
           <Campo label="Condição de chegada" valor={os.condicao_chegada} />
           <Campo label="Acessórios" valor={os.acessorios} />
           <Campo label="Data de chegada" valor={formatData(os.data_chegada)} />
+          {os.caixa && (
+            <Campo
+              label="Caixa"
+              valor={<Link to={`/app/caixas/${os.caixa}`} className="text-primary hover:underline">#{os.caixa}</Link>}
+            />
+          )}
         </div>
       </section>
 

@@ -12,6 +12,8 @@ import { OrdensPage } from './ordens/OrdensPage'
 import { OrdemDetailPage } from './ordens/OrdemDetailPage'
 import { CobrancaPage } from './alertas/CobrancaPage'
 import { SolicitacoesPage } from './solicitacoes/SolicitacoesPage'
+import { CaixasPage } from './caixas/CaixasPage'
+import { CaixaDetailPage } from './caixas/CaixaDetailPage'
 
 export default function AppRoutes() {
   return (
@@ -28,6 +30,8 @@ export default function AppRoutes() {
         <Route path="frota/:id" element={<EquipamentoClienteDetailPage />} />
         <Route path="ordens" element={<OrdensPage />} />
         <Route path="ordens/:id" element={<OrdemDetailPage />} />
+        <Route path="caixas" element={<CaixasPage />} />
+        <Route path="caixas/:id" element={<CaixaDetailPage />} />
         <Route path="cobranca" element={<CobrancaPage />} />
         <Route path="solicitacoes" element={<SolicitacoesPage />} />
         <Route path="conta" element={<MinhaContaPage />} />

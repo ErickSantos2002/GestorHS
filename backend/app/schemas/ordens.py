@@ -18,6 +18,7 @@ class OrdemListOut(BaseModel):
     data_chegada: datetime | None = None
     prox_calibragem: datetime | None = None
     situacao: str
+    caixa: int | None = None
 
 
 class OrdemPage(BaseModel):
@@ -52,6 +53,7 @@ class OrdemOut(BaseModel):
     etiqueta: str | None = None
     cod_retorno: str | None = None
     obs: str | None = None
+    caixa: int | None = None
     data_chegada: datetime | None = None
     data_calibracao: datetime | None = None
     data_retorno: datetime | None = None
@@ -71,6 +73,7 @@ class OrdemAbrirIn(BaseModel):
     tipo_servico: Literal["C", "M", "A"]
     condicao_chegada: str | None = None
     acessorios: str | None = None
+    caixa: int | None = None
 
 
 class AvancarIn(BaseModel):

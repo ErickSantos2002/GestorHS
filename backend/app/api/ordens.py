@@ -3,7 +3,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.models.database import get_db
-from app.models import Usuario, Ordem, Cliente, Fase, LogOS, EquipamentoCliente
+from app.models import Usuario, Ordem, Cliente, Fase, LogOS, EquipamentoCliente, Caixa
 from app.api.deps import get_current_usuario, require_funcao
 from app.api.ordens_acoes import agora, registrar_log, exige_funcao_da_fase, espelhar_calibracao
 from app.core import os_workflow as wf
@@ -91,6 +91,13 @@ def abrir(dados: OrdemAbrirIn, db: Session = Depends(get_db),
     )
     if ativa is not None:
         raise HTTPException(status_code=409, detail="aparelho já possui OS ativa")
+    if dados.caixa is not None:
+        cx = db.query(Caixa).filter(Caixa.id == dados.caixa).first()
+        if cx is None:
+            raise HTTPException(status_code=404, detail="caixa não encontrada")
+        from app.core import caixas_workflow as cw
+        if not cw.pode_vincular(cx.status):
+            raise HTTPException(status_code=409, detail="caixa finalizada não aceita vínculos")
     ordem = Ordem(
         cliente=ec.cliente,
         equipamento_cliente=ec.id,
@@ -101,6 +108,7 @@ def abrir(dados: OrdemAbrirIn, db: Session = Depends(get_db),
         data_chegada=agora(),
         recebido=True,
         situacao="E",
+        caixa=dados.caixa,
     )
     db.add(ordem)
     db.flush()

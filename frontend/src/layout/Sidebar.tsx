@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { cn } from '../lib/utils'
 import { useAuth } from '../auth/AuthContext'
 import { isAdmin } from '../auth/roles'
-import { IconDashboard, IconUsers, IconCadastros, IconClientes, IconFrota, IconOrdens, IconCobranca, IconSolicitacoes } from '../components/ui/icons'
+import { IconDashboard, IconUsers, IconCadastros, IconClientes, IconFrota, IconOrdens, IconCobranca, IconSolicitacoes, IconCaixas } from '../components/ui/icons'
 import { VERSAO_ATUAL } from '../app/changelog/data'
 import { ChangelogModal } from '../app/changelog/ChangelogModal'
 
@@ -21,6 +21,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Clientes', icon: <IconClientes />, to: '/app/clientes' },
   { label: 'Frota', icon: <IconFrota />, to: '/app/frota' },
   { label: 'Ordens', icon: <IconOrdens />, to: '/app/ordens' },
+  { label: 'Caixas', icon: <IconCaixas />, to: '/app/caixas' },
   { label: 'Cobrança', icon: <IconCobranca />, to: '/app/cobranca' },
   { label: 'Solicitações', icon: <IconSolicitacoes />, to: '/app/solicitacoes' },
 ]

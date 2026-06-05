@@ -1,0 +1,88 @@
+import { apiJson, apiFetch, ApiError } from '../../lib/api'
+
+// DELETE/204 não tem corpo — apiJson faz res.json() e quebraria. Mesmo padrão de acesso/api.ts.
+async function apiVoid(path: string, options: RequestInit = {}): Promise<void> {
+  const res = await apiFetch(path, {
+    ...options,
+    headers: { 'Content-Type': 'application/json', ...(options.headers as Record<string, string>) },
+  })
+  if (!res.ok) {
+    let detail = res.statusText
+    try {
+      const body = (await res.json()) as { detail?: string }
+      if (body.detail) detail = body.detail
+    } catch {
+      // sem corpo JSON
+    }
+    throw new ApiError(res.status, detail)
+  }
+}
+
+export function formatData(iso: string | null): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('pt-BR')
+}
+
+export type StatusCaixa = 'P' | 'A' | 'F'
+
+// tons válidos do componente Badge: primary | danger | warning | info | neutral (sem 'success').
+export const STATUS_CAIXA: Record<string, { label: string; tone: 'warning' | 'info' | 'primary' }> = {
+  P: { label: 'Pendente', tone: 'warning' },
+  A: { label: 'Aberta', tone: 'info' },
+  F: { label: 'Finalizada', tone: 'primary' },
+}
+
+export interface OrdemResumoCaixa {
+  id: number
+  cliente: number
+  cliente_nome: string | null
+  equipamento_descricao: string | null
+  equipamento_serie: string | null
+  fase: number | null
+  fase_descricao: string | null
+  fase_cor: string | null
+}
+
+export interface CaixaListItem {
+  id: number
+  data: string | null
+  status: StatusCaixa
+  obs: string | null
+  total_os: number
+  clientes: string[]
+}
+
+export interface CaixaPage { items: CaixaListItem[]; total: number }
+
+export interface CaixaDetalhe extends CaixaListItem {
+  ordens: OrdemResumoCaixa[]
+}
+
+export interface CaixasParams { status?: string; q?: string; offset?: number; limit?: number }
+
+export const caixasApi = {
+  listar: (params: CaixasParams = {}): Promise<CaixaPage> => {
+    const sp = new URLSearchParams()
+    if (params.status) sp.set('status', params.status)
+    if (params.q) sp.set('q', params.q)
+    sp.set('offset', String(params.offset ?? 0))
+    sp.set('limit', String(params.limit ?? 25))
+    return apiJson<CaixaPage>(`/caixas?${sp.toString()}`)
+  },
+  obter: (id: number): Promise<CaixaDetalhe> => apiJson<CaixaDetalhe>(`/caixas/${id}`),
+  criar: (body: { obs?: string | null }): Promise<CaixaListItem> =>
+    apiJson<CaixaListItem>('/caixas', { method: 'POST', body: JSON.stringify(body) }),
+  atualizar: (id: number, body: { obs?: string | null }): Promise<CaixaListItem> =>
+    apiJson<CaixaListItem>(`/caixas/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  abrir: (id: number): Promise<CaixaListItem> =>
+    apiJson<CaixaListItem>(`/caixas/${id}/abrir`, { method: 'POST' }),
+  finalizar: (id: number): Promise<CaixaListItem> =>
+    apiJson<CaixaListItem>(`/caixas/${id}/finalizar`, { method: 'POST' }),
+  excluir: (id: number): Promise<void> =>
+    apiVoid(`/caixas/${id}`, { method: 'DELETE' }),
+  vincularOrdem: (id: number, ordem_id: number): Promise<CaixaDetalhe> =>
+    apiJson<CaixaDetalhe>(`/caixas/${id}/ordens`, { method: 'POST', body: JSON.stringify({ ordem_id }) }),
+  desvincularOrdem: (id: number, ordem_id: number): Promise<void> =>
+    apiVoid(`/caixas/${id}/ordens/${ordem_id}`, { method: 'DELETE' }),
+}

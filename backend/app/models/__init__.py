@@ -16,10 +16,12 @@ from app.models.ordem import Ordem
 from app.models.tipo_calibragem import TipoCalibragem
 from app.models.solicitacao import Solicitacao
 from app.models.foto import Foto
+from app.models.caixa import Caixa
 
 __all__ = [
     "Funcao", "Usuario", "UsuarioCliente", "Setor", "Categoria",
     "Marca", "Grupo", "Equipamento", "Cliente", "Funcionario",
     "EquipamentoCliente", "HistoricoEquipamento",
     "Fase", "LogOS", "Ordem", "TipoCalibragem", "Solicitacao", "Foto",
+    "Caixa",
 ]
