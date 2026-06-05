@@ -1,9 +1,11 @@
-import { type ReactNode } from 'react'
+import { type ReactNode, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { cn } from '../lib/utils'
 import { useAuth } from '../auth/AuthContext'
 import { isAdmin } from '../auth/roles'
 import { IconDashboard, IconUsers, IconCadastros, IconClientes, IconFrota, IconOrdens, IconCobranca, IconSolicitacoes } from '../components/ui/icons'
+import { VERSAO_ATUAL } from '../app/changelog/data'
+import { ChangelogModal } from '../app/changelog/ChangelogModal'
 
 interface NavItem {
   label: string
@@ -26,6 +28,7 @@ const NAV_ITEMS: NavItem[] = [
 export function Sidebar({ collapsed }: { collapsed: boolean }) {
   const location = useLocation()
   const { user } = useAuth()
+  const [changelogAberto, setChangelogAberto] = useState(false)
   const itens = NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin(user))
 
   return (
@@ -81,6 +84,28 @@ export function Sidebar({ collapsed }: { collapsed: boolean }) {
           )
         })}
       </nav>
+
+      <div className="shrink-0 border-t border-border p-2">
+        <button
+          onClick={() => setChangelogAberto(true)}
+          title={collapsed ? `GestorHS v${VERSAO_ATUAL}` : 'Ver novidades'}
+          className={cn(
+            'w-full rounded-lg text-left transition-colors hover:bg-background-elevated',
+            collapsed ? 'px-0 py-2 flex justify-center' : 'px-3 py-2',
+          )}
+        >
+          {collapsed ? (
+            <span className="text-[11px] font-semibold text-slate-500">v{VERSAO_ATUAL}</span>
+          ) : (
+            <>
+              <p className="text-xs font-semibold text-slate-300">GestorHS v{VERSAO_ATUAL}</p>
+              <p className="text-[11px] text-slate-600 mt-0.5">© 2026 Health &amp; Safety Tech</p>
+            </>
+          )}
+        </button>
+      </div>
+
+      <ChangelogModal open={changelogAberto} onClose={() => setChangelogAberto(false)} />
     </aside>
   )
 }
