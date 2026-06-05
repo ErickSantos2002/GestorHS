@@ -11,7 +11,7 @@ class Ordem(Base):
     equipamento_cliente = Column(Integer, ForeignKey("equipamentos_cliente.id"), nullable=True)
     fase = Column(Integer, ForeignKey("fases.id"), nullable=True)
     tipo_calibragem = Column(Integer, nullable=True)
-    caixa = Column(Integer, nullable=True)
+    caixa = Column(Integer, ForeignKey("caixas.id"), nullable=True)
     checklist = Column(String(50), nullable=True)
     # datas do ciclo
     data_solicitacao = Column(DateTime(timezone=True), nullable=True)
@@ -60,6 +60,7 @@ class Ordem(Base):
     cliente_rel = relationship("Cliente", lazy="joined")
     equipamento_rel = relationship("EquipamentoCliente", lazy="joined")
     fase_rel = relationship("Fase", lazy="joined")
+    caixa_rel = relationship("Caixa", back_populates="ordens", lazy="joined")
 
     @property
     def cliente_nome(self):
@@ -80,3 +81,7 @@ class Ordem(Base):
     @property
     def fase_cor(self):
         return self.fase_rel.cor if self.fase_rel else None
+
+    @property
+    def caixa_obs(self):
+        return self.caixa_rel.obs if self.caixa_rel else None
