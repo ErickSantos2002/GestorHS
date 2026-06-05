@@ -63,7 +63,8 @@ def criar(dados: CaixaCreate, db: Session = Depends(get_db), _: Usuario = Depend
 @router.patch("/{caixa_id}", response_model=CaixaOut)
 def atualizar(caixa_id: int, dados: CaixaUpdate, db: Session = Depends(get_db), _: Usuario = Depends(_escrita)):
     cx = _get_caixa(db, caixa_id)
-    cx.obs = dados.obs
+    for chave, valor in dados.model_dump(exclude_unset=True).items():
+        setattr(cx, chave, valor)
     db.commit()
     db.refresh(cx)
     return cx
