@@ -150,9 +150,8 @@ export function CaixaDetailPage() {
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) {
         setErroVincular('OS não encontrada.')
-      } else if (err instanceof ApiError && err.status === 409) {
-        setErroVincular('Esta OS já está vinculada a uma caixa.')
       } else {
+        // 409 = caixa finalizada não aceita vínculos (mensagem vem do backend)
         setErroVincular(err instanceof ApiError ? err.message : 'Falha ao vincular OS')
       }
     } finally {
@@ -174,9 +173,8 @@ export function CaixaDetailPage() {
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) {
         setErroMover('Caixa destino não encontrada.')
-      } else if (err instanceof ApiError && err.status === 409) {
-        setErroMover('Esta OS já está vinculada à caixa destino.')
       } else {
+        // 409 = caixa destino finalizada não aceita vínculos (mensagem vem do backend)
         setErroMover(err instanceof ApiError ? err.message : 'Falha ao mover OS')
       }
     } finally {

@@ -37,6 +37,7 @@ export interface OrdemListItem {
   data_chegada: string | null
   prox_calibragem: string | null
   situacao: string
+  caixa: number | null
 }
 
 export interface OrdemPage {
@@ -68,7 +69,6 @@ export interface OrdemDetalhe extends OrdemListItem {
   calib_teste_media: string | null
   calib_situacao: string | null
   pdf_certificado: string | null
-  caixa: number | null
 }
 
 export interface LogOS {
