@@ -5,10 +5,12 @@ import { Select } from '../../components/ui/Select'
 import { ApiError } from '../../lib/api'
 import { ordensApi, type TipoServico } from './api'
 
-export function AbrirOSModal({ equipamentoClienteId, osAtual, onClose }: {
+export function AbrirOSModal({ equipamentoClienteId, osAtual, onClose, caixa, onAberta }: {
   equipamentoClienteId: number
   osAtual: number | null
   onClose: () => void
+  caixa?: number
+  onAberta?: (osId: number) => void
 }) {
   const navigate = useNavigate()
   const [tipo, setTipo] = useState<TipoServico>('C')
@@ -29,8 +31,13 @@ export function AbrirOSModal({ equipamentoClienteId, osAtual, onClose }: {
         tipo_servico: tipo,
         condicao_chegada: condicao.trim() || null,
         acessorios: acessorios.trim() || null,
+        caixa: caixa ?? null,
       })
-      navigate(`/app/ordens/${os.id}`)
+      if (onAberta) {
+        onAberta(os.id)
+      } else {
+        navigate(`/app/ordens/${os.id}`)
+      }
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         setErro('Este aparelho já possui uma OS ativa.')

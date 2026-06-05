@@ -5,6 +5,8 @@ import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { Spinner } from '../../components/ui/Spinner'
 import { Modal } from '../../components/ui/Modal'
+import { Input } from '../../components/ui/Input'
+import { Select } from '../../components/ui/Select'
 import { useAuth } from '../../auth/AuthContext'
 import { podeAbrirOS } from '../../auth/roles'
 import { ApiError } from '../../lib/api'
@@ -79,31 +81,25 @@ export function CaixasPage() {
       </div>
 
       <div className="flex flex-wrap gap-2 items-end">
-        <div>
-          <label htmlFor="filtro-status" className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wide">Status</label>
-          <select
-            id="filtro-status"
-            value={status}
-            onChange={(e) => { setOffset(0); setStatus(e.target.value) }}
-            className="px-3 py-2 text-sm rounded-lg border border-border bg-background-elevated text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/50"
-          >
-            <option value="">Todos os status</option>
-            <option value="P">Pendente</option>
-            <option value="A">Aberta</option>
-            <option value="F">Finalizada</option>
-          </select>
-        </div>
+        <Select
+          id="filtro-status"
+          label="Status"
+          value={status}
+          onChange={(e) => { setOffset(0); setStatus(e.target.value) }}
+        >
+          <option value="">Todos os status</option>
+          <option value="P">Pendente</option>
+          <option value="A">Aberta</option>
+          <option value="F">Finalizada</option>
+        </Select>
         <form onSubmit={onBuscar} className="flex gap-2 items-end">
-          <div>
-            <label htmlFor="filtro-busca" className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wide">Busca</label>
-            <input
-              id="filtro-busca"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Nº ou descrição"
-              className="px-3 py-2 text-sm rounded-lg border border-border bg-background-elevated text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/50"
-            />
-          </div>
+          <Input
+            id="filtro-busca"
+            label="Busca"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Nº ou descrição"
+          />
           <Button type="submit" variant="secondary">Buscar</Button>
         </form>
       </div>
@@ -173,37 +169,23 @@ export function CaixasPage() {
           title="Nova caixa"
           footer={
             <>
-              <button
-                type="button"
-                onClick={() => setNovaAberta(false)}
-                className="flex-1 py-2.5 rounded-lg border border-border text-sm font-medium text-slate-400 hover:bg-background-elevated"
-              >
+              <Button variant="secondary" type="button" onClick={() => setNovaAberta(false)}>
                 Cancelar
-              </button>
-              <button
-                type="submit"
-                form="form-nova-caixa"
-                disabled={salvando}
-                className="flex-1 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary-600 disabled:opacity-50"
-              >
+              </Button>
+              <Button type="submit" form="form-nova-caixa" disabled={salvando}>
                 Criar
-              </button>
+              </Button>
             </>
           }
         >
           <form id="form-nova-caixa" onSubmit={criar} className="space-y-4">
-            <div>
-              <label htmlFor="obs" className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">
-                Descrição / origem (opcional)
-              </label>
-              <input
-                id="obs"
-                value={novaObs}
-                onChange={(e) => setNovaObs(e.target.value)}
-                placeholder="Ex.: Lote Cuiabá"
-                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background-elevated text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/50"
-              />
-            </div>
+            <Input
+              id="obs"
+              label="Descrição / origem (opcional)"
+              value={novaObs}
+              onChange={(e) => setNovaObs(e.target.value)}
+              placeholder="Ex.: Lote Cuiabá"
+            />
             {erroModal && <p className="text-sm text-danger">{erroModal}</p>}
           </form>
         </Modal>

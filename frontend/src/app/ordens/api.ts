@@ -93,6 +93,7 @@ export interface AbrirPayload {
   tipo_servico: TipoServico
   condicao_chegada?: string | null
   acessorios?: string | null
+  caixa?: number | null
 }
 
 export interface AvancarPayload {
