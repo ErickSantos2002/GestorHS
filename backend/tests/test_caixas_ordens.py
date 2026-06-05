@@ -55,15 +55,6 @@ def test_desvincular_ordem(client, usuario_comum, fases_seed, db_session):
     assert client.get(f"/caixas/{cid}", headers=h).json()["total_os"] == 0
 
 
-def test_vincular_em_caixa_finalizada_409(client, usuario_comum, fases_seed, db_session):
-    h = _headers(client, "comum", "senha123")
-    cid = client.post("/caixas", json={}, headers=h).json()["id"]
-    client.post(f"/caixas/{cid}/abrir", headers=h)
-    client.post(f"/caixas/{cid}/finalizar", headers=h)
-    oid = _ordem_solta(db_session)
-    assert client.post(f"/caixas/{cid}/ordens", json={"ordem_id": oid}, headers=h).status_code == 409
-
-
 def test_vincular_ordem_inexistente_404(client, usuario_comum):
     h = _headers(client, "comum", "senha123")
     cid = client.post("/caixas", json={}, headers=h).json()["id"]

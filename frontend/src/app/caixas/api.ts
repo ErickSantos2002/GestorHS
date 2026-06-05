@@ -24,15 +24,6 @@ export function formatData(iso: string | null): string {
   return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('pt-BR')
 }
 
-export type StatusCaixa = 'P' | 'A' | 'F'
-
-// tons válidos do componente Badge: primary | danger | warning | info | neutral (sem 'success').
-export const STATUS_CAIXA: Record<string, { label: string; tone: 'warning' | 'info' | 'primary' }> = {
-  P: { label: 'Pendente', tone: 'warning' },
-  A: { label: 'Aberta', tone: 'info' },
-  F: { label: 'Finalizada', tone: 'primary' },
-}
-
 export interface OrdemResumoCaixa {
   id: number
   cliente: number
@@ -47,7 +38,6 @@ export interface OrdemResumoCaixa {
 export interface CaixaListItem {
   id: number
   data: string | null
-  status: StatusCaixa
   obs: string | null
   total_os: number
   clientes: string[]
@@ -59,12 +49,11 @@ export interface CaixaDetalhe extends CaixaListItem {
   ordens: OrdemResumoCaixa[]
 }
 
-export interface CaixasParams { status?: string; q?: string; offset?: number; limit?: number }
+export interface CaixasParams { q?: string; offset?: number; limit?: number }
 
 export const caixasApi = {
   listar: (params: CaixasParams = {}): Promise<CaixaPage> => {
     const sp = new URLSearchParams()
-    if (params.status) sp.set('status', params.status)
     if (params.q) sp.set('q', params.q)
     sp.set('offset', String(params.offset ?? 0))
     sp.set('limit', String(params.limit ?? 25))
@@ -75,10 +64,6 @@ export const caixasApi = {
     apiJson<CaixaListItem>('/caixas', { method: 'POST', body: JSON.stringify(body) }),
   atualizar: (id: number, body: { obs?: string | null }): Promise<CaixaListItem> =>
     apiJson<CaixaListItem>(`/caixas/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
-  abrir: (id: number): Promise<CaixaListItem> =>
-    apiJson<CaixaListItem>(`/caixas/${id}/abrir`, { method: 'POST' }),
-  finalizar: (id: number): Promise<CaixaListItem> =>
-    apiJson<CaixaListItem>(`/caixas/${id}/finalizar`, { method: 'POST' }),
   excluir: (id: number): Promise<void> =>
     apiVoid(`/caixas/${id}`, { method: 'DELETE' }),
   vincularOrdem: (id: number, ordem_id: number): Promise<CaixaDetalhe> =>

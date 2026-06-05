@@ -2,6 +2,8 @@
 
 **Data:** 2026-06-05
 **Status:** Aprovado para implementação
+
+> **Atualização (2026-06-05, pós-feedback do cliente):** o **status da caixa (Pendente/Aberta/Finalizada) foi removido**. O cliente avaliou que não faz sentido "fechar" a caixa, já que o fechamento é feito por OS — a caixa é apenas um agrupamento para acessar rapidamente um grupo de OS. Removidos: helper `caixas_workflow`, endpoints `/abrir` e `/finalizar`, a trava "Finalizada não aceita vínculos", o campo `status` (modelo/schema/UI) e a coluna `status` do banco (migração `0005_caixas_drop_status`). As seções abaixo descrevem o design original com status; valem hoje **sem** o ciclo de status.
 **Motivação:** Espelhar o recurso de "Caixas" do sistema legado. Como a OS é aberta **por aparelho**, um cliente que envia 20 aparelhos juntos gera 20 OS. A caixa agrupa fisicamente as OS que chegaram/voltam juntas, num local só, para a equipe organizar o lote. Ao abrir a caixa no sistema, vê-se a lista de todas as OS vinculadas.
 
 ## Descoberta de contexto

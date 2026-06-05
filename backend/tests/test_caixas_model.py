@@ -12,7 +12,7 @@ def _seed_caixa_com_os(db_session):
     cli_b = Cliente(nome="Cliente B")
     eq = Equipamento(descricao="Bafômetro")
     db_session.add_all([cli_a, cli_b, eq]); db_session.flush()
-    cx = Caixa(data=date(2026, 6, 5), status="P", obs="Lote Cuiabá")
+    cx = Caixa(data=date(2026, 6, 5), obs="Lote Cuiabá")
     db_session.add(cx); db_session.flush()
     o1 = Ordem(cliente=cli_a.id, fase=4, caixa=cx.id, situacao="E")
     o2 = Ordem(cliente=cli_b.id, fase=4, caixa=cx.id, situacao="E")

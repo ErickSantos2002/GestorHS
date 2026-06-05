@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.1.1',
+    data: '05/06/2026',
+    itens: [
+      { tipo: 'melhoria', texto: 'Caixas simplificadas — removido o status da caixa (Pendente/Aberta/Finalizada). A caixa agora é só um agrupamento para acessar rapidamente um grupo de OS; o fechamento continua sendo feito por OS.' },
+    ],
+  },
+  {
     versao: '1.1.0',
     data: '05/06/2026',
     itens: [

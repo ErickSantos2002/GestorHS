@@ -7,7 +7,6 @@ from app.models.database import get_db
 from app.models import Usuario, Caixa, Ordem
 from app.api.deps import get_current_usuario, require_funcao
 from app.api.cadastros_common import excluir_protegido
-from app.core import caixas_workflow as cw
 from app.schemas.caixas import (
     CaixaCreate, CaixaUpdate, CaixaOut, CaixaDetalhe, CaixaPage, VincularOrdemIn,
 )
@@ -27,7 +26,6 @@ def _get_caixa(db: Session, caixa_id: int) -> Caixa:
 
 @router.get("", response_model=CaixaPage)
 def listar(
-    status: str | None = None,
     q: str | None = None,
     offset: int = 0,
     limit: int = Query(25, ge=1, le=100),
@@ -35,8 +33,6 @@ def listar(
     _: Usuario = Depends(get_current_usuario),
 ):
     query = db.query(Caixa)
-    if status:
-        query = query.filter(Caixa.status == status)
     if q:
         if q.strip().isdigit():
             query = query.filter(Caixa.id == int(q.strip()))
@@ -54,7 +50,7 @@ def obter(caixa_id: int, db: Session = Depends(get_db), _: Usuario = Depends(get
 
 @router.post("", response_model=CaixaOut, status_code=http_status.HTTP_201_CREATED)
 def criar(dados: CaixaCreate, db: Session = Depends(get_db), _: Usuario = Depends(_escrita)):
-    cx = Caixa(data=date.today(), status=cw.PENDENTE, obs=dados.obs)
+    cx = Caixa(data=date.today(), obs=dados.obs)
     db.add(cx)
     db.commit()
     db.refresh(cx)
@@ -69,27 +65,6 @@ def atualizar(caixa_id: int, dados: CaixaUpdate, db: Session = Depends(get_db), 
     db.commit()
     db.refresh(cx)
     return cx
-
-
-def _transicionar(db: Session, cx: Caixa, novo: str) -> Caixa:
-    try:
-        cw.validar_transicao(cx.status, novo)
-    except ValueError as e:
-        raise HTTPException(status_code=409, detail=str(e))
-    cx.status = novo
-    db.commit()
-    db.refresh(cx)
-    return cx
-
-
-@router.post("/{caixa_id}/abrir", response_model=CaixaOut)
-def abrir_caixa(caixa_id: int, db: Session = Depends(get_db), _: Usuario = Depends(_escrita)):
-    return _transicionar(db, _get_caixa(db, caixa_id), cw.ABERTA)
-
-
-@router.post("/{caixa_id}/finalizar", response_model=CaixaOut)
-def finalizar_caixa(caixa_id: int, db: Session = Depends(get_db), _: Usuario = Depends(_escrita)):
-    return _transicionar(db, _get_caixa(db, caixa_id), cw.FINALIZADA)
 
 
 @router.delete("/{caixa_id}", status_code=http_status.HTTP_204_NO_CONTENT)
@@ -108,8 +83,6 @@ def vincular_ordem(
     usuario: Usuario = Depends(_escrita),
 ):
     cx = _get_caixa(db, caixa_id)
-    if not cw.pode_vincular(cx.status):
-        raise HTTPException(status_code=409, detail="caixa finalizada não aceita vínculos")
     ordem = db.query(Ordem).filter(Ordem.id == dados.ordem_id).first()
     if ordem is None:
         raise HTTPException(status_code=404, detail="OS não encontrada")
@@ -128,8 +101,6 @@ def desvincular_ordem(
     usuario: Usuario = Depends(_escrita),
 ):
     cx = _get_caixa(db, caixa_id)
-    if not cw.pode_vincular(cx.status):
-        raise HTTPException(status_code=409, detail="caixa finalizada não aceita alterações")
     ordem = db.query(Ordem).filter(Ordem.id == ordem_id, Ordem.caixa == cx.id).first()
     if ordem is None:
         raise HTTPException(status_code=404, detail="OS não está nesta caixa")

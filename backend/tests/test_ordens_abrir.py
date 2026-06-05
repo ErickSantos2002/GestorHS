@@ -62,18 +62,6 @@ def test_abrir_os_com_caixa(client, usuario_comum, fases_seed, os_base):
     assert det["total_os"] == 1
 
 
-def test_abrir_os_em_caixa_finalizada_409(client, usuario_comum, fases_seed, os_base):
-    h = _headers(client, "comum", "senha123")
-    cid = client.post("/caixas", json={}, headers=h).json()["id"]
-    client.post(f"/caixas/{cid}/abrir", headers=h)
-    client.post(f"/caixas/{cid}/finalizar", headers=h)
-    r = client.post("/ordens", json={
-        "equipamento_cliente": os_base["equipamento_cliente"],
-        "tipo_servico": "C", "caixa": cid,
-    }, headers=h)
-    assert r.status_code == 409
-
-
 def test_abrir_os_caixa_inexistente_404(client, usuario_comum, fases_seed, os_base):
     h = _headers(client, "comum", "senha123")
     r = client.post("/ordens", json={
