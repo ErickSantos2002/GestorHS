@@ -4,13 +4,14 @@ from fastapi import APIRouter, Depends, HTTPException, status as http_status, Qu
 from sqlalchemy.orm import Session
 
 from app.models.database import get_db
-from app.models import Usuario, Caixa
+from app.models import Usuario, Caixa, Ordem
 from app.api.deps import get_current_usuario, require_funcao
 from app.api.cadastros_common import excluir_protegido
 from app.core import caixas_workflow as cw
 from app.schemas.caixas import (
-    CaixaCreate, CaixaUpdate, CaixaOut, CaixaDetalhe, CaixaPage,
+    CaixaCreate, CaixaUpdate, CaixaOut, CaixaDetalhe, CaixaPage, VincularOrdemIn,
 )
+from app.api.ordens_acoes import registrar_log
 
 router = APIRouter(prefix="/caixas", tags=["caixas"])
 
@@ -97,3 +98,41 @@ def excluir(caixa_id: int, db: Session = Depends(get_db), _: Usuario = Depends(_
     if cx.ordens:
         raise HTTPException(status_code=409, detail="caixa possui OS vinculadas")
     excluir_protegido(db, cx)
+
+
+@router.post("/{caixa_id}/ordens", response_model=CaixaDetalhe)
+def vincular_ordem(
+    caixa_id: int,
+    dados: VincularOrdemIn,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(_escrita),
+):
+    cx = _get_caixa(db, caixa_id)
+    if not cw.pode_vincular(cx.status):
+        raise HTTPException(status_code=409, detail="caixa finalizada não aceita vínculos")
+    ordem = db.query(Ordem).filter(Ordem.id == dados.ordem_id).first()
+    if ordem is None:
+        raise HTTPException(status_code=404, detail="OS não encontrada")
+    ordem.caixa = cx.id  # vincula/move (sem checar cliente)
+    registrar_log(db, ordem, usuario, f"OS vinculada à caixa #{cx.id}")
+    db.commit()
+    db.refresh(cx)
+    return cx
+
+
+@router.delete("/{caixa_id}/ordens/{ordem_id}", status_code=http_status.HTTP_204_NO_CONTENT)
+def desvincular_ordem(
+    caixa_id: int,
+    ordem_id: int,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(_escrita),
+):
+    cx = _get_caixa(db, caixa_id)
+    if not cw.pode_vincular(cx.status):
+        raise HTTPException(status_code=409, detail="caixa finalizada não aceita alterações")
+    ordem = db.query(Ordem).filter(Ordem.id == ordem_id, Ordem.caixa == cx.id).first()
+    if ordem is None:
+        raise HTTPException(status_code=404, detail="OS não está nesta caixa")
+    ordem.caixa = None
+    registrar_log(db, ordem, usuario, f"OS removida da caixa #{cx.id}")
+    db.commit()
