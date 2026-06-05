@@ -95,9 +95,6 @@ def abrir(dados: OrdemAbrirIn, db: Session = Depends(get_db),
         cx = db.query(Caixa).filter(Caixa.id == dados.caixa).first()
         if cx is None:
             raise HTTPException(status_code=404, detail="caixa não encontrada")
-        from app.core import caixas_workflow as cw
-        if not cw.pode_vincular(cx.status):
-            raise HTTPException(status_code=409, detail="caixa finalizada não aceita vínculos")
     ordem = Ordem(
         cliente=ec.cliente,
         equipamento_cliente=ec.id,

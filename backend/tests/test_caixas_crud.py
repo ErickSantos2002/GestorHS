@@ -3,12 +3,11 @@ def _headers(client, login, senha):
     return {"Authorization": f"Bearer {tok['access_token']}"}
 
 
-def test_criar_caixa_nasce_pendente(client, usuario_comum, fases_seed):
+def test_criar_caixa(client, usuario_comum, fases_seed):
     h = _headers(client, "comum", "senha123")
     r = client.post("/caixas", json={"obs": "Lote Cuiabá"}, headers=h)
     assert r.status_code == 201
     body = r.json()
-    assert body["status"] == "P"
     assert body["obs"] == "Lote Cuiabá"
     assert body["data"] is not None
     assert body["total_os"] == 0
@@ -40,19 +39,6 @@ def test_patch_obs(client, usuario_comum):
     r = client.patch(f"/caixas/{cid}", json={"obs": "novo"}, headers=h)
     assert r.status_code == 200
     assert r.json()["obs"] == "novo"
-
-
-def test_transicoes_status(client, usuario_comum):
-    h = _headers(client, "comum", "senha123")
-    cid = client.post("/caixas", json={}, headers=h).json()["id"]
-    assert client.post(f"/caixas/{cid}/abrir", headers=h).json()["status"] == "A"
-    assert client.post(f"/caixas/{cid}/finalizar", headers=h).json()["status"] == "F"
-
-
-def test_transicao_invalida_409(client, usuario_comum):
-    h = _headers(client, "comum", "senha123")
-    cid = client.post("/caixas", json={}, headers=h).json()["id"]
-    assert client.post(f"/caixas/{cid}/finalizar", headers=h).status_code == 409
 
 
 def test_delete_caixa_vazia(client, usuario_comum):

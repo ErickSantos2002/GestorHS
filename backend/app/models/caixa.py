@@ -8,7 +8,6 @@ class Caixa(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     data = Column(Date, nullable=True)
-    status = Column(String(1), nullable=False, default="P")  # P=Pendente, A=Aberta, F=Finalizada
     obs = Column(String(1000), nullable=True)
 
     ordens = relationship("Ordem", back_populates="caixa_rel", lazy="selectin")

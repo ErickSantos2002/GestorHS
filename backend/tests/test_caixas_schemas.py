@@ -13,14 +13,13 @@ def test_caixa_out_from_model(db_session):
 
     cli = Cliente(nome="Cliente Z")
     db_session.add(cli); db_session.flush()
-    cx = Caixa(data=date(2026, 6, 5), status="P", obs="origem X")
+    cx = Caixa(data=date(2026, 6, 5), obs="origem X")
     db_session.add(cx); db_session.flush()
     db_session.add(Ordem(cliente=cli.id, fase=4, caixa=cx.id, situacao="E"))
     db_session.commit(); db_session.refresh(cx)
 
     out = CaixaOut.model_validate(cx)
     assert out.id == cx.id
-    assert out.status == "P"
     assert out.total_os == 1
     assert out.clientes == ["Cliente Z"]
 

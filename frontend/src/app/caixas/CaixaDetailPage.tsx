@@ -1,7 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Button } from '../../components/ui/Button'
-import { Badge } from '../../components/ui/Badge'
 import { Spinner } from '../../components/ui/Spinner'
 import { Modal } from '../../components/ui/Modal'
 import { Input } from '../../components/ui/Input'
@@ -9,7 +8,7 @@ import { Table, TH, TD } from '../../components/ui/Table'
 import { useAuth } from '../../auth/AuthContext'
 import { podeAbrirOS } from '../../auth/roles'
 import { apiJson, ApiError } from '../../lib/api'
-import { caixasApi, formatData, STATUS_CAIXA, type CaixaDetalhe } from './api'
+import { caixasApi, formatData, type CaixaDetalhe } from './api'
 import { AbrirOSModal } from '../ordens/AbrirOSModal'
 
 // Shape retornado por /equipamentos-cliente?q=...&limit=
@@ -41,8 +40,7 @@ export function CaixaDetailPage() {
   const [salvandoObs, setSalvandoObs] = useState(false)
   const [erroObs, setErroObs] = useState('')
 
-  // Transições de status
-  const [executando, setExecutando] = useState(false)
+  // Erro de ações sobre OS (remover/etc.)
   const [erroAcao, setErroAcao] = useState('')
 
   // Modal: Vincular OS existente
@@ -97,32 +95,6 @@ export function CaixaDetailPage() {
       setErroObs(err instanceof ApiError ? err.message : 'Falha ao salvar')
     } finally {
       setSalvandoObs(false)
-    }
-  }
-
-  async function abrirCaixa() {
-    setExecutando(true)
-    setErroAcao('')
-    try {
-      await caixasApi.abrir(caixaId)
-      carregar()
-    } catch (err) {
-      setErroAcao(err instanceof ApiError ? err.message : 'Falha ao abrir caixa')
-    } finally {
-      setExecutando(false)
-    }
-  }
-
-  async function finalizarCaixa() {
-    setExecutando(true)
-    setErroAcao('')
-    try {
-      await caixasApi.finalizar(caixaId)
-      carregar()
-    } catch (err) {
-      setErroAcao(err instanceof ApiError ? err.message : 'Falha ao finalizar caixa')
-    } finally {
-      setExecutando(false)
     }
   }
 
@@ -230,9 +202,7 @@ export function CaixaDetailPage() {
     )
   }
 
-  const statusInfo = STATUS_CAIXA[caixa.status]
   const clientesUnicos = new Set(caixa.ordens.map((o) => o.cliente_nome).filter(Boolean)).size
-  const finalizada = caixa.status === 'F'
 
   return (
     <div className="px-4 md:px-6 py-6 space-y-6 max-w-5xl">
@@ -243,28 +213,11 @@ export function CaixaDetailPage() {
         </Link>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-2xl font-extrabold text-slate-100">Caixa #{caixa.id}</h1>
-              <Badge tone={statusInfo?.tone}>{statusInfo?.label ?? caixa.status}</Badge>
-            </div>
+            <h1 className="text-2xl font-extrabold text-slate-100">Caixa #{caixa.id}</h1>
             <p className="text-sm text-slate-500 mt-1">
               {formatData(caixa.data)} · {caixa.total_os} OS · {clientesUnicos} cliente{clientesUnicos !== 1 ? 's' : ''}
             </p>
           </div>
-          {podeEscrever && (
-            <div className="flex gap-2 flex-wrap">
-              {caixa.status === 'P' && (
-                <Button onClick={abrirCaixa} disabled={executando}>
-                  {executando ? 'Aguarde…' : 'Abrir caixa'}
-                </Button>
-              )}
-              {caixa.status === 'A' && (
-                <Button variant="danger" onClick={finalizarCaixa} disabled={executando}>
-                  {executando ? 'Aguarde…' : 'Finalizar'}
-                </Button>
-              )}
-            </div>
-          )}
         </div>
         {erroAcao && (
           <div className="mt-3 rounded-lg bg-danger/10 border border-danger/20 px-3 py-2.5 text-sm text-danger">
@@ -274,7 +227,7 @@ export function CaixaDetailPage() {
       </div>
 
       {/* Obs editável */}
-      {podeEscrever && !finalizada && (
+      {podeEscrever && (
         <section className="rounded-2xl bg-background-surface border border-border p-5">
           <form onSubmit={salvarObs} className="flex gap-3 items-end">
             <div className="flex-1">
@@ -302,7 +255,7 @@ export function CaixaDetailPage() {
       )}
 
       {/* Ações do lote */}
-      {podeEscrever && !finalizada && (
+      {podeEscrever && (
         <div className="flex gap-2 flex-wrap">
           <Button onClick={abrirPicker}>Abrir OS</Button>
           <Button variant="secondary" onClick={() => { setOsVincular(''); setErroVincular(''); setVincularAberto(true) }}>
@@ -325,7 +278,7 @@ export function CaixaDetailPage() {
               <TH>Cliente</TH>
               <TH>Equipamento</TH>
               <TH>Fase</TH>
-              {podeEscrever && !finalizada && <TH>Ações</TH>}
+              {podeEscrever && <TH>Ações</TH>}
             </>
           }>
             {caixa.ordens.map((o) => (
@@ -352,7 +305,7 @@ export function CaixaDetailPage() {
                     </span>
                   ) : '—'}
                 </TD>
-                {podeEscrever && !finalizada && (
+                {podeEscrever && (
                   <TD>
                     <div className="flex gap-2">
                       <Button

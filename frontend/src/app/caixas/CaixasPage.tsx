@@ -2,15 +2,13 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Table, TH, TD } from '../../components/ui/Table'
 import { Button } from '../../components/ui/Button'
-import { Badge } from '../../components/ui/Badge'
 import { Spinner } from '../../components/ui/Spinner'
 import { Modal } from '../../components/ui/Modal'
 import { Input } from '../../components/ui/Input'
-import { Select } from '../../components/ui/Select'
 import { useAuth } from '../../auth/AuthContext'
 import { podeAbrirOS } from '../../auth/roles'
 import { ApiError } from '../../lib/api'
-import { caixasApi, formatData, STATUS_CAIXA, type CaixaListItem } from './api'
+import { caixasApi, formatData, type CaixaListItem } from './api'
 
 const PAGE = 25
 
@@ -18,7 +16,6 @@ export function CaixasPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const podeEscrever = podeAbrirOS(user)
-  const [status, setStatus] = useState('')
   const [q, setQ] = useState('')
   const [busca, setBusca] = useState('')
   const [offset, setOffset] = useState(0)
@@ -35,11 +32,11 @@ export function CaixasPage() {
     setDados(null)
     setErro('')
     caixasApi
-      .listar({ status: status || undefined, q: busca || undefined, offset, limit: PAGE })
+      .listar({ q: busca || undefined, offset, limit: PAGE })
       .then((r) => { if (vivo) setDados(r) })
       .catch((e) => { if (vivo) { setErro(e instanceof ApiError ? e.message : 'Falha ao carregar'); setDados({ items: [], total: 0 }) } })
     return () => { vivo = false }
-  }, [status, busca, offset])
+  }, [busca, offset])
 
   async function criar(e: FormEvent) {
     e.preventDefault()
@@ -81,17 +78,6 @@ export function CaixasPage() {
       </div>
 
       <div className="flex flex-wrap gap-2 items-end">
-        <Select
-          id="filtro-status"
-          label="Status"
-          value={status}
-          onChange={(e) => { setOffset(0); setStatus(e.target.value) }}
-        >
-          <option value="">Todos os status</option>
-          <option value="P">Pendente</option>
-          <option value="A">Aberta</option>
-          <option value="F">Finalizada</option>
-        </Select>
         <form onSubmit={onBuscar} className="flex gap-2 items-end">
           <Input
             id="filtro-busca"
@@ -118,7 +104,6 @@ export function CaixasPage() {
             <>
               <TH>Caixa</TH>
               <TH>Data</TH>
-              <TH>Status</TH>
               <TH>OS</TH>
               <TH>Clientes</TH>
               <TH>Descrição</TH>
@@ -132,11 +117,6 @@ export function CaixasPage() {
               >
                 <TD><span className="font-semibold text-slate-200">#{c.id}</span></TD>
                 <TD>{formatData(c.data)}</TD>
-                <TD>
-                  <Badge tone={STATUS_CAIXA[c.status]?.tone}>
-                    {STATUS_CAIXA[c.status]?.label ?? c.status}
-                  </Badge>
-                </TD>
                 <TD>{c.total_os}</TD>
                 <TD>
                   {c.clientes.length === 0

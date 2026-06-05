@@ -26,7 +26,6 @@ class CaixaOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     data: date | None = None
-    status: str
     obs: str | None = None
     total_os: int = 0
     clientes: list[str] = []
