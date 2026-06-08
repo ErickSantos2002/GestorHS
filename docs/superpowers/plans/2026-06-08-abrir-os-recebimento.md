@@ -812,6 +812,49 @@ git commit -m "feat(os): detalhe da OS exibe acessórios/pilhas/bocais/observaç
 
 ---
 
+## Task 7.5: Polimento visual/UX do AbrirOSModal
+
+**Files:**
+- Modify: `frontend/src/app/ordens/AbrirOSModal.tsx`
+- (talvez) Modify: `frontend/src/components/ui/Modal.tsx` (só se precisar de variação de largura — preferir não)
+
+**Objetivo:** o modal está funcional mas visualmente cru. Deixá-lo bonito e organizado, **mantendo a identidade do GestorHS** (tema dark, tokens `bg-background-surface/elevated`, `border-border`, `text-slate-*`, `primary` verde). Não introduzir nova paleta/fonte; elevar com hierarquia, agrupamento, ícones e micro-interações.
+
+**Direção de design (aplicar com capricho):**
+- **Cabeçalho**: título "Abrir OS" com um ícone (reusar `IconOrdens`/`IconCaixas` de `components/ui/icons.tsx`) + subtítulo curto ("Recebimento do equipamento"). Mostrar discretamente o aparelho/contexto se disponível.
+- **Agrupamento em seções** com rótulos sutis (uppercase, `text-slate-500`, tracking) e divisores leves: (1) "Recebimento" (data, tipo, caixa, condição), (2) "Acessórios" (checklist + pilhas/bocais), (3) "Observações".
+- **Ícones por campo** (como o legado): calendário na data, caixa na caixa, lista na condição, etc. — usar ícones existentes; se faltar algum, criar um simples em `icons.tsx` no mesmo estilo (stroke currentColor).
+- **Checklist como chips selecionáveis** (toggle pills) no lugar de checkboxes crus: pílula com borda; selecionada = `bg-primary/15 text-primary border-primary/40`; não selecionada = `border-border text-slate-400 hover:bg-background-elevated`; transição suave. Acessível (button com aria-pressed).
+- **Pilhas/Bocais**: inputs numéricos compactos, com rótulo claro; opcionalmente stepper (− número +). Não exagerar.
+- **Caixa**: dropdown de resultados mais polido (cartões com nº em destaque + descrição em slate-500; hover); o "criar caixa" como ação clara.
+- **Espaçamento e largura**: dar respiro; se o `Modal` (max-w-md) ficar apertado para o grid de 2 colunas, usar uma largura maior SOMENTE para este modal (ex.: envolver o conteúdo numa largura própria) sem quebrar o componente `Modal` global.
+- **Micro-interações**: estados hover/active/selected suaves (`transition-colors`), foco visível (`focus:ring-primary/50`), botão "Abrir" com leve destaque.
+- **Manter 100% do comportamento** já existente (props `caixa`/`onAberta`, validações, payload, busca/cria caixa, erro 409 "Ver OS atual"). Só muda a apresentação.
+
+**Não-objetivos:** nada de nova dependência, nova fonte, ou paleta diferente; não alterar a lógica de submit/estado além do necessário para a apresentação.
+
+- [ ] **Step 1: Reescrever a apresentação do `AbrirOSModal.tsx`**
+
+Reorganize o JSX conforme a direção acima, preservando todo o estado e handlers atuais (`dataChegada`, `tipo`, `condicao`, `checklist`, `pilhas`, `bocais`, `obs`, busca/cria caixa, `submeter`). Implemente o checklist como chips (botões toggle) chamando `toggleChecklist(item.id)`. Agrupe em seções. Adicione ícones. Use os componentes `Input`/`Select`/`Button` onde fizer sentido; chips e seções podem ser markup próprio com classes Tailwind dos tokens do projeto.
+
+- [ ] **Step 2: Verificação**
+
+Run: `cd frontend && npx tsc -b --noEmit && npx eslint src/app/ordens/AbrirOSModal.tsx src/components/ui/icons.tsx && npm run build`
+Expected: tudo verde.
+
+- [ ] **Step 3: Conferência visual (screenshot)**
+
+Garantir front (`npm run dev` :5173) + back (:8000) no ar, logar admin, Frota → abrir aparelho → "Abrir OS", e tirar um screenshot do modal para conferir o capricho (via playwright-core já instalado, headless chrome — mesmo método usado nas verificações anteriores). Ajustar se algo ficar desalinhado.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add frontend/src/app/ordens/AbrirOSModal.tsx frontend/src/components/ui/icons.tsx
+git commit -m "feat(os): UX/visual do AbrirOSModal (seções, ícones, chips de acessórios)"
+```
+
+---
+
 ## Task 8: Changelog v1.2.0 + verificação E2E + memória
 
 **Files:**
