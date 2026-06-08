@@ -2,6 +2,22 @@ import { apiJson, apiFetch, ApiError } from '../../lib/api'
 
 export type TipoServico = 'C' | 'M' | 'A'
 
+export const CHECKLIST_ACESSORIOS: { id: number; label: string }[] = [
+  { id: 1, label: 'Bobinas' },
+  { id: 2, label: 'Bocal' },
+  { id: 3, label: 'Cabos USB' },
+  { id: 4, label: 'Capa' },
+  { id: 5, label: 'Carregador veicular' },
+  { id: 6, label: 'Carregadores AC/DC' },
+  { id: 7, label: 'Impressora' },
+  { id: 8, label: 'Maleta' },
+  { id: 9, label: 'Nf de Remessa' },
+]
+
+export const CONDICOES_CHEGADA = [
+  'Bom estado', 'Com avarias', 'Oxidado', 'Lacrado', 'Sem acessórios',
+] as const
+
 export const TIPO_SERVICO: Record<TipoServico, { label: string; tone: 'primary' | 'warning' | 'neutral' }> = {
   C: { label: 'Calibração', tone: 'primary' },
   M: { label: 'Manutenção', tone: 'warning' },
@@ -69,6 +85,10 @@ export interface OrdemDetalhe extends OrdemListItem {
   calib_teste_media: string | null
   calib_situacao: string | null
   pdf_certificado: string | null
+  pilhas: number
+  bocais: number
+  checklist_ids: number[]
+  acessorios_presentes: string[]
 }
 
 export interface LogOS {
@@ -92,9 +112,13 @@ export interface OrdensParams {
 export interface AbrirPayload {
   equipamento_cliente: number
   tipo_servico: TipoServico
-  condicao_chegada?: string | null
-  acessorios?: string | null
+  data_chegada?: string | null
   caixa?: number | null
+  condicao_chegada?: string | null
+  checklist?: number[] | null
+  pilhas?: number | null
+  bocais?: number | null
+  observacoes?: string | null
 }
 
 export interface AvancarPayload {
