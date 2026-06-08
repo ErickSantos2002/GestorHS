@@ -68,7 +68,7 @@ describe('ordens/api', () => {
   it('abrir faz POST /ordens com o corpo certo', async () => {
     const f = vi.fn().mockResolvedValue(jsonResponse({ id: 1 }, 201))
     vi.stubGlobal('fetch', f)
-    await ordensApi.abrir({ equipamento_cliente: 7, tipo_servico: 'C', condicao_chegada: 'ok', acessorios: null })
+    await ordensApi.abrir({ equipamento_cliente: 7, tipo_servico: 'C', condicao_chegada: 'ok' })
     expect(String(f.mock.calls[0][0])).toContain('/ordens')
     expect(f.mock.calls[0][1]).toMatchObject({ method: 'POST' })
     const body = String(f.mock.calls[0][1].body)
