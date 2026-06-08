@@ -85,3 +85,17 @@ class Ordem(Base):
     @property
     def caixa_obs(self):
         return self.caixa_rel.obs if self.caixa_rel else None
+
+    @property
+    def checklist_ids(self):
+        from app.core.recebimento import checklist_csv_para_ids
+        return checklist_csv_para_ids(self.checklist)
+
+    @property
+    def acessorios_presentes(self):
+        from app.core.recebimento import CHECKLIST_ACESSORIOS
+        return [CHECKLIST_ACESSORIOS[i] for i in self.checklist_ids]
+
+    @property
+    def bocais(self):
+        return self.sopradores or 0
