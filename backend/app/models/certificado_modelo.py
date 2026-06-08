@@ -7,7 +7,7 @@ class CertificadoModelo(Base):
     __tablename__ = "certificados"
 
     id = Column(Integer, primary_key=True, index=True)
-    equipamento = Column(Integer, ForeignKey("equipamentos.id"), nullable=True, unique=True)
+    equipamento = Column(Integer, ForeignKey("equipamentos.id"), nullable=False, unique=True)
     descricao = Column(String(100), nullable=True)
     texto = Column(Text, nullable=True)
 
