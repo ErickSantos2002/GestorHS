@@ -3,6 +3,10 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/Spinner'
+import {
+  IconNote, IconCalendar, IconChart, IconCamera, IconClock,
+  IconCheck, IconSearch, IconBattery, IconWrench, IconCaixas, IconX,
+} from '../../components/ui/icons'
 import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
 import { isAdmin, podeAbrirOS } from '../../auth/roles'
@@ -11,12 +15,83 @@ import { ordensApi, fotosApi, certificadoApi, TIPO_SERVICO, TRANSICOES, formatDa
 import { AvancarModal } from './AvancarModal'
 import { CancelarModal } from './CancelarModal'
 import { FotoImg } from './FotoImg'
+import { FotoLightbox } from './FotoLightbox'
 
-function Campo({ label, valor }: { label: string; valor: ReactNode }) {
+// Fluxo linear de fases para a barra de progresso
+const FLUXO_FASES = [
+  { id: 4, nome: 'Recebido' },
+  { id: 5, nome: 'Laboratório' },
+  { id: 6, nome: 'Pós-Vendas' },
+  { id: 7, nome: 'Preparando Retorno' },
+  { id: 8, nome: 'Finalizada' },
+]
+
+function Campo({ label, valor }: { label: ReactNode; valor: ReactNode }) {
   return (
-    <div>
-      <dt className="text-xs text-slate-500">{label}</dt>
-      <dd className="text-sm text-slate-200">{valor ?? '—'}</dd>
+    <div className="min-w-0">
+      <dt className="text-[11px] font-medium text-slate-500 uppercase tracking-wide">{label}</dt>
+      <dd className="text-sm text-slate-200 mt-0.5 wrap-break-word">{valor ?? '—'}</dd>
+    </div>
+  )
+}
+
+function Secao({ icon, titulo, acao, children }: { icon: ReactNode; titulo: string; acao?: ReactNode; children: ReactNode }) {
+  return (
+    <section className="rounded-2xl bg-background-surface border border-border p-5 space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-100">
+          <span className="text-slate-500">{icon}</span>
+          {titulo}
+        </h2>
+        {acao}
+      </div>
+      {children}
+    </section>
+  )
+}
+
+function FaseStepper({ faseAtual, cor }: { faseAtual: number | null; cor: string | null }) {
+  if (faseAtual === 9) {
+    return (
+      <div className="inline-flex items-center gap-2 rounded-lg bg-danger/10 border border-danger/30 px-3 py-2 text-sm font-semibold text-danger">
+        <IconX className="w-4 h-4" />
+        OS cancelada
+      </div>
+    )
+  }
+  const posAtual = FLUXO_FASES.findIndex((f) => f.id === faseAtual)
+  return (
+    <div className="flex items-start overflow-x-auto pb-1">
+      {FLUXO_FASES.map((f, i) => {
+        const done = posAtual > -1 && i < posAtual
+        const atual = i === posAtual
+        const corAtual = cor ? `#${cor}` : '#10b981'
+        return (
+          <div key={f.id} className="flex items-start min-w-0 flex-1">
+            <div className="flex flex-col items-center gap-1.5 min-w-16">
+              <div
+                className={
+                  'grid place-items-center w-8 h-8 rounded-full text-xs font-bold shrink-0 transition-colors ' +
+                  (done
+                    ? 'bg-primary text-white'
+                    : atual
+                      ? 'text-white'
+                      : 'border border-border text-slate-600')
+                }
+                style={atual ? { backgroundColor: corAtual } : undefined}
+              >
+                {done ? <IconCheck className="w-4 h-4" /> : i + 1}
+              </div>
+              <span className={'text-[11px] text-center leading-tight ' + (atual ? 'text-slate-200 font-semibold' : done ? 'text-slate-400' : 'text-slate-600')}>
+                {f.nome}
+              </span>
+            </div>
+            {i < FLUXO_FASES.length - 1 && (
+              <div className={'h-0.5 flex-1 mt-4 mx-1 rounded-full ' + (i < posAtual ? 'bg-primary' : 'bg-border')} />
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -35,6 +110,7 @@ export function OrdemDetailPage() {
   const [fotos, setFotos] = useState<Foto[]>([])
   const [erroFoto, setErroFoto] = useState('')
   const [erroCert, setErroCert] = useState('')
+  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null)
 
   useEffect(() => {
     let ativo = true
@@ -146,101 +222,147 @@ export function OrdemDetailPage() {
 
   return (
     <div className="px-4 md:px-6 py-6 space-y-6 max-w-4xl">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-extrabold text-slate-100">OS #{os.id}</h1>
-          {os.fase_descricao && (
-            <Badge tone="neutral">
-              <span className="inline-flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full" style={{ background: `#${os.fase_cor}` }} />
-                {os.fase_descricao}
-              </span>
-            </Badge>
-          )}
+      {/* Hero */}
+      <div className="rounded-2xl bg-linear-to-br from-background-surface to-background-elevated border border-border p-5 sm:p-6 space-y-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-2xl font-extrabold text-slate-100">OS #{os.id}</h1>
+              {os.fase_descricao && (
+                <span
+                  className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold"
+                  style={{ backgroundColor: `#${os.fase_cor}1f`, color: `#${os.fase_cor}` }}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: `#${os.fase_cor}` }} />
+                  {os.fase_descricao}
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-slate-400 mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="font-semibold text-slate-200">{os.cliente_nome ?? '—'}</span>
+              {os.equipamento_descricao && <><span className="text-slate-600">·</span><span>{os.equipamento_descricao}</span></>}
+              {os.equipamento_serie && <><span className="text-slate-600">·</span><span>Série {os.equipamento_serie}</span></>}
+            </p>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            {ativa && podeAgir && transicao && <Button onClick={() => setAcao('avancar')}>{transicao.rotulo}</Button>}
+            {ativa && podeAgir && <Button variant="danger" onClick={() => setAcao('cancelar')}>Cancelar OS</Button>}
+            <Button variant="secondary" onClick={() => navigate('/app/ordens')}>Voltar</Button>
+          </div>
         </div>
-        <div className="flex gap-2">
-          {ativa && podeAgir && transicao && <Button onClick={() => setAcao('avancar')}>{transicao.rotulo}</Button>}
-          {ativa && podeAgir && <Button variant="danger" onClick={() => setAcao('cancelar')}>Cancelar OS</Button>}
-          <Button variant="secondary" onClick={() => navigate('/app/ordens')}>Voltar</Button>
+        <div className="pt-5 border-t border-border">
+          <FaseStepper faseAtual={os.fase} cor={os.fase_cor} />
         </div>
       </div>
 
-      <section className="rounded-2xl bg-background-surface border border-border p-5 grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Campo label="Cliente" valor={os.cliente_nome} />
-        <Campo label="Equipamento" valor={os.equipamento_descricao} />
-        <Campo label="Série" valor={os.equipamento_serie} />
-        <Campo label="Situação" valor={os.situacao} />
-      </section>
-
-      <section className="rounded-2xl bg-background-surface border border-border p-5 space-y-3">
-        <h2 className="text-sm font-semibold text-slate-100">Recebimento</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {/* Recebimento */}
+      <Secao icon={<IconNote className="w-4 h-4" />} titulo="Recebimento">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-5">
           <Campo label="Tipo de serviço" valor={tipo} />
-          <Campo label="Condição de chegada" valor={os.condicao_chegada} />
-          <Campo label="Acessórios" valor={os.acessorios_presentes.length ? os.acessorios_presentes.join(', ') : '—'} />
-          <Campo label="Pilhas" valor={os.pilhas} />
-          <Campo label="Bocais" valor={os.bocais} />
-          <Campo label="Observações" valor={os.obs || '—'} />
+          <Campo label="Condição de chegada" valor={os.condicao_chegada ? <Badge tone="neutral">{os.condicao_chegada}</Badge> : '—'} />
           <Campo label="Data de chegada" valor={formatData(os.data_chegada)} />
-          {os.caixa && (
-            <Campo
-              label="Caixa"
-              valor={<Link to={`/app/caixas/${os.caixa}`} className="text-primary hover:underline">#{os.caixa}</Link>}
-            />
+          <Campo
+            label="Caixa"
+            valor={os.caixa
+              ? <Link to={`/app/caixas/${os.caixa}`} className="inline-flex items-center gap-1 text-primary hover:underline"><IconCaixas className="w-3.5 h-3.5" />#{os.caixa}</Link>
+              : '—'}
+          />
+          <Campo label={<span className="inline-flex items-center gap-1"><IconBattery className="w-3 h-3" />Pilhas</span>} valor={os.pilhas} />
+          <Campo label={<span className="inline-flex items-center gap-1"><IconWrench className="w-3 h-3" />Bocais</span>} valor={os.bocais} />
+        </div>
+        <div>
+          <dt className="text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-1.5">Acessórios</dt>
+          {os.acessorios_presentes.length ? (
+            <div className="flex flex-wrap gap-1.5">
+              {os.acessorios_presentes.map((a) => (
+                <span key={a} className="rounded-full bg-primary/15 text-primary border border-primary/30 px-2.5 py-1 text-xs">{a}</span>
+              ))}
+            </div>
+          ) : (
+            <span className="text-sm text-slate-500">—</span>
           )}
         </div>
-      </section>
+        {os.obs && (
+          <div>
+            <dt className="text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-1">Observações</dt>
+            <dd className="text-sm text-slate-200 whitespace-pre-wrap">{os.obs}</dd>
+          </div>
+        )}
+      </Secao>
 
-      <section className="rounded-2xl bg-background-surface border border-border p-5 space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-100">Fotos</h2>
-          {podeFotos && (
-            <label className="cursor-pointer">
-              <span className="inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-medium bg-primary text-white hover:opacity-90 transition-opacity">
-                Enviar foto
-              </span>
-              <input type="file" accept="image/*" className="hidden" onChange={onEnviarFoto} />
-            </label>
-          )}
-        </div>
+      {/* Fotos */}
+      <Secao
+        icon={<IconCamera className="w-4 h-4" />}
+        titulo="Fotos"
+        acao={podeFotos && (
+          <label className="cursor-pointer">
+            <span className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold bg-primary text-white hover:bg-primary-600 transition-colors">
+              <IconCamera className="w-3.5 h-3.5" /> Enviar foto
+            </span>
+            <input type="file" accept="image/*" className="hidden" onChange={onEnviarFoto} />
+          </label>
+        )}
+      >
         {erroFoto && <p className="text-sm text-danger">{erroFoto}</p>}
         {fotos.length === 0 ? (
           <p className="text-sm text-slate-500">Nenhuma foto.</p>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-            {fotos.map((f) => (
-              <div key={f.id} className="flex flex-col gap-1">
-                <FotoImg url={f.url} alt={f.legenda ?? 'foto'} className="w-full h-28 object-cover rounded-lg" />
-                {f.legenda && <p className="text-xs text-slate-500 truncate">{f.legenda}</p>}
+            {fotos.map((f, idx) => (
+              <div key={f.id} className="group relative">
+                <button
+                  type="button"
+                  onClick={() => setLightboxIdx(idx)}
+                  className="block w-full overflow-hidden rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                  aria-label="Ampliar foto"
+                >
+                  <FotoImg url={f.url} alt={f.legenda ?? 'foto'} className="w-full h-32 object-cover transition-transform duration-200 group-hover:scale-105" />
+                  <span className="absolute inset-0 grid place-items-center bg-black/0 group-hover:bg-black/40 opacity-0 group-hover:opacity-100 transition-all">
+                    <IconSearch className="w-6 h-6 text-white" />
+                  </span>
+                </button>
+                {f.legenda && <p className="text-xs text-slate-500 truncate mt-1">{f.legenda}</p>}
                 {podeFotos && (
                   <button
                     type="button"
                     onClick={() => void onExcluirFoto(f.id)}
-                    className="text-xs text-danger hover:underline text-left"
+                    aria-label="Excluir foto"
+                    className="absolute top-1.5 right-1.5 grid place-items-center w-7 h-7 rounded-lg bg-black/50 text-white opacity-0 group-hover:opacity-100 hover:bg-danger transition-all"
                   >
-                    Excluir
+                    <IconX className="w-4 h-4" />
                   </button>
                 )}
               </div>
             ))}
           </div>
         )}
-      </section>
+      </Secao>
 
-      <section className="rounded-2xl bg-background-surface border border-border p-5 space-y-3">
-        <h2 className="text-sm font-semibold text-slate-100">Datas</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {/* Datas */}
+      <Secao icon={<IconCalendar className="w-4 h-4" />} titulo="Datas">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-5">
           <Campo label="Calibração" valor={formatData(os.data_calibracao)} />
           <Campo label="Aceite" valor={formatData(os.data_aceite)} />
           <Campo label="Retorno (postagem)" valor={formatData(os.data_retorno)} />
           <Campo label="Próxima calibração" valor={formatData(os.prox_calibragem)} />
         </div>
-      </section>
+      </Secao>
 
-      <section className="rounded-2xl bg-background-surface border border-border p-5 space-y-3">
-        <h2 className="text-sm font-semibold text-slate-100">Resultados da calibração</h2>
+      {/* Resultados da calibração */}
+      <Secao
+        icon={<IconChart className="w-4 h-4" />}
+        titulo="Resultados da calibração"
+        acao={podeCertificado && (
+          <label className="cursor-pointer">
+            <span className="inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-semibold bg-primary text-white hover:bg-primary-600 transition-colors">
+              Enviar certificado (PDF)
+            </span>
+            <input type="file" accept="application/pdf" className="hidden" onChange={onEnviarCertificado} />
+          </label>
+        )}
+      >
         {temCalib ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-5">
             <Campo label="Certificado" valor={os.calib_cert} />
             <Campo label="Temperatura" valor={os.calib_temp} />
             <Campo label="Pressão" valor={os.calib_pressao} />
@@ -253,39 +375,39 @@ export function OrdemDetailPage() {
         ) : (
           <p className="text-sm text-slate-500">Sem resultados de calibração ainda.</p>
         )}
-        {podeCertificado && (
-          <div className="pt-1">
-            <label className="cursor-pointer">
-              <span className="inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-medium bg-primary text-white hover:opacity-90 transition-opacity">
-                Enviar certificado (PDF)
-              </span>
-              <input type="file" accept="application/pdf" className="hidden" onChange={onEnviarCertificado} />
-            </label>
-            {erroCert && <p className="text-sm text-danger mt-1">{erroCert}</p>}
-          </div>
-        )}
-      </section>
+        {erroCert && <p className="text-sm text-danger">{erroCert}</p>}
+      </Secao>
 
-      <section className="rounded-2xl bg-background-surface border border-border p-5 space-y-3">
-        <h2 className="text-sm font-semibold text-slate-100">Histórico</h2>
+      {/* Histórico */}
+      <Secao icon={<IconClock className="w-4 h-4" />} titulo="Histórico">
         {logs.length === 0 ? (
           <p className="text-sm text-slate-500">Sem eventos.</p>
         ) : (
-          <ol className="space-y-2">
-            {logs.map((l) => (
-              <li key={l.id} className="flex gap-3 text-sm">
-                <span className="text-xs text-slate-500 shrink-0 w-28">{formatData(l.datalog)}</span>
-                <span className="text-slate-200">{l.texto ?? '—'}</span>
+          <ol>
+            {logs.map((l, i) => (
+              <li key={l.id} className="flex gap-3">
+                <div className="flex flex-col items-center">
+                  <span className="w-2.5 h-2.5 rounded-full bg-primary mt-1.5 shrink-0" />
+                  {i < logs.length - 1 && <span className="w-px flex-1 bg-border my-1" />}
+                </div>
+                <div className="pb-4">
+                  <p className="text-sm text-slate-200">{l.texto ?? '—'}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">{formatData(l.datalog)}</p>
+                </div>
               </li>
             ))}
           </ol>
         )}
-      </section>
+      </Secao>
 
       {acao === 'avancar' && transicao && (
         <AvancarModal os={os} rotulo={transicao.rotulo} pedeCodRetorno={transicao.pedeCodRetorno} pedeCalibracao={transicao.pedeCalibracao} onClose={() => setAcao(null)} onConcluido={aoConcluir} />
       )}
       {acao === 'cancelar' && <CancelarModal os={os} onClose={() => setAcao(null)} onConcluido={aoConcluir} />}
+
+      {lightboxIdx !== null && fotos[lightboxIdx] && (
+        <FotoLightbox fotos={fotos} indiceInicial={lightboxIdx} onClose={() => setLightboxIdx(null)} />
+      )}
     </div>
   )
 }
