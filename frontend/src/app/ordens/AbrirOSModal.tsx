@@ -137,6 +137,7 @@ export function AbrirOSModal({ equipamentoClienteId, osAtual, onClose, caixa, on
       open
       onClose={onClose}
       title="Abrir OS"
+      size="xl"
       footer={
         <>
           <Button variant="secondary" type="button" onClick={onClose}>Cancelar</Button>
@@ -146,8 +147,7 @@ export function AbrirOSModal({ equipamentoClienteId, osAtual, onClose, caixa, on
         </>
       }
     >
-      {/* Wrapper com largura própria — não afeta outros modais */}
-      <div className="sm:w-120">
+      <div>
         {/* Cabeçalho do corpo */}
         <div className="flex items-center gap-3 mb-5">
           <div className="grid place-items-center w-10 h-10 rounded-xl bg-primary/15 text-primary shrink-0">
@@ -159,7 +159,7 @@ export function AbrirOSModal({ equipamentoClienteId, osAtual, onClose, caixa, on
           </div>
         </div>
 
-        <form id="form-abrir-os" className="space-y-6 max-h-[65vh] overflow-y-auto pr-1" onSubmit={submeter}>
+        <form id="form-abrir-os" className="space-y-6" onSubmit={submeter}>
           {/* Seção: Recebimento */}
           <section className="space-y-4">
             <SectionLabel icon={<IconCaixas className="w-3.5 h-3.5" />}>Recebimento</SectionLabel>
@@ -263,10 +263,9 @@ export function AbrirOSModal({ equipamentoClienteId, osAtual, onClose, caixa, on
 
           {/* Seção: Acessórios */}
           <section className="space-y-4 border-t border-border pt-5">
-            <SectionLabel icon={<IconTag className="w-3.5 h-3.5" />}>Acessórios</SectionLabel>
+            <SectionLabel icon={<IconTag className="w-3.5 h-3.5" />}>Acessórios que vieram com o aparelho</SectionLabel>
 
             <div>
-              <FieldLabel icon={<IconTag className="w-3.5 h-3.5" />}>Checklist</FieldLabel>
               <div className="flex flex-wrap gap-2">
                 {CHECKLIST_ACESSORIOS.map((item) => {
                   const ativo = checklist.includes(item.id)
