@@ -30,7 +30,7 @@ def listar_modelos(
     if q:
         query = query.filter(Equipamento.descricao.ilike(f"%{q.strip()}%"))
     equipamentos = query.order_by(Equipamento.descricao).all()
-    com_cert = set(db.query(CertificadoModelo.equipamento).scalars().all())
+    com_cert = {row[0] for row in db.query(CertificadoModelo.equipamento).all()}
     items = [
         ModeloItem(equipamento=e.id, equipamento_descricao=e.descricao, tem_certificado=e.id in com_cert)
         for e in equipamentos
