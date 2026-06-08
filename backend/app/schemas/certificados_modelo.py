@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict
 
 
@@ -37,3 +39,11 @@ class ImagemOut(BaseModel):
 
 class ImagemPage(BaseModel):
     items: list[ImagemOut]
+
+
+class OSCertificadoOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    tipo: str
+    html: str | None = None
+    pdf: str | None = None
+    data_geracao: datetime | None = None

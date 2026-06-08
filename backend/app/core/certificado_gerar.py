@@ -1,10 +1,10 @@
 """Motor de preenchimento do certificado: monta o contexto a partir da OS e
 substitui os campos [token] no HTML do modelo."""
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 from sqlalchemy.orm import Session
 
-from app.models import Equipamento, Marca, TipoCalibragem
+from app.models import Equipamento, Marca, TipoCalibragem, CertificadoModelo, OSCertificado
 
 # Campos suportados (expostos no editor de modelos)
 CAMPOS: list[tuple[str, str]] = [
@@ -105,3 +105,37 @@ def preencher(html: str, contexto: dict[str, str]) -> str:
     for campo, valor in contexto.items():
         html = html.replace(f"[{campo}]", valor or "")
     return html
+
+
+def tipos_para(ordem) -> list[str]:
+    tipos = ["C"]
+    if ordem.tipo_servico in ("M", "A"):
+        tipos.append("M")
+    return tipos
+
+
+def gerar_certificados(db: Session, ordem, tipos: list[str]) -> list:
+    """Para cada tipo pedido, preenche o modelo do aparelho e upserta em os_certificados.
+    Sem modelo p/ o tipo → ignora. Retorna os OSCertificado gerados/atualizados."""
+    ec = ordem.equipamento_rel
+    if ec is None:
+        return []
+    contexto = montar_contexto(db, ordem)
+    gerados = []
+    for tipo in tipos:
+        modelo = db.query(CertificadoModelo).filter(
+            CertificadoModelo.equipamento == ec.equipamento, CertificadoModelo.tipo == tipo
+        ).first()
+        if modelo is None or not modelo.texto:
+            continue
+        html = preencher(modelo.texto, contexto)
+        osc = db.query(OSCertificado).filter(
+            OSCertificado.os == ordem.id, OSCertificado.tipo == tipo
+        ).first()
+        if osc is None:
+            osc = OSCertificado(os=ordem.id, tipo=tipo)
+            db.add(osc)
+        osc.html = html
+        osc.data_geracao = datetime.now(timezone.utc)
+        gerados.append(osc)
+    return gerados

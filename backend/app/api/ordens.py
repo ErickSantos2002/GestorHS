@@ -158,6 +158,11 @@ def avancar(ordem_id: int, dados: AvancarIn, db: Session = Depends(get_db),
             if valor is not None:
                 setattr(ordem, campo, valor)
         espelhar_calibracao(db, ordem)
+        try:
+            from app.core.certificado_gerar import gerar_certificados, tipos_para
+            gerar_certificados(db, ordem, tipos_para(ordem))
+        except Exception:
+            pass  # best-effort: geração não deve travar o avanço
         texto = "Calibração/manutenção concluída"
     elif origem == 6:                     # Pós-Vendas -> Preparando Retorno
         ordem.aceite = True
