@@ -5,7 +5,8 @@ class ModeloItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     equipamento: int
     equipamento_descricao: str | None = None
-    tem_certificado: bool = False
+    tem_calibracao: bool = False
+    tem_manutencao: bool = False
 
 
 class ModeloPage(BaseModel):
@@ -16,6 +17,7 @@ class CertificadoModeloOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     equipamento: int
     equipamento_descricao: str | None = None
+    tipo: str = "C"
     descricao: str | None = None
     texto: str = ""
 

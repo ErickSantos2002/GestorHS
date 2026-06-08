@@ -35,23 +35,28 @@ def listar_modelos(
     if q:
         query = query.filter(Equipamento.descricao.ilike(f"%{q.strip()}%"))
     equipamentos = query.order_by(Equipamento.descricao).all()
-    com_cert = {row[0] for row in db.query(CertificadoModelo.equipamento).all()}
+    pares = {(row[0], row[1]) for row in db.query(CertificadoModelo.equipamento, CertificadoModelo.tipo).all()}
     items = [
-        ModeloItem(equipamento=e.id, equipamento_descricao=e.descricao, tem_certificado=e.id in com_cert)
+        ModeloItem(
+            equipamento=e.id,
+            equipamento_descricao=e.descricao,
+            tem_calibracao=(e.id, "C") in pares,
+            tem_manutencao=(e.id, "M") in pares,
+        )
         for e in equipamentos
     ]
     return ModeloPage(items=items)
 
 
 @router.get("/certificados-modelo/{equipamento_id}", response_model=CertificadoModeloOut)
-def obter_modelo(equipamento_id: int, db: Session = Depends(get_db), _: Usuario = Depends(get_current_usuario)):
+def obter_modelo(equipamento_id: int, tipo: str = "C", db: Session = Depends(get_db), _: Usuario = Depends(get_current_usuario)):
     eq = _equipamento_ou_404(db, equipamento_id)
-    cert = db.query(CertificadoModelo).filter(CertificadoModelo.equipamento == equipamento_id).first()
+    cert = db.query(CertificadoModelo).filter(
+        CertificadoModelo.equipamento == equipamento_id, CertificadoModelo.tipo == tipo
+    ).first()
     return CertificadoModeloOut(
-        equipamento=eq.id,
-        equipamento_descricao=eq.descricao,
-        descricao=cert.descricao if cert else None,
-        texto=cert.texto if cert else "",
+        equipamento=eq.id, equipamento_descricao=eq.descricao, tipo=tipo,
+        descricao=cert.descricao if cert else None, texto=cert.texto if cert else "",
     )
 
 
@@ -59,23 +64,24 @@ def obter_modelo(equipamento_id: int, db: Session = Depends(get_db), _: Usuario 
 def salvar_modelo(
     equipamento_id: int,
     dados: CertificadoModeloIn,
+    tipo: str = "C",
     db: Session = Depends(get_db),
     _: Usuario = Depends(_escrita),
 ):
     eq = _equipamento_ou_404(db, equipamento_id)
-    cert = db.query(CertificadoModelo).filter(CertificadoModelo.equipamento == equipamento_id).first()
+    cert = db.query(CertificadoModelo).filter(
+        CertificadoModelo.equipamento == equipamento_id, CertificadoModelo.tipo == tipo
+    ).first()
     if cert is None:
-        cert = CertificadoModelo(equipamento=equipamento_id)
+        cert = CertificadoModelo(equipamento=equipamento_id, tipo=tipo)
         db.add(cert)
     cert.texto = dados.texto
     cert.descricao = dados.descricao
     db.commit()
     db.refresh(cert)
     return CertificadoModeloOut(
-        equipamento=eq.id,
-        equipamento_descricao=eq.descricao,
-        descricao=cert.descricao,
-        texto=cert.texto or "",
+        equipamento=eq.id, equipamento_descricao=eq.descricao, tipo=cert.tipo,
+        descricao=cert.descricao, texto=cert.texto or "",
     )
 
 
