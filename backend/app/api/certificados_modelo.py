@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status as http_status
 from fastapi.responses import FileResponse
@@ -49,7 +50,7 @@ def listar_modelos(
 
 
 @router.get("/certificados-modelo/{equipamento_id}", response_model=CertificadoModeloOut)
-def obter_modelo(equipamento_id: int, tipo: str = "C", db: Session = Depends(get_db), _: Usuario = Depends(get_current_usuario)):
+def obter_modelo(equipamento_id: int, tipo: Literal["C", "M"] = "C", db: Session = Depends(get_db), _: Usuario = Depends(get_current_usuario)):
     eq = _equipamento_ou_404(db, equipamento_id)
     cert = db.query(CertificadoModelo).filter(
         CertificadoModelo.equipamento == equipamento_id, CertificadoModelo.tipo == tipo
@@ -64,7 +65,7 @@ def obter_modelo(equipamento_id: int, tipo: str = "C", db: Session = Depends(get
 def salvar_modelo(
     equipamento_id: int,
     dados: CertificadoModeloIn,
-    tipo: str = "C",
+    tipo: Literal["C", "M"] = "C",
     db: Session = Depends(get_db),
     _: Usuario = Depends(_escrita),
 ):

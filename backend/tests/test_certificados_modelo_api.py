@@ -42,6 +42,17 @@ def test_obter_equipamento_inexistente_404(client, usuario_admin):
     assert client.get("/certificados-modelo/99999", headers=h).status_code == 404
 
 
+def test_upsert_equipamento_inexistente_404(client, usuario_admin):
+    h = _headers(client, "admin", "senha123")
+    assert client.put("/certificados-modelo/99999", json={"texto": "x"}, headers=h).status_code == 404
+
+
+def test_tipo_invalido_422(client, usuario_admin, db_session):
+    h = _headers(client, "admin", "senha123")
+    e = _eq(db_session, "Inv")
+    assert client.get(f"/certificados-modelo/{e}?tipo=X", headers=h).status_code == 422
+
+
 def test_escrita_exige_admin_ou_lab(client, usuario_admin, usuario_comercial, db_session):
     e = _eq(db_session, "Perm")
     h = _headers(client, "comercial", "senha123")
