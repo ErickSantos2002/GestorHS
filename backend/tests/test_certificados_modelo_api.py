@@ -46,6 +46,11 @@ def test_obter_equipamento_inexistente_404(client, usuario_admin):
     assert client.get("/certificados-modelo/99999", headers=h).status_code == 404
 
 
+def test_upsert_equipamento_inexistente_404(client, usuario_admin):
+    h = _headers(client, "admin", "senha123")
+    assert client.put("/certificados-modelo/99999", json={"texto": "x"}, headers=h).status_code == 404
+
+
 def test_escrita_exige_admin_ou_lab(client, usuario_admin, usuario_comercial, db_session):
     e = _eq(db_session, "Perm")
     h = _headers(client, "comercial", "senha123")
