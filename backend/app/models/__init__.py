@@ -17,11 +17,13 @@ from app.models.tipo_calibragem import TipoCalibragem
 from app.models.solicitacao import Solicitacao
 from app.models.foto import Foto
 from app.models.caixa import Caixa
+from app.models.certificado_modelo import CertificadoModelo
+from app.models.certificado_imagem import CertificadoImagem
 
 __all__ = [
     "Funcao", "Usuario", "UsuarioCliente", "Setor", "Categoria",
     "Marca", "Grupo", "Equipamento", "Cliente", "Funcionario",
     "EquipamentoCliente", "HistoricoEquipamento",
     "Fase", "LogOS", "Ordem", "TipoCalibragem", "Solicitacao", "Foto",
-    "Caixa",
+    "Caixa", "CertificadoModelo", "CertificadoImagem",
 ]
