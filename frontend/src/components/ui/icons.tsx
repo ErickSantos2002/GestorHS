@@ -254,3 +254,13 @@ export function IconChart({ className }: IconProps) {
     </svg>
   )
 }
+
+export function IconCertificado({ className }: IconProps) {
+  return (
+    <svg className={base(className)} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 3h9l4 4v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" />
+      <path d="M14 3v4h4M8 17l-1.5 3 2-1 2 1L13 17" />
+      <circle cx="10.5" cy="12" r="2.5" />
+    </svg>
+  )
+}
