@@ -23,6 +23,14 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.2.1',
+    data: '08/06/2026',
+    itens: [
+      { tipo: 'melhoria', texto: 'Tela de detalhe da OS repaginada — barra de progresso das fases, seções mais legíveis (acessórios em etiquetas) e histórico em linha do tempo.' },
+      { tipo: 'novidade', texto: 'Visualizador de imagem nas fotos da OS — clique na foto para ampliar, com navegação entre as fotos e fechar pelo teclado (Esc/setas).' },
+    ],
+  },
+  {
     versao: '1.2.0',
     data: '08/06/2026',
     itens: [
