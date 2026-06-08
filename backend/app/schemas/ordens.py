@@ -79,8 +79,8 @@ class OrdemAbrirIn(BaseModel):
     caixa: int | None = None
     condicao_chegada: str | None = None
     checklist: list[int] | None = None
-    pilhas: int | None = 0
-    bocais: int | None = 0
+    pilhas: int = 0
+    bocais: int = 0
     observacoes: str | None = None
 
 
