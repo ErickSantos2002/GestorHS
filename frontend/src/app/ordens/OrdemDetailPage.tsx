@@ -177,7 +177,10 @@ export function OrdemDetailPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Campo label="Tipo de serviço" valor={tipo} />
           <Campo label="Condição de chegada" valor={os.condicao_chegada} />
-          <Campo label="Acessórios" valor={os.acessorios} />
+          <Campo label="Acessórios" valor={os.acessorios_presentes.length ? os.acessorios_presentes.join(', ') : '—'} />
+          <Campo label="Pilhas" valor={os.pilhas} />
+          <Campo label="Bocais" valor={os.bocais} />
+          <Campo label="Observações" valor={os.obs || '—'} />
           <Campo label="Data de chegada" valor={formatData(os.data_chegada)} />
           {os.caixa && (
             <Campo
