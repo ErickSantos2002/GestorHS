@@ -143,3 +143,64 @@ export function IconCaixas({ className }: IconProps) {
     </svg>
   )
 }
+
+export function IconCalendar({ className }: IconProps) {
+  return (
+    <svg className={base(className)} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M3 9h18M8 3v4M16 3v4" />
+    </svg>
+  )
+}
+
+export function IconWrench({ className }: IconProps) {
+  return (
+    <svg className={base(className)} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14.7 6.3a4 4 0 0 0-5.3 5l-6 6a1.5 1.5 0 0 0 2.1 2.1l6-6a4 4 0 0 0 5-5.3l-2.4 2.4-2.1-.6-.6-2.1 2.4-2.4Z" />
+    </svg>
+  )
+}
+
+export function IconTag({ className }: IconProps) {
+  return (
+    <svg className={base(className)} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 7v5l9 9 7-7-9-9H3Z" />
+      <circle cx="7.5" cy="7.5" r="1.25" />
+    </svg>
+  )
+}
+
+export function IconBattery({ className }: IconProps) {
+  return (
+    <svg className={base(className)} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="8" width="16" height="8" rx="2" />
+      <path d="M22 11v2" />
+    </svg>
+  )
+}
+
+export function IconSearch({ className }: IconProps) {
+  return (
+    <svg className={base(className)} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="7" />
+      <path d="m21 21-4.3-4.3" />
+    </svg>
+  )
+}
+
+export function IconPlus({ className }: IconProps) {
+  return (
+    <svg className={base(className)} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  )
+}
+
+export function IconNote({ className }: IconProps) {
+  return (
+    <svg className={base(className)} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9l-5 5H6a2 2 0 0 1-2-2V5Z" />
+      <path d="M14 19v-3a1 1 0 0 1 1-1h3M8 8h8M8 12h5" />
+    </svg>
+  )
+}
