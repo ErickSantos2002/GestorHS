@@ -121,3 +121,32 @@ def test_calibracao_ignorada_fora_da_fase_lab(client, usuario_comum, fases_seed,
     r = client.post(f"/ordens/{o.id}/avancar", json={"calib_cert": "NAOAPLICA"}, headers=h)
     assert r.status_code == 200 and r.json()["fase"] == 5
     assert r.json()["calib_cert"] is None
+
+
+def test_avanco_5_6_gera_certificado(client, usuario_comum, usuario_lab, fases_seed, os_base, db_session):
+    from app.models import CertificadoModelo
+    db_session.add(CertificadoModelo(equipamento=os_base["equipamento"], tipo="C", texto="<p>[serie]</p>"))
+    db_session.commit()
+    he = _headers(client, "comum", "senha123")
+    hl = _headers(client, "lab", "senha123")
+    oid = _abrir(client, he, os_base["equipamento_cliente"])["id"]
+    client.post(f"/ordens/{oid}/avancar", json={}, headers=he)        # 4->5
+    r = client.post(f"/ordens/{oid}/avancar", json={}, headers=hl)     # 5->6 gera
+    assert r.json()["fase"] == 6
+    certs = client.get(f"/ordens/{oid}/certificados", headers=hl).json()
+    assert any(c["tipo"] == "C" for c in certs)
+
+
+def test_avanco_5_6_nao_quebra_se_geracao_falha(client, usuario_comum, usuario_lab, fases_seed, os_base, monkeypatch):
+    import app.api.ordens as ordens_mod
+
+    def boom(*a, **k):
+        raise RuntimeError("falha simulada na geração")
+
+    monkeypatch.setattr(ordens_mod, "gerar_certificados", boom)
+    he = _headers(client, "comum", "senha123")
+    hl = _headers(client, "lab", "senha123")
+    oid = _abrir(client, he, os_base["equipamento_cliente"])["id"]
+    client.post(f"/ordens/{oid}/avancar", json={}, headers=he)        # 4->5
+    r = client.post(f"/ordens/{oid}/avancar", json={}, headers=hl)     # 5->6
+    assert r.status_code == 200 and r.json()["fase"] == 6              # avanço não foi derrubado

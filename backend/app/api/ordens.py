@@ -10,6 +10,7 @@ from app.api.deps import get_current_usuario, require_funcao
 from app.api.ordens_acoes import agora, registrar_log, exige_funcao_da_fase, espelhar_calibracao
 from app.core import os_workflow as wf
 from app.core import recebimento as rec
+from app.core.certificado_gerar import gerar_certificados, tipos_para
 from app.schemas.ordens import OrdemListOut, OrdemPage, QuadroColuna, OrdemOut, LogOut, OrdemAbrirIn, AvancarIn, CancelarIn
 
 router = APIRouter(prefix="/ordens", tags=["ordens"])
@@ -158,11 +159,13 @@ def avancar(ordem_id: int, dados: AvancarIn, db: Session = Depends(get_db),
             if valor is not None:
                 setattr(ordem, campo, valor)
         espelhar_calibracao(db, ordem)
+        # geração best-effort isolada num SAVEPOINT: se falhar, reverte só a
+        # geração e não invalida a sessão do avanço da OS.
         try:
-            from app.core.certificado_gerar import gerar_certificados, tipos_para
-            gerar_certificados(db, ordem, tipos_para(ordem))
+            with db.begin_nested():
+                gerar_certificados(db, ordem, tipos_para(ordem))
         except Exception:
-            pass  # best-effort: geração não deve travar o avanço
+            pass  # geração não deve travar o avanço
         texto = "Calibração/manutenção concluída"
     elif origem == 6:                     # Pós-Vendas -> Preparando Retorno
         ordem.aceite = True
