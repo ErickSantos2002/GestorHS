@@ -47,8 +47,13 @@ def salvar_upload(file: UploadFile, *, subdir: str, tipos_permitidos: set[str]) 
 
 def caminho_arquivo(subdir: str, basename: str) -> Path:
     base = _base().resolve()
-    alvo = (base / subdir / basename).resolve()
-    if base not in alvo.parents:
+    subdir_base = (base / subdir).resolve()
+    alvo = (subdir_base / basename).resolve()
+    # confina ao subdir exato: impede escapar para subdirs irmãos (ex.: ../certificados)
+    # mesmo permanecendo dentro do UPLOAD_DIR. `basename` é sempre um nome simples.
+    if base not in subdir_base.parents and subdir_base != base:
+        raise ArquivoInvalido(400, "caminho inválido")
+    if alvo.parent != subdir_base:
         raise ArquivoInvalido(400, "caminho inválido")
     return alvo
 
