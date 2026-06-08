@@ -34,3 +34,14 @@ def test_remove(upload_tmp):
     base = storage.salvar_upload(_upload("x.pdf", b"p", "application/pdf"), subdir="certificados/1", tipos_permitidos=storage.TIPOS_PDF)
     storage.remover_arquivo("certificados/1", base)
     assert not storage.caminho_arquivo("certificados/1", base).exists()
+
+
+def test_caminho_bloqueia_escape_para_subdir_irmao(upload_tmp):
+    # não pode escapar do subdir 'certificado-imagens' para um irmão ('certificados') dentro do UPLOAD_DIR
+    with pytest.raises(ArquivoInvalido):
+        storage.caminho_arquivo("certificado-imagens", "../certificados/1/segredo.pdf")
+
+
+def test_caminho_bloqueia_escape_do_upload_dir(upload_tmp):
+    with pytest.raises(ArquivoInvalido):
+        storage.caminho_arquivo("certificado-imagens", "../../etc/passwd")
