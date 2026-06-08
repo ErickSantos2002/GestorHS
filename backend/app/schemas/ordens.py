@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date
 from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -66,14 +66,22 @@ class OrdemOut(BaseModel):
     calib_teste_media: str | None = None
     calib_situacao: str | None = None
     pdf_certificado: str | None = None
+    checklist_ids: list[int] = []
+    acessorios_presentes: list[str] = []
+    pilhas: int = 0
+    bocais: int = 0
 
 
 class OrdemAbrirIn(BaseModel):
     equipamento_cliente: int
     tipo_servico: Literal["C", "M", "A"]
-    condicao_chegada: str | None = None
-    acessorios: str | None = None
+    data_chegada: date | None = None
     caixa: int | None = None
+    condicao_chegada: str | None = None
+    checklist: list[int] | None = None
+    pilhas: int | None = 0
+    bocais: int | None = 0
+    observacoes: str | None = None
 
 
 class AvancarIn(BaseModel):
