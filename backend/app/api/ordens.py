@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status as http_status, Query
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -7,6 +9,7 @@ from app.models import Usuario, Ordem, Cliente, Fase, LogOS, EquipamentoCliente,
 from app.api.deps import get_current_usuario, require_funcao
 from app.api.ordens_acoes import agora, registrar_log, exige_funcao_da_fase, espelhar_calibracao
 from app.core import os_workflow as wf
+from app.core import recebimento as rec
 from app.schemas.ordens import OrdemListOut, OrdemPage, QuadroColuna, OrdemOut, LogOut, OrdemAbrirIn, AvancarIn, CancelarIn
 
 router = APIRouter(prefix="/ordens", tags=["ordens"])
@@ -95,14 +98,30 @@ def abrir(dados: OrdemAbrirIn, db: Session = Depends(get_db),
         cx = db.query(Caixa).filter(Caixa.id == dados.caixa).first()
         if cx is None:
             raise HTTPException(status_code=404, detail="caixa não encontrada")
+    if dados.condicao_chegada is not None and dados.condicao_chegada not in rec.CONDICOES_CHEGADA:
+        raise HTTPException(status_code=400, detail="condição de chegada inválida")
+    try:
+        checklist_csv = rec.checklist_ids_para_csv(dados.checklist)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if dados.data_chegada is not None:
+        data_chegada = datetime(
+            dados.data_chegada.year, dados.data_chegada.month, dados.data_chegada.day,
+            tzinfo=timezone.utc,
+        )
+    else:
+        data_chegada = agora()
     ordem = Ordem(
         cliente=ec.cliente,
         equipamento_cliente=ec.id,
         fase=wf.FASE_RECEBIDO,
         tipo_servico=dados.tipo_servico,
         condicao_chegada=dados.condicao_chegada,
-        acessorios=dados.acessorios,
-        data_chegada=agora(),
+        checklist=checklist_csv,
+        pilhas=dados.pilhas or 0,
+        sopradores=dados.bocais or 0,
+        obs=dados.observacoes,
+        data_chegada=data_chegada,
         recebido=True,
         situacao="E",
         caixa=dados.caixa,

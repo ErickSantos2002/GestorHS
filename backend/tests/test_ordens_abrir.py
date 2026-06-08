@@ -8,7 +8,7 @@ def test_abrir_os_sucesso(client, usuario_comum, fases_seed, os_base, db_session
     h = _headers(client, "comum", "senha123")
     r = client.post("/ordens", json={
         "equipamento_cliente": os_base["equipamento_cliente"], "tipo_servico": "C",
-        "condicao_chegada": "riscado", "acessorios": "case",
+        "condicao_chegada": "Com avarias",
     }, headers=h)
     assert r.status_code == 201
     body = r.json()
@@ -69,3 +69,53 @@ def test_abrir_os_caixa_inexistente_404(client, usuario_comum, fases_seed, os_ba
         "tipo_servico": "C", "caixa": 9999,
     }, headers=h)
     assert r.status_code == 404
+
+
+def test_abrir_grava_recebimento(client, usuario_comum, fases_seed, os_base, db_session):
+    h = _headers(client, "comum", "senha123")
+    r = client.post("/ordens", json={
+        "equipamento_cliente": os_base["equipamento_cliente"],
+        "tipo_servico": "C",
+        "data_chegada": "2026-06-08",
+        "condicao_chegada": "Bom estado",
+        "checklist": [3, 1],
+        "pilhas": 4,
+        "bocais": 2,
+        "observacoes": "veio sem maleta",
+    }, headers=h)
+    assert r.status_code == 201
+    body = r.json()
+    assert body["condicao_chegada"] == "Bom estado"
+    assert body["checklist_ids"] == [1, 3]
+    assert body["acessorios_presentes"] == ["Bobinas", "Cabos USB"]
+    assert body["pilhas"] == 4
+    assert body["bocais"] == 2
+    assert body["obs"] == "veio sem maleta"
+    assert body["data_chegada"].startswith("2026-06-08")
+
+
+def test_abrir_data_chegada_default_hoje(client, usuario_comum, fases_seed, os_base):
+    h = _headers(client, "comum", "senha123")
+    r = client.post("/ordens", json={
+        "equipamento_cliente": os_base["equipamento_cliente"], "tipo_servico": "M",
+    }, headers=h)
+    assert r.status_code == 201
+    assert r.json()["data_chegada"] is not None
+
+
+def test_abrir_condicao_invalida_400(client, usuario_comum, fases_seed, os_base):
+    h = _headers(client, "comum", "senha123")
+    r = client.post("/ordens", json={
+        "equipamento_cliente": os_base["equipamento_cliente"], "tipo_servico": "C",
+        "condicao_chegada": "INEXISTENTE",
+    }, headers=h)
+    assert r.status_code == 400
+
+
+def test_abrir_checklist_id_invalido_400(client, usuario_comum, fases_seed, os_base):
+    h = _headers(client, "comum", "senha123")
+    r = client.post("/ordens", json={
+        "equipamento_cliente": os_base["equipamento_cliente"], "tipo_servico": "C",
+        "checklist": [1, 99],
+    }, headers=h)
+    assert r.status_code == 400
