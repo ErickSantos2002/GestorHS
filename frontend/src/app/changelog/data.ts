@@ -23,6 +23,14 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.2.0',
+    data: '08/06/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'Recebimento de OS mais completo — ao abrir a OS agora dá para registrar data de chegada, vincular ou criar uma caixa, condição de chegada, checklist de acessórios que vieram com o aparelho, quantidade de pilhas e bocais, e observações. Tudo aparece no detalhe da OS.' },
+      { tipo: 'melhoria', texto: 'Visual do formulário de abrir OS reorganizado em seções, com checklist em etiquetas selecionáveis e modais com rolagem.' },
+    ],
+  },
+  {
     versao: '1.1.1',
     data: '05/06/2026',
     itens: [
