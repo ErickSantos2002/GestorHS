@@ -185,23 +185,6 @@ export const fotosApi = {
   },
 }
 
-export const certificadoApi = {
-  enviar: async (ordemId: number, file: File): Promise<{ pdf_certificado: string }> => {
-    const fd = new FormData()
-    fd.append('file', file)
-    const res = await apiFetch(`/ordens/${ordemId}/certificado`, { method: 'POST', body: fd })
-    if (!res.ok) {
-      let detail = res.statusText
-      try { const b = await res.json(); if (b.detail) detail = b.detail } catch { /* sem corpo */ }
-      throw new ApiError(res.status, detail)
-    }
-    return (await res.json()) as { pdf_certificado: string }
-  },
-  baixar: async (ordemId: number): Promise<void> => {
-    const url = await buscarBlobUrl(`/ordens/${ordemId}/certificado`)
-    window.open(url, '_blank', 'noopener')
-  },
-}
 
 export interface OSCertificado {
   tipo: 'C' | 'M'
@@ -240,4 +223,18 @@ export const ordensApi = {
     apiJson<OSCertificado[]>(`/ordens/${id}/gerar-certificado`, payload
       ? { method: 'POST', body: JSON.stringify(payload) }
       : { method: 'POST' }),
+  baixarCertificadoPdf: async (id: number, tipo: 'C' | 'M'): Promise<void> => {
+    const res = await apiFetch(`/ordens/${id}/certificado/${tipo}/pdf`)
+    if (!res.ok) throw new ApiError(res.status, 'Falha ao baixar PDF')
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const nome = tipo === 'C' ? 'calibracao' : 'manutencao'
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `certificado-${id}-${nome}.pdf`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  },
 }

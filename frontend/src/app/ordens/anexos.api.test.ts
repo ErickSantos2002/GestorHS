@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { fotosApi, certificadoApi } from './api'
+import { fotosApi } from './api'
 import { setTokens } from '../../lib/auth-storage'
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -25,13 +25,5 @@ describe('app/ordens anexos api', () => {
     expect(init.body).toBeInstanceOf(FormData)
     const headers = new Headers(init.headers)
     expect(headers.get('Content-Type')).toBeNull()
-  })
-
-  it('certificadoApi.enviar faz POST /ordens/:id/certificado', async () => {
-    const f = vi.fn().mockResolvedValue(jsonResponse({ pdf_certificado: 'x.pdf' }))
-    vi.stubGlobal('fetch', f)
-    await certificadoApi.enviar(7, new File([new Uint8Array([1])], 'c.pdf', { type: 'application/pdf' }))
-    expect(String(f.mock.calls[0][0])).toContain('/ordens/7/certificado')
-    expect(f.mock.calls[0][1].method).toBe('POST')
   })
 })
