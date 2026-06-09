@@ -23,6 +23,14 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.4.0',
+    data: '09/06/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'Certificado gerado no laboratório — ao concluir o laboratório, o sistema preenche o modelo do aparelho com os dados reais (cliente, série, resultados da calibração) e gera o certificado de calibração (e o de manutenção, quando houver). Dá para imprimir/salvar em PDF direto na OS, e há botão para regerar.' },
+      { tipo: 'melhoria', texto: 'Modelos de certificado agora têm dois tipos por aparelho: Calibração e Manutenção.' },
+    ],
+  },
+  {
     versao: '1.3.0',
     data: '08/06/2026',
     itens: [
