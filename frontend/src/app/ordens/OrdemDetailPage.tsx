@@ -11,7 +11,7 @@ import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
 import { isAdmin, podeAbrirOS } from '../../auth/roles'
 import { fasesApi, type Fase } from '../cadastros/api'
-import { ordensApi, fotosApi, certificadoApi, TIPO_SERVICO, TRANSICOES, formatData, type OrdemDetalhe, type LogOS, type Foto, type OSCertificado } from './api'
+import { ordensApi, fotosApi, TIPO_SERVICO, TRANSICOES, formatData, type OrdemDetalhe, type LogOS, type Foto, type OSCertificado } from './api'
 import { AvancarModal } from './AvancarModal'
 import { GerarCertificadoModal } from './GerarCertificadoModal'
 import { CancelarModal } from './CancelarModal'
@@ -169,14 +169,13 @@ export function OrdemDetailPage() {
     )
 
   const tipo = os.tipo_servico && os.tipo_servico in TIPO_SERVICO ? TIPO_SERVICO[os.tipo_servico as keyof typeof TIPO_SERVICO].label : '—'
-  const temCalib = os.calib_cert || os.calib_temp || os.calib_pressao || os.calib_teste_media || os.calib_situacao || os.pdf_certificado
+  const temCalib = os.calib_cert || os.calib_temp || os.calib_pressao || os.calib_teste_media || os.calib_situacao
   const faseAtual = fases.find((f) => f.id === os.fase)
   const responsavelNome = faseAtual?.funcao_nome ?? null
   const podeAgir = isAdmin(user) || (!!responsavelNome && user?.funcao === responsavelNome)
   const ativa = os.fase != null && os.fase >= 4 && os.fase <= 7
   const transicao = os.fase != null ? TRANSICOES[os.fase] : undefined
   const podeFotos = podeAbrirOS(user)
-  const podeCertificado = isAdmin(user) || user?.funcao === 'Laboratório'
   const podeGerarCert = isAdmin(user) || user?.funcao === 'Laboratório'
   const naFaseLab = os.fase === 5
 
@@ -186,26 +185,12 @@ export function OrdemDetailPage() {
     void ordensApi.obter(osId).then(setOs).catch(() => {})
   }
 
-  async function onEnviarCertificado(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
+  async function onBaixarPdf(tipo: 'C' | 'M') {
     setErroCert('')
     try {
-      await certificadoApi.enviar(osId, file)
-      const o = await ordensApi.obter(osId)
-      setOs(o)
-    } catch (err) {
-      setErroCert(err instanceof ApiError ? err.message : 'Falha ao enviar certificado')
-    } finally {
-      e.target.value = ''
-    }
-  }
-
-  async function onBaixarCertificado() {
-    try {
-      await certificadoApi.baixar(osId)
-    } catch {
-      setErroCert('Falha ao baixar certificado')
+      await ordensApi.baixarCertificadoPdf(osId, tipo)
+    } catch (e) {
+      setErroCert(e instanceof ApiError ? e.message : 'Falha ao baixar PDF')
     }
   }
 
@@ -365,14 +350,6 @@ export function OrdemDetailPage() {
       <Secao
         icon={<IconChart className="w-4 h-4" />}
         titulo="Resultados da calibração"
-        acao={podeCertificado && (
-          <label className="cursor-pointer">
-            <span className="inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-semibold bg-primary text-white hover:bg-primary-600 transition-colors">
-              Enviar certificado (PDF)
-            </span>
-            <input type="file" accept="application/pdf" className="hidden" onChange={onEnviarCertificado} />
-          </label>
-        )}
       >
         {temCalib ? (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-5">
@@ -381,9 +358,6 @@ export function OrdemDetailPage() {
             <Campo label="Pressão" valor={os.calib_pressao} />
             <Campo label="Média dos testes" valor={os.calib_teste_media} />
             <Campo label="Situação" valor={os.calib_situacao} />
-            <Campo label="PDF" valor={os.pdf_certificado
-              ? <button type="button" onClick={() => void onBaixarCertificado()} className="text-primary hover:underline text-sm">Baixar certificado</button>
-              : '—'} />
           </div>
         ) : (
           <p className="text-sm text-slate-500">Sem resultados de calibração ainda.</p>
@@ -411,7 +385,7 @@ export function OrdemDetailPage() {
                   {c.tipo === 'C' ? 'Calibração' : 'Manutenção'}
                   <span className="text-xs text-slate-500 ml-2">{formatData(c.data_geracao)}</span>
                 </span>
-                <a href={`/app/ordens/${osId}/certificado/${c.tipo}/imprimir`} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-primary hover:underline">Imprimir</a>
+                <button type="button" onClick={() => void onBaixarPdf(c.tipo)} className="text-xs font-semibold text-primary hover:underline">Baixar PDF</button>
               </li>
             ))}
           </ul>

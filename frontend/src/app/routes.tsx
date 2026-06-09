@@ -15,8 +15,6 @@ import { SolicitacoesPage } from './solicitacoes/SolicitacoesPage'
 import { CaixasPage } from './caixas/CaixasPage'
 import { CaixaDetailPage } from './caixas/CaixaDetailPage'
 import { CertificadosPage } from './certificados/CertificadosPage'
-import { CertificadoImprimir } from './ordens/CertificadoImprimir'
-
 function ComLayout() {
   return (
     <MainLayout>
@@ -28,8 +26,6 @@ function ComLayout() {
 export default function AppRoutes() {
   return (
     <Routes>
-      {/* Impressão: tela limpa, sem sidebar/topbar */}
-      <Route path="ordens/:id/certificado/:tipo/imprimir" element={<CertificadoImprimir />} />
       <Route element={<ComLayout />}>
         <Route index element={<DashboardPage />} />
         <Route path="usuarios" element={<UsuariosPage />} />
