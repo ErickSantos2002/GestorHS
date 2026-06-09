@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status as http_status, Query
@@ -165,7 +166,9 @@ def avancar(ordem_id: int, dados: AvancarIn, db: Session = Depends(get_db),
             with db.begin_nested():
                 gerar_certificados(db, ordem, tipos_para(ordem))
         except Exception:
-            pass  # geração não deve travar o avanço
+            logging.getLogger("app.certificados").warning(
+                "falha ao gerar certificado da OS %s", ordem.id, exc_info=True
+            )  # best-effort: não trava o avanço
         texto = "Calibração/manutenção concluída"
     elif origem == 6:                     # Pós-Vendas -> Preparando Retorno
         ordem.aceite = True
