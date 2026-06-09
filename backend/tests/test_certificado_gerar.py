@@ -20,6 +20,31 @@ def test_preencher_escapa_valor_malicioso():
     assert "&lt;script&gt;" in out
 
 
+def test_preencher_pulapagina_vira_quebra():
+    from app.core.certificado_gerar import preencher
+    out = preencher("A[pulapagina]B", {})
+    assert "[pulapagina]" not in out
+    assert "page-break-after" in out
+
+
+def test_contexto_tem_nomes_legados(db_session):
+    from app.models import Cliente, Ordem
+    from app.core.certificado_gerar import montar_contexto
+    cli = Cliente(nome="ACME"); db_session.add(cli); db_session.flush()
+    o = Ordem(cliente=cli.id, situacao="E", calib_temp="25", calib_pressao="1",
+              calib_teste1="a", calib_teste2="b", calib_teste3="c",
+              calib_teste_media="0,20", calib_situacao="Aprovado")
+    db_session.add(o); db_session.commit(); db_session.refresh(o)
+    ctx = montar_contexto(db_session, o)
+    # nomes legados usados pelos 12 modelos migrados
+    assert ctx["calibtemp"] == "25"
+    assert ctx["calibpressao"] == "1"
+    assert ctx["calibteste1"] == "a"
+    assert ctx["calibtestemedia"] == "0,20"
+    assert ctx["situcalib"] == "Aprovado"
+    assert "datacali" in ctx and "dataentr" in ctx
+
+
 def test_montar_contexto(db_session):
     from app.models import Cliente, Equipamento, Marca, EquipamentoCliente, Ordem
     from app.core.certificado_gerar import montar_contexto

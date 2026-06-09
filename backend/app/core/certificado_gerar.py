@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 
 from app.models import Equipamento, Marca, TipoCalibragem, CertificadoModelo, OSCertificado
 
-# Campos suportados (expostos no editor de modelos)
+# Campos suportados (expostos no editor de modelos). Os nomes batem com os
+# usados nos modelos legados; há aliases "amigáveis" no contexto para modelos novos.
 CAMPOS: list[tuple[str, str]] = [
     ("nomecli", "Nome do cliente"),
     ("cnpj", "CNPJ/CPF do cliente"),
@@ -19,19 +20,23 @@ CAMPOS: list[tuple[str, str]] = [
     ("datacompra", "Data de compra"),
     ("os", "Número da OS"),
     ("calibcert", "Nº do certificado de calibração"),
-    ("datacalibracao", "Data da calibração"),
+    ("datacali", "Data da calibração"),
+    ("dataentr", "Data de recebimento"),
     ("proxcalibragem", "Próxima calibração"),
     ("tipocalibragem", "Tipo de calibragem"),
-    ("temperatura", "Temperatura"),
-    ("pressao", "Pressão"),
-    ("teste1", "Teste 1"),
-    ("teste2", "Teste 2"),
-    ("teste3", "Teste 3"),
-    ("media", "Média dos testes"),
-    ("situacao", "Situação"),
+    ("calibtemp", "Temperatura"),
+    ("calibpressao", "Pressão"),
+    ("calibteste1", "Teste 1"),
+    ("calibteste2", "Teste 2"),
+    ("calibteste3", "Teste 3"),
+    ("calibtestemedia", "Média dos testes"),
+    ("situcalib", "Situação"),
     ("dataemissao", "Data de emissão"),
-    ("datacli", "Data (emissão)"),
+    ("pulapagina", "Quebra de página (impressão)"),
 ]
+
+# Quebra de página para impressão — HTML estrutural (não é dado, não escapar).
+_PAGE_BREAK = '<div style="page-break-after: always;"></div>'
 
 
 def _fmt(d) -> str:
@@ -74,6 +79,14 @@ def montar_contexto(db: Session, ordem) -> dict[str, str]:
         tc = db.get(TipoCalibragem, ordem.tipo_calibragem)
         tipocal = (tc.descricao if tc else "") or ""
     hoje = _fmt(date.today())
+    datacalib = _fmt(ordem.data_calibracao)
+    temp = ordem.calib_temp or ""
+    pressao = ordem.calib_pressao or ""
+    t1 = ordem.calib_teste1 or ""
+    t2 = ordem.calib_teste2 or ""
+    t3 = ordem.calib_teste3 or ""
+    media = ordem.calib_teste_media or ""
+    situ = ordem.calib_situacao or ""
     return {
         "nomecli": (cli.nome if cli else "") or "",
         "cnpj": ((cli.cgc or cli.cpf) if cli else "") or "",
@@ -85,17 +98,28 @@ def montar_contexto(db: Session, ordem) -> dict[str, str]:
         "datacompra": _fmt(ec.datacompra) if ec else "",
         "os": str(ordem.id),
         "calibcert": ordem.calib_cert or "",
-        "datacalibracao": _fmt(ordem.data_calibracao),
         "proxcalibragem": _fmt(ordem.prox_calibragem),
         "tipocalibragem": tipocal,
-        "temperatura": ordem.calib_temp or "",
-        "pressao": ordem.calib_pressao or "",
-        "teste1": ordem.calib_teste1 or "",
-        "teste2": ordem.calib_teste2 or "",
-        "teste3": ordem.calib_teste3 or "",
-        "media": ordem.calib_teste_media or "",
-        "situacao": ordem.calib_situacao or "",
         "dataemissao": hoje,
+        # nomes legados (usados nos 12 modelos migrados)
+        "datacali": datacalib,
+        "dataentr": _fmt(ordem.data_chegada),
+        "calibtemp": temp,
+        "calibpressao": pressao,
+        "calibteste1": t1,
+        "calibteste2": t2,
+        "calibteste3": t3,
+        "calibtestemedia": media,
+        "situcalib": situ,
+        # aliases amigáveis (para modelos novos)
+        "datacalibracao": datacalib,
+        "temperatura": temp,
+        "pressao": pressao,
+        "teste1": t1,
+        "teste2": t2,
+        "teste3": t3,
+        "media": media,
+        "situacao": situ,
         "datacli": hoje,
     }
 
@@ -108,6 +132,8 @@ def preencher(html: str, contexto: dict[str, str]) -> str:
         return html or ""
     for campo, valor in contexto.items():
         html = html.replace(f"[{campo}]", _html_escape(valor or "", quote=True))
+    # token estrutural (quebra de página): HTML confiável, inserido sem escapar
+    html = html.replace("[pulapagina]", _PAGE_BREAK)
     return html
 
 
