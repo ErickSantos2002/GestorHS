@@ -11,6 +11,9 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Chromium headless para gerar PDF dos certificados (Playwright)
+RUN playwright install --with-deps chromium
+
 # Código da aplicação
 COPY . .
 

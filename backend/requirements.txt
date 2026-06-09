@@ -10,3 +10,4 @@ python-jose[cryptography]
 pytest
 httpx
 python-multipart
+playwright
