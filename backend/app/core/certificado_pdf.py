@@ -76,10 +76,13 @@ def html_para_pdf(html_cert: str) -> bytes:
             page = browser.new_page()
             page.route("**/*", _filtrar_requisicao)  # bloqueia rede interna (SSRF)
             page.set_content(documento, wait_until="networkidle")
+            # scale 0.8 + margem 8mm: reproduz a densidade do certificado legado
+            # (cada metade, separada por [pulapagina], cabe em 1 página A4 → 2 no total).
             pdf = page.pdf(
                 format="A4",
                 print_background=True,
-                margin={"top": "10mm", "bottom": "10mm", "left": "10mm", "right": "10mm"},
+                scale=0.8,
+                margin={"top": "8mm", "bottom": "8mm", "left": "8mm", "right": "8mm"},
             )
         finally:
             browser.close()
