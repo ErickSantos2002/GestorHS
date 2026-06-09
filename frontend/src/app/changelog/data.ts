@@ -26,7 +26,8 @@ export const CHANGELOG: VersaoChangelog[] = [
     versao: '1.4.0',
     data: '09/06/2026',
     itens: [
-      { tipo: 'novidade', texto: 'Certificado de calibração gerado no laboratório — na fase Laboratório, o botão "Gerar certificado de calibração" abre um formulário com os dados da calibração (Nº do certificado, temperatura, pressão, testes 1/2/3 com média automática, situação). Ao gerar, o sistema preenche o modelo do aparelho com os dados reais (cliente, série, resultados) e produz o certificado, que pode ser revisado e impresso/salvo em PDF direto na OS. Há botão para regerar com o formulário pré-preenchido.' },
+      { tipo: 'novidade', texto: 'Certificado de calibração gerado no laboratório — na fase Laboratório, o botão "Gerar certificado de calibração" abre um formulário com os dados da calibração (Nº do certificado, temperatura, pressão, testes 1/2/3 com média automática, situação). Ao gerar, o sistema preenche o modelo do aparelho com os dados reais (cliente, série, resultados) e produz o certificado, que pode ser revisado e baixado em PDF (gerado automaticamente) direto na OS. Há botão para regerar com o formulário pré-preenchido.' },
+      { tipo: 'novidade', texto: 'Download do certificado em PDF com um clique — o sistema gera o PDF no servidor a partir do certificado, no padrão A4 e com a mesma aparência da tela, sem precisar imprimir e reenviar o arquivo manualmente. Removido o envio manual de PDF.' },
       { tipo: 'melhoria', texto: 'Concluir o laboratório agora pede apenas a próxima calibração e uma observação — e é bloqueado enquanto o certificado não for gerado, garantindo que nenhuma OS saia do laboratório sem certificado.' },
       { tipo: 'melhoria', texto: 'Modelos de certificado agora têm dois tipos por aparelho: Calibração e Manutenção.' },
     ],
