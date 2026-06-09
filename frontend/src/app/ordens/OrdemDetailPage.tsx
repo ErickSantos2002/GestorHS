@@ -13,6 +13,7 @@ import { isAdmin, podeAbrirOS } from '../../auth/roles'
 import { fasesApi, type Fase } from '../cadastros/api'
 import { ordensApi, fotosApi, certificadoApi, TIPO_SERVICO, TRANSICOES, formatData, type OrdemDetalhe, type LogOS, type Foto, type OSCertificado } from './api'
 import { AvancarModal } from './AvancarModal'
+import { GerarCertificadoModal } from './GerarCertificadoModal'
 import { CancelarModal } from './CancelarModal'
 import { FotoImg } from './FotoImg'
 import { FotoLightbox } from './FotoLightbox'
@@ -106,7 +107,7 @@ export function OrdemDetailPage() {
   const [fases, setFases] = useState<Fase[]>([])
   const [erro, setErro] = useState('')
   const [carregando, setCarregando] = useState(true)
-  const [acao, setAcao] = useState<'avancar' | 'cancelar' | null>(null)
+  const [acao, setAcao] = useState<'avancar' | 'cancelar' | 'gerar' | null>(null)
   const [fotos, setFotos] = useState<Foto[]>([])
   const [certs, setCerts] = useState<OSCertificado[]>([])
   const [erroFoto, setErroFoto] = useState('')
@@ -177,14 +178,12 @@ export function OrdemDetailPage() {
   const podeFotos = podeAbrirOS(user)
   const podeCertificado = isAdmin(user) || user?.funcao === 'Laboratório'
   const podeGerarCert = isAdmin(user) || user?.funcao === 'Laboratório'
+  const naFaseLab = os.fase === 5
 
-  async function gerarCertificados() {
-    try {
-      const cs = await ordensApi.gerarCertificado(osId)
-      setCerts(cs)
-    } catch (e) {
-      setErroCert(e instanceof ApiError ? e.message : 'Falha ao gerar certificado')
-    }
+  function aoGerarCert(cs: OSCertificado[]) {
+    setCerts(cs)
+    setAcao(null)
+    void ordensApi.obter(osId).then(setOs).catch(() => {})
   }
 
   async function onEnviarCertificado(e: React.ChangeEvent<HTMLInputElement>) {
@@ -396,10 +395,14 @@ export function OrdemDetailPage() {
       <Secao
         icon={<IconCertificado className="w-4 h-4" />}
         titulo="Certificados"
-        acao={podeGerarCert && <Button variant="secondary" onClick={() => void gerarCertificados()}>Gerar/Regerar</Button>}
+        acao={podeGerarCert && naFaseLab && (
+          <Button variant={certs.length ? 'secondary' : 'primary'} onClick={() => setAcao('gerar')}>
+            {certs.length ? 'Regerar certificado' : 'Gerar certificado de calibração'}
+          </Button>
+        )}
       >
         {certs.length === 0 ? (
-          <p className="text-sm text-slate-500">Nenhum certificado gerado.{podeGerarCert ? ' Clique em "Gerar/Regerar".' : ''}</p>
+          <p className="text-sm text-slate-500">Nenhum certificado gerado.{podeGerarCert && naFaseLab ? ' Clique em "Gerar certificado de calibração".' : ''}</p>
         ) : (
           <ul className="space-y-2">
             {certs.map((c) => (
@@ -438,8 +441,9 @@ export function OrdemDetailPage() {
       </Secao>
 
       {acao === 'avancar' && transicao && (
-        <AvancarModal os={os} rotulo={transicao.rotulo} pedeCodRetorno={transicao.pedeCodRetorno} pedeCalibracao={transicao.pedeCalibracao} onClose={() => setAcao(null)} onConcluido={aoConcluir} />
+        <AvancarModal os={os} rotulo={transicao.rotulo} pedeCodRetorno={transicao.pedeCodRetorno} pedeProxCalibragem={transicao.pedeProxCalibragem} onClose={() => setAcao(null)} onConcluido={aoConcluir} />
       )}
+      {acao === 'gerar' && <GerarCertificadoModal os={os} onClose={() => setAcao(null)} onGerado={aoGerarCert} />}
       {acao === 'cancelar' && <CancelarModal os={os} onClose={() => setAcao(null)} onConcluido={aoConcluir} />}
 
       {lightboxIdx !== null && fotos[lightboxIdx] && (
