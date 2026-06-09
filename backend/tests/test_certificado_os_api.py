@@ -87,3 +87,32 @@ def test_gerar_exige_lab_ou_admin(client, usuario_admin, usuario_comercial, db_s
 def test_gerar_os_inexistente_404(client, usuario_admin):
     h = _headers(client, "admin", "senha123")
     assert client.post("/ordens/99999/gerar-certificado", headers=h).status_code == 404
+
+
+def test_gerar_com_dados_salva_e_preenche(client, usuario_admin, db_session):
+    h = _headers(client, "admin", "senha123")
+    oid = _os_com_modelo(client, db_session, h, tipos=("C",), tipo_servico="C")
+    body = {
+        "tipo_calibragem": None, "calib_cert": "CERT-9", "calib_temp": "25",
+        "calib_pressao": "1013", "calib_teste1": "0,10", "calib_teste2": "0,20",
+        "calib_teste3": "0,30", "calib_teste_media": "0,20", "calib_situacao": "Aprovado",
+    }
+    r = client.post(f"/ordens/{oid}/gerar-certificado", json=body, headers=h)
+    assert r.status_code == 200
+    from app.models import Ordem
+    o = db_session.get(Ordem, oid); db_session.refresh(o)
+    assert o.calib_cert == "CERT-9" and o.calib_temp == "25"
+    assert o.calib_situacao == "Aprovado"
+    assert o.data_calibracao is not None
+    assert any(c["tipo"] == "C" and c["html"] for c in r.json())
+
+
+def test_gerar_sem_corpo_regenera_sem_alterar(client, usuario_admin, db_session):
+    h = _headers(client, "admin", "senha123")
+    oid = _os_com_modelo(client, db_session, h, tipos=("C",), tipo_servico="C")
+    client.post(f"/ordens/{oid}/gerar-certificado", json={"calib_cert": "X1"}, headers=h)
+    from app.models import Ordem
+    r = client.post(f"/ordens/{oid}/gerar-certificado", headers=h)
+    assert r.status_code == 200
+    o = db_session.get(Ordem, oid); db_session.refresh(o)
+    assert o.calib_cert == "X1"
