@@ -12,13 +12,15 @@ async function apiVoid(path: string, options: RequestInit = {}): Promise<void> {
 export interface ModeloItem {
   equipamento: number
   equipamento_descricao: string | null
-  tem_certificado: boolean
+  tem_calibracao: boolean
+  tem_manutencao: boolean
 }
 export interface CertificadoModelo {
   equipamento: number
   equipamento_descricao: string | null
   descricao: string | null
   texto: string
+  tipo: 'C' | 'M'
 }
 export interface ImagemCert {
   id: number
@@ -34,10 +36,21 @@ export const CAMPOS_CERTIFICADO: { campo: string; desc: string }[] = [
   { campo: '[modelo]', desc: 'Modelo do equipamento' },
   { campo: '[marca]', desc: 'Marca do equipamento' },
   { campo: '[serie]', desc: 'Número de série' },
-  { campo: '[datacli]', desc: 'Data do cliente' },
+  { campo: '[patrimonio]', desc: 'Patrimônio' },
   { campo: '[datacompra]', desc: 'Data de compra' },
+  { campo: '[os]', desc: 'Número da OS' },
+  { campo: '[calibcert]', desc: 'Nº do certificado' },
+  { campo: '[datacalibracao]', desc: 'Data da calibração' },
+  { campo: '[proxcalibragem]', desc: 'Próxima calibração' },
+  { campo: '[tipocalibragem]', desc: 'Tipo de calibragem' },
+  { campo: '[temperatura]', desc: 'Temperatura' },
+  { campo: '[pressao]', desc: 'Pressão' },
+  { campo: '[teste1]', desc: 'Teste 1' },
+  { campo: '[teste2]', desc: 'Teste 2' },
+  { campo: '[teste3]', desc: 'Teste 3' },
+  { campo: '[media]', desc: 'Média dos testes' },
+  { campo: '[situacao]', desc: 'Situação' },
   { campo: '[dataemissao]', desc: 'Data de emissão' },
-  { campo: '[calibcert]', desc: 'Nº do certificado de calibração' },
 ]
 
 export const certificadosApi = {
@@ -47,10 +60,10 @@ export const certificadosApi = {
     const qs = sp.toString()
     return apiJson<{ items: ModeloItem[] }>(`/certificados-modelo${qs ? `?${qs}` : ''}`)
   },
-  obterModelo: (equipId: number): Promise<CertificadoModelo> =>
-    apiJson<CertificadoModelo>(`/certificados-modelo/${equipId}`),
-  salvarModelo: (equipId: number, body: { descricao?: string | null; texto: string }): Promise<CertificadoModelo> =>
-    apiJson<CertificadoModelo>(`/certificados-modelo/${equipId}`, { method: 'PUT', body: JSON.stringify(body) }),
+  obterModelo: (equipId: number, tipo: 'C' | 'M' = 'C'): Promise<CertificadoModelo> =>
+    apiJson<CertificadoModelo>(`/certificados-modelo/${equipId}?tipo=${tipo}`),
+  salvarModelo: (equipId: number, body: { descricao?: string | null; texto: string }, tipo: 'C' | 'M' = 'C'): Promise<CertificadoModelo> =>
+    apiJson<CertificadoModelo>(`/certificados-modelo/${equipId}?tipo=${tipo}`, { method: 'PUT', body: JSON.stringify(body) }),
   listarImagens: (): Promise<{ items: ImagemCert[] }> =>
     apiJson<{ items: ImagemCert[] }>('/certificado-imagens'),
   enviarImagem: async (file: File, nome?: string): Promise<ImagemCert> => {

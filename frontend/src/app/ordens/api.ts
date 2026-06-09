@@ -198,6 +198,13 @@ export const certificadoApi = {
   },
 }
 
+export interface OSCertificado {
+  tipo: 'C' | 'M'
+  html: string | null
+  pdf: string | null
+  data_geracao: string | null
+}
+
 export const ordensApi = {
   listar: (params: OrdensParams = {}): Promise<OrdemPage> => {
     const sp = new URLSearchParams()
@@ -223,4 +230,7 @@ export const ordensApi = {
     apiJson<OrdemDetalhe>(`/ordens/${id}/avancar`, { method: 'POST', body: JSON.stringify(payload) }),
   cancelar: (id: number, payload: { motivo: string }): Promise<OrdemDetalhe> =>
     apiJson<OrdemDetalhe>(`/ordens/${id}/cancelar`, { method: 'POST', body: JSON.stringify(payload) }),
+  certificados: (id: number): Promise<OSCertificado[]> => apiJson<OSCertificado[]>(`/ordens/${id}/certificados`),
+  gerarCertificado: (id: number): Promise<OSCertificado[]> =>
+    apiJson<OSCertificado[]>(`/ordens/${id}/gerar-certificado`, { method: 'POST' }),
 }

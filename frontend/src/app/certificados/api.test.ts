@@ -21,13 +21,13 @@ describe('certificadosApi', () => {
     await certificadosApi.listarModelos({ q: 'mark' })
     expect(apiJson).toHaveBeenCalledWith('/certificados-modelo?q=mark')
   })
-  it('obterModelo', async () => {
-    await certificadosApi.obterModelo(3)
-    expect(apiJson).toHaveBeenCalledWith('/certificados-modelo/3')
+  it('obterModelo com tipo', async () => {
+    await certificadosApi.obterModelo(3, 'C')
+    expect(apiJson).toHaveBeenCalledWith('/certificados-modelo/3?tipo=C')
   })
-  it('salvarModelo manda PUT', async () => {
-    await certificadosApi.salvarModelo(3, { descricao: 'd', texto: '<p>x</p>' })
-    expect(apiJson).toHaveBeenCalledWith('/certificados-modelo/3', { method: 'PUT', body: JSON.stringify({ descricao: 'd', texto: '<p>x</p>' }) })
+  it('salvarModelo com tipo M', async () => {
+    await certificadosApi.salvarModelo(3, { texto: '<p>x</p>' }, 'M')
+    expect(apiJson).toHaveBeenCalledWith('/certificados-modelo/3?tipo=M', { method: 'PUT', body: JSON.stringify({ texto: '<p>x</p>' }) })
   })
   it('excluirImagem usa DELETE via apiFetch', async () => {
     await certificadosApi.excluirImagem(5)
