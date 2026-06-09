@@ -79,9 +79,13 @@ export interface OrdemDetalhe extends OrdemListItem {
   data_calibracao: string | null
   data_retorno: string | null
   data_aceite: string | null
+  tipo_calibragem: number | null
   calib_cert: string | null
   calib_temp: string | null
   calib_pressao: string | null
+  calib_teste1: string | null
+  calib_teste2: string | null
+  calib_teste3: string | null
   calib_teste_media: string | null
   calib_situacao: string | null
   pdf_certificado: string | null
@@ -124,6 +128,10 @@ export interface AbrirPayload {
 export interface AvancarPayload {
   obs?: string | null
   cod_retorno?: string | null
+  prox_calibragem?: string | null
+}
+
+export interface GerarCertificadoPayload {
   tipo_calibragem?: number | null
   calib_cert?: string | null
   calib_temp?: string | null
@@ -133,13 +141,11 @@ export interface AvancarPayload {
   calib_teste3?: string | null
   calib_teste_media?: string | null
   calib_situacao?: string | null
-  pdf_certificado?: string | null
-  prox_calibragem?: string | null
 }
 
-export const TRANSICOES: Record<number, { rotulo: string; pedeCodRetorno?: boolean; pedeCalibracao?: boolean }> = {
+export const TRANSICOES: Record<number, { rotulo: string; pedeCodRetorno?: boolean; pedeProxCalibragem?: boolean }> = {
   4: { rotulo: 'Encaminhar ao laboratório' },
-  5: { rotulo: 'Concluir laboratório', pedeCalibracao: true },
+  5: { rotulo: 'Concluir laboratório', pedeProxCalibragem: true },
   6: { rotulo: 'Registrar aceite' },
   7: { rotulo: 'Postar retorno', pedeCodRetorno: true },
 }
@@ -231,6 +237,8 @@ export const ordensApi = {
   cancelar: (id: number, payload: { motivo: string }): Promise<OrdemDetalhe> =>
     apiJson<OrdemDetalhe>(`/ordens/${id}/cancelar`, { method: 'POST', body: JSON.stringify(payload) }),
   certificados: (id: number): Promise<OSCertificado[]> => apiJson<OSCertificado[]>(`/ordens/${id}/certificados`),
-  gerarCertificado: (id: number): Promise<OSCertificado[]> =>
-    apiJson<OSCertificado[]>(`/ordens/${id}/gerar-certificado`, { method: 'POST' }),
+  gerarCertificado: (id: number, payload?: GerarCertificadoPayload): Promise<OSCertificado[]> =>
+    apiJson<OSCertificado[]>(`/ordens/${id}/gerar-certificado`, payload
+      ? { method: 'POST', body: JSON.stringify(payload) }
+      : { method: 'POST' }),
 }
