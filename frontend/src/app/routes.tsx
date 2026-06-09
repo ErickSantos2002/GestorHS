@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { MainLayout } from '../layout/MainLayout'
 import { DashboardPage } from './pages/DashboardPage'
 import { MinhaContaPage } from './pages/MinhaContaPage'
@@ -17,10 +17,20 @@ import { CaixaDetailPage } from './caixas/CaixaDetailPage'
 import { CertificadosPage } from './certificados/CertificadosPage'
 import { CertificadoImprimir } from './ordens/CertificadoImprimir'
 
-export default function AppRoutes() {
+function ComLayout() {
   return (
     <MainLayout>
-      <Routes>
+      <Outlet />
+    </MainLayout>
+  )
+}
+
+export default function AppRoutes() {
+  return (
+    <Routes>
+      {/* Impressão: tela limpa, sem sidebar/topbar */}
+      <Route path="ordens/:id/certificado/:tipo/imprimir" element={<CertificadoImprimir />} />
+      <Route element={<ComLayout />}>
         <Route index element={<DashboardPage />} />
         <Route path="usuarios" element={<UsuariosPage />} />
         <Route path="cadastros" element={<CadastrosPage />} />
@@ -32,7 +42,6 @@ export default function AppRoutes() {
         <Route path="frota/:id" element={<EquipamentoClienteDetailPage />} />
         <Route path="ordens" element={<OrdensPage />} />
         <Route path="ordens/:id" element={<OrdemDetailPage />} />
-        <Route path="ordens/:id/certificado/:tipo/imprimir" element={<CertificadoImprimir />} />
         <Route path="certificados" element={<CertificadosPage />} />
         <Route path="caixas" element={<CaixasPage />} />
         <Route path="caixas/:id" element={<CaixaDetailPage />} />
@@ -40,7 +49,7 @@ export default function AppRoutes() {
         <Route path="solicitacoes" element={<SolicitacoesPage />} />
         <Route path="conta" element={<MinhaContaPage />} />
         <Route path="*" element={<Navigate to="/app" replace />} />
-      </Routes>
-    </MainLayout>
+      </Route>
+    </Routes>
   )
 }
