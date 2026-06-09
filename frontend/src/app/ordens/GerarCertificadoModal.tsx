@@ -28,14 +28,14 @@ export function GerarCertificadoModal({ os, onClose, onGerado }: {
   const [t2, setT2] = useState(os.calib_teste2 ?? '')
   const [t3, setT3] = useState(os.calib_teste3 ?? '')
   const [media, setMedia] = useState(os.calib_teste_media ?? '')
-  const [mediaEditada, setMediaEditada] = useState(!!os.calib_teste_media)
+  const [mediaEditada, setMediaEditada] = useState(false)
   const [situacao, setSituacao] = useState(os.calib_situacao ?? '')
   const [erro, setErro] = useState('')
   const [enviando, setEnviando] = useState(false)
 
   useEffect(() => {
     let ativo = true
-    void tiposCalibragemApi.listar().then((ts) => { if (ativo) setTipos(ts) }).catch(() => {})
+    void tiposCalibragemApi.listar().then((ts) => { if (ativo) setTipos(ts) }).catch((e) => { console.error('Falha ao carregar tipos de calibragem', e) })
     return () => { ativo = false }
   }, [])
 
