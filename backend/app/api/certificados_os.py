@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 
 from app.models.database import get_db
@@ -6,6 +6,7 @@ from app.models import Usuario, Ordem, OSCertificado
 from app.api.deps import get_current_usuario, require_funcao
 from app.api.ordens_acoes import agora
 from app.core.certificado_gerar import gerar_certificados, tipos_para
+from app.core.certificado_pdf import html_para_pdf
 from app.schemas.ordens import GerarCertificadoIn
 from app.schemas.certificados_modelo import OSCertificadoOut
 
@@ -46,3 +47,28 @@ def gerar(ordem_id: int, dados: GerarCertificadoIn | None = None, db: Session = 
     for g in gerados:
         db.refresh(g)
     return [OSCertificadoOut.model_validate(c) for c in gerados]
+
+
+_NOME_TIPO = {"C": "calibracao", "M": "manutencao"}
+
+
+@router.get("/ordens/{ordem_id}/certificado/{tipo}/pdf")
+def baixar_pdf(ordem_id: int, tipo: str, db: Session = Depends(get_db), _: Usuario = Depends(get_current_usuario)):
+    if tipo not in _NOME_TIPO:
+        raise HTTPException(status_code=404, detail="tipo inválido")
+    _os_ou_404(db, ordem_id)
+    osc = db.query(OSCertificado).filter(
+        OSCertificado.os == ordem_id, OSCertificado.tipo == tipo
+    ).first()
+    if osc is None or not osc.html:
+        raise HTTPException(status_code=404, detail="certificado não gerado")
+    try:
+        pdf = html_para_pdf(osc.html)
+    except Exception:
+        raise HTTPException(status_code=500, detail="falha ao gerar PDF")
+    nome = _NOME_TIPO[tipo]
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="certificado-{ordem_id}-{nome}.pdf"'},
+    )

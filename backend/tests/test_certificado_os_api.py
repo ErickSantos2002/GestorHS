@@ -116,3 +116,25 @@ def test_gerar_sem_corpo_regenera_sem_alterar(client, usuario_admin, db_session)
     assert r.status_code == 200
     o = db_session.get(Ordem, oid); db_session.refresh(o)
     assert o.calib_cert == "X1"
+
+
+def test_baixar_pdf_sucesso(client, usuario_admin, db_session, monkeypatch):
+    import app.api.certificados_os as mod
+    monkeypatch.setattr(mod, "html_para_pdf", lambda html: b"%PDF-1.4 fake")
+    h = _headers(client, "admin", "senha123")
+    oid = _os_com_modelo(client, db_session, h, tipos=("C",), tipo_servico="C")
+    assert client.post(f"/ordens/{oid}/gerar-certificado", headers=h).status_code == 200
+    r = client.get(f"/ordens/{oid}/certificado/C/pdf", headers=h)
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "application/pdf"
+    assert "attachment" in r.headers["content-disposition"]
+    assert r.content == b"%PDF-1.4 fake"
+
+
+def test_baixar_pdf_sem_certificado_404(client, usuario_admin, db_session, monkeypatch):
+    import app.api.certificados_os as mod
+    monkeypatch.setattr(mod, "html_para_pdf", lambda html: b"%PDF")
+    h = _headers(client, "admin", "senha123")
+    oid = _os_com_modelo(client, db_session, h, tipos=("C",), tipo_servico="C")
+    # sem gerar certificado
+    assert client.get(f"/ordens/{oid}/certificado/C/pdf", headers=h).status_code == 404
