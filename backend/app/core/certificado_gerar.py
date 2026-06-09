@@ -1,6 +1,7 @@
 """Motor de preenchimento do certificado: monta o contexto a partir da OS e
 substitui os campos [token] no HTML do modelo."""
 from datetime import date, datetime, timezone
+from html import escape as _html_escape
 
 from sqlalchemy.orm import Session
 
@@ -100,10 +101,13 @@ def montar_contexto(db: Session, ordem) -> dict[str, str]:
 
 
 def preencher(html: str, contexto: dict[str, str]) -> str:
+    # O template é HTML confiável (editado só por admin/laboratório), mas os
+    # VALORES vêm de dados (cliente, série, etc.) e são escapados para evitar
+    # injeção de HTML/script no certificado renderizado.
     if not html:
         return html or ""
     for campo, valor in contexto.items():
-        html = html.replace(f"[{campo}]", valor or "")
+        html = html.replace(f"[{campo}]", _html_escape(valor or "", quote=True))
     return html
 
 

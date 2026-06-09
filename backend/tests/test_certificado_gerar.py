@@ -13,6 +13,13 @@ def test_preencher_campo_sem_valor_some():
     assert preencher("X[inexistente]Y", {}) == "X[inexistente]Y"
 
 
+def test_preencher_escapa_valor_malicioso():
+    from app.core.certificado_gerar import preencher
+    out = preencher("Cliente: [nomecli]", {"nomecli": "<script>alert(1)</script>"})
+    assert "<script>" not in out
+    assert "&lt;script&gt;" in out
+
+
 def test_montar_contexto(db_session):
     from app.models import Cliente, Equipamento, Marca, EquipamentoCliente, Ordem
     from app.core.certificado_gerar import montar_contexto
