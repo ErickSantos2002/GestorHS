@@ -93,7 +93,7 @@ def test_gerar_com_dados_salva_e_preenche(client, usuario_admin, db_session):
     h = _headers(client, "admin", "senha123")
     oid = _os_com_modelo(client, db_session, h, tipos=("C",), tipo_servico="C")
     body = {
-        "tipo_calibragem": None, "calib_cert": "CERT-9", "calib_temp": "25",
+        "calib_cert": "CERT-9", "calib_temp": "25",
         "calib_pressao": "1013", "calib_teste1": "0,10", "calib_teste2": "0,20",
         "calib_teste3": "0,30", "calib_teste_media": "0,20", "calib_situacao": "Aprovado",
     }

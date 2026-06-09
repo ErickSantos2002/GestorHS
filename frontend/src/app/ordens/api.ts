@@ -132,7 +132,6 @@ export interface AvancarPayload {
 }
 
 export interface GerarCertificadoPayload {
-  tipo_calibragem?: number | null
   calib_cert?: string | null
   calib_temp?: string | null
   calib_pressao?: string | null

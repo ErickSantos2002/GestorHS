@@ -3,7 +3,6 @@ import { Modal } from '../../components/ui/Modal'
 import { Input } from '../../components/ui/Input'
 import { Select } from '../../components/ui/Select'
 import { ApiError } from '../../lib/api'
-import { tiposCalibragemApi, type TipoCalibragem } from '../cadastros/api'
 import { ordensApi, type OrdemDetalhe, type OSCertificado, type GerarCertificadoPayload } from './api'
 
 function calcMedia(t1: string, t2: string, t3: string): string {
@@ -19,8 +18,6 @@ export function GerarCertificadoModal({ os, onClose, onGerado }: {
   onClose: () => void
   onGerado: (certs: OSCertificado[]) => void
 }) {
-  const [tipos, setTipos] = useState<TipoCalibragem[]>([])
-  const [tipoCal, setTipoCal] = useState(os.tipo_calibragem ? String(os.tipo_calibragem) : '')
   const [cert, setCert] = useState(os.calib_cert ?? '')
   const [temp, setTemp] = useState(os.calib_temp ?? '')
   const [pressao, setPressao] = useState(os.calib_pressao ?? '')
@@ -34,12 +31,6 @@ export function GerarCertificadoModal({ os, onClose, onGerado }: {
   const [enviando, setEnviando] = useState(false)
 
   useEffect(() => {
-    let ativo = true
-    void tiposCalibragemApi.listar().then((ts) => { if (ativo) setTipos(ts) }).catch((e) => { console.error('Falha ao carregar tipos de calibragem', e) })
-    return () => { ativo = false }
-  }, [])
-
-  useEffect(() => {
     if (mediaEditada) return
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMedia(calcMedia(t1, t2, t3))
@@ -49,7 +40,6 @@ export function GerarCertificadoModal({ os, onClose, onGerado }: {
     e.preventDefault()
     setErro(''); setEnviando(true)
     const payload: GerarCertificadoPayload = {
-      tipo_calibragem: tipoCal ? Number(tipoCal) : null,
       calib_cert: cert.trim() || null,
       calib_temp: temp.trim() || null,
       calib_pressao: pressao.trim() || null,
@@ -82,13 +72,13 @@ export function GerarCertificadoModal({ os, onClose, onGerado }: {
       }
     >
       <form id="form-gerar-cert" className="space-y-4" onSubmit={submeter}>
-        <Select id="tipo-cal" label="Tipo de calibragem" value={tipoCal} onChange={(e) => setTipoCal(e.target.value)}>
-          <option value="">— selecione —</option>
-          {tipos.map((t) => <option key={t.id} value={t.id}>{t.descricao}</option>)}
-        </Select>
         <div className="grid grid-cols-2 gap-3">
           <Input id="cert" label="Nº do certificado" value={cert} onChange={(e) => setCert(e.target.value)} />
-          <Input id="situacao" label="Situação" value={situacao} onChange={(e) => setSituacao(e.target.value)} />
+          <Select id="situacao" label="Situação" value={situacao} onChange={(e) => setSituacao(e.target.value)}>
+            <option value="">— selecione —</option>
+            <option value="Aparelho subsequente">Aparelho subsequente</option>
+            <option value="Aparelho inicial">Aparelho inicial</option>
+          </Select>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <Input id="temp" label="Temperatura" value={temp} onChange={(e) => setTemp(e.target.value)} />

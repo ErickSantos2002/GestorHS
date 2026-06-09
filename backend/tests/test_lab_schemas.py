@@ -1,9 +1,10 @@
 def test_gerar_certificado_in():
     from app.schemas.ordens import GerarCertificadoIn
-    m = GerarCertificadoIn(tipo_calibragem=2, calib_cert="C-1", calib_temp="25",
+    m = GerarCertificadoIn(calib_cert="C-1", calib_temp="25",
                            calib_pressao="1", calib_teste1="a", calib_teste2="b",
                            calib_teste3="c", calib_teste_media="0,20", calib_situacao="Aprovado")
-    assert m.calib_cert == "C-1" and m.tipo_calibragem == 2
+    assert m.calib_cert == "C-1"
+    assert not hasattr(m, "tipo_calibragem")
 
 
 def test_avancar_in_sem_calib():

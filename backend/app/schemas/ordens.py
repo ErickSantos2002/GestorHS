@@ -95,7 +95,6 @@ class AvancarIn(BaseModel):
 
 
 class GerarCertificadoIn(BaseModel):
-    tipo_calibragem: int | None = None
     calib_cert: str | None = None
     calib_temp: str | None = None
     calib_pressao: str | None = None

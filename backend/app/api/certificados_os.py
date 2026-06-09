@@ -14,7 +14,7 @@ router = APIRouter(tags=["certificados-os"])
 _gerar = require_funcao("Laboratório", "Administrador")
 
 _CAMPOS_CALIB = (
-    "tipo_calibragem", "calib_cert", "calib_temp", "calib_pressao",
+    "calib_cert", "calib_temp", "calib_pressao",
     "calib_teste1", "calib_teste2", "calib_teste3", "calib_teste_media", "calib_situacao",
 )
 
