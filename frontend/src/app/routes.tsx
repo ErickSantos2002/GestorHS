@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { MainLayout } from '../layout/MainLayout'
 import { DashboardPage } from './pages/DashboardPage'
 import { MinhaContaPage } from './pages/MinhaContaPage'
@@ -15,11 +15,22 @@ import { SolicitacoesPage } from './solicitacoes/SolicitacoesPage'
 import { CaixasPage } from './caixas/CaixasPage'
 import { CaixaDetailPage } from './caixas/CaixaDetailPage'
 import { CertificadosPage } from './certificados/CertificadosPage'
+import { CertificadoImprimir } from './ordens/CertificadoImprimir'
+
+function ComLayout() {
+  return (
+    <MainLayout>
+      <Outlet />
+    </MainLayout>
+  )
+}
 
 export default function AppRoutes() {
   return (
-    <MainLayout>
-      <Routes>
+    <Routes>
+      {/* Impressão: tela limpa, sem sidebar/topbar */}
+      <Route path="ordens/:id/certificado/:tipo/imprimir" element={<CertificadoImprimir />} />
+      <Route element={<ComLayout />}>
         <Route index element={<DashboardPage />} />
         <Route path="usuarios" element={<UsuariosPage />} />
         <Route path="cadastros" element={<CadastrosPage />} />
@@ -38,7 +49,7 @@ export default function AppRoutes() {
         <Route path="solicitacoes" element={<SolicitacoesPage />} />
         <Route path="conta" element={<MinhaContaPage />} />
         <Route path="*" element={<Navigate to="/app" replace />} />
-      </Routes>
-    </MainLayout>
+      </Route>
+    </Routes>
   )
 }

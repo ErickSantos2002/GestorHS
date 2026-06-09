@@ -10,35 +10,31 @@ def _eq(db_session, descricao):
     return e.id
 
 
-def test_listar_modelos_flag(client, usuario_admin, db_session):
+def test_listar_flags_por_tipo(client, usuario_admin, db_session):
     h = _headers(client, "admin", "senha123")
-    e1 = _eq(db_session, "Mark X")
-    e2 = _eq(db_session, "Iblow10")
-    client.put(f"/certificados-modelo/{e1}", json={"texto": "<p>a</p>"}, headers=h)
+    e = _eq(db_session, "Mark X")
+    client.put(f"/certificados-modelo/{e}?tipo=C", json={"texto": "<p>c</p>"}, headers=h)
     r = client.get("/certificados-modelo", headers=h).json()
-    mapa = {i["equipamento"]: i["tem_certificado"] for i in r["items"]}
-    assert mapa[e1] is True
-    assert mapa[e2] is False
+    item = next(i for i in r["items"] if i["equipamento"] == e)
+    assert item["tem_calibracao"] is True
+    assert item["tem_manutencao"] is False
 
 
-def test_obter_vazio_quando_sem_certificado(client, usuario_admin, db_session):
+def test_get_put_por_tipo(client, usuario_admin, db_session):
     h = _headers(client, "admin", "senha123")
-    e = _eq(db_session, "Sem Cert")
-    r = client.get(f"/certificados-modelo/{e}", headers=h)
-    assert r.status_code == 200
-    assert r.json()["texto"] == ""
-    assert r.json()["equipamento_descricao"] == "Sem Cert"
+    e = _eq(db_session, "Iblow")
+    client.put(f"/certificados-modelo/{e}?tipo=C", json={"texto": "<p>cal</p>"}, headers=h)
+    client.put(f"/certificados-modelo/{e}?tipo=M", json={"texto": "<p>man</p>"}, headers=h)
+    assert client.get(f"/certificados-modelo/{e}?tipo=C", headers=h).json()["texto"] == "<p>cal</p>"
+    assert client.get(f"/certificados-modelo/{e}?tipo=M", headers=h).json()["texto"] == "<p>man</p>"
 
 
-def test_upsert_cria_e_atualiza(client, usuario_admin, db_session):
+def test_tipo_default_c(client, usuario_admin, db_session):
     h = _headers(client, "admin", "senha123")
-    e = _eq(db_session, "Up")
-    r1 = client.put(f"/certificados-modelo/{e}", json={"texto": "<p>1</p>", "descricao": "d1"}, headers=h)
-    assert r1.status_code == 200
-    assert r1.json()["texto"] == "<p>1</p>"
-    r2 = client.put(f"/certificados-modelo/{e}", json={"texto": "<p>2</p>"}, headers=h)
-    assert r2.json()["texto"] == "<p>2</p>"
-    assert client.get(f"/certificados-modelo/{e}", headers=h).json()["texto"] == "<p>2</p>"
+    e = _eq(db_session, "Def")
+    client.put(f"/certificados-modelo/{e}", json={"texto": "<p>x</p>"}, headers=h)  # sem tipo => C
+    assert client.get(f"/certificados-modelo/{e}?tipo=C", headers=h).json()["texto"] == "<p>x</p>"
+    assert client.get(f"/certificados-modelo/{e}?tipo=M", headers=h).json()["texto"] == ""
 
 
 def test_obter_equipamento_inexistente_404(client, usuario_admin):
@@ -51,6 +47,12 @@ def test_upsert_equipamento_inexistente_404(client, usuario_admin):
     assert client.put("/certificados-modelo/99999", json={"texto": "x"}, headers=h).status_code == 404
 
 
+def test_tipo_invalido_422(client, usuario_admin, db_session):
+    h = _headers(client, "admin", "senha123")
+    e = _eq(db_session, "Inv")
+    assert client.get(f"/certificados-modelo/{e}?tipo=X", headers=h).status_code == 422
+
+
 def test_escrita_exige_admin_ou_lab(client, usuario_admin, usuario_comercial, db_session):
     e = _eq(db_session, "Perm")
     h = _headers(client, "comercial", "senha123")
@@ -60,4 +62,4 @@ def test_escrita_exige_admin_ou_lab(client, usuario_admin, usuario_comercial, db
 def test_lab_pode_escrever(client, usuario_admin, usuario_lab, db_session):
     e = _eq(db_session, "Lab")
     h = _headers(client, "lab", "senha123")
-    assert client.put(f"/certificados-modelo/{e}", json={"texto": "<p>lab</p>"}, headers=h).status_code == 200
+    assert client.put(f"/certificados-modelo/{e}?tipo=M", json={"texto": "<p>lab</p>"}, headers=h).status_code == 200

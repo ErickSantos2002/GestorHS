@@ -5,14 +5,15 @@ import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/Spinner'
 import {
   IconNote, IconCalendar, IconChart, IconCamera, IconClock,
-  IconCheck, IconSearch, IconBattery, IconWrench, IconCaixas, IconX,
+  IconCheck, IconSearch, IconBattery, IconWrench, IconCaixas, IconX, IconCertificado,
 } from '../../components/ui/icons'
 import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
 import { isAdmin, podeAbrirOS } from '../../auth/roles'
 import { fasesApi, type Fase } from '../cadastros/api'
-import { ordensApi, fotosApi, certificadoApi, TIPO_SERVICO, TRANSICOES, formatData, type OrdemDetalhe, type LogOS, type Foto } from './api'
+import { ordensApi, fotosApi, certificadoApi, TIPO_SERVICO, TRANSICOES, formatData, type OrdemDetalhe, type LogOS, type Foto, type OSCertificado } from './api'
 import { AvancarModal } from './AvancarModal'
+import { GerarCertificadoModal } from './GerarCertificadoModal'
 import { CancelarModal } from './CancelarModal'
 import { FotoImg } from './FotoImg'
 import { FotoLightbox } from './FotoLightbox'
@@ -106,8 +107,9 @@ export function OrdemDetailPage() {
   const [fases, setFases] = useState<Fase[]>([])
   const [erro, setErro] = useState('')
   const [carregando, setCarregando] = useState(true)
-  const [acao, setAcao] = useState<'avancar' | 'cancelar' | null>(null)
+  const [acao, setAcao] = useState<'avancar' | 'cancelar' | 'gerar' | null>(null)
   const [fotos, setFotos] = useState<Foto[]>([])
+  const [certs, setCerts] = useState<OSCertificado[]>([])
   const [erroFoto, setErroFoto] = useState('')
   const [erroCert, setErroCert] = useState('')
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null)
@@ -145,6 +147,9 @@ export function OrdemDetailPage() {
     fotosApi.listar(osId)
       .then((fs) => { if (ativo) setFotos(fs) })
       .catch(() => {})
+    ordensApi.certificados(osId)
+      .then((cs) => { if (ativo) setCerts(cs) })
+      .catch(() => {})
     return () => { ativo = false }
   }, [osId])
 
@@ -172,6 +177,14 @@ export function OrdemDetailPage() {
   const transicao = os.fase != null ? TRANSICOES[os.fase] : undefined
   const podeFotos = podeAbrirOS(user)
   const podeCertificado = isAdmin(user) || user?.funcao === 'Laboratório'
+  const podeGerarCert = isAdmin(user) || user?.funcao === 'Laboratório'
+  const naFaseLab = os.fase === 5
+
+  function aoGerarCert(cs: OSCertificado[]) {
+    setCerts(cs)
+    setAcao(null)
+    void ordensApi.obter(osId).then(setOs).catch(() => {})
+  }
 
   async function onEnviarCertificado(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -378,6 +391,33 @@ export function OrdemDetailPage() {
         {erroCert && <p className="text-sm text-danger">{erroCert}</p>}
       </Secao>
 
+      {/* Certificados gerados */}
+      <Secao
+        icon={<IconCertificado className="w-4 h-4" />}
+        titulo="Certificados"
+        acao={podeGerarCert && naFaseLab && (
+          <Button variant={certs.length ? 'secondary' : 'primary'} onClick={() => setAcao('gerar')}>
+            {certs.length ? 'Regerar certificado' : 'Gerar certificado de calibração'}
+          </Button>
+        )}
+      >
+        {certs.length === 0 ? (
+          <p className="text-sm text-slate-500">Nenhum certificado gerado.{podeGerarCert && naFaseLab ? ' Clique em "Gerar certificado de calibração".' : ''}</p>
+        ) : (
+          <ul className="space-y-2">
+            {certs.map((c) => (
+              <li key={c.tipo} className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+                <span className="text-sm text-slate-200">
+                  {c.tipo === 'C' ? 'Calibração' : 'Manutenção'}
+                  <span className="text-xs text-slate-500 ml-2">{formatData(c.data_geracao)}</span>
+                </span>
+                <a href={`/app/ordens/${osId}/certificado/${c.tipo}/imprimir`} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-primary hover:underline">Imprimir</a>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Secao>
+
       {/* Histórico */}
       <Secao icon={<IconClock className="w-4 h-4" />} titulo="Histórico">
         {logs.length === 0 ? (
@@ -401,8 +441,9 @@ export function OrdemDetailPage() {
       </Secao>
 
       {acao === 'avancar' && transicao && (
-        <AvancarModal os={os} rotulo={transicao.rotulo} pedeCodRetorno={transicao.pedeCodRetorno} pedeCalibracao={transicao.pedeCalibracao} onClose={() => setAcao(null)} onConcluido={aoConcluir} />
+        <AvancarModal os={os} rotulo={transicao.rotulo} pedeCodRetorno={transicao.pedeCodRetorno} pedeProxCalibragem={transicao.pedeProxCalibragem} onClose={() => setAcao(null)} onConcluido={aoConcluir} />
       )}
+      {acao === 'gerar' && <GerarCertificadoModal os={os} onClose={() => setAcao(null)} onGerado={aoGerarCert} />}
       {acao === 'cancelar' && <CancelarModal os={os} onClose={() => setAcao(null)} onConcluido={aoConcluir} />}
 
       {lightboxIdx !== null && fotos[lightboxIdx] && (

@@ -5,7 +5,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.models.database import get_db
-from app.models import Usuario, Ordem, Cliente, Fase, LogOS, EquipamentoCliente, Caixa
+from app.models import Usuario, Ordem, Cliente, Fase, LogOS, EquipamentoCliente, Caixa, OSCertificado
 from app.api.deps import get_current_usuario, require_funcao
 from app.api.ordens_acoes import agora, registrar_log, exige_funcao_da_fase, espelhar_calibracao
 from app.core import os_workflow as wf
@@ -148,17 +148,13 @@ def avancar(ordem_id: int, dados: AvancarIn, db: Session = Depends(get_db),
     origem = ordem.fase
 
     if origem == 5:                       # Laboratório -> Pós-Vendas
-        ordem.data_calibracao = agora()
-        for campo in (
-            "tipo_calibragem", "calib_cert", "calib_temp", "calib_pressao",
-            "calib_teste1", "calib_teste2", "calib_teste3", "calib_teste_media",
-            "calib_situacao", "pdf_certificado", "prox_calibragem",
-        ):
-            valor = getattr(dados, campo)
-            if valor is not None:
-                setattr(ordem, campo, valor)
+        tem_cert = db.query(OSCertificado).filter(OSCertificado.os == ordem.id).first() is not None
+        if not tem_cert:
+            raise HTTPException(status_code=409, detail="gere o certificado antes de concluir o laboratório")
+        if dados.prox_calibragem is not None:
+            ordem.prox_calibragem = dados.prox_calibragem
         espelhar_calibracao(db, ordem)
-        texto = "Calibração/manutenção concluída"
+        texto = "Laboratório concluído"
     elif origem == 6:                     # Pós-Vendas -> Preparando Retorno
         ordem.aceite = True
         ordem.data_aceite = agora()

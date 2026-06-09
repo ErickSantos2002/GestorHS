@@ -15,6 +15,7 @@ export function ModelosTab() {
   const [busca, setBusca] = useState('')
   const [itens, setItens] = useState<ModeloItem[] | null>(null)
   const [selecionado, setSelecionado] = useState<ModeloItem | null>(null)
+  const [tipo, setTipo] = useState<'C' | 'M'>('C')
   const [texto, setTexto] = useState('')
   const [descricao, setDescricao] = useState('')
   const [carregandoEd, setCarregandoEd] = useState(false)
@@ -29,20 +30,26 @@ export function ModelosTab() {
     return () => { vivo = false }
   }, [busca])
 
-  function abrir(m: ModeloItem) {
-    setSelecionado(m); setErro(''); setCarregandoEd(true)
-    certificadosApi.obterModelo(m.equipamento)
+  function carregar(equip: number, t: 'C' | 'M') {
+    setCarregandoEd(true); setErro('')
+    certificadosApi.obterModelo(equip, t)
       .then((c) => { setTexto(c.texto); setDescricao(c.descricao ?? '') })
       .catch(() => setErro('Falha ao carregar o certificado'))
       .finally(() => setCarregandoEd(false))
   }
 
+  function abrir(m: ModeloItem) { setSelecionado(m); setTipo('C'); carregar(m.equipamento, 'C') }
+
+  function trocarTipo(t: 'C' | 'M') { setTipo(t); if (selecionado) carregar(selecionado.equipamento, t) }
+
   async function salvar() {
     if (!selecionado) return
     setSalvando(true); setErro('')
     try {
-      await certificadosApi.salvarModelo(selecionado.equipamento, { descricao: descricao.trim() || null, texto })
-      setItens((cur) => cur?.map((m) => m.equipamento === selecionado.equipamento ? { ...m, tem_certificado: true } : m) ?? null)
+      await certificadosApi.salvarModelo(selecionado.equipamento, { descricao: descricao.trim() || null, texto }, tipo)
+      setItens((cur) => cur?.map((m) => m.equipamento === selecionado.equipamento
+        ? { ...m, tem_calibracao: tipo === 'C' ? true : m.tem_calibracao, tem_manutencao: tipo === 'M' ? true : m.tem_manutencao }
+        : m) ?? null)
     } catch (e) {
       setErro(e instanceof ApiError ? e.message : 'Falha ao salvar')
     } finally { setSalvando(false) }
@@ -56,7 +63,17 @@ export function ModelosTab() {
             <button onClick={() => setSelecionado(null)} className="text-xs text-primary hover:underline">← Modelos</button>
             <h2 className="text-lg font-bold text-slate-100">{selecionado.equipamento_descricao}</h2>
           </div>
-          {podeEditar && <Button onClick={salvar} disabled={salvando || carregandoEd}>{salvando ? 'Salvando…' : 'Salvar'}</Button>}
+          <div className="flex items-center gap-3">
+            <div className="flex gap-1 rounded-lg bg-background-elevated p-1 w-fit">
+              {(['C', 'M'] as const).map((t) => (
+                <button key={t} type="button" onClick={() => trocarTipo(t)}
+                  className={'px-3 py-1 text-xs rounded-md transition-colors ' + (tipo === t ? 'bg-primary text-white' : 'text-slate-400 hover:text-slate-200')}>
+                  {t === 'C' ? 'Calibração' : 'Manutenção'}
+                </button>
+              ))}
+            </div>
+            {podeEditar && <Button onClick={salvar} disabled={salvando || carregandoEd}>{salvando ? 'Salvando…' : 'Salvar'}</Button>}
+          </div>
         </div>
         {erro && <p className="text-sm text-danger">{erro}</p>}
         <div className="flex flex-wrap gap-1.5">
@@ -94,7 +111,12 @@ export function ModelosTab() {
             <button key={m.equipamento} onClick={() => abrir(m)}
               className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-background-elevated transition-colors">
               <span className="text-sm text-slate-200">{m.equipamento_descricao ?? `#${m.equipamento}`}</span>
-              <Badge tone={m.tem_certificado ? 'primary' : 'neutral'}>{m.tem_certificado ? 'Com certificado' : 'Sem certificado'}</Badge>
+              {m.tem_calibracao || m.tem_manutencao ? (
+                <span className="flex gap-1.5">
+                  {m.tem_calibracao && <Badge tone="primary">Calibração</Badge>}
+                  {m.tem_manutencao && <Badge tone="info">Manutenção</Badge>}
+                </span>
+              ) : <Badge tone="neutral">Sem certificado</Badge>}
             </button>
           ))}
           {itens.length === 0 && <p className="px-4 py-8 text-center text-sm text-slate-500">Nenhum modelo.</p>}

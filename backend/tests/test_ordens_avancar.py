@@ -16,9 +16,14 @@ def test_cadeia_feliz_completa(client, usuario_admin, usuario_comum, usuario_lab
     # 4 -> 5 (Expedição)
     r = client.post(f"/ordens/{oid}/avancar", json={"obs": "ao lab"}, headers=he)
     assert r.status_code == 200 and r.json()["fase"] == 5
-    # 5 -> 6 (Laboratório) seta data_calibracao
-    r = client.post(f"/ordens/{oid}/avancar", json={}, headers=hl)
-    assert r.json()["fase"] == 6 and r.json()["data_calibracao"] is not None
+    # gera certificado (pré-requisito do concluir lab)
+    from app.models import CertificadoModelo
+    db_session.add(CertificadoModelo(equipamento=os_base["equipamento"], tipo="C", texto="<p>[serie]</p>"))
+    db_session.commit()
+    client.post(f"/ordens/{oid}/gerar-certificado", json={"calib_cert": "C-1"}, headers=hl)
+    # 5 -> 6 (Laboratório) — só próxima calibração + obs
+    r = client.post(f"/ordens/{oid}/avancar", json={"prox_calibragem": "2027-06-09"}, headers=hl)
+    assert r.json()["fase"] == 6
     # 6 -> 7 (Comercial) seta aceite
     r = client.post(f"/ordens/{oid}/avancar", json={}, headers=hc)
     assert r.json()["fase"] == 7 and r.json()["aceite"] is True and r.json()["data_aceite"] is not None
@@ -68,14 +73,19 @@ def test_avancar_os_inexistente_404(client, usuario_admin, fases_seed):
 
 
 def test_avancar_lab_com_calibracao_espelha(client, usuario_lab, fases_seed, os_base, db_session):
-    from app.models import Ordem, EquipamentoCliente
+    from app.models import Ordem, EquipamentoCliente, CertificadoModelo
+    db_session.add(CertificadoModelo(equipamento=os_base["equipamento"], tipo="C", texto="<p>[serie]</p>"))
+    db_session.commit()
     o = Ordem(cliente=os_base["cliente"], equipamento_cliente=os_base["equipamento_cliente"], fase=5, situacao="E")
     db_session.add(o); db_session.commit(); db_session.refresh(o)
     h = _headers(client, "lab", "senha123")
-    r = client.post(f"/ordens/{o.id}/avancar", json={
+    # gerar-certificado escreve os calib_* na OS
+    client.post(f"/ordens/{o.id}/gerar-certificado", json={
         "calib_cert": "HF999", "calib_temp": "22.0", "calib_teste_media": "0,16",
-        "calib_situacao": "Aprovado", "prox_calibragem": "2027-06-03",
+        "calib_situacao": "Aprovado",
     }, headers=h)
+    # avancar 5->6 espelha calib_* para o EquipamentoCliente
+    r = client.post(f"/ordens/{o.id}/avancar", json={"prox_calibragem": "2027-06-03"}, headers=h)
     assert r.status_code == 200
     assert r.json()["fase"] == 6
     assert r.json()["calib_cert"] == "HF999"
@@ -89,12 +99,15 @@ def test_avancar_lab_com_calibracao_espelha(client, usuario_lab, fases_seed, os_
 
 
 def test_avancar_lab_manutencao_pura_nao_espelha(client, usuario_lab, fases_seed, os_base, db_session):
-    from app.models import Ordem, EquipamentoCliente
+    from app.models import Ordem, EquipamentoCliente, OSCertificado
     ec0 = db_session.get(EquipamentoCliente, os_base["equipamento_cliente"])
     ec0.calib_cert = "ORIG"
     db_session.commit()
     o = Ordem(cliente=os_base["cliente"], equipamento_cliente=os_base["equipamento_cliente"], fase=5, situacao="E")
     db_session.add(o); db_session.commit(); db_session.refresh(o)
+    # cert direto sem calib_* (manutenção pura)
+    db_session.add(OSCertificado(os=o.id, tipo="M"))
+    db_session.commit()
     h = _headers(client, "lab", "senha123")
     r = client.post(f"/ordens/{o.id}/avancar", json={"obs": "só manutenção"}, headers=h)
     assert r.status_code == 200 and r.json()["fase"] == 6
@@ -104,11 +117,13 @@ def test_avancar_lab_manutencao_pura_nao_espelha(client, usuario_lab, fases_seed
 
 
 def test_avancar_lab_sem_equipamento_nao_quebra(client, usuario_lab, fases_seed, os_base, db_session):
-    from app.models import Ordem
+    from app.models import Ordem, OSCertificado
     o = Ordem(cliente=os_base["cliente"], equipamento_cliente=None, fase=5, situacao="E")
     db_session.add(o); db_session.commit(); db_session.refresh(o)
+    db_session.add(OSCertificado(os=o.id, tipo="C"))
+    db_session.commit()
     h = _headers(client, "lab", "senha123")
-    r = client.post(f"/ordens/{o.id}/avancar", json={"calib_cert": "X"}, headers=h)
+    r = client.post(f"/ordens/{o.id}/avancar", json={}, headers=h)
     assert r.status_code == 200 and r.json()["fase"] == 6
 
 
@@ -121,3 +136,26 @@ def test_calibracao_ignorada_fora_da_fase_lab(client, usuario_comum, fases_seed,
     r = client.post(f"/ordens/{o.id}/avancar", json={"calib_cert": "NAOAPLICA"}, headers=h)
     assert r.status_code == 200 and r.json()["fase"] == 5
     assert r.json()["calib_cert"] is None
+
+
+def test_concluir_lab_bloqueia_sem_certificado(client, usuario_comum, usuario_lab, fases_seed, os_base):
+    he = _headers(client, "comum", "senha123")
+    hl = _headers(client, "lab", "senha123")
+    oid = _abrir(client, he, os_base["equipamento_cliente"])["id"]
+    client.post(f"/ordens/{oid}/avancar", json={}, headers=he)  # 4->5
+    r = client.post(f"/ordens/{oid}/avancar", json={"prox_calibragem": "2027-06-09"}, headers=hl)  # 5->6 sem cert
+    assert r.status_code == 409
+
+
+def test_concluir_lab_com_certificado(client, usuario_comum, usuario_lab, fases_seed, os_base, db_session):
+    from app.models import CertificadoModelo
+    db_session.add(CertificadoModelo(equipamento=os_base["equipamento"], tipo="C", texto="<p>[serie]</p>"))
+    db_session.commit()
+    he = _headers(client, "comum", "senha123")
+    hl = _headers(client, "lab", "senha123")
+    oid = _abrir(client, he, os_base["equipamento_cliente"])["id"]
+    client.post(f"/ordens/{oid}/avancar", json={}, headers=he)  # 4->5
+    client.post(f"/ordens/{oid}/gerar-certificado", json={"calib_cert": "C-1"}, headers=hl)
+    r = client.post(f"/ordens/{oid}/avancar", json={"prox_calibragem": "2027-06-09"}, headers=hl)  # 5->6
+    assert r.status_code == 200 and r.json()["fase"] == 6
+    assert r.json()["prox_calibragem"] is not None

@@ -99,12 +99,12 @@ describe('ordens/api', () => {
     await expect(ordensApi.abrir({ equipamento_cliente: 7, tipo_servico: 'C' })).rejects.toMatchObject({ status: 409 })
   })
 
-  it('avancar inclui campos de calibração no corpo', async () => {
+  it('avancar inclui campos no corpo', async () => {
     const f = vi.fn().mockResolvedValue(jsonResponse({ id: 1 }))
     vi.stubGlobal('fetch', f)
-    await ordensApi.avancar(5, { calib_cert: 'HF1', calib_teste_media: '0,1', prox_calibragem: '2027-06-03' })
+    await ordensApi.avancar(5, { obs: 'ok', prox_calibragem: '2027-06-03' })
     const body = String(f.mock.calls[0][1].body)
-    expect(body).toContain('calib_cert')
+    expect(body).toContain('obs')
     expect(body).toContain('prox_calibragem')
   })
 })

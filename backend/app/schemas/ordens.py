@@ -60,9 +60,13 @@ class OrdemOut(BaseModel):
     data_aceite: datetime | None = None
     prox_calibragem: datetime | None = None
     # espelho (preenchidos na 3E — só leitura)
+    tipo_calibragem: int | None = None
     calib_cert: str | None = None
     calib_temp: str | None = None
     calib_pressao: str | None = None
+    calib_teste1: str | None = None
+    calib_teste2: str | None = None
+    calib_teste3: str | None = None
     calib_teste_media: str | None = None
     calib_situacao: str | None = None
     pdf_certificado: str | None = None
@@ -87,6 +91,10 @@ class OrdemAbrirIn(BaseModel):
 class AvancarIn(BaseModel):
     obs: str | None = None
     cod_retorno: str | None = None
+    prox_calibragem: datetime | None = None
+
+
+class GerarCertificadoIn(BaseModel):
     tipo_calibragem: int | None = None
     calib_cert: str | None = None
     calib_temp: str | None = None
@@ -96,8 +104,6 @@ class AvancarIn(BaseModel):
     calib_teste3: str | None = None
     calib_teste_media: str | None = None
     calib_situacao: str | None = None
-    pdf_certificado: str | None = None
-    prox_calibragem: datetime | None = None
 
 
 class CancelarIn(BaseModel):
