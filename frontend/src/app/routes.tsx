@@ -15,6 +15,7 @@ import { SolicitacoesPage } from './solicitacoes/SolicitacoesPage'
 import { CaixasPage } from './caixas/CaixasPage'
 import { CaixaDetailPage } from './caixas/CaixaDetailPage'
 import { CertificadosPage } from './certificados/CertificadosPage'
+import { CertificadoImprimir } from './ordens/CertificadoImprimir'
 
 export default function AppRoutes() {
   return (
@@ -31,6 +32,7 @@ export default function AppRoutes() {
         <Route path="frota/:id" element={<EquipamentoClienteDetailPage />} />
         <Route path="ordens" element={<OrdensPage />} />
         <Route path="ordens/:id" element={<OrdemDetailPage />} />
+        <Route path="ordens/:id/certificado/:tipo/imprimir" element={<CertificadoImprimir />} />
         <Route path="certificados" element={<CertificadosPage />} />
         <Route path="caixas" element={<CaixasPage />} />
         <Route path="caixas/:id" element={<CaixaDetailPage />} />
