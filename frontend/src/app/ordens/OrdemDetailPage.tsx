@@ -17,6 +17,7 @@ import { GerarCertificadoModal } from './GerarCertificadoModal'
 import { CancelarModal } from './CancelarModal'
 import { FotoImg } from './FotoImg'
 import { FotoLightbox } from './FotoLightbox'
+import { PageContainer, DetailGrid, DetailMain, DetailAside } from '../../components/ui/Page'
 
 // Fluxo linear de fases para a barra de progresso
 const FLUXO_FASES = [
@@ -219,7 +220,7 @@ export function OrdemDetailPage() {
   }
 
   return (
-    <div className="px-4 md:px-6 py-6 space-y-6 max-w-4xl">
+    <PageContainer>
       {/* Hero */}
       <div className="rounded-2xl bg-linear-to-br from-background-surface to-background-elevated border border-border p-5 sm:p-6 space-y-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -260,6 +261,8 @@ export function OrdemDetailPage() {
         </div>
       </div>
 
+      <DetailGrid>
+        <DetailMain>
       {/* Recebimento */}
       <Secao icon={<IconNote className="w-4 h-4" />} titulo="Recebimento">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-5">
@@ -371,7 +374,8 @@ export function OrdemDetailPage() {
         )}
         {erroCert && <p className="text-sm text-danger">{erroCert}</p>}
       </Secao>
-
+        </DetailMain>
+        <DetailAside>
       {/* Certificados gerados */}
       <Secao
         icon={<IconCertificado className="w-4 h-4" />}
@@ -420,6 +424,8 @@ export function OrdemDetailPage() {
           </ol>
         )}
       </Secao>
+        </DetailAside>
+      </DetailGrid>
 
       {acao === 'avancar' && transicao && (
         <AvancarModal os={os} rotulo={transicao.rotulo} pedeCodRetorno={transicao.pedeCodRetorno} pedeProxCalibragem={transicao.pedeProxCalibragem} onClose={() => setAcao(null)} onConcluido={aoConcluir} />
@@ -430,6 +436,6 @@ export function OrdemDetailPage() {
       {lightboxIdx !== null && fotos[lightboxIdx] && (
         <FotoLightbox fotos={fotos} indiceInicial={lightboxIdx} onClose={() => setLightboxIdx(null)} />
       )}
-    </div>
+    </PageContainer>
   )
 }
