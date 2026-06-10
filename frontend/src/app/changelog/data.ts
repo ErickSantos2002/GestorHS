@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.4.2',
+    data: '10/06/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'Na ficha do aparelho agora aparecem as ordens de serviço do equipamento e todos os certificados de calibração já gerados, com download do PDF — facilitando o acesso a certificados antigos. O nome do cliente também virou link direto para a ficha do cliente.' },
+    ],
+  },
+  {
     versao: '1.4.1',
     data: '10/06/2026',
     itens: [
