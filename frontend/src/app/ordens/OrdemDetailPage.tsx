@@ -265,7 +265,7 @@ export function OrdemDetailPage() {
         <DetailMain>
       {/* Recebimento */}
       <Secao icon={<IconNote className="w-4 h-4" />} titulo="Recebimento">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-5">
           <Campo label="Tipo de serviço" valor={tipo} />
           <Campo label="Condição de chegada" valor={os.condicao_chegada ? <Badge tone="neutral">{os.condicao_chegada}</Badge> : '—'} />
           <Campo label="Data de chegada" valor={formatData(os.data_chegada)} />
@@ -348,7 +348,7 @@ export function OrdemDetailPage() {
 
       {/* Datas */}
       <Secao icon={<IconCalendar className="w-4 h-4" />} titulo="Datas">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-5">
           <Campo label="Calibração" valor={formatData(os.data_calibracao)} />
           <Campo label="Aceite" valor={formatData(os.data_aceite)} />
           <Campo label="Retorno (postagem)" valor={formatData(os.data_retorno)} />
@@ -362,7 +362,7 @@ export function OrdemDetailPage() {
         titulo="Resultados da calibração"
       >
         {temCalib ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-5">
             <Campo label="Certificado" valor={os.calib_cert} />
             <Campo label="Temperatura" valor={os.calib_temp} />
             <Campo label="Pressão" valor={os.calib_pressao} />
