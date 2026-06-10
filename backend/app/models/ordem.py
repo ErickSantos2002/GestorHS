@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Boolean, ForeignKey, DateTime, Numeric
+from sqlalchemy import Column, Integer, String, Text, Boolean, ForeignKey, DateTime, Numeric, JSON
 from sqlalchemy.orm import relationship
 from app.models.database import Base
 
@@ -36,6 +36,7 @@ class Ordem(Base):
     calib_situacao = Column(String(50), nullable=True)
     pdf_certificado = Column(String(50), nullable=True)
     certificado = Column(Text, nullable=True)
+    cert_overrides = Column(JSON, nullable=True)
     # financeiro (fora do v1)
     valor = Column(Numeric(10, 2), nullable=False, default=0)
     frete_envio = Column(Numeric(10, 2), nullable=False, default=0)
