@@ -7,9 +7,9 @@ from app.models.database import get_db
 from app.models import Usuario, Ordem, OSCertificado
 from app.api.deps import get_current_usuario, require_funcao
 from app.api.ordens_acoes import agora
-from app.core.certificado_gerar import gerar_certificados, tipos_para
+from app.core.certificado_gerar import gerar_certificados, tipos_para, montar_contexto
 from app.core.certificado_pdf import html_para_pdf
-from app.schemas.ordens import GerarCertificadoIn
+from app.schemas.ordens import GerarCertificadoIn, CertificadoCamposOut
 from app.schemas.certificados_modelo import OSCertificadoOut
 
 router = APIRouter(tags=["certificados-os"])
@@ -20,6 +20,8 @@ _CAMPOS_CALIB = (
     "calib_cert", "calib_temp", "calib_pressao",
     "calib_teste1", "calib_teste2", "calib_teste3", "calib_teste_media", "calib_situacao",
 )
+
+_CAMPOS_OVERRIDE = ("nomecli", "cnpj", "endcli", "modelo", "marca", "serie", "patrimonio", "datacompra")
 
 
 def _os_ou_404(db: Session, ordem_id: int) -> Ordem:
@@ -36,6 +38,21 @@ def listar_os_certificados(ordem_id: int, db: Session = Depends(get_db), _: Usua
     return [OSCertificadoOut.model_validate(c) for c in cs]
 
 
+@router.get("/ordens/{ordem_id}/certificado-campos", response_model=CertificadoCamposOut)
+def certificado_campos(ordem_id: int, db: Session = Depends(get_db), _: Usuario = Depends(get_current_usuario)):
+    ordem = _os_ou_404(db, ordem_id)
+    ctx = montar_contexto(db, ordem)
+    return CertificadoCamposOut(
+        nomecli=ctx.get("nomecli", ""), cnpj=ctx.get("cnpj", ""), endcli=ctx.get("endcli", ""),
+        modelo=ctx.get("modelo", ""), marca=ctx.get("marca", ""), serie=ctx.get("serie", ""),
+        patrimonio=ctx.get("patrimonio", ""), datacompra=ctx.get("datacompra", ""),
+        calib_cert=ordem.calib_cert, calib_temp=ordem.calib_temp, calib_pressao=ordem.calib_pressao,
+        calib_teste1=ordem.calib_teste1, calib_teste2=ordem.calib_teste2, calib_teste3=ordem.calib_teste3,
+        calib_teste_media=ordem.calib_teste_media, calib_situacao=ordem.calib_situacao,
+        data_calibracao=ordem.data_calibracao.date() if ordem.data_calibracao else None,
+    )
+
+
 @router.post("/ordens/{ordem_id}/gerar-certificado", response_model=list[OSCertificadoOut])
 def gerar(ordem_id: int, dados: GerarCertificadoIn | None = None, db: Session = Depends(get_db), _: Usuario = Depends(_gerar)):
     ordem = _os_ou_404(db, ordem_id)
@@ -49,6 +66,8 @@ def gerar(ordem_id: int, dados: GerarCertificadoIn | None = None, db: Session = 
             )
         elif ordem.data_calibracao is None:
             ordem.data_calibracao = agora()
+        overrides = {k: getattr(dados, k) for k in _CAMPOS_OVERRIDE if getattr(dados, k)}
+        ordem.cert_overrides = overrides or None
         db.flush()
     gerados = gerar_certificados(db, ordem, tipos_para(ordem))
     db.commit()

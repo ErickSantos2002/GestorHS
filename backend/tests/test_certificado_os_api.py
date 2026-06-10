@@ -161,3 +161,34 @@ def test_regerar_sem_data_preserva_a_existente(client, usuario_admin, db_session
     o = db_session.get(Ordem, oid); db_session.refresh(o)
     assert o.calib_cert == "C2"
     assert o.data_calibracao.date().isoformat() == "2026-01-15"
+
+
+def test_certificado_campos_deriva_e_aplica_override(client, usuario_admin, db_session):
+    h = _headers(client, "admin", "senha123")
+    oid = _os_com_modelo(client, db_session, h, tipos=("C",), tipo_servico="C")
+    r = client.get(f"/ordens/{oid}/certificado-campos", headers=h)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["nomecli"] == "ACME"
+    assert body["serie"] == "S1"
+    client.post(f"/ordens/{oid}/gerar-certificado", json={"nomecli": "NOME ESPECIAL"}, headers=h)
+    body2 = client.get(f"/ordens/{oid}/certificado-campos", headers=h).json()
+    assert body2["nomecli"] == "NOME ESPECIAL"
+
+
+def test_gerar_grava_overrides_sem_alterar_cliente(client, usuario_admin, db_session):
+    h = _headers(client, "admin", "senha123")
+    oid = _os_com_modelo(client, db_session, h, tipos=("C",), tipo_servico="C")
+    r = client.post(f"/ordens/{oid}/gerar-certificado", json={"nomecli": "OUTRO NOME", "cnpj": "123"}, headers=h)
+    assert r.status_code == 200
+    from app.models import Ordem, Cliente
+    o = db_session.get(Ordem, oid); db_session.refresh(o)
+    assert o.cert_overrides == {"nomecli": "OUTRO NOME", "cnpj": "123"}
+    assert "OUTRO NOME" in r.json()[0]["html"]
+    cli = db_session.get(Cliente, o.cliente)
+    assert cli.nome == "ACME"
+
+
+def test_certificado_campos_404(client, usuario_admin):
+    h = _headers(client, "admin", "senha123")
+    assert client.get("/ordens/99999/certificado-campos", headers=h).status_code == 404

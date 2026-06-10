@@ -96,6 +96,14 @@ class AvancarIn(BaseModel):
 
 class GerarCertificadoIn(BaseModel):
     data_calibracao: date | None = None
+    nomecli: str | None = None
+    cnpj: str | None = None
+    endcli: str | None = None
+    modelo: str | None = None
+    marca: str | None = None
+    serie: str | None = None
+    patrimonio: str | None = None
+    datacompra: str | None = None
     calib_cert: str | None = None
     calib_temp: str | None = None
     calib_pressao: str | None = None
@@ -104,6 +112,26 @@ class GerarCertificadoIn(BaseModel):
     calib_teste3: str | None = None
     calib_teste_media: str | None = None
     calib_situacao: str | None = None
+
+
+class CertificadoCamposOut(BaseModel):
+    nomecli: str = ""
+    cnpj: str = ""
+    endcli: str = ""
+    modelo: str = ""
+    marca: str = ""
+    serie: str = ""
+    patrimonio: str = ""
+    datacompra: str = ""
+    calib_cert: str | None = None
+    calib_temp: str | None = None
+    calib_pressao: str | None = None
+    calib_teste1: str | None = None
+    calib_teste2: str | None = None
+    calib_teste3: str | None = None
+    calib_teste_media: str | None = None
+    calib_situacao: str | None = None
+    data_calibracao: date | None = None
 
 
 class CancelarIn(BaseModel):
