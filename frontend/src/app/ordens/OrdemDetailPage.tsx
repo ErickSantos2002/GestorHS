@@ -237,8 +237,15 @@ export function OrdemDetailPage() {
               )}
             </div>
             <p className="text-sm text-slate-400 mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
-              <span className="font-semibold text-slate-200">{os.cliente_nome ?? '—'}</span>
-              {os.equipamento_descricao && <><span className="text-slate-600">·</span><span>{os.equipamento_descricao}</span></>}
+              <Link to={`/app/clientes/${os.cliente}`} className="font-semibold text-slate-200 hover:text-primary hover:underline">{os.cliente_nome ?? '—'}</Link>
+              {os.equipamento_descricao && (
+                <>
+                  <span className="text-slate-600">·</span>
+                  {os.equipamento_cliente
+                    ? <Link to={`/app/frota/${os.equipamento_cliente}`} className="hover:text-primary hover:underline">{os.equipamento_descricao}</Link>
+                    : <span>{os.equipamento_descricao}</span>}
+                </>
+              )}
               {os.equipamento_serie && <><span className="text-slate-600">·</span><span>Série {os.equipamento_serie}</span></>}
             </p>
           </div>
