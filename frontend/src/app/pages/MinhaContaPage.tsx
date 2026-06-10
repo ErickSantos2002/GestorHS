@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Input } from '../../components/ui/Input'
 import { ApiError } from '../../lib/api'
 import { trocarMinhaSenha } from '../acesso/api'
+import { PageContainer } from '../../components/ui/Page'
 
 export function MinhaContaPage() {
   const [atual, setAtual] = useState('')
@@ -32,7 +33,7 @@ export function MinhaContaPage() {
   }
 
   return (
-    <div className="px-4 md:px-6 py-6 max-w-md">
+    <PageContainer>
       <h1 className="text-2xl font-extrabold text-slate-100 mb-6">Minha conta</h1>
       <div className="rounded-2xl bg-background-surface border border-border p-6">
         <h2 className="text-sm font-semibold text-slate-100 mb-4">Trocar senha</h2>
@@ -68,6 +69,6 @@ export function MinhaContaPage() {
           </button>
         </form>
       </div>
-    </div>
+    </PageContainer>
   )
 }

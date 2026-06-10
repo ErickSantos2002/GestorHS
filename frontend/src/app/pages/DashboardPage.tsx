@@ -6,6 +6,7 @@ import { IconFrota, IconSolicitacoes, IconCobranca } from '../../components/ui/i
 import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
 import { dashboardApi, type DashboardResumo } from '../dashboard/api'
+import { PageContainer } from '../../components/ui/Page'
 
 export function DashboardPage() {
   const { user } = useAuth()
@@ -30,7 +31,7 @@ export function DashboardPage() {
   }, [])
 
   return (
-    <div className="px-4 md:px-6 py-6 space-y-6">
+    <PageContainer>
       <div>
         <h1 className="text-2xl font-extrabold text-slate-100">Olá, {user?.nome ?? user?.login} 👋</h1>
         <p className="text-sm text-slate-500 mt-1">Visão geral da operação.</p>
@@ -95,6 +96,6 @@ export function DashboardPage() {
           </div>
         </>
       ) : null}
-    </div>
+    </PageContainer>
   )
 }

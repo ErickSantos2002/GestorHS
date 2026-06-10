@@ -8,6 +8,7 @@ import { CategoriasPanel } from './CategoriasPanel'
 import { EquipamentosPanel } from './EquipamentosPanel'
 import { FasesPanel } from './FasesPanel'
 import { setoresApi, marcasApi, funcoesApi, type Setor, type Marca, type Funcao } from './api'
+import { PageContainer } from '../../components/ui/Page'
 
 const ABAS = ['Setores', 'Marcas', 'Grupos', 'Categorias', 'Equipamentos', 'Funções', 'Fases'] as const
 type Aba = (typeof ABAS)[number]
@@ -25,7 +26,7 @@ export function CadastrosPage() {
   }
 
   return (
-    <div className="px-4 md:px-6 py-6 space-y-6">
+    <PageContainer>
       <h1 className="text-2xl font-extrabold text-slate-100">Cadastros</h1>
       <div className="flex flex-wrap gap-2">
         {ABAS.map((a) => (
@@ -50,6 +51,6 @@ export function CadastrosPage() {
         {aba === 'Funções' && <CadastroSimples<Funcao> titulo="Funções" client={funcoesApi} />}
         {aba === 'Fases' && <FasesPanel />}
       </div>
-    </div>
+    </PageContainer>
   )
 }

@@ -9,6 +9,7 @@ import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
 import { isAdmin } from '../../auth/roles'
 import { clientesApi, type ClienteListItem } from './api'
+import { PageContainer } from '../../components/ui/Page'
 
 const LIMITE = 25
 
@@ -54,7 +55,7 @@ export function ClientesPage() {
   const fim = Math.min(offset + LIMITE, total)
 
   return (
-    <div className="px-4 md:px-6 py-6 space-y-6">
+    <PageContainer>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-extrabold text-slate-100">Clientes</h1>
         {isAdmin(user) && <Button onClick={() => navigate('/app/clientes/novo')}>Novo cliente</Button>}
@@ -92,6 +93,6 @@ export function ClientesPage() {
           </div>
         </>
       )}
-    </div>
+    </PageContainer>
   )
 }

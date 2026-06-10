@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { cn } from '../../lib/utils'
 import { ModelosTab } from './ModelosTab'
 import { ImagensTab } from './ImagensTab'
+import { PageContainer } from '../../components/ui/Page'
 
 const ABAS = ['Modelos', 'Imagens'] as const
 type Aba = (typeof ABAS)[number]
@@ -9,7 +10,7 @@ type Aba = (typeof ABAS)[number]
 export function CertificadosPage() {
   const [aba, setAba] = useState<Aba>('Modelos')
   return (
-    <div className="px-4 md:px-6 py-6 space-y-6">
+    <PageContainer>
       <div>
         <h1 className="text-2xl font-extrabold text-slate-100">Certificados</h1>
         <p className="text-sm text-slate-500 mt-0.5">Modelos de certificado por aparelho e biblioteca de imagens.</p>
@@ -24,6 +25,6 @@ export function CertificadosPage() {
         ))}
       </div>
       {aba === 'Modelos' ? <ModelosTab /> : <ImagensTab />}
-    </div>
+    </PageContainer>
   )
 }

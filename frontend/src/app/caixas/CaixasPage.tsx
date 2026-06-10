@@ -9,6 +9,7 @@ import { useAuth } from '../../auth/AuthContext'
 import { podeAbrirOS } from '../../auth/roles'
 import { ApiError } from '../../lib/api'
 import { caixasApi, formatData, type CaixaListItem } from './api'
+import { PageContainer } from '../../components/ui/Page'
 
 const PAGE = 25
 
@@ -62,7 +63,7 @@ export function CaixasPage() {
   const fim = dados ? Math.min(offset + PAGE, dados.total) : 0
 
   return (
-    <div className="px-4 md:px-6 py-6 space-y-6">
+    <PageContainer>
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-extrabold text-slate-100">Caixas</h1>
@@ -170,6 +171,6 @@ export function CaixasPage() {
           </form>
         </Modal>
       )}
-    </div>
+    </PageContainer>
   )
 }

@@ -9,6 +9,7 @@ import { isAdmin } from '../../auth/roles'
 import { listarUsuarios, listarFuncoes, excluirUsuario, type UsuarioItem, type Funcao } from './api'
 import { UsuarioFormModal } from './UsuarioFormModal'
 import { RedefinirSenhaModal } from './RedefinirSenhaModal'
+import { PageContainer } from '../../components/ui/Page'
 
 export function UsuariosPage() {
   const { user } = useAuth()
@@ -55,7 +56,7 @@ export function UsuariosPage() {
   }
 
   return (
-    <div className="px-4 md:px-6 py-6 space-y-6">
+    <PageContainer>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-extrabold text-slate-100">Usuários</h1>
         <Button
@@ -140,6 +141,6 @@ export function UsuariosPage() {
           }}
         />
       )}
-    </div>
+    </PageContainer>
   )
 }

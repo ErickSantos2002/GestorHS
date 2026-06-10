@@ -9,6 +9,7 @@ import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
 import { podeRegistrarContato } from '../../auth/roles'
 import { alertasApi, formatData, type AlertaItem } from './api'
+import { PageContainer } from '../../components/ui/Page'
 
 const LIMITE = 25
 
@@ -66,7 +67,7 @@ export function CobrancaPage() {
   const fim = Math.min(offset + LIMITE, total)
 
   return (
-    <div className="px-4 md:px-6 py-6 space-y-6">
+    <PageContainer>
       <h1 className="text-2xl font-extrabold text-slate-100">Cobrança</h1>
 
       <div className="flex flex-wrap gap-3 items-end">
@@ -114,6 +115,6 @@ export function CobrancaPage() {
           </div>
         </>
       )}
-    </div>
+    </PageContainer>
   )
 }

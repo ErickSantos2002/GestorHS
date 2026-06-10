@@ -10,6 +10,7 @@ import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
 import { isAdmin } from '../../auth/roles'
 import { equipamentosClienteApi, STATUS_CALIBRACAO, type FrotaItem } from './api'
+import { PageContainer } from '../../components/ui/Page'
 
 const LIMITE = 25
 
@@ -66,7 +67,7 @@ export function FrotaPage() {
   const nomeCliente = itens?.[0]?.cliente_nome
 
   return (
-    <div className="px-4 md:px-6 py-6 space-y-6">
+    <PageContainer>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-extrabold text-slate-100">Frota</h1>
         {isAdmin(user) && (
@@ -146,6 +147,6 @@ export function FrotaPage() {
           </div>
         </>
       )}
-    </div>
+    </PageContainer>
   )
 }

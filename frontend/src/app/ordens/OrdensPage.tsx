@@ -9,6 +9,7 @@ import { Select } from '../../components/ui/Select'
 import { cn } from '../../lib/utils'
 import { ApiError } from '../../lib/api'
 import { ordensApi, TIPO_SERVICO, FASES_FILTRO, formatData, type OrdemListItem, type QuadroColuna } from './api'
+import { PageContainer } from '../../components/ui/Page'
 
 const LIMITE = 25
 type Vista = 'quadro' | 'lista'
@@ -27,7 +28,7 @@ export function OrdensPage() {
   const [vista, setVista] = useState<Vista>('quadro')
 
   return (
-    <div className="px-4 md:px-6 py-6 space-y-6">
+    <PageContainer>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-extrabold text-slate-100">Ordens de Serviço</h1>
         <div className="flex gap-2">
@@ -58,7 +59,7 @@ export function OrdensPage() {
       ) : (
         <Lista clienteId={clienteId} onAbrir={(id) => navigate(`/app/ordens/${id}`)} />
       )}
-    </div>
+    </PageContainer>
   )
 }
 

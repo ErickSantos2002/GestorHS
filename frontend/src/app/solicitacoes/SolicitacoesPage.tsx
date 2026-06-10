@@ -9,6 +9,7 @@ import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
 import { podeAtenderSolicitacao } from '../../auth/roles'
 import { solicitacoesApi, STATUS_SOLIC, formatData, type SolicitacaoItem } from './api'
+import { PageContainer } from '../../components/ui/Page'
 
 const LIMITE = 25
 
@@ -47,7 +48,7 @@ export function SolicitacoesPage() {
   const fim = Math.min(offset + LIMITE, total)
 
   return (
-    <div className="px-4 md:px-6 py-6 space-y-6">
+    <PageContainer>
       <h1 className="text-2xl font-extrabold text-slate-100">Solicitações</h1>
       <div className="w-52">
         <Select id="status" label="Status" value={status} onChange={(e) => { setOffset(0); setStatus(e.target.value) }}>
@@ -94,6 +95,6 @@ export function SolicitacoesPage() {
           </div>
         </>
       )}
-    </div>
+    </PageContainer>
   )
 }
