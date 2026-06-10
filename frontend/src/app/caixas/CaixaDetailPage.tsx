@@ -10,6 +10,7 @@ import { podeAbrirOS } from '../../auth/roles'
 import { apiJson, ApiError } from '../../lib/api'
 import { caixasApi, formatData, type CaixaDetalhe } from './api'
 import { AbrirOSModal } from '../ordens/AbrirOSModal'
+import { PageContainer, DetailGrid, DetailMain, DetailAside } from '../../components/ui/Page'
 
 // Shape retornado por /equipamentos-cliente?q=...&limit=
 interface EquipClientePicker {
@@ -205,7 +206,7 @@ export function CaixaDetailPage() {
   const clientesUnicos = new Set(caixa.ordens.map((o) => o.cliente_nome).filter(Boolean)).size
 
   return (
-    <div className="px-4 md:px-6 py-6 space-y-6 max-w-5xl">
+    <PageContainer>
       {/* Cabeçalho */}
       <div>
         <Link to="/app/caixas" className="text-sm text-slate-400 hover:text-slate-200 flex items-center gap-1 mb-3">
@@ -226,112 +227,128 @@ export function CaixaDetailPage() {
         )}
       </div>
 
-      {/* Obs editável */}
-      {podeEscrever && (
-        <section className="rounded-2xl bg-background-surface border border-border p-5">
-          <form onSubmit={salvarObs} className="flex gap-3 items-end">
-            <div className="flex-1">
-              <Input
-                id="obs-caixa"
-                label="Descrição / origem"
-                value={obs}
-                onChange={(e) => setObs(e.target.value)}
-                placeholder="Ex.: Lote Cuiabá"
-              />
+      <DetailGrid>
+        <DetailMain>
+          {/* Ações do lote */}
+          {podeEscrever && (
+            <div className="flex gap-2 flex-wrap">
+              <Button onClick={abrirPicker}>Abrir OS</Button>
+              <Button variant="secondary" onClick={() => { setOsVincular(''); setErroVincular(''); setVincularAberto(true) }}>
+                Vincular OS existente
+              </Button>
             </div>
-            <Button type="submit" variant="secondary" disabled={salvandoObs}>
-              {salvandoObs ? 'Salvando…' : 'Salvar'}
-            </Button>
-          </form>
-          {erroObs && <p className="mt-2 text-sm text-danger">{erroObs}</p>}
-        </section>
-      )}
+          )}
 
-      {!podeEscrever && caixa.obs && (
-        <section className="rounded-2xl bg-background-surface border border-border p-5">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Descrição</p>
-          <p className="text-sm text-slate-300">{caixa.obs}</p>
-        </section>
-      )}
-
-      {/* Ações do lote */}
-      {podeEscrever && (
-        <div className="flex gap-2 flex-wrap">
-          <Button onClick={abrirPicker}>Abrir OS</Button>
-          <Button variant="secondary" onClick={() => { setOsVincular(''); setErroVincular(''); setVincularAberto(true) }}>
-            Vincular OS existente
-          </Button>
-        </div>
-      )}
-
-      {/* Tabela de OS vinculadas */}
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wide">
-          Ordens de serviço ({caixa.ordens.length})
-        </h2>
-        {caixa.ordens.length === 0 ? (
-          <p className="text-sm text-slate-500">Nenhuma OS vinculada.</p>
-        ) : (
-          <Table head={
-            <>
-              <TH>OS</TH>
-              <TH>Cliente</TH>
-              <TH>Equipamento</TH>
-              <TH>Fase</TH>
-              {podeEscrever && <TH>Ações</TH>}
-            </>
-          }>
-            {caixa.ordens.map((o) => (
-              <tr key={o.id} className="hover:bg-background-elevated transition-colors">
-                <TD>
-                  <Link to={`/app/ordens/${o.id}`} className="font-semibold text-primary hover:underline">
-                    #{o.id}
-                  </Link>
-                </TD>
-                <TD>{o.cliente_nome ?? '—'}</TD>
-                <TD>
-                  <span>
-                    {o.equipamento_descricao ?? '—'}
-                    {o.equipamento_serie && (
-                      <span className="text-slate-500 ml-1 text-xs">· {o.equipamento_serie}</span>
+          {/* Tabela de OS vinculadas */}
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wide">
+              Ordens de serviço ({caixa.ordens.length})
+            </h2>
+            {caixa.ordens.length === 0 ? (
+              <p className="text-sm text-slate-500">Nenhuma OS vinculada.</p>
+            ) : (
+              <Table head={
+                <>
+                  <TH>OS</TH>
+                  <TH>Cliente</TH>
+                  <TH>Equipamento</TH>
+                  <TH>Fase</TH>
+                  {podeEscrever && <TH>Ações</TH>}
+                </>
+              }>
+                {caixa.ordens.map((o) => (
+                  <tr key={o.id} className="hover:bg-background-elevated transition-colors">
+                    <TD>
+                      <Link to={`/app/ordens/${o.id}`} className="font-semibold text-primary hover:underline">
+                        #{o.id}
+                      </Link>
+                    </TD>
+                    <TD>{o.cliente_nome ?? '—'}</TD>
+                    <TD>
+                      <span>
+                        {o.equipamento_descricao ?? '—'}
+                        {o.equipamento_serie && (
+                          <span className="text-slate-500 ml-1 text-xs">· {o.equipamento_serie}</span>
+                        )}
+                      </span>
+                    </TD>
+                    <TD>
+                      {o.fase_descricao ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full" style={{ background: `#${o.fase_cor}` }} />
+                          {o.fase_descricao}
+                        </span>
+                      ) : '—'}
+                    </TD>
+                    {podeEscrever && (
+                      <TD>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            onClick={() => {
+                              setCaixaDestino('')
+                              setErroMover('')
+                              setMoverOsId(o.id)
+                            }}
+                          >
+                            Mover
+                          </Button>
+                          <Button
+                            variant="danger"
+                            onClick={() => removerOrdem(o.id)}
+                          >
+                            Remover
+                          </Button>
+                        </div>
+                      </TD>
                     )}
-                  </span>
-                </TD>
-                <TD>
-                  {o.fase_descricao ? (
-                    <span className="inline-flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full" style={{ background: `#${o.fase_cor}` }} />
-                      {o.fase_descricao}
-                    </span>
-                  ) : '—'}
-                </TD>
-                {podeEscrever && (
-                  <TD>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        onClick={() => {
-                          setCaixaDestino('')
-                          setErroMover('')
-                          setMoverOsId(o.id)
-                        }}
-                      >
-                        Mover
-                      </Button>
-                      <Button
-                        variant="danger"
-                        onClick={() => removerOrdem(o.id)}
-                      >
-                        Remover
-                      </Button>
-                    </div>
-                  </TD>
-                )}
-              </tr>
-            ))}
-          </Table>
-        )}
-      </section>
+                  </tr>
+                ))}
+              </Table>
+            )}
+          </section>
+        </DetailMain>
+
+        <DetailAside>
+          {/* Obs editável */}
+          {podeEscrever && (
+            <section className="rounded-2xl bg-background-surface border border-border p-5">
+              <form onSubmit={salvarObs} className="flex gap-3 items-end">
+                <div className="flex-1">
+                  <Input
+                    id="obs-caixa"
+                    label="Descrição / origem"
+                    value={obs}
+                    onChange={(e) => setObs(e.target.value)}
+                    placeholder="Ex.: Lote Cuiabá"
+                  />
+                </div>
+                <Button type="submit" variant="secondary" disabled={salvandoObs}>
+                  {salvandoObs ? 'Salvando…' : 'Salvar'}
+                </Button>
+              </form>
+              {erroObs && <p className="mt-2 text-sm text-danger">{erroObs}</p>}
+            </section>
+          )}
+
+          {!podeEscrever && caixa.obs && (
+            <section className="rounded-2xl bg-background-surface border border-border p-5">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Descrição</p>
+              <p className="text-sm text-slate-300">{caixa.obs}</p>
+            </section>
+          )}
+
+          {/* Resumo */}
+          <section className="rounded-2xl bg-background-surface border border-border p-5">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Resumo</p>
+            <dl className="space-y-1 text-sm text-slate-300">
+              <div className="flex justify-between"><dt>Data</dt><dd className="text-slate-100">{formatData(caixa.data)}</dd></div>
+              <div className="flex justify-between"><dt>OS</dt><dd className="text-slate-100">{caixa.total_os}</dd></div>
+              <div className="flex justify-between"><dt>Clientes</dt><dd className="text-slate-100">{clientesUnicos}</dd></div>
+            </dl>
+          </section>
+        </DetailAside>
+      </DetailGrid>
 
       {/* Modal: Vincular OS existente */}
       {vincularAberto && (
@@ -467,6 +484,6 @@ export function CaixaDetailPage() {
           }}
         />
       )}
-    </div>
+    </PageContainer>
   )
 }
