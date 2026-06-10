@@ -1,4 +1,5 @@
 import { apiJson, apiFetch, ApiError } from '../../lib/api'
+import type { OrdemListItem } from '../ordens/api'
 
 export type StatusCalibracao = 'em_dia' | 'vencendo' | 'vencido' | 'sem_data'
 
@@ -75,6 +76,12 @@ export interface Historico {
   entrada: number | null
 }
 
+export interface EquipCertItem {
+  os: number
+  tipo: 'C' | 'M'
+  data_geracao: string | null
+}
+
 async function apiVoid(path: string, options: RequestInit = {}): Promise<void> {
   const res = await apiFetch(path, {
     ...options,
@@ -112,6 +119,8 @@ export const equipamentosClienteApi = {
   },
   obter: (id: number): Promise<EquipamentoCliente> => apiJson<EquipamentoCliente>(`/equipamentos-cliente/${id}`),
   historico: (id: number): Promise<Historico[]> => apiJson<Historico[]>(`/equipamentos-cliente/${id}/historico`),
+  ordens: (id: number): Promise<OrdemListItem[]> => apiJson<OrdemListItem[]>(`/equipamentos-cliente/${id}/ordens`),
+  certificados: (id: number): Promise<EquipCertItem[]> => apiJson<EquipCertItem[]>(`/equipamentos-cliente/${id}/certificados`),
   criar: (payload: EquipamentoClientePayload): Promise<EquipamentoCliente> =>
     apiJson<EquipamentoCliente>('/equipamentos-cliente', { method: 'POST', body: JSON.stringify(payload) }),
   atualizar: (id: number, payload: Partial<Omit<EquipamentoClientePayload, 'cliente'>>): Promise<EquipamentoCliente> =>
