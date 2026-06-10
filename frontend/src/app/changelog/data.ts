@@ -27,6 +27,7 @@ export const CHANGELOG: VersaoChangelog[] = [
     data: '10/06/2026',
     itens: [
       { tipo: 'melhoria', texto: 'Agora é possível corrigir os valores (e a data) de calibração e regerar o certificado mesmo com a OS finalizada — útil quando um certificado sai com algum valor errado. A data de calibração passou a ser um campo do formulário e não é mais redefinida ao regerar.' },
+      { tipo: 'melhoria', texto: 'OS antigas (importadas) que ainda não tinham certificado no sistema novo agora podem gerá-lo: sempre que a OS tiver dados de calibração, o botão "Gerar certificado de calibração" fica disponível.' },
     ],
   },
   {

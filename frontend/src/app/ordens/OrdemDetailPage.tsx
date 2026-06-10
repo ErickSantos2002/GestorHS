@@ -380,14 +380,14 @@ export function OrdemDetailPage() {
       <Secao
         icon={<IconCertificado className="w-4 h-4" />}
         titulo="Certificados"
-        acao={podeGerarCert && (naFaseLab || certs.length > 0) && (
+        acao={podeGerarCert && (naFaseLab || certs.length > 0 || temCalib) && (
           <Button variant={certs.length ? 'secondary' : 'primary'} onClick={() => setAcao('gerar')}>
             {certs.length ? 'Regerar certificado' : 'Gerar certificado de calibração'}
           </Button>
         )}
       >
         {certs.length === 0 ? (
-          <p className="text-sm text-slate-500">Nenhum certificado gerado.{podeGerarCert && naFaseLab ? ' Clique em "Gerar certificado de calibração".' : ''}</p>
+          <p className="text-sm text-slate-500">Nenhum certificado gerado.{podeGerarCert && (naFaseLab || temCalib) ? ' Clique em "Gerar certificado de calibração".' : ''}</p>
         ) : (
           <ul className="space-y-2">
             {certs.map((c) => (
