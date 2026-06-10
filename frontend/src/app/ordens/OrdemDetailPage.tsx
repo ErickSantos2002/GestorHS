@@ -178,7 +178,9 @@ export function OrdemDetailPage() {
   const transicao = os.fase != null ? TRANSICOES[os.fase] : undefined
   const podeFotos = podeAbrirOS(user)
   const podeGerarCert = isAdmin(user) || user?.funcao === 'Laboratório'
-  const naFaseLab = os.fase === 5
+  // Gerar/regerar: no laboratório em diante (5–8, calibração já ocorre/ocorreu),
+  // ou onde já existe certificado. Fora: Recebido (4, ainda não calibrada) e Cancelada (9).
+  const podeGerarOuRegerar = podeGerarCert && (certs.length > 0 || (os.fase != null && os.fase >= 5 && os.fase <= 8))
 
   function aoGerarCert(cs: OSCertificado[]) {
     setCerts(cs)
@@ -380,14 +382,14 @@ export function OrdemDetailPage() {
       <Secao
         icon={<IconCertificado className="w-4 h-4" />}
         titulo="Certificados"
-        acao={podeGerarCert && (naFaseLab || certs.length > 0 || temCalib) && (
+        acao={podeGerarOuRegerar && (
           <Button variant={certs.length ? 'secondary' : 'primary'} onClick={() => setAcao('gerar')}>
             {certs.length ? 'Regerar certificado' : 'Gerar certificado de calibração'}
           </Button>
         )}
       >
         {certs.length === 0 ? (
-          <p className="text-sm text-slate-500">Nenhum certificado gerado.{podeGerarCert && (naFaseLab || temCalib) ? ' Clique em "Gerar certificado de calibração".' : ''}</p>
+          <p className="text-sm text-slate-500">Nenhum certificado gerado.{podeGerarOuRegerar ? ' Clique em "Gerar certificado de calibração".' : ''}</p>
         ) : (
           <ul className="space-y-2">
             {certs.map((c) => (
