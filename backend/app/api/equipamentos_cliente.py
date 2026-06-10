@@ -5,13 +5,14 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.models.database import get_db
-from app.models import Usuario, EquipamentoCliente, HistoricoEquipamento
+from app.models import Usuario, EquipamentoCliente, HistoricoEquipamento, Ordem, OSCertificado
 from app.api.deps import get_current_usuario, require_funcao
 from app.api.cadastros_common import excluir_protegido
 from app.schemas.frota import (
     FrotaListOut, FrotaPage, EquipamentoClienteOut,
-    EquipamentoClienteCreate, EquipamentoClienteUpdate, HistoricoOut,
+    EquipamentoClienteCreate, EquipamentoClienteUpdate, HistoricoOut, EquipCertItem,
 )
+from app.schemas.ordens import OrdemListOut
 
 router = APIRouter(prefix="/equipamentos-cliente", tags=["frota"])
 ADMIN = "Administrador"
@@ -69,6 +70,28 @@ def historico(item_id: int, db: Session = Depends(get_db), _: Usuario = Depends(
         .order_by(HistoricoEquipamento.id)
         .all()
     )
+
+
+@router.get("/{item_id}/ordens", response_model=list[OrdemListOut])
+def ordens_do_aparelho(item_id: int, db: Session = Depends(get_db), _: Usuario = Depends(get_current_usuario)):
+    if db.query(EquipamentoCliente).filter(EquipamentoCliente.id == item_id).first() is None:
+        raise HTTPException(status_code=404, detail="não encontrado")
+    rows = db.query(Ordem).filter(Ordem.equipamento_cliente == item_id).order_by(Ordem.id.desc()).all()
+    return [OrdemListOut.model_validate(o) for o in rows]
+
+
+@router.get("/{item_id}/certificados", response_model=list[EquipCertItem])
+def certificados_do_aparelho(item_id: int, db: Session = Depends(get_db), _: Usuario = Depends(get_current_usuario)):
+    if db.query(EquipamentoCliente).filter(EquipamentoCliente.id == item_id).first() is None:
+        raise HTTPException(status_code=404, detail="não encontrado")
+    rows = (
+        db.query(OSCertificado)
+        .join(Ordem, OSCertificado.os == Ordem.id)
+        .filter(Ordem.equipamento_cliente == item_id)
+        .order_by(OSCertificado.os.desc(), OSCertificado.tipo)
+        .all()
+    )
+    return [EquipCertItem(os=c.os, tipo=c.tipo, data_geracao=c.data_geracao) for c in rows]
 
 
 @router.post("", response_model=EquipamentoClienteOut, status_code=http_status.HTTP_201_CREATED)

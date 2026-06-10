@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional, Literal
-from datetime import date
+from datetime import date, datetime
 
 
 class FrotaListOut(BaseModel):
@@ -81,4 +81,11 @@ class HistoricoOut(BaseModel):
     datamov: Optional[date] = None
     saida: Optional[int] = None
     entrada: Optional[int] = None
+    model_config = {"from_attributes": True}
+
+
+class EquipCertItem(BaseModel):
+    os: int
+    tipo: str
+    data_geracao: datetime | None = None
     model_config = {"from_attributes": True}
