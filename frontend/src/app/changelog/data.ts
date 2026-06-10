@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.5.0',
+    data: '10/06/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'A tela de gerar/regerar certificado agora mostra todos os campos (dados do cliente, do aparelho e da calibração) já preenchidos automaticamente. Dá para ajustar qualquer informação apenas naquele certificado — por exemplo, corrigir o nome ou endereço que sai impresso — sem alterar o cadastro do cliente ou do aparelho. O ajuste fica salvo na OS e vale para as próximas regerações.' },
+    ],
+  },
+  {
     versao: '1.4.3',
     data: '10/06/2026',
     itens: [
