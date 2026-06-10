@@ -11,6 +11,7 @@ import { clientesApi, type ClientePayload } from './api'
 import { gruposApi, type Grupo } from '../cadastros/api'
 import { FuncionariosSection } from './FuncionariosSection'
 import { UsuariosPortalSection } from './UsuariosPortalSection'
+import { PageContainer, DetailGrid, DetailMain, DetailAside } from '../../components/ui/Page'
 
 const VAZIO: ClientePayload = {
   nome: '', grupo: null, cgc: null, cpf: null, endereco: null, numero: null, complemento: null,
@@ -118,8 +119,60 @@ export function ClienteDetailPage() {
     />
   )
 
+  const formConteudo = (
+    <>
+      <Secao titulo="Identificação">
+        <Input id="c-nome" label="Nome" value={form.nome} onChange={(e) => set('nome', e.target.value)} required disabled={ro} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Select id="c-grupo" label="Grupo" value={form.grupo ? String(form.grupo) : ''} onChange={(e) => set('grupo', e.target.value ? Number(e.target.value) : null)} disabled={ro}>
+            <option value="">— sem grupo —</option>
+            {grupos.map((g) => <option key={g.id} value={g.id}>{g.descricao}</option>)}
+          </Select>
+          <label className="flex items-center gap-2 text-sm text-slate-300 mt-6">
+            <input type="checkbox" checked={form.ativo} onChange={(e) => set('ativo', e.target.checked)} disabled={ro} className="accent-primary" />
+            Ativo
+          </label>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{txt('CNPJ', 'cgc')}{txt('CPF', 'cpf')}</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{txt('Inscrição municipal', 'insc_mun')}{txt('Inscrição estadual', 'insc_est')}</div>
+      </Secao>
+
+      <Secao titulo="Endereço">
+        {txt('Logradouro', 'endereco')}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Input id="c-numero" label="Número" type="number" value={form.numero != null ? String(form.numero) : ''} onChange={(e) => set('numero', e.target.value ? Number(e.target.value) : null)} disabled={ro} />
+          {txt('Complemento', 'complemento')}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{txt('Bairro', 'bairro')}{txt('CEP', 'cep')}</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{txt('Município', 'municipio')}{txt('UF', 'estado')}</div>
+      </Secao>
+
+      <Secao titulo="Contatos">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{txt('Contato', 'contato')}{txt('E-mail', 'email')}</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{txt('Telefones', 'telefones')}{txt('Celular', 'celular')}</div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">{txt('WhatsApp', 'whatsapp')}{txt('WhatsApp 2', 'whatsapp1')}{txt('WhatsApp 3', 'whatsapp2')}</div>
+      </Secao>
+
+      <Secao titulo="Observações">
+        <textarea
+          value={form.obs ?? ''}
+          onChange={(e) => set('obs', e.target.value || null)}
+          disabled={ro}
+          rows={3}
+          className="w-full text-sm text-slate-200 bg-background-elevated border border-border rounded-lg px-3 py-2.5 resize-none focus:outline-none focus:ring-2 focus:ring-primary/40 placeholder-slate-500 leading-relaxed disabled:opacity-60"
+        />
+      </Secao>
+
+      {podeEditar && (
+        <button type="submit" disabled={enviando} className="w-full py-2.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary-600 disabled:opacity-60 transition-all">
+          {editando ? 'Salvar alterações' : 'Criar cliente'}
+        </button>
+      )}
+    </>
+  )
+
   return (
-    <div className="px-4 md:px-6 py-6 space-y-6 max-w-3xl">
+    <PageContainer>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-extrabold text-slate-100">{editando ? (form.nome || 'Cliente') : 'Novo cliente'}</h1>
         <div className="flex gap-2">
@@ -131,58 +184,21 @@ export function ClienteDetailPage() {
 
       {erro && <div className="rounded-lg bg-danger/10 border border-danger/20 px-3 py-2.5 text-sm text-danger">{erro}</div>}
 
-      <form className="space-y-6" onSubmit={salvar}>
-        <Secao titulo="Identificação">
-          <Input id="c-nome" label="Nome" value={form.nome} onChange={(e) => set('nome', e.target.value)} required disabled={ro} />
-          <div className="grid grid-cols-2 gap-3">
-            <Select id="c-grupo" label="Grupo" value={form.grupo ? String(form.grupo) : ''} onChange={(e) => set('grupo', e.target.value ? Number(e.target.value) : null)} disabled={ro}>
-              <option value="">— sem grupo —</option>
-              {grupos.map((g) => <option key={g.id} value={g.id}>{g.descricao}</option>)}
-            </Select>
-            <label className="flex items-center gap-2 text-sm text-slate-300 mt-6">
-              <input type="checkbox" checked={form.ativo} onChange={(e) => set('ativo', e.target.checked)} disabled={ro} className="accent-primary" />
-              Ativo
-            </label>
-          </div>
-          <div className="grid grid-cols-2 gap-3">{txt('CNPJ', 'cgc')}{txt('CPF', 'cpf')}</div>
-          <div className="grid grid-cols-2 gap-3">{txt('Inscrição municipal', 'insc_mun')}{txt('Inscrição estadual', 'insc_est')}</div>
-        </Secao>
-
-        <Secao titulo="Endereço">
-          {txt('Logradouro', 'endereco')}
-          <div className="grid grid-cols-2 gap-3">
-            <Input id="c-numero" label="Número" type="number" value={form.numero != null ? String(form.numero) : ''} onChange={(e) => set('numero', e.target.value ? Number(e.target.value) : null)} disabled={ro} />
-            {txt('Complemento', 'complemento')}
-          </div>
-          <div className="grid grid-cols-2 gap-3">{txt('Bairro', 'bairro')}{txt('CEP', 'cep')}</div>
-          <div className="grid grid-cols-2 gap-3">{txt('Município', 'municipio')}{txt('UF', 'estado')}</div>
-        </Secao>
-
-        <Secao titulo="Contatos">
-          <div className="grid grid-cols-2 gap-3">{txt('Contato', 'contato')}{txt('E-mail', 'email')}</div>
-          <div className="grid grid-cols-2 gap-3">{txt('Telefones', 'telefones')}{txt('Celular', 'celular')}</div>
-          <div className="grid grid-cols-3 gap-3">{txt('WhatsApp', 'whatsapp')}{txt('WhatsApp 2', 'whatsapp1')}{txt('WhatsApp 3', 'whatsapp2')}</div>
-        </Secao>
-
-        <Secao titulo="Observações">
-          <textarea
-            value={form.obs ?? ''}
-            onChange={(e) => set('obs', e.target.value || null)}
-            disabled={ro}
-            rows={3}
-            className="w-full text-sm text-slate-200 bg-background-elevated border border-border rounded-lg px-3 py-2.5 resize-none focus:outline-none focus:ring-2 focus:ring-primary/40 placeholder-slate-500 leading-relaxed disabled:opacity-60"
-          />
-        </Secao>
-
-        {podeEditar && (
-          <button type="submit" disabled={enviando} className="w-full py-2.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary-600 disabled:opacity-60 transition-all">
-            {editando ? 'Salvar alterações' : 'Criar cliente'}
-          </button>
-        )}
-      </form>
-
-      {editando && <FuncionariosSection clienteId={Number(id)} podeEditar={podeEditar} />}
-      {editando && podeEditar && <UsuariosPortalSection clienteId={Number(id)} />}
-    </div>
+      {editando ? (
+        <DetailGrid>
+          <DetailMain>
+            <form className="space-y-6" onSubmit={salvar}>{formConteudo}</form>
+          </DetailMain>
+          <DetailAside>
+            <FuncionariosSection clienteId={Number(id)} podeEditar={podeEditar} />
+            {podeEditar && <UsuariosPortalSection clienteId={Number(id)} />}
+          </DetailAside>
+        </DetailGrid>
+      ) : (
+        <div className="max-w-3xl">
+          <form className="space-y-6" onSubmit={salvar}>{formConteudo}</form>
+        </div>
+      )}
+    </PageContainer>
   )
 }
