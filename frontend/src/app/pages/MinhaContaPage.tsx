@@ -35,7 +35,7 @@ export function MinhaContaPage() {
   return (
     <PageContainer>
       <h1 className="text-2xl font-extrabold text-slate-100 mb-6">Minha conta</h1>
-      <div className="rounded-2xl bg-background-surface border border-border p-6">
+      <div className="rounded-2xl bg-background-surface border border-border p-6 max-w-md">
         <h2 className="text-sm font-semibold text-slate-100 mb-4">Trocar senha</h2>
         <form className="space-y-4" onSubmit={onSubmit}>
           <Input id="atual" label="Senha atual" type="password" value={atual} onChange={(e) => setAtual(e.target.value)} required />
