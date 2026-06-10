@@ -23,6 +23,14 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.4.1',
+    data: '10/06/2026',
+    itens: [
+      { tipo: 'melhoria', texto: 'Layout das páginas agora preenche a tela e se adapta ao tamanho do monitor — o conteúdo se distribui em colunas em telas grandes e reflui em telas menores, acabando com o espaço vazio à direita nas páginas de detalhe.' },
+      { tipo: 'melhoria', texto: 'No detalhe da OS, o nome do cliente e o aparelho viraram links — clicar leva direto à ficha do cliente ou do equipamento.' },
+    ],
+  },
+  {
     versao: '1.4.0',
     data: '09/06/2026',
     itens: [
