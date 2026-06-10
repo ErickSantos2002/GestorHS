@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
 import { Select } from '../../components/ui/Select'
@@ -10,7 +10,8 @@ import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
 import { isAdmin, podeAbrirOS } from '../../auth/roles'
 import { AbrirOSModal } from '../ordens/AbrirOSModal'
-import { equipamentosClienteApi, STATUS_CALIBRACAO, type EquipamentoCliente, type EquipamentoClientePayload, type Historico, type StatusCalibracao } from './api'
+import { ordensApi, formatData, TIPO_SERVICO, type OrdemListItem } from '../ordens/api'
+import { equipamentosClienteApi, STATUS_CALIBRACAO, type EquipamentoCliente, type EquipamentoClientePayload, type Historico, type StatusCalibracao, type EquipCertItem } from './api'
 import { equipamentosApi, type Equipamento } from '../cadastros/api'
 import { PageContainer, DetailGrid, DetailMain, DetailAside } from '../../components/ui/Page'
 
@@ -46,6 +47,9 @@ export function EquipamentoClienteDetailPage() {
   const [erro, setErro] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [abrindoOS, setAbrindoOS] = useState(false)
+  const [ordens, setOrdens] = useState<OrdemListItem[]>([])
+  const [certs, setCerts] = useState<EquipCertItem[]>([])
+  const [erroDownload, setErroDownload] = useState('')
 
   useEffect(() => {
     void equipamentosApi.listar().then(setCatalogo).catch(() => setCatalogo([]))
@@ -72,6 +76,8 @@ export function EquipamentoClienteDetailPage() {
         if (ativo) setCarregando(false)
       })
     void equipamentosClienteApi.historico(Number(id)).then((h) => { if (ativo) setHistorico(h) }).catch(() => {})
+    void equipamentosClienteApi.ordens(Number(id)).then((o) => { if (ativo) setOrdens(o) }).catch(() => {})
+    void equipamentosClienteApi.certificados(Number(id)).then((c) => { if (ativo) setCerts(c) }).catch(() => {})
     return () => {
       ativo = false
     }
@@ -98,6 +104,15 @@ export function EquipamentoClienteDetailPage() {
       setErro(err instanceof ApiError ? err.message : 'Falha ao salvar')
     } finally {
       setEnviando(false)
+    }
+  }
+
+  async function baixarPdf(os: number, tipo: 'C' | 'M') {
+    setErroDownload('')
+    try {
+      await ordensApi.baixarCertificadoPdf(os, tipo)
+    } catch {
+      setErroDownload('Falha ao baixar PDF')
     }
   }
 
@@ -186,7 +201,12 @@ export function EquipamentoClienteDetailPage() {
         </div>
       </div>
 
-      <p className="text-sm text-slate-400">Cliente: {nomeCliente}</p>
+      <p className="text-sm text-slate-400">
+        Cliente:{' '}
+        {obj?.cliente
+          ? <Link to={`/app/clientes/${obj.cliente}`} className="text-primary hover:underline">{nomeCliente}</Link>
+          : <span>{nomeCliente}</span>}
+      </p>
       {erro && <div className="rounded-lg bg-danger/10 border border-danger/20 px-3 py-2.5 text-sm text-danger">{erro}</div>}
 
       {editando ? (
@@ -228,6 +248,53 @@ export function EquipamentoClienteDetailPage() {
           <form className="space-y-6" onSubmit={salvar}>{formConteudo}</form>
         </div>
       )}
+      {editando && (
+        <div className="rounded-2xl bg-background-surface border border-border p-5 space-y-4">
+          <h2 className="text-sm font-semibold text-slate-100">Ordens de serviço</h2>
+          {ordens.length === 0 ? (
+            <p className="text-sm text-slate-500">Nenhuma OS.</p>
+          ) : (
+            <Table head={<><TH>OS</TH><TH>Chegada</TH><TH>Tipo</TH><TH>Fase</TH><TH>Situação</TH></>}>
+              {ordens.map((o) => (
+                <tr key={o.id} className="hover:bg-background-elevated transition-colors">
+                  <TD><Link to={`/app/ordens/${o.id}`} className="font-semibold text-primary hover:underline">#{o.id}</Link></TD>
+                  <TD>{formatData(o.data_chegada)}</TD>
+                  <TD>{o.tipo_servico && o.tipo_servico in TIPO_SERVICO ? TIPO_SERVICO[o.tipo_servico as keyof typeof TIPO_SERVICO].label : '—'}</TD>
+                  <TD>{o.fase_descricao ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full" style={{ background: `#${o.fase_cor}` }} />
+                      {o.fase_descricao}
+                    </span>
+                  ) : '—'}</TD>
+                  <TD>{o.situacao}</TD>
+                </tr>
+              ))}
+            </Table>
+          )}
+        </div>
+      )}
+
+      {editando && (
+        <div className="rounded-2xl bg-background-surface border border-border p-5 space-y-4">
+          <h2 className="text-sm font-semibold text-slate-100">Certificados</h2>
+          {erroDownload && <p className="text-sm text-danger">{erroDownload}</p>}
+          {certs.length === 0 ? (
+            <p className="text-sm text-slate-500">Nenhum certificado gerado.</p>
+          ) : (
+            <Table head={<><TH>OS</TH><TH>Tipo</TH><TH>Gerado em</TH><TH>PDF</TH></>}>
+              {certs.map((c) => (
+                <tr key={`${c.os}-${c.tipo}`} className="hover:bg-background-elevated transition-colors">
+                  <TD><Link to={`/app/ordens/${c.os}`} className="font-semibold text-primary hover:underline">#{c.os}</Link></TD>
+                  <TD>{c.tipo === 'C' ? 'Calibração' : 'Manutenção'}</TD>
+                  <TD>{formatData(c.data_geracao)}</TD>
+                  <TD><button type="button" onClick={() => void baixarPdf(c.os, c.tipo)} className="text-xs font-semibold text-primary hover:underline">Baixar PDF</button></TD>
+                </tr>
+              ))}
+            </Table>
+          )}
+        </div>
+      )}
+
       {abrindoOS && obj && (
         <AbrirOSModal equipamentoClienteId={obj.id} osAtual={obj.os_atual} onClose={() => setAbrindoOS(false)} />
       )}
