@@ -138,3 +138,26 @@ def test_baixar_pdf_sem_certificado_404(client, usuario_admin, db_session, monke
     oid = _os_com_modelo(client, db_session, h, tipos=("C",), tipo_servico="C")
     # sem gerar certificado
     assert client.get(f"/ordens/{oid}/certificado/C/pdf", headers=h).status_code == 404
+
+
+def test_gerar_grava_data_calibracao_informada(client, usuario_admin, db_session):
+    h = _headers(client, "admin", "senha123")
+    oid = _os_com_modelo(client, db_session, h, tipos=("C",), tipo_servico="C")
+    r = client.post(f"/ordens/{oid}/gerar-certificado", json={"calib_cert": "C1", "data_calibracao": "2026-01-15"}, headers=h)
+    assert r.status_code == 200
+    from app.models import Ordem
+    o = db_session.get(Ordem, oid); db_session.refresh(o)
+    assert o.data_calibracao is not None
+    assert o.data_calibracao.date().isoformat() == "2026-01-15"
+
+
+def test_regerar_sem_data_preserva_a_existente(client, usuario_admin, db_session):
+    h = _headers(client, "admin", "senha123")
+    oid = _os_com_modelo(client, db_session, h, tipos=("C",), tipo_servico="C")
+    client.post(f"/ordens/{oid}/gerar-certificado", json={"calib_cert": "C1", "data_calibracao": "2026-01-15"}, headers=h)
+    r = client.post(f"/ordens/{oid}/gerar-certificado", json={"calib_cert": "C2"}, headers=h)
+    assert r.status_code == 200
+    from app.models import Ordem
+    o = db_session.get(Ordem, oid); db_session.refresh(o)
+    assert o.calib_cert == "C2"
+    assert o.data_calibracao.date().isoformat() == "2026-01-15"

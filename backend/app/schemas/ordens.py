@@ -95,6 +95,7 @@ class AvancarIn(BaseModel):
 
 
 class GerarCertificadoIn(BaseModel):
+    data_calibracao: date | None = None
     calib_cert: str | None = None
     calib_temp: str | None = None
     calib_pressao: str | None = None

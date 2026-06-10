@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 
@@ -40,7 +42,13 @@ def gerar(ordem_id: int, dados: GerarCertificadoIn | None = None, db: Session = 
     if dados is not None:
         for campo in _CAMPOS_CALIB:
             setattr(ordem, campo, getattr(dados, campo))
-        ordem.data_calibracao = agora()
+        if dados.data_calibracao is not None:
+            ordem.data_calibracao = datetime(
+                dados.data_calibracao.year, dados.data_calibracao.month, dados.data_calibracao.day,
+                tzinfo=timezone.utc,
+            )
+        elif ordem.data_calibracao is None:
+            ordem.data_calibracao = agora()
         db.flush()
     gerados = gerar_certificados(db, ordem, tipos_para(ordem))
     db.commit()
