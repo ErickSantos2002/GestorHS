@@ -71,3 +71,24 @@ def test_montar_contexto(db_session):
     assert ctx["situacao"] == "Aprovado"
     assert ctx["os"] == str(o.id)
     assert ctx["datacalibracao"] == "08/06/2026"
+
+
+def test_montar_contexto_aplica_overrides(db_session):
+    from app.models import Cliente, Ordem
+    from app.core.certificado_gerar import montar_contexto
+    cli = Cliente(nome="ACME LTDA", cgc="111"); db_session.add(cli); db_session.flush()
+    o = Ordem(cliente=cli.id, situacao="E", cert_overrides={"nomecli": "NOME ESPECIAL", "cnpj": "999"})
+    db_session.add(o); db_session.commit(); db_session.refresh(o)
+    ctx = montar_contexto(db_session, o)
+    assert ctx["nomecli"] == "NOME ESPECIAL"
+    assert ctx["cnpj"] == "999"
+
+
+def test_montar_contexto_override_vazio_mantem_derivado(db_session):
+    from app.models import Cliente, Ordem
+    from app.core.certificado_gerar import montar_contexto
+    cli = Cliente(nome="ACME LTDA"); db_session.add(cli); db_session.flush()
+    o = Ordem(cliente=cli.id, situacao="E", cert_overrides={"nomecli": ""})
+    db_session.add(o); db_session.commit(); db_session.refresh(o)
+    ctx = montar_contexto(db_session, o)
+    assert ctx["nomecli"] == "ACME LTDA"

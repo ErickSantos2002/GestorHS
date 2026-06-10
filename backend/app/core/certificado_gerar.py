@@ -87,7 +87,7 @@ def montar_contexto(db: Session, ordem) -> dict[str, str]:
     t3 = ordem.calib_teste3 or ""
     media = ordem.calib_teste_media or ""
     situ = ordem.calib_situacao or ""
-    return {
+    ctx = {
         "nomecli": (cli.nome if cli else "") or "",
         "cnpj": ((cli.cgc or cli.cpf) if cli else "") or "",
         "endcli": _endereco(cli),
@@ -122,6 +122,10 @@ def montar_contexto(db: Session, ordem) -> dict[str, str]:
         "situacao": situ,
         "datacli": hoje,
     }
+    for chave, valor in (ordem.cert_overrides or {}).items():
+        if valor:
+            ctx[chave] = valor
+    return ctx
 
 
 def preencher(html: str, contexto: dict[str, str]) -> str:
