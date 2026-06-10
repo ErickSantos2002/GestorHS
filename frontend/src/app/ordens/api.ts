@@ -133,6 +133,14 @@ export interface AvancarPayload {
 
 export interface GerarCertificadoPayload {
   data_calibracao?: string | null
+  nomecli?: string | null
+  cnpj?: string | null
+  endcli?: string | null
+  modelo?: string | null
+  marca?: string | null
+  serie?: string | null
+  patrimonio?: string | null
+  datacompra?: string | null
   calib_cert?: string | null
   calib_temp?: string | null
   calib_pressao?: string | null
@@ -141,6 +149,26 @@ export interface GerarCertificadoPayload {
   calib_teste3?: string | null
   calib_teste_media?: string | null
   calib_situacao?: string | null
+}
+
+export interface CertificadoCampos {
+  nomecli: string
+  cnpj: string
+  endcli: string
+  modelo: string
+  marca: string
+  serie: string
+  patrimonio: string
+  datacompra: string
+  calib_cert: string | null
+  calib_temp: string | null
+  calib_pressao: string | null
+  calib_teste1: string | null
+  calib_teste2: string | null
+  calib_teste3: string | null
+  calib_teste_media: string | null
+  calib_situacao: string | null
+  data_calibracao: string | null
 }
 
 export const TRANSICOES: Record<number, { rotulo: string; pedeCodRetorno?: boolean; pedeProxCalibragem?: boolean }> = {
@@ -224,6 +252,7 @@ export const ordensApi = {
     apiJson<OSCertificado[]>(`/ordens/${id}/gerar-certificado`, payload
       ? { method: 'POST', body: JSON.stringify(payload) }
       : { method: 'POST' }),
+  certificadoCampos: (id: number): Promise<CertificadoCampos> => apiJson<CertificadoCampos>(`/ordens/${id}/certificado-campos`),
   baixarCertificadoPdf: async (id: number, tipo: 'C' | 'M'): Promise<void> => {
     const res = await apiFetch(`/ordens/${id}/certificado/${tipo}/pdf`)
     if (!res.ok) throw new ApiError(res.status, 'Falha ao baixar PDF')
