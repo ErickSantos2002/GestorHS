@@ -380,7 +380,7 @@ export function OrdemDetailPage() {
       <Secao
         icon={<IconCertificado className="w-4 h-4" />}
         titulo="Certificados"
-        acao={podeGerarCert && naFaseLab && (
+        acao={podeGerarCert && (naFaseLab || certs.length > 0) && (
           <Button variant={certs.length ? 'secondary' : 'primary'} onClick={() => setAcao('gerar')}>
             {certs.length ? 'Regerar certificado' : 'Gerar certificado de calibração'}
           </Button>

@@ -13,12 +13,17 @@ function calcMedia(t1: string, t2: string, t3: string): string {
   return ((nums[0] + nums[1] + nums[2]) / 3).toFixed(2).replace('.', ',')
 }
 
+function hojeISO(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
 export function GerarCertificadoModal({ os, onClose, onGerado }: {
   os: OrdemDetalhe
   onClose: () => void
   onGerado: (certs: OSCertificado[]) => void
 }) {
   const [cert, setCert] = useState(os.calib_cert ?? '')
+  const [dataCalib, setDataCalib] = useState(os.data_calibracao ? os.data_calibracao.slice(0, 10) : hojeISO())
   const [temp, setTemp] = useState(os.calib_temp ?? '')
   const [pressao, setPressao] = useState(os.calib_pressao ?? '')
   const [t1, setT1] = useState(os.calib_teste1 ?? '')
@@ -40,6 +45,7 @@ export function GerarCertificadoModal({ os, onClose, onGerado }: {
     e.preventDefault()
     setErro(''); setEnviando(true)
     const payload: GerarCertificadoPayload = {
+      data_calibracao: dataCalib || null,
       calib_cert: cert.trim() || null,
       calib_temp: temp.trim() || null,
       calib_pressao: pressao.trim() || null,
@@ -72,6 +78,7 @@ export function GerarCertificadoModal({ os, onClose, onGerado }: {
       }
     >
       <form id="form-gerar-cert" className="space-y-4" onSubmit={submeter}>
+        <Input id="data-calib" label="Data de calibração" type="date" value={dataCalib} onChange={(e) => setDataCalib(e.target.value)} />
         <div className="grid grid-cols-2 gap-3">
           <Input id="cert" label="Nº do certificado" value={cert} onChange={(e) => setCert(e.target.value)} />
           <Select id="situacao" label="Situação" value={situacao} onChange={(e) => setSituacao(e.target.value)}>
