@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.4.3',
+    data: '10/06/2026',
+    itens: [
+      { tipo: 'melhoria', texto: 'Agora é possível corrigir os valores (e a data) de calibração e regerar o certificado mesmo com a OS finalizada — útil quando um certificado sai com algum valor errado. A data de calibração passou a ser um campo do formulário e não é mais redefinida ao regerar.' },
+    ],
+  },
+  {
     versao: '1.4.2',
     data: '10/06/2026',
     itens: [
