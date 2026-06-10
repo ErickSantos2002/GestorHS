@@ -12,6 +12,7 @@ import { isAdmin, podeAbrirOS } from '../../auth/roles'
 import { AbrirOSModal } from '../ordens/AbrirOSModal'
 import { equipamentosClienteApi, STATUS_CALIBRACAO, type EquipamentoCliente, type EquipamentoClientePayload, type Historico, type StatusCalibracao } from './api'
 import { equipamentosApi, type Equipamento } from '../cadastros/api'
+import { PageContainer, DetailGrid, DetailMain, DetailAside } from '../../components/ui/Page'
 
 const VAZIO: EquipamentoClientePayload = {
   cliente: 0, equipamento: 0, modulo: 0, serie: null, patrimonio: null,
@@ -130,8 +131,49 @@ export function EquipamentoClienteDetailPage() {
   const sc = statusCal ? STATUS_CALIBRACAO[statusCal] : null
   const nomeCliente = obj?.cliente_nome ?? (clienteId ? `#${clienteId}` : '')
 
+  const formConteudo = (
+    <>
+      <Secao titulo="Aparelho">
+        <Select id="ec-equipamento" label="Equipamento (catálogo)" value={form.equipamento ? String(form.equipamento) : ''} onChange={(e) => set('equipamento', Number(e.target.value))} disabled={ro} required>
+          <option value="">— selecione —</option>
+          {catalogo.map((c) => <option key={c.id} value={c.id}>{c.descricao}</option>)}
+        </Select>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Input id="ec-serie" label="Série" value={form.serie ?? ''} onChange={(e) => set('serie', e.target.value || null)} disabled={ro} />
+          <Input id="ec-patrimonio" label="Patrimônio" value={form.patrimonio ?? ''} onChange={(e) => set('patrimonio', e.target.value || null)} disabled={ro} />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Input id="ec-modulo" label="Módulo" type="number" value={String(form.modulo)} onChange={(e) => set('modulo', Number(e.target.value) || 0)} disabled={ro} />
+          <Select id="ec-status" label="Situação" value={form.status} onChange={(e) => set('status', e.target.value as 'A' | 'I' | 'M')} disabled={ro}>
+            <option value="A">Ativo</option>
+            <option value="I">Inativo</option>
+            <option value="M">Manutenção</option>
+          </Select>
+        </div>
+        <label className="flex items-center gap-2 text-sm text-slate-300">
+          <input type="checkbox" checked={form.ativo} onChange={(e) => set('ativo', e.target.checked)} disabled={ro} className="accent-primary" />
+          Ativo
+        </label>
+      </Secao>
+
+      <Secao titulo="Calibração">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <Input id="ec-datacompra" label="Compra" type="date" value={form.datacompra ?? ''} onChange={(e) => set('datacompra', e.target.value || null)} disabled={ro} />
+          <Input id="ec-ult" label="Última calibração" type="date" value={form.ult_calibragem ?? ''} onChange={(e) => set('ult_calibragem', e.target.value || null)} disabled={ro} />
+          <Input id="ec-prox" label="Próxima calibração" type="date" value={form.prox_calibragem ?? ''} onChange={(e) => set('prox_calibragem', e.target.value || null)} disabled={ro} />
+        </div>
+      </Secao>
+
+      {podeEditar && (
+        <button type="submit" disabled={enviando} className="w-full py-2.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary-600 disabled:opacity-60 transition-all">
+          {editando ? 'Salvar alterações' : 'Criar aparelho'}
+        </button>
+      )}
+    </>
+  )
+
   return (
-    <div className="px-4 md:px-6 py-6 space-y-6 max-w-3xl">
+    <PageContainer>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-extrabold text-slate-100">{editando ? (obj?.equipamento_descricao || 'Aparelho') : 'Novo aparelho'}</h1>
@@ -147,77 +189,48 @@ export function EquipamentoClienteDetailPage() {
       <p className="text-sm text-slate-400">Cliente: {nomeCliente}</p>
       {erro && <div className="rounded-lg bg-danger/10 border border-danger/20 px-3 py-2.5 text-sm text-danger">{erro}</div>}
 
-      <form className="space-y-6" onSubmit={salvar}>
-        <Secao titulo="Aparelho">
-          <Select id="ec-equipamento" label="Equipamento (catálogo)" value={form.equipamento ? String(form.equipamento) : ''} onChange={(e) => set('equipamento', Number(e.target.value))} disabled={ro} required>
-            <option value="">— selecione —</option>
-            {catalogo.map((c) => <option key={c.id} value={c.id}>{c.descricao}</option>)}
-          </Select>
-          <div className="grid grid-cols-2 gap-3">
-            <Input id="ec-serie" label="Série" value={form.serie ?? ''} onChange={(e) => set('serie', e.target.value || null)} disabled={ro} />
-            <Input id="ec-patrimonio" label="Patrimônio" value={form.patrimonio ?? ''} onChange={(e) => set('patrimonio', e.target.value || null)} disabled={ro} />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Input id="ec-modulo" label="Módulo" type="number" value={String(form.modulo)} onChange={(e) => set('modulo', Number(e.target.value) || 0)} disabled={ro} />
-            <Select id="ec-status" label="Situação" value={form.status} onChange={(e) => set('status', e.target.value as 'A' | 'I' | 'M')} disabled={ro}>
-              <option value="A">Ativo</option>
-              <option value="I">Inativo</option>
-              <option value="M">Manutenção</option>
-            </Select>
-          </div>
-          <label className="flex items-center gap-2 text-sm text-slate-300">
-            <input type="checkbox" checked={form.ativo} onChange={(e) => set('ativo', e.target.checked)} disabled={ro} className="accent-primary" />
-            Ativo
-          </label>
-        </Secao>
-
-        <Secao titulo="Calibração">
-          <div className="grid grid-cols-3 gap-3">
-            <Input id="ec-datacompra" label="Compra" type="date" value={form.datacompra ?? ''} onChange={(e) => set('datacompra', e.target.value || null)} disabled={ro} />
-            <Input id="ec-ult" label="Última calibração" type="date" value={form.ult_calibragem ?? ''} onChange={(e) => set('ult_calibragem', e.target.value || null)} disabled={ro} />
-            <Input id="ec-prox" label="Próxima calibração" type="date" value={form.prox_calibragem ?? ''} onChange={(e) => set('prox_calibragem', e.target.value || null)} disabled={ro} />
-          </div>
-        </Secao>
-
-        {podeEditar && (
-          <button type="submit" disabled={enviando} className="w-full py-2.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary-600 disabled:opacity-60 transition-all">
-            {editando ? 'Salvar alterações' : 'Criar aparelho'}
-          </button>
-        )}
-      </form>
-
-      {editando && obj && (obj.calib_cert || obj.calib_situacao || obj.calib_teste_media) && (
-        <Secao titulo="Última calibração (resultado da OS)">
-          <div className="grid grid-cols-2 gap-3 text-sm text-slate-300">
-            <p>Certificado: <span className="text-slate-100">{obj.calib_cert ?? '—'}</span></p>
-            <p>Situação: <span className="text-slate-100">{obj.calib_situacao ?? '—'}</span></p>
-            <p>Temperatura: <span className="text-slate-100">{obj.calib_temp ?? '—'}</span></p>
-            <p>Pressão: <span className="text-slate-100">{obj.calib_pressao ?? '—'}</span></p>
-            <p>Média dos testes: <span className="text-slate-100">{obj.calib_teste_media ?? '—'}</span></p>
-          </div>
-        </Secao>
-      )}
-
-      {editando && (
-        <Secao titulo="Histórico de movimentação">
-          {historico.length === 0 ? (
-            <p className="text-sm text-slate-500">Sem movimentações.</p>
-          ) : (
-            <Table head={<><TH>Data</TH><TH>Saída</TH><TH>Entrada</TH></>}>
-              {historico.map((m) => (
-                <tr key={m.id} className="hover:bg-background-elevated transition-colors">
-                  <TD>{m.datamov ?? '—'}</TD>
-                  <TD>{m.saida ?? '—'}</TD>
-                  <TD>{m.entrada ?? '—'}</TD>
-                </tr>
-              ))}
-            </Table>
-          )}
-        </Secao>
+      {editando ? (
+        <DetailGrid>
+          <DetailMain>
+            <form className="space-y-6" onSubmit={salvar}>{formConteudo}</form>
+          </DetailMain>
+          <DetailAside>
+            {obj && (obj.calib_cert || obj.calib_situacao || obj.calib_teste_media) && (
+              <Secao titulo="Última calibração (resultado da OS)">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-slate-300">
+                  <p>Certificado: <span className="text-slate-100">{obj.calib_cert ?? '—'}</span></p>
+                  <p>Situação: <span className="text-slate-100">{obj.calib_situacao ?? '—'}</span></p>
+                  <p>Temperatura: <span className="text-slate-100">{obj.calib_temp ?? '—'}</span></p>
+                  <p>Pressão: <span className="text-slate-100">{obj.calib_pressao ?? '—'}</span></p>
+                  <p>Média dos testes: <span className="text-slate-100">{obj.calib_teste_media ?? '—'}</span></p>
+                </div>
+              </Secao>
+            )}
+            <Secao titulo="Histórico de movimentação">
+              {historico.length === 0 ? (
+                <p className="text-sm text-slate-500">Sem movimentações.</p>
+              ) : (
+                <Table head={<><TH>Data</TH><TH>Saída</TH><TH>Entrada</TH></>}>
+                  {historico.map((m) => (
+                    <tr key={m.id} className="hover:bg-background-elevated transition-colors">
+                      <TD>{m.datamov ?? '—'}</TD>
+                      <TD>{m.saida ?? '—'}</TD>
+                      <TD>{m.entrada ?? '—'}</TD>
+                    </tr>
+                  ))}
+                </Table>
+              )}
+            </Secao>
+          </DetailAside>
+        </DetailGrid>
+      ) : (
+        <div className="max-w-3xl">
+          <form className="space-y-6" onSubmit={salvar}>{formConteudo}</form>
+        </div>
       )}
       {abrindoOS && obj && (
         <AbrirOSModal equipamentoClienteId={obj.id} osAtual={obj.os_atual} onClose={() => setAbrindoOS(false)} />
       )}
-    </div>
+    </PageContainer>
   )
 }
