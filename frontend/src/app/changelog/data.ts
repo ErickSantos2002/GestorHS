@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.6.0',
+    data: '16/06/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'Ao abrir uma Ordem de Serviço agora aparece, no topo, um selo indicando se o aparelho está em garantia, e um painel detalhado com as três garantias (calibração, manutenção e compra) — cada uma mostrando até quando vale.' },
+    ],
+  },
+  {
     versao: '1.5.0',
     data: '10/06/2026',
     itens: [
