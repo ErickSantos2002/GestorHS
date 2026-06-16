@@ -11,7 +11,7 @@ import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
 import { isAdmin, podeAbrirOS } from '../../auth/roles'
 import { fasesApi, type Fase } from '../cadastros/api'
-import { ordensApi, fotosApi, TIPO_SERVICO, TRANSICOES, formatData, garantiaBadge, type OrdemDetalhe, type GarantiaItem, type LogOS, type Foto, type OSCertificado } from './api'
+import { ordensApi, fotosApi, TIPO_SERVICO, TRANSICOES, formatData, garantiaBadge, garantiasAtivas, type OrdemDetalhe, type GarantiaItem, type LogOS, type Foto, type OSCertificado } from './api'
 import { AvancarModal } from './AvancarModal'
 import { GerarCertificadoModal } from './GerarCertificadoModal'
 import { CancelarModal } from './CancelarModal'
@@ -244,9 +244,16 @@ export function OrdemDetailPage() {
                 </span>
               )}
               {os.garantias && (
-                <Badge tone={os.garantias.em_garantia ? 'primary' : 'neutral'}>
-                  {os.garantias.em_garantia ? 'EM GARANTIA' : 'SEM GARANTIA'}
-                </Badge>
+                os.garantias.em_garantia ? (
+                  <span className="inline-flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs font-semibold text-slate-400">Garantia:</span>
+                    {garantiasAtivas(os.garantias).map((label) => (
+                      <Badge key={label} tone="primary">{label}</Badge>
+                    ))}
+                  </span>
+                ) : (
+                  <Badge tone="neutral">Sem garantia</Badge>
+                )
               )}
             </div>
             <p className="text-sm text-slate-400 mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">

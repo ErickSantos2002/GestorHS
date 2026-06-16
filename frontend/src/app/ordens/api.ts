@@ -97,6 +97,19 @@ export function garantiaBadge(item: GarantiaItem): { label: string; tone: 'prima
   return { label: 'Sem registro', tone: 'neutral' }
 }
 
+export const GARANTIA_LABEL: Record<'calibracao' | 'manutencao' | 'compra', string> = {
+  calibracao: 'Calibração',
+  manutencao: 'Manutenção',
+  compra: 'Compra',
+}
+
+/** Rótulos das garantias atualmente ativas (estado em_garantia), na ordem fixa. */
+export function garantiasAtivas(g: Garantias): string[] {
+  return (['calibracao', 'manutencao', 'compra'] as const)
+    .filter((k) => g[k].estado === 'em_garantia')
+    .map((k) => GARANTIA_LABEL[k])
+}
+
 export interface OrdemDetalhe extends OrdemListItem {
   condicao_chegada: string | null
   acessorios: string | null
