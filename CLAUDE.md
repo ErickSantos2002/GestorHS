@@ -86,7 +86,7 @@ O changelog exibido na sidebar do app é **editado à mão** em [frontend/src/ap
 ```
 tipo(escopo): descricao curta no imperativo
 ```
-- **Tipos** usados: `feat`, `fix`, `docs`.
+- **Tipos** usados: `feat`, `fix`, `docs`, `refactor` (mudança interna sem alterar comportamento — ex.: remover duplicação, extrair util).
 - **Escopos** comuns: `cert`, `frota`, `ux`, `ui`, `changelog`, `plan`, `spec` (use o módulo/área afetada).
 - Assunto de **uma linha só** — sem corpo e **sem trailer de co-autor**. Para nota de versão pode usar travessão `—` (ex.: `docs(changelog): v1.5.0 — certificado com campos editaveis por OS`).
 
