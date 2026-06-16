@@ -54,15 +54,7 @@ export const portalApi = {
   },
 }
 
-export function formatData(iso: string | null): string {
-  if (!iso) return '—'
-  // ISO date-only strings (YYYY-MM-DD) are parsed as UTC midnight by spec,
-  // which shifts the day backwards in negative-offset timezones.
-  // Appending T00:00:00 makes the parser treat it as local midnight.
-  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso}T00:00:00` : iso
-  const d = new Date(normalized)
-  return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('pt-BR')
-}
+export { formatData } from '../lib/utils'
 
 export const STATUS_CALIB: Record<string, { label: string; tone: 'primary' | 'warning' | 'danger' | 'neutral' }> = {
   em_dia: { label: 'Em dia', tone: 'primary' },
