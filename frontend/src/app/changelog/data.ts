@@ -26,7 +26,7 @@ export const CHANGELOG: VersaoChangelog[] = [
     versao: '1.6.0',
     data: '16/06/2026',
     itens: [
-      { tipo: 'novidade', texto: 'Ao abrir uma Ordem de Serviço agora aparece, no topo, um selo indicando se o aparelho está em garantia, e um painel detalhado com as três garantias (calibração, manutenção e compra) — cada uma mostrando até quando vale.' },
+      { tipo: 'novidade', texto: 'Ao abrir uma Ordem de Serviço agora aparece, no topo, quais garantias do aparelho estão ativas (calibração, manutenção e/ou compra), além de um painel detalhado com as três garantias mostrando até quando cada uma vale.' },
     ],
   },
   {
