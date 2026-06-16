@@ -35,7 +35,11 @@ export const FASES_FILTRO: { id: number; label: string }[] = [
 
 export function formatData(iso: string | null): string {
   if (!iso) return '—'
-  const d = new Date(iso)
+  // ISO date-only strings (YYYY-MM-DD) are parsed as UTC midnight by spec,
+  // which shifts the day backwards in negative-offset timezones.
+  // Appending T00:00:00 makes the parser treat it as local midnight.
+  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso}T00:00:00` : iso
+  const d = new Date(normalized)
   return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('pt-BR')
 }
 
@@ -68,6 +72,31 @@ export interface QuadroColuna {
   ordens: OrdemListItem[]
 }
 
+export type EstadoGarantia = 'em_garantia' | 'fora' | 'sem_registro'
+
+export interface GarantiaItem {
+  estado: EstadoGarantia
+  data_base: string | null
+  vence_em: string | null
+}
+
+export interface Garantias {
+  em_garantia: boolean
+  calibracao: GarantiaItem
+  manutencao: GarantiaItem
+  compra: GarantiaItem
+}
+
+export function garantiaBadge(item: GarantiaItem): { label: string; tone: 'primary' | 'neutral' } {
+  if (item.estado === 'em_garantia') {
+    return { label: `Em garantia até ${formatData(item.vence_em)}`, tone: 'primary' }
+  }
+  if (item.estado === 'fora') {
+    return { label: 'Fora da garantia', tone: 'neutral' }
+  }
+  return { label: 'Sem registro', tone: 'neutral' }
+}
+
 export interface OrdemDetalhe extends OrdemListItem {
   condicao_chegada: string | null
   acessorios: string | null
@@ -93,6 +122,7 @@ export interface OrdemDetalhe extends OrdemListItem {
   bocais: number
   checklist_ids: number[]
   acessorios_presentes: string[]
+  garantias: Garantias | null
 }
 
 export interface LogOS {
