@@ -11,7 +11,7 @@ import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
 import { isAdmin, podeAbrirOS } from '../../auth/roles'
 import { fasesApi, type Fase } from '../cadastros/api'
-import { ordensApi, fotosApi, TIPO_SERVICO, TRANSICOES, formatData, type OrdemDetalhe, type LogOS, type Foto, type OSCertificado } from './api'
+import { ordensApi, fotosApi, TIPO_SERVICO, TRANSICOES, formatData, garantiaBadge, type OrdemDetalhe, type GarantiaItem, type LogOS, type Foto, type OSCertificado } from './api'
 import { AvancarModal } from './AvancarModal'
 import { GerarCertificadoModal } from './GerarCertificadoModal'
 import { CancelarModal } from './CancelarModal'
@@ -50,6 +50,11 @@ function Secao({ icon, titulo, acao, children }: { icon: ReactNode; titulo: stri
       {children}
     </section>
   )
+}
+
+function GarantiaBadge({ item }: { item: GarantiaItem }) {
+  const b = garantiaBadge(item)
+  return <Badge tone={b.tone}>{b.label}</Badge>
 }
 
 function FaseStepper({ faseAtual, cor }: { faseAtual: number | null; cor: string | null }) {
@@ -238,6 +243,11 @@ export function OrdemDetailPage() {
                   {os.fase_descricao}
                 </span>
               )}
+              {os.garantias && (
+                <Badge tone={os.garantias.em_garantia ? 'primary' : 'neutral'}>
+                  {os.garantias.em_garantia ? 'EM GARANTIA' : 'SEM GARANTIA'}
+                </Badge>
+              )}
             </div>
             <p className="text-sm text-slate-400 mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
               <Link to={`/app/clientes/${os.cliente}`} className="font-semibold text-slate-200 hover:text-primary hover:underline">{os.cliente_nome ?? '—'}</Link>
@@ -357,6 +367,17 @@ export function OrdemDetailPage() {
           <Campo label="Próxima calibração" valor={formatData(os.prox_calibragem)} />
         </div>
       </Secao>
+
+      {/* Garantia */}
+      {os.garantias && (
+        <Secao icon={<IconCheck className="w-4 h-4" />} titulo="Garantia">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-5">
+            <Campo label="Calibração" valor={<GarantiaBadge item={os.garantias.calibracao} />} />
+            <Campo label="Manutenção" valor={<GarantiaBadge item={os.garantias.manutencao} />} />
+            <Campo label="Compra" valor={<GarantiaBadge item={os.garantias.compra} />} />
+          </div>
+        </Secao>
+      )}
 
       {/* Resultados da calibração */}
       <Secao
