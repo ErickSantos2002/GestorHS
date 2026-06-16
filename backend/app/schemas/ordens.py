@@ -33,6 +33,19 @@ class QuadroColuna(BaseModel):
     ordens: list[OrdemListOut]
 
 
+class GarantiaItem(BaseModel):
+    estado: Literal["em_garantia", "fora", "sem_registro"]
+    data_base: date | None = None
+    vence_em: date | None = None
+
+
+class GarantiasOut(BaseModel):
+    em_garantia: bool
+    calibracao: GarantiaItem
+    manutencao: GarantiaItem
+    compra: GarantiaItem
+
+
 class OrdemOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
@@ -74,6 +87,7 @@ class OrdemOut(BaseModel):
     acessorios_presentes: list[str] = []
     pilhas: int = 0
     bocais: int = 0
+    garantias: "GarantiasOut | None" = None
 
 
 class OrdemAbrirIn(BaseModel):
