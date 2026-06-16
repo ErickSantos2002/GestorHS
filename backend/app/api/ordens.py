@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status as http_status, Query
 from sqlalchemy import or_
@@ -10,6 +10,8 @@ from app.api.deps import get_current_usuario, require_funcao
 from app.api.ordens_acoes import agora, registrar_log, exige_funcao_da_fase, espelhar_calibracao
 from app.core import os_workflow as wf
 from app.core import recebimento as rec
+from app.core.garantia import garantias as _calc_garantias
+from app.core.os_workflow import FASE_FINALIZADA
 from app.schemas.ordens import OrdemListOut, OrdemPage, QuadroColuna, OrdemOut, LogOut, OrdemAbrirIn, AvancarIn, CancelarIn
 
 router = APIRouter(prefix="/ordens", tags=["ordens"])
@@ -66,11 +68,38 @@ def quadro(cliente: int | None = None, db: Session = Depends(get_db),
     return colunas
 
 
+def _ultima_manutencao(db: Session, equipamento_cliente_id: int) -> date | None:
+    """Data da última manutenção: data_calibracao da OS finalizada mais recente
+    com tipo_servico em ('M', 'A') para o aparelho."""
+    o = (
+        db.query(Ordem)
+        .filter(
+            Ordem.equipamento_cliente == equipamento_cliente_id,
+            Ordem.tipo_servico.in_(("M", "A")),
+            Ordem.fase == FASE_FINALIZADA,
+            Ordem.data_calibracao.isnot(None),
+        )
+        .order_by(Ordem.data_calibracao.desc())
+        .first()
+    )
+    return o.data_calibracao.date() if o is not None else None
+
+
 @router.get("/{ordem_id}", response_model=OrdemOut)
 def obter(ordem_id: int, db: Session = Depends(get_db), _: Usuario = Depends(get_current_usuario)):
     obj = db.query(Ordem).filter(Ordem.id == ordem_id).first()
     if obj is None:
         raise HTTPException(status_code=404, detail="OS não encontrada")
+    eqc = obj.equipamento_rel
+    if eqc is not None:
+        obj.garantias = _calc_garantias(
+            datacompra=eqc.datacompra,
+            ult_calibragem=eqc.ult_calibragem,
+            ult_manutencao=_ultima_manutencao(db, eqc.id),
+            hoje=date.today(),
+        )
+    else:
+        obj.garantias = None
     return obj
 
 

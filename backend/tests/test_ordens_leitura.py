@@ -84,3 +84,47 @@ def test_leitura_liberada_a_qualquer_interno(client, usuario_admin, usuario_comu
     h = _headers(client, "comum", "senha123")
     assert client.get("/ordens", headers=h).status_code == 200
     assert client.get("/ordens/quadro", headers=h).status_code == 200
+
+
+def test_detalhe_traz_garantias_derivando_manutencao(
+    client, usuario_admin, fases_seed, os_base, db_session
+):
+    from datetime import date, datetime, timezone
+    from app.models import EquipamentoCliente
+
+    # aparelho com compra antiga (fora) e calibracao recente (em garantia)
+    ec = db_session.query(EquipamentoCliente).get(os_base["equipamento_cliente"])
+    ec.datacompra = date(2010, 1, 1)
+    ec.ult_calibragem = date.today()
+    db_session.commit()
+
+    # OS de manutencao FINALIZADA recente -> vira a ultima manutencao
+    _ordem(
+        db_session, os_base["cliente"], os_base["equipamento_cliente"], 8,
+        tipo_servico="M",
+        data_calibracao=datetime.now(timezone.utc),
+    )
+    # OS atual (em andamento) que estamos consultando
+    o = _ordem(
+        db_session, os_base["cliente"], os_base["equipamento_cliente"], 5,
+        tipo_servico="C",
+    )
+
+    h = _headers(client, "admin", "senha123")
+    g = client.get(f"/ordens/{o.id}", headers=h).json()["garantias"]
+    assert g is not None
+    assert g["em_garantia"] is True
+    assert g["calibracao"]["estado"] == "em_garantia"
+    assert g["manutencao"]["estado"] == "em_garantia"   # derivada da OS 'M'
+    assert g["compra"]["estado"] == "fora"
+
+
+def test_detalhe_sem_aparelho_garantias_null(
+    client, usuario_admin, fases_seed, db_session
+):
+    from app.models import Cliente
+    cli = Cliente(nome="Sem aparelho")
+    db_session.add(cli); db_session.commit(); db_session.refresh(cli)
+    o = _ordem(db_session, cli.id, None, 4, tipo_servico="C")
+    h = _headers(client, "admin", "senha123")
+    assert client.get(f"/ordens/{o.id}", headers=h).json()["garantias"] is None
