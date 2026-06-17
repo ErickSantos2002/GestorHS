@@ -26,6 +26,7 @@ export function OrdensPage() {
   const clienteParam = searchParams.get('cliente')
   const clienteId = clienteParam ? Number(clienteParam) : undefined
   const [vista, setVista] = useState<Vista>('quadro')
+  const [faseInicialLista, setFaseInicialLista] = useState('')
 
   return (
     <PageContainer>
@@ -35,7 +36,7 @@ export function OrdensPage() {
           {(['quadro', 'lista'] as Vista[]).map((v) => (
             <button
               key={v}
-              onClick={() => setVista(v)}
+              onClick={() => { if (v === 'lista') setFaseInicialLista(''); setVista(v) }}
               className={cn(
                 'text-xs px-3 py-1.5 rounded-full font-medium transition-all',
                 vista === v ? 'bg-primary/15 text-primary' : 'text-slate-500 hover:text-slate-300 hover:bg-background-elevated',
@@ -55,15 +56,19 @@ export function OrdensPage() {
       )}
 
       {vista === 'quadro' ? (
-        <Quadro clienteId={clienteId} onAbrir={(id) => navigate(`/app/ordens/${id}`)} />
+        <Quadro
+          clienteId={clienteId}
+          onAbrir={(id) => navigate(`/app/ordens/${id}`)}
+          onVerTodas={(fase) => { setFaseInicialLista(String(fase)); setVista('lista') }}
+        />
       ) : (
-        <Lista clienteId={clienteId} onAbrir={(id) => navigate(`/app/ordens/${id}`)} />
+        <Lista clienteId={clienteId} faseInicial={faseInicialLista} onAbrir={(id) => navigate(`/app/ordens/${id}`)} />
       )}
     </PageContainer>
   )
 }
 
-function Quadro({ clienteId, onAbrir }: { clienteId?: number; onAbrir: (id: number) => void }) {
+function Quadro({ clienteId, onAbrir, onVerTodas }: { clienteId?: number; onAbrir: (id: number) => void; onVerTodas: (fase: number) => void }) {
   const [colunas, setColunas] = useState<QuadroColuna[] | null>(null)
   const [erro, setErro] = useState('')
 
@@ -99,7 +104,7 @@ function Quadro({ clienteId, onAbrir }: { clienteId?: number; onAbrir: (id: numb
               <span className="w-2.5 h-2.5 rounded-full" style={{ background: `#${col.cor}` }} />
               {col.descricao}
             </span>
-            <span className="text-xs text-slate-500">{col.ordens.length}</span>
+            <span className="text-xs text-slate-500">{col.total}</span>
           </div>
           <div className="p-3 space-y-2 max-h-[70vh] overflow-y-auto">
             {col.ordens.length === 0 ? (
@@ -125,14 +130,22 @@ function Quadro({ clienteId, onAbrir }: { clienteId?: number; onAbrir: (id: numb
               ))
             )}
           </div>
+          {col.total > col.ordens.length && (
+            <button
+              onClick={() => onVerTodas(col.fase)}
+              className="w-full text-center px-4 py-2.5 text-xs font-semibold text-primary hover:bg-primary/5 border-t border-border transition-colors"
+            >
+              Ver todas ({col.total}) →
+            </button>
+          )}
         </div>
       ))}
     </div>
   )
 }
 
-function Lista({ clienteId, onAbrir }: { clienteId?: number; onAbrir: (id: number) => void }) {
-  const [fase, setFase] = useState('')
+function Lista({ clienteId, faseInicial, onAbrir }: { clienteId?: number; faseInicial?: string; onAbrir: (id: number) => void }) {
+  const [fase, setFase] = useState(faseInicial ?? '')
   const [tipo, setTipo] = useState('')
   const [termo, setTermo] = useState('')
   const [busca, setBusca] = useState('')

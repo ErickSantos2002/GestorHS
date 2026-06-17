@@ -62,6 +62,7 @@ export interface QuadroColuna {
   fase: number
   descricao: string
   cor: string
+  total: number
   ordens: OrdemListItem[]
 }
 

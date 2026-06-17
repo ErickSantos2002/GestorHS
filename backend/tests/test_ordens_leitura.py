@@ -48,15 +48,19 @@ def test_lista_busca_por_nome_cliente(client, usuario_admin, fases_seed, os_base
     assert r.json()["total"] == 1
 
 
-def test_quadro_so_ativas_agrupado(client, usuario_admin, fases_seed, os_base, db_session):
+def test_quadro_inclui_finalizada_agrupado(client, usuario_admin, fases_seed, os_base, db_session):
     _ordem(db_session, os_base["cliente"], os_base["equipamento_cliente"], 4)
     _ordem(db_session, os_base["cliente"], os_base["equipamento_cliente"], 6)
-    _ordem(db_session, os_base["cliente"], os_base["equipamento_cliente"], 8)  # finalizada, fora
+    _ordem(db_session, os_base["cliente"], os_base["equipamento_cliente"], 8)
     h = _headers(client, "admin", "senha123")
     colunas = client.get("/ordens/quadro", headers=h).json()
-    assert [c["fase"] for c in colunas] == [4, 5, 6, 7]
+    assert [c["fase"] for c in colunas] == [4, 5, 6, 7, 8]
     por_fase = {c["fase"]: len(c["ordens"]) for c in colunas}
-    assert por_fase == {4: 1, 5: 0, 6: 1, 7: 0}
+    assert por_fase == {4: 1, 5: 0, 6: 1, 7: 0, 8: 1}
+    por_total = {c["fase"]: c["total"] for c in colunas}
+    assert por_total == {4: 1, 5: 0, 6: 1, 7: 0, 8: 1}
+    col8 = next(c for c in colunas if c["fase"] == 8)
+    assert col8["descricao"] == "Finalizada"
 
 
 def test_detalhe_e_404(client, usuario_admin, fases_seed, os_base, db_session):
@@ -128,3 +132,38 @@ def test_detalhe_sem_aparelho_garantias_null(
     o = _ordem(db_session, cli.id, None, 4, tipo_servico="C")
     h = _headers(client, "admin", "senha123")
     assert client.get(f"/ordens/{o.id}", headers=h).json()["garantias"] is None
+
+
+def test_quadro_finalizada_capada_com_total_real(
+    client, usuario_admin, fases_seed, os_base, db_session, monkeypatch
+):
+    import app.api.ordens as ordens_api
+    monkeypatch.setattr(ordens_api, "LIMITE_FINALIZADAS_QUADRO", 2)
+    for _ in range(3):
+        _ordem(db_session, os_base["cliente"], os_base["equipamento_cliente"], 8)
+    _ordem(db_session, os_base["cliente"], os_base["equipamento_cliente"], 5)  # ativa
+    h = _headers(client, "admin", "senha123")
+    colunas = client.get("/ordens/quadro", headers=h).json()
+    col8 = next(c for c in colunas if c["fase"] == 8)
+    assert col8["total"] == 3
+    assert len(col8["ordens"]) == 2  # capada
+    col5 = next(c for c in colunas if c["fase"] == 5)
+    assert col5["total"] == 1
+    assert len(col5["ordens"]) == 1  # ativas nao capam
+
+
+def test_quadro_finalizada_respeita_filtro_cliente(
+    client, usuario_admin, fases_seed, os_base, db_session
+):
+    from app.models import Cliente
+    outro = Cliente(nome="Outro Cliente")
+    db_session.add(outro); db_session.commit(); db_session.refresh(outro)
+    _ordem(db_session, os_base["cliente"], os_base["equipamento_cliente"], 8)
+    _ordem(db_session, outro.id, None, 8)
+    h = _headers(client, "admin", "senha123")
+    colunas = client.get(
+        f"/ordens/quadro?cliente={os_base['cliente']}", headers=h
+    ).json()
+    col8 = next(c for c in colunas if c["fase"] == 8)
+    assert col8["total"] == 1
+    assert len(col8["ordens"]) == 1

@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.7.0',
+    data: '17/06/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'O quadro de Ordens de Serviço agora tem a coluna "Finalizada", mostrando as ordens já concluídas (as 300 mais recentes) com o total no topo. Para ver todas, é só clicar em "Ver todas" e abrir a lista completa filtrada.' },
+    ],
+  },
+  {
     versao: '1.6.0',
     data: '16/06/2026',
     itens: [
