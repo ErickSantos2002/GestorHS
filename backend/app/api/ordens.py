@@ -16,6 +16,8 @@ from app.schemas.ordens import OrdemListOut, OrdemPage, QuadroColuna, OrdemOut, 
 
 router = APIRouter(prefix="/ordens", tags=["ordens"])
 
+LIMITE_FINALIZADAS_QUADRO = 300
+
 
 @router.get("", response_model=OrdemPage)
 def listar(
@@ -51,18 +53,24 @@ def listar(
 @router.get("/quadro", response_model=list[QuadroColuna])
 def quadro(cliente: int | None = None, db: Session = Depends(get_db),
            _: Usuario = Depends(get_current_usuario)):
-    fases = {f.id: f for f in db.query(Fase).filter(Fase.id.in_(wf.ATIVAS)).all()}
+    fases_ids = list(wf.ATIVAS) + [wf.FASE_FINALIZADA]
+    fases = {f.id: f for f in db.query(Fase).filter(Fase.id.in_(fases_ids)).all()}
     colunas: list[QuadroColuna] = []
-    for fid in wf.ATIVAS:
+    for fid in fases_ids:
         query = db.query(Ordem).filter(Ordem.fase == fid)
         if cliente is not None:
             query = query.filter(Ordem.cliente == cliente)
-        ordens = query.order_by(Ordem.id.desc()).all()
+        total = query.count()
+        ordenadas = query.order_by(Ordem.id.desc())
+        if fid == wf.FASE_FINALIZADA:
+            ordenadas = ordenadas.limit(LIMITE_FINALIZADAS_QUADRO)
+        ordens = ordenadas.all()
         f = fases.get(fid)
         colunas.append(QuadroColuna(
             fase=fid,
             descricao=f.descricao if f else "",
             cor=f.cor if f else "000000",
+            total=total,
             ordens=[OrdemListOut.model_validate(o) for o in ordens],
         ))
     return colunas

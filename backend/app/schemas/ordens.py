@@ -30,6 +30,7 @@ class QuadroColuna(BaseModel):
     fase: int
     descricao: str
     cor: str
+    total: int
     ordens: list[OrdemListOut]
 
 
