@@ -45,12 +45,13 @@ export interface CaixaDetalhe extends CaixaListItem {
   ordens: OrdemResumoCaixa[]
 }
 
-export interface CaixasParams { q?: string; offset?: number; limit?: number }
+export interface CaixasParams { q?: string; incluir_concluidas?: boolean; offset?: number; limit?: number }
 
 export const caixasApi = {
   listar: (params: CaixasParams = {}): Promise<CaixaPage> => {
     const sp = new URLSearchParams()
     if (params.q) sp.set('q', params.q)
+    if (params.incluir_concluidas) sp.set('incluir_concluidas', 'true')
     sp.set('offset', String(params.offset ?? 0))
     sp.set('limit', String(params.limit ?? 25))
     return apiJson<CaixaPage>(`/caixas?${sp.toString()}`)

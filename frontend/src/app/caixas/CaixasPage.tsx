@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/Spinner'
 import { Modal } from '../../components/ui/Modal'
 import { Input } from '../../components/ui/Input'
+import { Toggle } from '../../components/ui/Toggle'
 import { useAuth } from '../../auth/AuthContext'
 import { podeAbrirOS } from '../../auth/roles'
 import { ApiError } from '../../lib/api'
@@ -20,6 +21,7 @@ export function CaixasPage() {
   const [q, setQ] = useState('')
   const [busca, setBusca] = useState('')
   const [offset, setOffset] = useState(0)
+  const [incluirConcluidas, setIncluirConcluidas] = useState(false)
   const [dados, setDados] = useState<{ items: CaixaListItem[]; total: number } | null>(null)
   const [erro, setErro] = useState('')
   const [novaAberta, setNovaAberta] = useState(false)
@@ -33,11 +35,11 @@ export function CaixasPage() {
     setDados(null)
     setErro('')
     caixasApi
-      .listar({ q: busca || undefined, offset, limit: PAGE })
+      .listar({ q: busca || undefined, incluir_concluidas: incluirConcluidas, offset, limit: PAGE })
       .then((r) => { if (vivo) setDados(r) })
       .catch((e) => { if (vivo) { setErro(e instanceof ApiError ? e.message : 'Falha ao carregar'); setDados({ items: [], total: 0 }) } })
     return () => { vivo = false }
-  }, [busca, offset])
+  }, [busca, offset, incluirConcluidas])
 
   async function criar(e: FormEvent) {
     e.preventDefault()
@@ -89,6 +91,10 @@ export function CaixasPage() {
           />
           <Button type="submit" variant="secondary">Buscar</Button>
         </form>
+        <label className="flex items-center gap-2 text-sm text-slate-400 pb-1 cursor-pointer select-none">
+          <Toggle checked={incluirConcluidas} onChange={(v) => { setOffset(0); setIncluirConcluidas(v) }} label="Mostrar concluídas" />
+          Mostrar concluídas
+        </label>
       </div>
 
       {erro && (

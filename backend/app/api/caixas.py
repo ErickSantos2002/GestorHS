@@ -1,10 +1,12 @@
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, status as http_status, Query
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.models.database import get_db
 from app.models import Usuario, Caixa, Ordem
+from app.core import os_workflow as wf
 from app.api.deps import get_current_usuario, require_funcao
 from app.api.cadastros_common import excluir_protegido
 from app.schemas.caixas import (
@@ -27,6 +29,7 @@ def _get_caixa(db: Session, caixa_id: int) -> Caixa:
 @router.get("", response_model=CaixaPage)
 def listar(
     q: str | None = None,
+    incluir_concluidas: bool = False,
     offset: int = 0,
     limit: int = Query(25, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -38,6 +41,14 @@ def listar(
             query = query.filter(Caixa.id == int(q.strip()))
         else:
             query = query.filter(Caixa.obs.ilike(f"%{q.strip()}%"))
+    if not incluir_concluidas:
+        # Oculta caixas "concluidas": tem OS e nenhuma ativa (todas terminais).
+        # Mantem visiveis as vazias e as que tem ao menos uma OS ativa.
+        tem_ativa = db.query(Ordem.id).filter(
+            Ordem.caixa == Caixa.id, Ordem.fase.in_(wf.ATIVAS)
+        ).exists()
+        sem_ordens = ~db.query(Ordem.id).filter(Ordem.caixa == Caixa.id).exists()
+        query = query.filter(or_(tem_ativa, sem_ordens))
     total = query.count()
     items = query.order_by(Caixa.id.desc()).offset(offset).limit(limit).all()
     return CaixaPage(items=[CaixaOut.model_validate(c) for c in items], total=total)
