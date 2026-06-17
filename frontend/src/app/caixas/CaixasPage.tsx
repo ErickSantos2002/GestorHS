@@ -91,10 +91,10 @@ export function CaixasPage() {
           />
           <Button type="submit" variant="secondary">Buscar</Button>
         </form>
-        <label className="flex items-center gap-2 text-sm text-slate-400 pb-1 cursor-pointer select-none">
+        <div className="flex items-center gap-2 text-sm text-slate-400 pb-1.5 select-none">
           <Toggle checked={incluirConcluidas} onChange={(v) => { setOffset(0); setIncluirConcluidas(v) }} label="Mostrar concluídas" />
-          Mostrar concluídas
-        </label>
+          <span>Mostrar concluídas</span>
+        </div>
       </div>
 
       {erro && (
