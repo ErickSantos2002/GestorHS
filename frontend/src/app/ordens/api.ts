@@ -212,7 +212,7 @@ export const TRANSICOES: Record<number, { rotulo: string; pedeCodRetorno?: boole
   4: { rotulo: 'Encaminhar ao laboratório' },
   5: { rotulo: 'Concluir laboratório', pedeProxCalibragem: true },
   6: { rotulo: 'Registrar aceite' },
-  7: { rotulo: 'Postar retorno', pedeCodRetorno: true },
+  7: { rotulo: 'Fechar OS', pedeCodRetorno: true },
 }
 
 export interface Foto {
