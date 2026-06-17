@@ -4,7 +4,8 @@ def _headers(client, login, senha):
 
 
 def _abrir(client, h, equipamento_cliente):
-    return client.post("/ordens", json={"equipamento_cliente": equipamento_cliente, "tipo_servico": "C"}, headers=h).json()
+    cid = client.post("/caixas", json={"obs": "lote"}, headers=h).json()["id"]
+    return client.post("/ordens", json={"equipamento_cliente": equipamento_cliente, "tipo_servico": "C", "caixa": cid}, headers=h).json()
 
 
 def test_cadeia_feliz_completa(client, usuario_admin, usuario_comum, usuario_lab, usuario_comercial, fases_seed, os_base, db_session):

@@ -165,6 +165,15 @@ def os_base(db_session):
 
 
 @pytest.fixture()
+def caixa_base(db_session):
+    """Cria uma caixa e devolve seu id (abrir OS exige caixa vinculada)."""
+    from app.models import Caixa
+    cx = Caixa(obs="Caixa teste")
+    db_session.add(cx); db_session.commit(); db_session.refresh(cx)
+    return cx.id
+
+
+@pytest.fixture()
 def upload_tmp(tmp_path):
     from app.core.config import settings
     anterior = settings.UPLOAD_DIR

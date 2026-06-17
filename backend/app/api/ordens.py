@@ -131,10 +131,11 @@ def abrir(dados: OrdemAbrirIn, db: Session = Depends(get_db),
     )
     if ativa is not None:
         raise HTTPException(status_code=409, detail="aparelho já possui OS ativa")
-    if dados.caixa is not None:
-        cx = db.query(Caixa).filter(Caixa.id == dados.caixa).first()
-        if cx is None:
-            raise HTTPException(status_code=404, detail="caixa não encontrada")
+    if dados.caixa is None:
+        raise HTTPException(status_code=400, detail="É obrigatório vincular uma caixa à OS")
+    cx = db.query(Caixa).filter(Caixa.id == dados.caixa).first()
+    if cx is None:
+        raise HTTPException(status_code=404, detail="caixa não encontrada")
     if dados.condicao_chegada is not None and dados.condicao_chegada not in rec.CONDICOES_CHEGADA:
         raise HTTPException(status_code=400, detail="condição de chegada inválida")
     try:

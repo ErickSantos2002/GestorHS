@@ -3,11 +3,12 @@ def _headers(client, login, senha):
     return {"Authorization": f"Bearer {tok['access_token']}"}
 
 
-def test_abrir_os_sucesso(client, usuario_comum, fases_seed, os_base, db_session):
+def test_abrir_os_sucesso(client, usuario_comum, fases_seed, os_base, caixa_base, db_session):
     # usuario_comum = Expedição
     h = _headers(client, "comum", "senha123")
     r = client.post("/ordens", json={
         "equipamento_cliente": os_base["equipamento_cliente"], "tipo_servico": "C",
+        "caixa": caixa_base,
         "condicao_chegada": "Com avarias",
     }, headers=h)
     assert r.status_code == 201
@@ -26,9 +27,9 @@ def test_abrir_os_sucesso(client, usuario_comum, fases_seed, os_base, db_session
     assert len(logs) == 1
 
 
-def test_abrir_os_admin_tambem_pode(client, usuario_admin, fases_seed, os_base):
+def test_abrir_os_admin_tambem_pode(client, usuario_admin, fases_seed, os_base, caixa_base):
     h = _headers(client, "admin", "senha123")
-    r = client.post("/ordens", json={"equipamento_cliente": os_base["equipamento_cliente"], "tipo_servico": "M"}, headers=h)
+    r = client.post("/ordens", json={"equipamento_cliente": os_base["equipamento_cliente"], "tipo_servico": "M", "caixa": caixa_base}, headers=h)
     assert r.status_code == 201
 
 
@@ -37,9 +38,9 @@ def test_abrir_os_equipamento_inexistente_404(client, usuario_comum, fases_seed)
     assert client.post("/ordens", json={"equipamento_cliente": 9999, "tipo_servico": "C"}, headers=h).status_code == 404
 
 
-def test_abrir_os_duplicada_409(client, usuario_comum, fases_seed, os_base):
+def test_abrir_os_duplicada_409(client, usuario_comum, fases_seed, os_base, caixa_base):
     h = _headers(client, "comum", "senha123")
-    p = {"equipamento_cliente": os_base["equipamento_cliente"], "tipo_servico": "C"}
+    p = {"equipamento_cliente": os_base["equipamento_cliente"], "tipo_servico": "C", "caixa": caixa_base}
     assert client.post("/ordens", json=p, headers=h).status_code == 201
     assert client.post("/ordens", json=p, headers=h).status_code == 409  # já tem OS ativa
 
@@ -71,11 +72,12 @@ def test_abrir_os_caixa_inexistente_404(client, usuario_comum, fases_seed, os_ba
     assert r.status_code == 404
 
 
-def test_abrir_grava_recebimento(client, usuario_comum, fases_seed, os_base, db_session):
+def test_abrir_grava_recebimento(client, usuario_comum, fases_seed, os_base, caixa_base, db_session):
     h = _headers(client, "comum", "senha123")
     r = client.post("/ordens", json={
         "equipamento_cliente": os_base["equipamento_cliente"],
         "tipo_servico": "C",
+        "caixa": caixa_base,
         "data_chegada": "2026-06-08",
         "condicao_chegada": "Bom estado",
         "checklist": [3, 1],
@@ -94,28 +96,39 @@ def test_abrir_grava_recebimento(client, usuario_comum, fases_seed, os_base, db_
     assert body["data_chegada"].startswith("2026-06-08")
 
 
-def test_abrir_data_chegada_default_hoje(client, usuario_comum, fases_seed, os_base):
+def test_abrir_data_chegada_default_hoje(client, usuario_comum, fases_seed, os_base, caixa_base):
     h = _headers(client, "comum", "senha123")
     r = client.post("/ordens", json={
         "equipamento_cliente": os_base["equipamento_cliente"], "tipo_servico": "M",
+        "caixa": caixa_base,
     }, headers=h)
     assert r.status_code == 201
     assert r.json()["data_chegada"] is not None
 
 
-def test_abrir_condicao_invalida_400(client, usuario_comum, fases_seed, os_base):
+def test_abrir_condicao_invalida_400(client, usuario_comum, fases_seed, os_base, caixa_base):
     h = _headers(client, "comum", "senha123")
     r = client.post("/ordens", json={
         "equipamento_cliente": os_base["equipamento_cliente"], "tipo_servico": "C",
+        "caixa": caixa_base,
         "condicao_chegada": "INEXISTENTE",
     }, headers=h)
     assert r.status_code == 400
 
 
-def test_abrir_checklist_id_invalido_400(client, usuario_comum, fases_seed, os_base):
+def test_abrir_checklist_id_invalido_400(client, usuario_comum, fases_seed, os_base, caixa_base):
     h = _headers(client, "comum", "senha123")
     r = client.post("/ordens", json={
         "equipamento_cliente": os_base["equipamento_cliente"], "tipo_servico": "C",
+        "caixa": caixa_base,
         "checklist": [1, 99],
+    }, headers=h)
+    assert r.status_code == 400
+
+
+def test_abrir_os_sem_caixa_400(client, usuario_comum, fases_seed, os_base):
+    h = _headers(client, "comum", "senha123")
+    r = client.post("/ordens", json={
+        "equipamento_cliente": os_base["equipamento_cliente"], "tipo_servico": "C",
     }, headers=h)
     assert r.status_code == 400

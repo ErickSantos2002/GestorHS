@@ -141,7 +141,7 @@ export function AbrirOSModal({ equipamentoClienteId, osAtual, onClose, caixa, on
       footer={
         <>
           <Button variant="secondary" type="button" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" form="form-abrir-os" disabled={enviando}>
+          <Button type="submit" form="form-abrir-os" disabled={enviando || caixaId == null}>
             {enviando ? 'Abrindo…' : 'Abrir OS'}
           </Button>
         </>
@@ -182,7 +182,7 @@ export function AbrirOSModal({ equipamentoClienteId, osAtual, onClose, caixa, on
             {/* Caixa */}
             <div>
               <FieldLabel htmlFor="caixa-q" icon={<IconCaixas className="w-3.5 h-3.5" />}>
-                Caixa {caixaTravada ? '' : '(opcional)'}
+                Caixa {caixaTravada ? '' : '(obrigatória)'}
               </FieldLabel>
               {caixaTravada ? (
                 <div className="inline-flex items-center gap-2 rounded-full bg-primary/15 text-primary border border-primary/40 px-3 py-1.5 text-sm font-semibold">
