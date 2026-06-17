@@ -23,6 +23,15 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.7.1',
+    data: '17/06/2026',
+    itens: [
+      { tipo: 'melhoria', texto: 'Na fase Preparando Retorno, o botão para concluir a OS agora se chama "Fechar OS" (antes "Postar retorno").' },
+      { tipo: 'melhoria', texto: 'Ao abrir uma OS agora é obrigatório vincular uma caixa — o botão "Abrir OS" fica bloqueado até escolher ou criar uma caixa.' },
+      { tipo: 'melhoria', texto: 'Na página de Caixas, as caixas já concluídas (com todas as OS finalizadas ou canceladas) ficam ocultas por padrão; ative "Mostrar concluídas" para vê-las.' },
+    ],
+  },
+  {
     versao: '1.7.0',
     data: '17/06/2026',
     itens: [
