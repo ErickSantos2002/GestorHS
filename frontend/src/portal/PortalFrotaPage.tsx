@@ -49,7 +49,7 @@ export function PortalFrotaPage() {
 
   return (
     <div className="px-4 md:px-6 py-6 space-y-6">
-      <h1 className="text-2xl font-extrabold text-slate-100">Minha frota</h1>
+      <h1 className="text-2xl font-extrabold text-slate-100">Meus equipamentos</h1>
       <div className="flex flex-wrap gap-2 items-end">
         <div className="w-48">
           <Select id="status" label="Status" value={status} onChange={(e) => { setOffset(0); setStatus(e.target.value) }}>

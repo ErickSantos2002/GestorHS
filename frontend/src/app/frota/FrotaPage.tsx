@@ -69,7 +69,7 @@ export function FrotaPage() {
   return (
     <PageContainer>
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-extrabold text-slate-100">Frota</h1>
+        <h1 className="text-2xl font-extrabold text-slate-100">Equipamentos</h1>
         {isAdmin(user) && (
           <Button
             onClick={() => { if (clienteId) navigate(`/app/frota/novo?cliente=${clienteId}`) }}

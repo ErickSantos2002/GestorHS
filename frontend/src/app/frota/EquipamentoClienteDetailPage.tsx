@@ -141,7 +141,7 @@ export function EquipamentoClienteDetailPage() {
     return (
       <div className="px-4 md:px-6 py-6">
         <p className="text-sm text-slate-400">Abra a partir da frota de um cliente para cadastrar um aparelho.</p>
-        <Button variant="secondary" className="mt-3" onClick={() => navigate('/app/frota')}>Ir para a Frota</Button>
+        <Button variant="secondary" className="mt-3" onClick={() => navigate('/app/frota')}>Ir para os Equipamentos</Button>
       </div>
     )
   }
