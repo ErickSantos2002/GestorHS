@@ -99,7 +99,7 @@ export function CobrancaPage() {
                 <TD>{formatData(i.ult_contato)}</TD>
                 <TD>
                   <div className="flex gap-3">
-                    <button onClick={() => navigate(`/app/frota?cliente=${i.cliente}`)} className="text-xs text-primary hover:underline">Ver frota</button>
+                    <button onClick={() => navigate(`/app/equipamentos?cliente=${i.cliente}`)} className="text-xs text-primary hover:underline">Ver equipamentos</button>
                     {podeContato && <button onClick={() => contato(i)} className="text-xs text-primary hover:underline">Registrar contato</button>}
                   </div>
                 </TD>

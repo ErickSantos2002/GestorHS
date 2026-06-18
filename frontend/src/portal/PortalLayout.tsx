@@ -5,7 +5,7 @@ import { usePortalAuth } from './PortalAuthContext'
 
 const NAV = [
   { label: 'Início', to: '/portal' },
-  { label: 'Meus equipamentos', to: '/portal/frota' },
+  { label: 'Meus equipamentos', to: '/portal/equipamentos' },
   { label: 'Certificados', to: '/portal/certificados' },
   { label: 'Minhas OS', to: '/portal/os' },
   { label: 'Solicitações', to: '/portal/solicitacoes' },

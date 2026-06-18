@@ -72,7 +72,7 @@ export function FrotaPage() {
         <h1 className="text-2xl font-extrabold text-slate-100">Equipamentos</h1>
         {isAdmin(user) && (
           <Button
-            onClick={() => { if (clienteId) navigate(`/app/frota/novo?cliente=${clienteId}`) }}
+            onClick={() => { if (clienteId) navigate(`/app/equipamentos/novo?cliente=${clienteId}`) }}
             disabled={!clienteId}
             title={clienteId ? undefined : 'Filtre por um cliente para adicionar'}
           >
@@ -86,7 +86,7 @@ export function FrotaPage() {
           <span className="rounded-full bg-primary/10 text-primary px-3 py-1 font-medium">
             Cliente: {nomeCliente ?? `#${clienteId}`}
           </span>
-          <button onClick={() => navigate('/app/frota')} className="text-xs text-slate-400 hover:text-slate-200">limpar</button>
+          <button onClick={() => navigate('/app/equipamentos')} className="text-xs text-slate-400 hover:text-slate-200">limpar</button>
         </div>
       )}
 
@@ -128,7 +128,7 @@ export function FrotaPage() {
             {itens.map((e) => {
               const s = STATUS_CALIBRACAO[e.status_calibracao]
               return (
-                <tr key={e.id} className="hover:bg-background-elevated transition-colors cursor-pointer" onClick={() => navigate(`/app/frota/${e.id}`)}>
+                <tr key={e.id} className="hover:bg-background-elevated transition-colors cursor-pointer" onClick={() => navigate(`/app/equipamentos/${e.id}`)}>
                   <TD>{e.equipamento_descricao ?? '—'}</TD>
                   <TD>{e.cliente_nome ?? '—'}</TD>
                   <TD>{e.serie || e.patrimonio || '—'}</TD>

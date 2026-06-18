@@ -262,7 +262,7 @@ export function OrdemDetailPage() {
                 <>
                   <span className="text-slate-600">·</span>
                   {os.equipamento_cliente
-                    ? <Link to={`/app/frota/${os.equipamento_cliente}`} className="hover:text-primary hover:underline">{os.equipamento_descricao}</Link>
+                    ? <Link to={`/app/equipamentos/${os.equipamento_cliente}`} className="hover:text-primary hover:underline">{os.equipamento_descricao}</Link>
                     : <span>{os.equipamento_descricao}</span>}
                 </>
               )}

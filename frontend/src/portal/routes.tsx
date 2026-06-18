@@ -21,7 +21,7 @@ export default function PortalRoutes() {
               <PortalLayout>
                 <Routes>
                   <Route index element={<PortalHomePage />} />
-                  <Route path="frota" element={<PortalFrotaPage />} />
+                  <Route path="equipamentos" element={<PortalFrotaPage />} />
                   <Route path="certificados" element={<PortalCertificadosPage />} />
                   <Route path="os" element={<PortalOSPage />} />
                   <Route path="solicitacoes" element={<PortalSolicitacoesPage />} />

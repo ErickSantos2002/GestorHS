@@ -102,7 +102,7 @@ export function EquipamentoClienteDetailPage() {
         setObj(atualizado)
       } else {
         const novo = await equipamentosClienteApi.criar(form)
-        navigate(`/app/frota/${novo.id}`, { replace: true })
+        navigate(`/app/equipamentos/${novo.id}`, { replace: true })
         return
       }
     } catch (err) {
@@ -127,7 +127,7 @@ export function EquipamentoClienteDetailPage() {
     setErro('')
     try {
       await equipamentosClienteApi.excluir(Number(id))
-      navigate('/app/frota', { replace: true })
+      navigate('/app/equipamentos', { replace: true })
     } catch (err) {
       setErro(err instanceof ApiError ? err.message : 'Falha ao excluir')
     }
@@ -140,8 +140,8 @@ export function EquipamentoClienteDetailPage() {
   if (!editando && !clienteId) {
     return (
       <div className="px-4 md:px-6 py-6">
-        <p className="text-sm text-slate-400">Abra a partir da frota de um cliente para cadastrar um aparelho.</p>
-        <Button variant="secondary" className="mt-3" onClick={() => navigate('/app/frota')}>Ir para os Equipamentos</Button>
+        <p className="text-sm text-slate-400">Abra a partir dos equipamentos de um cliente para cadastrar um aparelho.</p>
+        <Button variant="secondary" className="mt-3" onClick={() => navigate('/app/equipamentos')}>Ir para os Equipamentos</Button>
       </div>
     )
   }
@@ -217,7 +217,7 @@ export function EquipamentoClienteDetailPage() {
             </Button>
           )}
           {editando && podeEditar && <Button variant="danger" onClick={excluir}>Excluir</Button>}
-          <Button variant="secondary" onClick={() => navigate('/app/frota')}>Voltar</Button>
+          <Button variant="secondary" onClick={() => navigate('/app/equipamentos')}>Voltar</Button>
         </div>
       </div>
 

@@ -44,7 +44,7 @@ export function DashboardPage() {
       ) : dados ? (
         <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <button onClick={() => navigate('/app/frota')} className="text-left">
+            <button onClick={() => navigate('/app/equipamentos')} className="text-left">
               <StatCard
                 label="Aparelhos vencidos"
                 value={dados.aparelhos_vencidos}
@@ -52,7 +52,7 @@ export function DashboardPage() {
                 color="bg-danger/15"
               />
             </button>
-            <button onClick={() => navigate('/app/frota')} className="text-left">
+            <button onClick={() => navigate('/app/equipamentos')} className="text-left">
               <StatCard
                 label="Vencendo (90 dias)"
                 value={dados.aparelhos_vencendo}

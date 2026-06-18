@@ -33,9 +33,9 @@ export default function AppRoutes() {
         <Route path="clientes" element={<ClientesPage />} />
         <Route path="clientes/novo" element={<ClienteDetailPage />} />
         <Route path="clientes/:id" element={<ClienteDetailPage />} />
-        <Route path="frota" element={<FrotaPage />} />
-        <Route path="frota/novo" element={<EquipamentoClienteDetailPage />} />
-        <Route path="frota/:id" element={<EquipamentoClienteDetailPage />} />
+        <Route path="equipamentos" element={<FrotaPage />} />
+        <Route path="equipamentos/novo" element={<EquipamentoClienteDetailPage />} />
+        <Route path="equipamentos/:id" element={<EquipamentoClienteDetailPage />} />
         <Route path="ordens" element={<OrdensPage />} />
         <Route path="ordens/:id" element={<OrdemDetailPage />} />
         <Route path="certificados" element={<CertificadosPage />} />
