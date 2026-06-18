@@ -10,8 +10,9 @@ import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
 import { isAdmin, podeAbrirOS } from '../../auth/roles'
 import { AbrirOSModal } from '../ordens/AbrirOSModal'
+import { TransferirModal } from './TransferirModal'
 import { ordensApi, formatData, osAtiva, TIPO_SERVICO, type OrdemListItem } from '../ordens/api'
-import { equipamentosClienteApi, STATUS_CALIBRACAO, type EquipamentoCliente, type EquipamentoClientePayload, type Historico, type StatusCalibracao, type EquipCertItem } from './api'
+import { equipamentosClienteApi, STATUS_CALIBRACAO, type EquipamentoCliente, type EquipamentoClientePayload, type Historico, type StatusCalibracao, type EquipCertItem, type Transferencia } from './api'
 import { equipamentosApi, type Equipamento } from '../cadastros/api'
 import { PageContainer, DetailGrid, DetailMain, DetailAside } from '../../components/ui/Page'
 
@@ -49,6 +50,8 @@ export function EquipamentoClienteDetailPage() {
   const [abrindoOS, setAbrindoOS] = useState(false)
   const [ordens, setOrdens] = useState<OrdemListItem[]>([])
   const [certs, setCerts] = useState<EquipCertItem[]>([])
+  const [transferindo, setTransferindo] = useState(false)
+  const [transferencias, setTransferencias] = useState<Transferencia[]>([])
   const [erroDownload, setErroDownload] = useState('')
 
   useEffect(() => {
@@ -78,6 +81,7 @@ export function EquipamentoClienteDetailPage() {
     void equipamentosClienteApi.historico(Number(id)).then((h) => { if (ativo) setHistorico(h) }).catch(() => {})
     void equipamentosClienteApi.ordens(Number(id)).then((o) => { if (ativo) setOrdens(o) }).catch(() => {})
     void equipamentosClienteApi.certificados(Number(id)).then((c) => { if (ativo) setCerts(c) }).catch(() => {})
+    void equipamentosClienteApi.transferencias(Number(id)).then((t) => { if (ativo) setTransferencias(t) }).catch(() => {})
     return () => {
       ativo = false
     }
@@ -201,6 +205,16 @@ export function EquipamentoClienteDetailPage() {
               ? <Button onClick={() => navigate(`/app/ordens/${osEmAndamento.id}`)}>Ver OS #{osEmAndamento.id}</Button>
               : <Button onClick={() => setAbrindoOS(true)}>Abrir OS</Button>
           )}
+          {editando && isAdmin(user) && (
+            <Button
+              variant="secondary"
+              onClick={() => setTransferindo(true)}
+              disabled={!!osEmAndamento}
+              title={osEmAndamento ? 'Finalize a OS em andamento antes de transferir' : undefined}
+            >
+              Transferir
+            </Button>
+          )}
           {editando && podeEditar && <Button variant="danger" onClick={excluir}>Excluir</Button>}
           <Button variant="secondary" onClick={() => navigate('/app/frota')}>Voltar</Button>
         </div>
@@ -241,6 +255,22 @@ export function EquipamentoClienteDetailPage() {
                       <TD>{m.datamov ?? '—'}</TD>
                       <TD>{m.saida ?? '—'}</TD>
                       <TD>{m.entrada ?? '—'}</TD>
+                    </tr>
+                  ))}
+                </Table>
+              )}
+            </Secao>
+            <Secao titulo="Transferências">
+              {transferencias.length === 0 ? (
+                <p className="text-sm text-slate-500">Sem transferências.</p>
+              ) : (
+                <Table head={<><TH>Data</TH><TH>De → Para</TH><TH>Usuário</TH><TH>Obs</TH></>}>
+                  {transferencias.map((t) => (
+                    <tr key={t.id} className="hover:bg-background-elevated transition-colors">
+                      <TD>{formatData(t.data)}</TD>
+                      <TD>{(t.de_cliente_nome ?? `#${t.de_cliente}`)} → {(t.para_cliente_nome ?? `#${t.para_cliente}`)}</TD>
+                      <TD>{t.usuario_nome ?? '—'}</TD>
+                      <TD>{t.obs ?? '—'}</TD>
                     </tr>
                   ))}
                 </Table>
@@ -302,6 +332,14 @@ export function EquipamentoClienteDetailPage() {
 
       {abrindoOS && obj && (
         <AbrirOSModal equipamentoClienteId={obj.id} osAtual={obj.os_atual} onClose={() => setAbrindoOS(false)} />
+      )}
+      {transferindo && obj && (
+        <TransferirModal
+          equipamentoClienteId={obj.id}
+          donoAtual={obj.cliente}
+          onClose={() => setTransferindo(false)}
+          onTransferida={() => { setTransferindo(false); window.location.reload() }}
+        />
       )}
     </PageContainer>
   )

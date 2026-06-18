@@ -82,6 +82,19 @@ export interface EquipCertItem {
   data_geracao: string | null
 }
 
+export interface Transferencia {
+  id: number
+  equipamento_cliente: number
+  de_cliente: number
+  de_cliente_nome: string | null
+  para_cliente: number
+  para_cliente_nome: string | null
+  usuario: number | null
+  usuario_nome: string | null
+  data: string
+  obs: string | null
+}
+
 async function apiVoid(path: string, options: RequestInit = {}): Promise<void> {
   const res = await apiFetch(path, {
     ...options,
@@ -121,6 +134,9 @@ export const equipamentosClienteApi = {
   historico: (id: number): Promise<Historico[]> => apiJson<Historico[]>(`/equipamentos-cliente/${id}/historico`),
   ordens: (id: number): Promise<OrdemListItem[]> => apiJson<OrdemListItem[]>(`/equipamentos-cliente/${id}/ordens`),
   certificados: (id: number): Promise<EquipCertItem[]> => apiJson<EquipCertItem[]>(`/equipamentos-cliente/${id}/certificados`),
+  transferencias: (id: number): Promise<Transferencia[]> => apiJson<Transferencia[]>(`/equipamentos-cliente/${id}/transferencias`),
+  transferir: (id: number, body: { cliente: number; obs?: string | null }): Promise<EquipamentoCliente> =>
+    apiJson<EquipamentoCliente>(`/equipamentos-cliente/${id}/transferir`, { method: 'POST', body: JSON.stringify(body) }),
   criar: (payload: EquipamentoClientePayload): Promise<EquipamentoCliente> =>
     apiJson<EquipamentoCliente>('/equipamentos-cliente', { method: 'POST', body: JSON.stringify(payload) }),
   atualizar: (id: number, payload: Partial<Omit<EquipamentoClientePayload, 'cliente'>>): Promise<EquipamentoCliente> =>

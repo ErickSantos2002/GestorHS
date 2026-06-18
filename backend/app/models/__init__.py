@@ -20,6 +20,7 @@ from app.models.caixa import Caixa
 from app.models.certificado_modelo import CertificadoModelo
 from app.models.certificado_imagem import CertificadoImagem
 from app.models.os_certificado import OSCertificado
+from app.models.transferencia_equipamento import TransferenciaEquipamento
 
 __all__ = [
     "Funcao", "Usuario", "UsuarioCliente", "Setor", "Categoria",
@@ -27,4 +28,5 @@ __all__ = [
     "EquipamentoCliente", "HistoricoEquipamento",
     "Fase", "LogOS", "Ordem", "TipoCalibragem", "Solicitacao", "Foto",
     "Caixa", "CertificadoModelo", "CertificadoImagem", "OSCertificado",
+    "TransferenciaEquipamento",
 ]
