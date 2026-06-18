@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.7.2',
+    data: '18/06/2026',
+    itens: [
+      { tipo: 'melhoria', texto: 'Na ficha do aparelho, quando já existe uma OS em andamento, o botão passa a mostrar "Ver OS #N" e leva direto a ela — evitando abrir uma segunda OS para o mesmo aparelho.' },
+    ],
+  },
+  {
     versao: '1.7.1',
     data: '17/06/2026',
     itens: [
