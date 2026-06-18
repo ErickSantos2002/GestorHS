@@ -58,6 +58,14 @@ export interface OrdemPage {
   total: number
 }
 
+// Fases ativas (em andamento) da OS — espelha ATIVAS do backend (os_workflow).
+export const FASES_ATIVAS = [4, 5, 6, 7]
+
+/** Retorna a OS em andamento (fase ativa) de uma lista; no maximo uma por aparelho. */
+export function osAtiva(ordens: OrdemListItem[]): OrdemListItem | undefined {
+  return ordens.find((o) => o.fase != null && FASES_ATIVAS.includes(o.fase))
+}
+
 export interface QuadroColuna {
   fase: number
   descricao: string

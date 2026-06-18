@@ -10,7 +10,7 @@ import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
 import { isAdmin, podeAbrirOS } from '../../auth/roles'
 import { AbrirOSModal } from '../ordens/AbrirOSModal'
-import { ordensApi, formatData, TIPO_SERVICO, type OrdemListItem } from '../ordens/api'
+import { ordensApi, formatData, osAtiva, TIPO_SERVICO, type OrdemListItem } from '../ordens/api'
 import { equipamentosClienteApi, STATUS_CALIBRACAO, type EquipamentoCliente, type EquipamentoClientePayload, type Historico, type StatusCalibracao, type EquipCertItem } from './api'
 import { equipamentosApi, type Equipamento } from '../cadastros/api'
 import { PageContainer, DetailGrid, DetailMain, DetailAside } from '../../components/ui/Page'
@@ -145,6 +145,7 @@ export function EquipamentoClienteDetailPage() {
   const statusCal: StatusCalibracao | null = obj ? obj.status_calibracao : null
   const sc = statusCal ? STATUS_CALIBRACAO[statusCal] : null
   const nomeCliente = obj?.cliente_nome ?? (clienteId ? `#${clienteId}` : '')
+  const osEmAndamento = osAtiva(ordens)
 
   const formConteudo = (
     <>
@@ -195,7 +196,11 @@ export function EquipamentoClienteDetailPage() {
           {sc && <Badge tone={sc.tone}>{sc.label}</Badge>}
         </div>
         <div className="flex gap-2">
-          {editando && podeAbrirOS(user) && <Button onClick={() => setAbrindoOS(true)}>Abrir OS</Button>}
+          {editando && podeAbrirOS(user) && (
+            osEmAndamento
+              ? <Button onClick={() => navigate(`/app/ordens/${osEmAndamento.id}`)}>Ver OS #{osEmAndamento.id}</Button>
+              : <Button onClick={() => setAbrindoOS(true)}>Abrir OS</Button>
+          )}
           {editando && podeEditar && <Button variant="danger" onClick={excluir}>Excluir</Button>}
           <Button variant="secondary" onClick={() => navigate('/app/frota')}>Voltar</Button>
         </div>
