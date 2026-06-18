@@ -5,6 +5,7 @@ import { ApiError } from '../../lib/api'
 import { Input } from '../../components/ui/Input'
 import { Spinner } from '../../components/ui/Spinner'
 import { IconAlertCircle } from '../../components/ui/icons'
+import logo from '../../assets/logo.png'
 
 export function LoginPage() {
   const { login, definirSenha, user, loading } = useAuth()
@@ -52,9 +53,7 @@ export function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-primary/15 flex items-center justify-center mb-3 shadow-sm">
-            <span className="text-xl font-extrabold text-primary">G</span>
-          </div>
+          <img src={logo} alt="Health Safety" className="h-16 w-auto mb-3" />
           <h1 className="text-2xl font-extrabold text-slate-100 tracking-tight">GestorHS</h1>
           <p className="text-sm text-slate-500 mt-1">{etapa === 'login' ? 'Faça login para continuar' : 'Defina sua nova senha'}</p>
         </div>

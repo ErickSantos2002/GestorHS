@@ -6,6 +6,7 @@ import { isAdmin } from '../auth/roles'
 import { IconDashboard, IconUsers, IconCadastros, IconClientes, IconFrota, IconOrdens, IconCobranca, IconSolicitacoes, IconCaixas, IconCertificado } from '../components/ui/icons'
 import { VERSAO_ATUAL } from '../app/changelog/data'
 import { ChangelogModal } from '../app/changelog/ChangelogModal'
+import logo from '../assets/logo.png'
 
 interface NavItem {
   label: string
@@ -47,12 +48,7 @@ export function Sidebar({ collapsed }: { collapsed: boolean }) {
             <span className="text-sm font-bold text-primary">G</span>
           </div>
         ) : (
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
-              <span className="text-sm font-bold text-primary">G</span>
-            </div>
-            <span className="font-bold text-slate-100 text-base tracking-tight">GestorHS</span>
-          </div>
+          <img src={logo} alt="Health Safety" className="h-8 w-auto" />
         )}
       </div>
 
