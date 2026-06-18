@@ -52,6 +52,7 @@ export function EquipamentoClienteDetailPage() {
   const [certs, setCerts] = useState<EquipCertItem[]>([])
   const [transferindo, setTransferindo] = useState(false)
   const [transferencias, setTransferencias] = useState<Transferencia[]>([])
+  const [recarga, setRecarga] = useState(0)
   const [erroDownload, setErroDownload] = useState('')
 
   useEffect(() => {
@@ -85,7 +86,7 @@ export function EquipamentoClienteDetailPage() {
     return () => {
       ativo = false
     }
-  }, [id, editando])
+  }, [id, editando, recarga])
 
   function set<K extends keyof EquipamentoClientePayload>(chave: K, valor: EquipamentoClientePayload[K]) {
     setForm((f) => ({ ...f, [chave]: valor }))
@@ -338,7 +339,7 @@ export function EquipamentoClienteDetailPage() {
           equipamentoClienteId={obj.id}
           donoAtual={obj.cliente}
           onClose={() => setTransferindo(false)}
-          onTransferida={() => { setTransferindo(false); window.location.reload() }}
+          onTransferida={() => { setTransferindo(false); setRecarga((n) => n + 1) }}
         />
       )}
     </PageContainer>
