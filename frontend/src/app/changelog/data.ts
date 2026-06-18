@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.8.0',
+    data: '18/06/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'Agora é possível transferir um aparelho de uma empresa para outra direto na ficha do aparelho (botão "Transferir"). O histórico de OS antigas continua com a empresa anterior, e cada transferência fica registrada com data, empresas e responsável. Não é permitido transferir enquanto houver uma OS em andamento.' },
+    ],
+  },
+  {
     versao: '1.7.2',
     data: '18/06/2026',
     itens: [
