@@ -5,12 +5,15 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.models.database import get_db
-from app.models import Usuario, EquipamentoCliente, HistoricoEquipamento, Ordem, OSCertificado
+from app.models import Usuario, EquipamentoCliente, HistoricoEquipamento, Ordem, OSCertificado, Cliente, TransferenciaEquipamento
 from app.api.deps import get_current_usuario, require_funcao
 from app.api.cadastros_common import excluir_protegido
+from app.api.ordens_acoes import agora
+from app.core import os_workflow as wf
 from app.schemas.frota import (
     FrotaListOut, FrotaPage, EquipamentoClienteOut,
     EquipamentoClienteCreate, EquipamentoClienteUpdate, HistoricoOut, EquipCertItem,
+    TransferirIn, TransferenciaOut,
 )
 from app.schemas.ordens import OrdemListOut
 
@@ -121,3 +124,48 @@ def excluir(item_id: int, db: Session = Depends(get_db), _: Usuario = Depends(re
     if obj is None:
         raise HTTPException(status_code=404, detail="não encontrado")
     excluir_protegido(db, obj)
+
+
+@router.post("/{item_id}/transferir", response_model=EquipamentoClienteOut)
+def transferir(item_id: int, dados: TransferirIn, db: Session = Depends(get_db),
+               usuario: Usuario = Depends(require_funcao(ADMIN))):
+    obj = db.query(EquipamentoCliente).filter(EquipamentoCliente.id == item_id).first()
+    if obj is None:
+        raise HTTPException(status_code=404, detail="não encontrado")
+    destino = db.query(Cliente).filter(Cliente.id == dados.cliente).first()
+    if destino is None:
+        raise HTTPException(status_code=404, detail="cliente destino não encontrado")
+    if destino.id == obj.cliente:
+        raise HTTPException(status_code=400, detail="aparelho já pertence a este cliente")
+    ativa = (
+        db.query(Ordem)
+        .filter(Ordem.equipamento_cliente == obj.id, Ordem.fase.in_(wf.ATIVAS))
+        .first()
+    )
+    if ativa is not None:
+        raise HTTPException(status_code=409, detail="finalize ou cancele a OS ativa antes de transferir")
+    db.add(TransferenciaEquipamento(
+        equipamento_cliente=obj.id,
+        de_cliente=obj.cliente,
+        para_cliente=destino.id,
+        data=agora(),
+        usuario=usuario.id,
+        obs=dados.obs,
+    ))
+    obj.cliente = destino.id
+    obj.os_atual = None
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+@router.get("/{item_id}/transferencias", response_model=list[TransferenciaOut])
+def transferencias(item_id: int, db: Session = Depends(get_db), _: Usuario = Depends(get_current_usuario)):
+    if db.query(EquipamentoCliente).filter(EquipamentoCliente.id == item_id).first() is None:
+        raise HTTPException(status_code=404, detail="não encontrado")
+    return (
+        db.query(TransferenciaEquipamento)
+        .filter(TransferenciaEquipamento.equipamento_cliente == item_id)
+        .order_by(TransferenciaEquipamento.data.desc(), TransferenciaEquipamento.id.desc())
+        .all()
+    )

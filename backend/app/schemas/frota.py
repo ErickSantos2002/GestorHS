@@ -89,3 +89,22 @@ class EquipCertItem(BaseModel):
     tipo: str
     data_geracao: datetime | None = None
     model_config = {"from_attributes": True}
+
+
+class TransferirIn(BaseModel):
+    cliente: int
+    obs: Optional[str] = None
+
+
+class TransferenciaOut(BaseModel):
+    id: int
+    equipamento_cliente: int
+    de_cliente: int
+    de_cliente_nome: Optional[str] = None
+    para_cliente: int
+    para_cliente_nome: Optional[str] = None
+    usuario: Optional[int] = None
+    usuario_nome: Optional[str] = None
+    data: datetime
+    obs: Optional[str] = None
+    model_config = {"from_attributes": True}
