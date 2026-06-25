@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     UPLOAD_DIR: str = "uploads"
+    # Integracao com o TaskHS (espelhar OS como cards). Vazio = desligada.
+    TASKHS_BASE_URL: str = ""   # ex.: "https://taskhs.exemplo/api" (sem barra final)
+    TASKHS_API_KEY: str = ""    # header X-API-Key
     # Origens permitidas pelo CORS (front em dev). Sobrescreva via env (JSON ou CSV).
     BACKEND_CORS_ORIGINS: list[str] = [
         "http://localhost:5173",
