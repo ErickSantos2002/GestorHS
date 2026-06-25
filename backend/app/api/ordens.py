@@ -10,9 +10,9 @@ from app.api.deps import get_current_usuario, require_funcao
 from app.api.ordens_acoes import agora, registrar_log, exige_funcao_da_fase, espelhar_calibracao
 from app.core import os_workflow as wf
 from app.core import recebimento as rec
+from app.core import taskhs
 from app.core.garantia import garantias as _calc_garantias
 from app.core.os_workflow import FASE_FINALIZADA
-from app.core import taskhs
 from app.integrations import taskhs_client
 from app.schemas.ordens import OrdemListOut, OrdemPage, QuadroColuna, OrdemOut, LogOut, OrdemAbrirIn, AvancarIn, CancelarIn
 

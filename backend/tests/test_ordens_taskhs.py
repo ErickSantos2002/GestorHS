@@ -59,6 +59,7 @@ def test_avancar_agenda_card_laboratorio(client, usuario_comum, fases_seed, os_b
     assert r.status_code == 200
     assert len(captura) == 1
     assert captura[0]["list"] == "🔬Laboratório Calibração"
+    assert captura[0]["archived"] is False
 
 
 def test_cancelar_agenda_card_arquivado_na_lista_de_origem(client, usuario_comum, fases_seed, os_base, caixa_base, captura):

@@ -72,3 +72,16 @@ def test_espelhar_os_monta_payload_e_propaga(monkeypatch, ativa):
     assert enviados["external_id"] == "7"
     assert enviados["list"] == "🔬Laboratorio Calibracao"
     assert enviados["archived"] is False
+
+
+def test_espelhar_os_propaga_excecao(monkeypatch, ativa):
+    def fake_post(payload):
+        raise httpx.ConnectError("down")
+
+    monkeypatch.setattr(taskhs_client, "_post", fake_post)
+    ordem = SimpleNamespace(
+        id=7, cliente_nome="Cli", equipamento_descricao="Baf",
+        equipamento_serie="S1", prox_calibragem=None, obs=None,
+    )
+    with pytest.raises(httpx.ConnectError):
+        taskhs_client.espelhar_os(ordem, lista="🔬Laboratorio Calibracao", arquivado=False)
