@@ -75,3 +75,37 @@ def test_cancelar_agenda_card_arquivado_na_lista_de_origem(client, usuario_comum
     p = captura[0]
     assert p["archived"] is True
     assert p["list"] == "🚚 Expedição (Abrindo caixa)"  # fase de origem (Recebido)
+
+
+def test_abrir_descricao_no_payload(client, usuario_comum, fases_seed, os_base, caixa_base, captura):
+    h = _headers(client, "comum", "senha123")
+    r = client.post("/ordens", json={
+        "equipamento_cliente": os_base["equipamento_cliente"], "tipo_servico": "C",
+        "caixa": caixa_base,
+    }, headers=h)
+    assert r.status_code == 201
+    p = captura[0]
+    assert "Cliente: Cliente OS" in p["description"]
+    assert "📋 Recebido" in p["description"]
+    assert "🤝 Pós-Vendas" not in p["description"]  # ainda em Recebido
+
+
+def test_descricao_inclui_link_certificado(client, usuario_comum, fases_seed,
+                                           os_base, caixa_base, captura, db_session, monkeypatch):
+    from app.core.config import settings
+    from app.models import OSCertificado
+    monkeypatch.setattr(settings, "CERT_PUBLIC_BASE_URL", "http://localhost:8001")
+    h = _headers(client, "comum", "senha123")
+    oid = client.post("/ordens", json={
+        "equipamento_cliente": os_base["equipamento_cliente"], "tipo_servico": "C",
+        "caixa": caixa_base,
+    }, headers=h).json()["id"]
+    # simula laboratorio concluido: certificado ja gravado para a OS
+    db_session.add(OSCertificado(os=oid, tipo="C", html="<html/>"))
+    db_session.commit()
+    captura.clear()
+    # avanca Recebido(4)->Laboratorio(5) — funcao da fase de origem = Expedicao (usuario_comum)
+    r = client.post(f"/ordens/{oid}/avancar", json={}, headers=h)
+    assert r.status_code == 200
+    assert f"Certificado de Calibração: http://localhost:8001/publico/certificado/{oid}/calibracao?t=" \
+        in captura[-1]["description"]
