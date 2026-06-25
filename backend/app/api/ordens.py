@@ -1,6 +1,6 @@
 from datetime import date, datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status as http_status, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status as http_status, Query
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
@@ -10,8 +10,10 @@ from app.api.deps import get_current_usuario, require_funcao
 from app.api.ordens_acoes import agora, registrar_log, exige_funcao_da_fase, espelhar_calibracao
 from app.core import os_workflow as wf
 from app.core import recebimento as rec
+from app.core import taskhs
 from app.core.garantia import garantias as _calc_garantias
 from app.core.os_workflow import FASE_FINALIZADA
+from app.integrations import taskhs_client
 from app.schemas.ordens import OrdemListOut, OrdemPage, QuadroColuna, OrdemOut, LogOut, OrdemAbrirIn, AvancarIn, CancelarIn
 
 router = APIRouter(prefix="/ordens", tags=["ordens"])
@@ -119,7 +121,7 @@ def logs(ordem_id: int, db: Session = Depends(get_db), _: Usuario = Depends(get_
 
 
 @router.post("", response_model=OrdemOut, status_code=http_status.HTTP_201_CREATED)
-def abrir(dados: OrdemAbrirIn, db: Session = Depends(get_db),
+def abrir(dados: OrdemAbrirIn, background_tasks: BackgroundTasks, db: Session = Depends(get_db),
           usuario: Usuario = Depends(require_funcao("Expedição", "Administrador"))):
     ec = db.query(EquipamentoCliente).filter(EquipamentoCliente.id == dados.equipamento_cliente).first()
     if ec is None:
@@ -170,12 +172,15 @@ def abrir(dados: OrdemAbrirIn, db: Session = Depends(get_db),
     registrar_log(db, ordem, usuario, "OS aberta — Recebido")
     db.commit()
     db.refresh(ordem)
+    if taskhs_client.integracao_ativa():
+        payload = taskhs.montar_payload(ordem, lista=taskhs.lista_da_fase(ordem.fase), arquivado=False)
+        background_tasks.add_task(taskhs_client.enviar_card, payload)
     return ordem
 
 
 @router.post("/{ordem_id}/avancar", response_model=OrdemOut)
-def avancar(ordem_id: int, dados: AvancarIn, db: Session = Depends(get_db),
-            usuario: Usuario = Depends(get_current_usuario)):
+def avancar(ordem_id: int, dados: AvancarIn, background_tasks: BackgroundTasks,
+            db: Session = Depends(get_db), usuario: Usuario = Depends(get_current_usuario)):
     ordem = db.query(Ordem).filter(Ordem.id == ordem_id).first()
     if ordem is None:
         raise HTTPException(status_code=404, detail="OS não encontrada")
@@ -213,21 +218,32 @@ def avancar(ordem_id: int, dados: AvancarIn, db: Session = Depends(get_db),
     registrar_log(db, ordem, usuario, texto)
     db.commit()
     db.refresh(ordem)
+    if taskhs_client.integracao_ativa():
+        lista = taskhs.lista_da_fase(ordem.fase)
+        if lista is not None:
+            payload = taskhs.montar_payload(ordem, lista=lista, arquivado=False)
+            background_tasks.add_task(taskhs_client.enviar_card, payload)
     return ordem
 
 
 @router.post("/{ordem_id}/cancelar", response_model=OrdemOut)
-def cancelar(ordem_id: int, dados: CancelarIn, db: Session = Depends(get_db),
-             usuario: Usuario = Depends(get_current_usuario)):
+def cancelar(ordem_id: int, dados: CancelarIn, background_tasks: BackgroundTasks,
+             db: Session = Depends(get_db), usuario: Usuario = Depends(get_current_usuario)):
     ordem = db.query(Ordem).filter(Ordem.id == ordem_id).first()
     if ordem is None:
         raise HTTPException(status_code=404, detail="OS não encontrada")
     if not wf.eh_ativa(ordem.fase):
         raise HTTPException(status_code=409, detail="OS já encerrada")
     exige_funcao_da_fase(db, usuario, ordem.fase)
+    origem = ordem.fase
     ordem.fase = wf.FASE_CANCELADA
     ordem.situacao = "C"
     registrar_log(db, ordem, usuario, f"OS cancelada: {dados.motivo}")
     db.commit()
     db.refresh(ordem)
+    if taskhs_client.integracao_ativa():
+        lista = taskhs.lista_da_fase(origem)
+        if lista is not None:
+            payload = taskhs.montar_payload(ordem, lista=lista, arquivado=True)
+            background_tasks.add_task(taskhs_client.enviar_card, payload)
     return ordem
