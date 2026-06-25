@@ -19,6 +19,7 @@ def test_verificar_aceita_correto_rejeita_adulterado():
     assert cl.verificar(1234, "C", tok[:-1] + ("0" if tok[-1] != "0" else "1")) is False
     assert cl.verificar(1234, "M", tok) is False
     assert cl.verificar(1234, "C", "") is False
+    assert cl.verificar(1234, "C", None) is False
 
 
 def test_link_none_quando_base_vazia(monkeypatch):

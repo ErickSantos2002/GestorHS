@@ -96,8 +96,7 @@ def _sec_laboratorio(ordem, certificados: list[dict]) -> str | None:
         return None
     calibrado = _juntar([f"Calibrado em: {_fmt(ordem.data_calibracao)}" if ordem.data_calibracao else None,
                          f"Próxima: {_fmt(ordem.prox_calibragem)}" if ordem.prox_calibragem else None])
-    nome = {"C": "Calibração", "M": "Manutenção"}
-    links = [f"Certificado de {nome.get(c['tipo'], c['tipo'])}: {c['url']}"
+    links = [f"Certificado de {TIPO_SERVICO_LABEL.get(c['tipo'], c['tipo'])}: {c['url']}"
              for c in certificados if c.get("url")]
     return _bloco("🔬 Laboratório", [
         f"Resultado: {ordem.calib_situacao}" if ordem.calib_situacao else None,
