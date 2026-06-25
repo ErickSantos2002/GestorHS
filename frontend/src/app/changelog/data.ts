@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.9.0',
+    data: '25/06/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'As Ordens de Serviço agora são espelhadas automaticamente como cartões no quadro "Serviço" do TaskHS: ao abrir, avançar de fase ou cancelar uma OS, o cartão é criado e movido para a coluna correspondente (Expedição, Laboratório, Pós-Vendas, etc.); ao cancelar, o cartão é arquivado. Quando o GestorHS estiver fora do ar para o TaskHS, a OS segue normalmente — o espelhamento é tolerante a falhas e se reconcilia na próxima atualização.' },
+    ],
+  },
+  {
     versao: '1.8.0',
     data: '18/06/2026',
     itens: [
