@@ -70,6 +70,8 @@ A geração de certificado é o subsistema mais elaborado:
 ### Integracao com o TaskHS
 A cada abrir/avancar/cancelar de OS, o GestorHS espelha a OS como um card no board `Servico` do TaskHS ([app/core/taskhs.py](backend/app/core/taskhs.py) puro + [app/integrations/taskhs_client.py](backend/app/integrations/taskhs_client.py) I/O, disparado via `BackgroundTasks` best-effort). Nasce desligada: sem `TASKHS_BASE_URL`/`TASKHS_API_KEY` eh no-op. Backfill: `python -m app.scripts.sincronizar_taskhs`.
 
+O card leva uma descricao que cresce por fase (cabecalho + secoes Recebido/Laboratorio/Pos-Vendas/Preparando Retorno/Finalizada) e, na secao de Laboratorio, um link publico de download do certificado (`/publico/certificado/...`, token HMAC sem login, via `app/core/certificado_link.py` e `app/api/publico.py`; base em `CERT_PUBLIC_BASE_URL`).
+
 ### Cliente de API do frontend
 [frontend/src/lib/api.ts](frontend/src/lib/api.ts) centraliza todo o acesso HTTP:
 - **Refresh single-flight**: renova o token automaticamente no 401, com uma única promise compartilhada (`refreshOnce`) para evitar múltiplos refreshes concorrentes.
