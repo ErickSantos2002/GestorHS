@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     # Integracao com o TaskHS (espelhar OS como cards). Vazio = desligada.
     TASKHS_BASE_URL: str = ""   # ex.: "https://taskhs.exemplo/api" (sem barra final)
     TASKHS_API_KEY: str = ""    # header X-API-Key
+    # Base publica do backend para o link de download do certificado no card do TaskHS.
+    # Vazio = card sai sem link. Sem barra final. Ex.: "https://api.gestorhs..." / "http://localhost:8001"
+    CERT_PUBLIC_BASE_URL: str = ""
     # Origens permitidas pelo CORS (front em dev). Sobrescreva via env (JSON ou CSV).
     BACKEND_CORS_ORIGINS: list[str] = [
         "http://localhost:5173",

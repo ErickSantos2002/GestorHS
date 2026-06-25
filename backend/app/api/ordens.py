@@ -11,6 +11,7 @@ from app.api.ordens_acoes import agora, registrar_log, exige_funcao_da_fase, esp
 from app.core import os_workflow as wf
 from app.core import recebimento as rec
 from app.core import taskhs
+from app.core import certificado_link
 from app.core.garantia import garantias as _calc_garantias
 from app.core.os_workflow import FASE_FINALIZADA
 from app.integrations import taskhs_client
@@ -19,6 +20,20 @@ from app.schemas.ordens import OrdemListOut, OrdemPage, QuadroColuna, OrdemOut, 
 router = APIRouter(prefix="/ordens", tags=["ordens"])
 
 LIMITE_FINALIZADAS_QUADRO = 300
+
+
+def _agendar_espelhamento(db, background_tasks, ordem, *, lista, arquivado):
+    """Monta descricao (com links de certificado) e agenda o upsert no TaskHS."""
+    if lista is None or not taskhs_client.integracao_ativa():
+        return
+    certs = db.query(OSCertificado).filter(OSCertificado.os == ordem.id).all()
+    certificados = [
+        {"tipo": c.tipo, "url": certificado_link.link_certificado(ordem.id, c.tipo)}
+        for c in certs
+    ]
+    descricao = taskhs.montar_descricao(ordem, certificados=certificados)
+    payload = taskhs.montar_payload(ordem, lista=lista, arquivado=arquivado, descricao=descricao)
+    background_tasks.add_task(taskhs_client.enviar_card, payload)
 
 
 @router.get("", response_model=OrdemPage)
@@ -172,9 +187,7 @@ def abrir(dados: OrdemAbrirIn, background_tasks: BackgroundTasks, db: Session = 
     registrar_log(db, ordem, usuario, "OS aberta — Recebido")
     db.commit()
     db.refresh(ordem)
-    if taskhs_client.integracao_ativa():
-        payload = taskhs.montar_payload(ordem, lista=taskhs.lista_da_fase(ordem.fase), arquivado=False)
-        background_tasks.add_task(taskhs_client.enviar_card, payload)
+    _agendar_espelhamento(db, background_tasks, ordem, lista=taskhs.lista_da_fase(ordem.fase), arquivado=False)
     return ordem
 
 
@@ -218,11 +231,7 @@ def avancar(ordem_id: int, dados: AvancarIn, background_tasks: BackgroundTasks,
     registrar_log(db, ordem, usuario, texto)
     db.commit()
     db.refresh(ordem)
-    if taskhs_client.integracao_ativa():
-        lista = taskhs.lista_da_fase(ordem.fase)
-        if lista is not None:
-            payload = taskhs.montar_payload(ordem, lista=lista, arquivado=False)
-            background_tasks.add_task(taskhs_client.enviar_card, payload)
+    _agendar_espelhamento(db, background_tasks, ordem, lista=taskhs.lista_da_fase(ordem.fase), arquivado=False)
     return ordem
 
 
@@ -241,9 +250,5 @@ def cancelar(ordem_id: int, dados: CancelarIn, background_tasks: BackgroundTasks
     registrar_log(db, ordem, usuario, f"OS cancelada: {dados.motivo}")
     db.commit()
     db.refresh(ordem)
-    if taskhs_client.integracao_ativa():
-        lista = taskhs.lista_da_fase(origem)
-        if lista is not None:
-            payload = taskhs.montar_payload(ordem, lista=lista, arquivado=True)
-            background_tasks.add_task(taskhs_client.enviar_card, payload)
+    _agendar_espelhamento(db, background_tasks, ordem, lista=taskhs.lista_da_fase(origem), arquivado=True)
     return ordem

@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.10.0',
+    data: '25/06/2026',
+    itens: [
+      { tipo: 'melhoria', texto: 'O cartao da OS no TaskHS agora mostra um resumo que cresce a cada fase: dados do cliente e do aparelho, recebimento, resultado da calibracao, contato para o Pos-Vendas, endereco de envio e codigo de rastreio. Na fase de Laboratorio, o cartao traz um link para baixar o PDF do certificado direto do TaskHS, sem precisar entrar no GestorHS.' },
+    ],
+  },
+  {
     versao: '1.9.0',
     data: '25/06/2026',
     itens: [
