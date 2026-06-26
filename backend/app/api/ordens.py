@@ -211,10 +211,14 @@ def avancar(ordem_id: int, dados: AvancarIn, background_tasks: BackgroundTasks,
             ordem.prox_calibragem = dados.prox_calibragem
         espelhar_calibracao(db, ordem)
         texto = "Laboratório concluído"
-    elif origem == 6:                     # Pós-Vendas -> Preparando Retorno
+    elif origem == 6:                     # Pós-Vendas -> Financeiro
         ordem.aceite = True
         ordem.data_aceite = agora()
         texto = "Aceite registrado"
+    elif origem == 10:                    # Financeiro -> Preparando Retorno
+        ordem.pago = True
+        ordem.data_pagamento = agora()
+        texto = "Pagamento confirmado"
     elif origem == 7:                     # Preparando Retorno -> Finalizada
         if not (dados.cod_retorno and dados.cod_retorno.strip()):
             raise HTTPException(status_code=422, detail="cod_retorno é obrigatório para finalizar")
