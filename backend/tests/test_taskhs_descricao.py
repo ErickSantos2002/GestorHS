@@ -26,6 +26,7 @@ def _ordem(**kw):
             contato="João", celular="(11) 99999-9999", whatsapp=None, telefones=None,
         ),
         cod_retorno="BR123", data_retorno=_dt(2026, 6, 25),
+        pago=True, data_pagamento=_dt(2026, 6, 26),
     )
     base.update(kw)
     return SimpleNamespace(**base)
@@ -110,3 +111,24 @@ def test_montar_payload_sem_descricao_mantem_obs():
                         equipamento_serie=None, prox_calibragem=None, obs="apenas obs")
     p = taskhs.montar_payload(o, lista="L", arquivado=False)
     assert p["description"] == "apenas obs"
+
+
+def test_secao_financeiro_confirmado():
+    d = taskhs.montar_descricao(_ordem(fase=7), certificados=[])
+    assert "💰 Financeiro" in d
+    assert "Pagamento: confirmado em 26/06/2026" in d
+
+
+def test_financeiro_pendente_e_preparando_oculto_durante_financeiro():
+    # Em Financeiro (fase 10): mostra pagamento pendente, NAO mostra Preparando Retorno
+    o = _ordem(fase=10, pago=False, data_pagamento=None, cod_retorno=None, data_retorno=None)
+    d = taskhs.montar_descricao(o, certificados=[])
+    assert "💰 Financeiro" in d
+    assert "Pagamento: pendente" in d
+    assert "🚚 Preparando Retorno" not in d
+
+
+def test_financeiro_oculto_antes_da_fase():
+    o = _ordem(fase=6, pago=False, data_pagamento=None, cod_retorno=None, data_retorno=None)
+    d = taskhs.montar_descricao(o, certificados=[])
+    assert "💰 Financeiro" not in d

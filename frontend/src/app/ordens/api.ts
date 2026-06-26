@@ -29,6 +29,7 @@ export const FASES_FILTRO: { id: number; label: string }[] = [
   { id: 4, label: 'Recebido' },
   { id: 5, label: 'Laboratório' },
   { id: 6, label: 'Pós-Vendas' },
+  { id: 10, label: 'Financeiro' },
   { id: 7, label: 'Preparando Retorno' },
   { id: 8, label: 'Finalizada' },
   { id: 9, label: 'Cancelada' },
@@ -59,7 +60,7 @@ export interface OrdemPage {
 }
 
 // Fases ativas (em andamento) da OS — espelha ATIVAS do backend (os_workflow).
-export const FASES_ATIVAS = [4, 5, 6, 7]
+export const FASES_ATIVAS = [4, 5, 6, 10, 7]
 
 /** Retorna a OS em andamento (fase ativa) de uma lista; no maximo uma por aparelho. */
 export function osAtiva(ordens: OrdemListItem[]): OrdemListItem | undefined {
@@ -220,6 +221,7 @@ export const TRANSICOES: Record<number, { rotulo: string; pedeCodRetorno?: boole
   4: { rotulo: 'Encaminhar ao laboratório' },
   5: { rotulo: 'Concluir laboratório', pedeProxCalibragem: true },
   6: { rotulo: 'Registrar aceite' },
+  10: { rotulo: 'Confirmar pagamento' },
   7: { rotulo: 'Fechar OS', pedeCodRetorno: true },
 }
 

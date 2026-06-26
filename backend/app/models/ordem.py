@@ -57,6 +57,7 @@ class Ordem(Base):
     acessorios = Column(Text, nullable=True)
     aceite = Column(Boolean, nullable=False, default=False)
     data_aceite = Column(DateTime(timezone=True), nullable=True)
+    data_pagamento = Column(DateTime(timezone=True), nullable=True)
 
     cliente_rel = relationship("Cliente", lazy="joined")
     equipamento_rel = relationship("EquipamentoCliente", lazy="joined")

@@ -14,6 +14,8 @@ export function podeAbrirOS(user: User | null): boolean {
 
 export const FUNCAO_COMERCIAL = 'Comercial Pós-Vendas'
 
+export const FUNCAO_FINANCEIRO = 'Financeiro'
+
 export function podeRegistrarContato(user: User | null): boolean {
   return isAdmin(user) || user?.funcao === FUNCAO_COMERCIAL
 }

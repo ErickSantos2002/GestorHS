@@ -8,9 +8,9 @@ from app.models.database import get_db
 from app.models import Usuario, EquipamentoCliente, Solicitacao, Ordem, Fase
 from app.api.deps import get_current_usuario
 from app.schemas.dashboard import DashboardOut, OsPorFaseItem
+from app.core import os_workflow as wf
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
-_FASES_ATIVAS = (4, 5, 6, 7)
 
 
 @router.get("", response_model=DashboardOut)
@@ -47,16 +47,16 @@ def resumo(
 
     contagem = dict(
         db.query(Ordem.fase, func.count(Ordem.id))
-        .filter(Ordem.fase.in_(_FASES_ATIVAS))
+        .filter(Ordem.fase.in_(wf.ATIVAS))
         .group_by(Ordem.fase)
         .all()
     )
     fases = (
         db.query(Fase)
-        .filter(Fase.id.in_(_FASES_ATIVAS))
-        .order_by(Fase.id)
+        .filter(Fase.id.in_(wf.ATIVAS))
         .all()
     )
+    fases.sort(key=lambda f: wf.posicao(f.id))
     os_por_fase = [
         OsPorFaseItem(fase=f.id, descricao=f.descricao, cor=f.cor, total=int(contagem.get(f.id, 0)))
         for f in fases

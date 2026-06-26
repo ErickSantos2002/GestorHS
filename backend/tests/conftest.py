@@ -122,16 +122,18 @@ def fases_seed(db_session):
     exp = _get_or_create_funcao(db_session, "Expedição")
     lab = _get_or_create_funcao(db_session, "Laboratório")
     com = _get_or_create_funcao(db_session, "Comercial Pós-Vendas")
+    fin = _get_or_create_funcao(db_session, "Financeiro")
     db_session.add_all([
         Fase(id=4, descricao="Recebido", cor="3b82f6", funcao_responsavel=exp.id),
         Fase(id=5, descricao="Laboratório", cor="6366f1", funcao_responsavel=lab.id),
         Fase(id=6, descricao="Pós-Vendas", cor="f59e0b", funcao_responsavel=com.id),
+        Fase(id=10, descricao="Financeiro", cor="a855f7", funcao_responsavel=fin.id),
         Fase(id=7, descricao="Preparando Retorno", cor="14b8a6", funcao_responsavel=exp.id),
         Fase(id=8, descricao="Finalizada", cor="10b981", funcao_responsavel=None),
         Fase(id=9, descricao="Cancelada", cor="ef4444", funcao_responsavel=None),
     ])
     db_session.commit()
-    return {"exp": exp.id, "lab": lab.id, "com": com.id}
+    return {"exp": exp.id, "lab": lab.id, "com": com.id, "fin": fin.id}
 
 
 @pytest.fixture()
@@ -139,6 +141,15 @@ def usuario_lab(db_session):
     f = _get_or_create_funcao(db_session, "Laboratório")
     u = Usuario(nome="Lab", login="lab", senha=hash_senha("senha123"),
                 email="lab@hs.com", funcao_id=f.id, precisa_redefinir_senha=False)
+    db_session.add(u); db_session.commit(); db_session.refresh(u)
+    return u
+
+
+@pytest.fixture()
+def usuario_financeiro(db_session):
+    f = _get_or_create_funcao(db_session, "Financeiro")
+    u = Usuario(nome="Fin", login="fin", senha=hash_senha("senha123"),
+                email="fin@hs.com", funcao_id=f.id, precisa_redefinir_senha=False)
     db_session.add(u); db_session.commit(); db_session.refresh(u)
     return u
 

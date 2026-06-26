@@ -9,6 +9,7 @@ from app.models import UsuarioCliente, Cliente, EquipamentoCliente, Ordem, Solic
 from app.api.deps import get_current_cliente
 from app.api.certificados import servir_certificado
 from app.api.ordens_acoes import agora
+from app.core import os_workflow as wf
 from app.schemas.portal import (
     PortalMeOut, PortalResumoOut,
     PortalFrotaItem, PortalFrotaPage,
@@ -18,7 +19,6 @@ from app.schemas.portal import (
 from app.schemas.solicitacoes import SolicitarIn, PortalSolicitacaoItem, PortalSolicitacaoPage
 
 router = APIRouter(prefix="/portal", tags=["portal"])
-_FASES_ATIVAS = (4, 5, 6, 7)
 
 
 @router.get("/me", response_model=PortalMeOut)
@@ -41,7 +41,7 @@ def resumo(cli: UsuarioCliente = Depends(get_current_cliente), db: Session = Dep
     vencidos = base.filter(EquipamentoCliente.prox_calibragem < hoje).count()
     os_andamento = (
         db.query(Ordem)
-        .filter(Ordem.cliente == cli.cliente, Ordem.fase.in_(_FASES_ATIVAS))
+        .filter(Ordem.cliente == cli.cliente, Ordem.fase.in_(wf.ATIVAS))
         .count()
     )
     return PortalResumoOut(aparelhos=aparelhos, vencidos=vencidos, os_andamento=os_andamento)
@@ -122,7 +122,7 @@ def minhas_os(
 ):
     query = db.query(Ordem).filter(Ordem.cliente == cli.cliente)
     if em_andamento:
-        query = query.filter(Ordem.fase.in_(_FASES_ATIVAS))
+        query = query.filter(Ordem.fase.in_(wf.ATIVAS))
     total = query.count()
     items = query.order_by(Ordem.id.desc()).offset(offset).limit(limit).all()
     return PortalOSPage(items=[PortalOSItem.model_validate(o) for o in items], total=total)
