@@ -64,7 +64,7 @@ def test_os_por_fase(client, usuario_comum, fases_seed, db_session):
     r = client.get("/dashboard", headers=_headers(client, "comum", "senha123"))
     fases = r.json()["os_por_fase"]
     ids = [f["fase"] for f in fases]
-    assert set(ids) == {4, 5, 6, 10, 7}   # todas as fases ativas; fase 8 não aparece
+    assert ids == [4, 5, 6, 10, 7]   # logical workflow order: Recebido→Lab→PosVendas→Financeiro→PrepRetorno
     por_fase = {f["fase"]: f["total"] for f in fases}
     assert por_fase[4] == 2 and por_fase[5] == 1 and por_fase[6] == 0 and por_fase[10] == 0 and por_fase[7] == 0
     assert fases[0]["descricao"] == "Recebido" and fases[0]["cor"] == "3b82f6"

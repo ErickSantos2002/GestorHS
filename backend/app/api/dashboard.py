@@ -54,9 +54,9 @@ def resumo(
     fases = (
         db.query(Fase)
         .filter(Fase.id.in_(wf.ATIVAS))
-        .order_by(Fase.id)
         .all()
     )
+    fases.sort(key=lambda f: wf.posicao(f.id))
     os_por_fase = [
         OsPorFaseItem(fase=f.id, descricao=f.descricao, cor=f.cor, total=int(contagem.get(f.id, 0)))
         for f in fases

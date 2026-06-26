@@ -29,6 +29,7 @@ export const FASES_FILTRO: { id: number; label: string }[] = [
   { id: 4, label: 'Recebido' },
   { id: 5, label: 'Laboratório' },
   { id: 6, label: 'Pós-Vendas' },
+  { id: 10, label: 'Financeiro' },
   { id: 7, label: 'Preparando Retorno' },
   { id: 8, label: 'Finalizada' },
   { id: 9, label: 'Cancelada' },

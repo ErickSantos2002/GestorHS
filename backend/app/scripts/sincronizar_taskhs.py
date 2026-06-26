@@ -1,4 +1,4 @@
-"""Backfill: espelha no TaskHS as OS já existentes (fases 4–8).
+"""Backfill: espelha no TaskHS as OS já existentes (fases ativas + Finalizada).
 
 Uso: python -m app.scripts.sincronizar_taskhs
 Idempotente — pode rodar quantas vezes quiser.
@@ -6,15 +6,16 @@ Idempotente — pode rodar quantas vezes quiser.
 from sqlalchemy.orm import Session
 
 from app.core import taskhs
+from app.core import os_workflow as wf
 from app.integrations import taskhs_client
 from app.models import Ordem
 from app.models.database import SessionLocal
 
-FASES_BACKFILL = [4, 5, 6, 7, 8]
+FASES_BACKFILL = list(wf.ATIVAS) + [wf.FASE_FINALIZADA]
 
 
 def sincronizar(db: Session) -> tuple[int, int]:
-    """Faz upsert de cada OS em fase 4–8. Retorna (enviadas, total)."""
+    """Faz upsert de cada OS em fases ativas + Finalizada. Retorna (enviadas, total)."""
     if not taskhs_client.integracao_ativa():
         raise RuntimeError(
             "Integração desligada: configure TASKHS_BASE_URL e TASKHS_API_KEY."

@@ -19,14 +19,15 @@ def test_sincronizar_envia_so_fases_4_a_8(db_session, os_base, fases_seed, monke
     _abrir_os(db_session, os_base, 4)
     _abrir_os(db_session, os_base, 8)
     _abrir_os(db_session, os_base, 9)  # cancelada: ignorada
+    _abrir_os(db_session, os_base, 10)
     enviados = []
     monkeypatch.setattr(taskhs_client, "espelhar_os",
                         lambda ordem, *, lista, arquivado=False: enviados.append((ordem.fase, lista)))
     enviadas, total = sincronizar_taskhs.sincronizar(db_session)
-    assert enviadas == 2
-    assert total == 2
+    assert enviadas == 3
+    assert total == 3
     fases = sorted(f for f, _ in enviados)
-    assert fases == [4, 8]
+    assert fases == [4, 8, 10]
 
 
 def test_sincronizar_desligada_levanta(db_session, monkeypatch):
