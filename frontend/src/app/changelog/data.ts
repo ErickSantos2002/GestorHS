@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.11.0',
+    data: '26/06/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'As Ordens de Servico agora passam por uma etapa "Financeiro" entre Pos-Vendas e Preparando Retorno. O setor financeiro confirma o pagamento (botao "Confirmar pagamento") antes de a OS ser liberada para envio; a OS fica marcada como paga com a data. A nova coluna aparece no quadro de Ordens e o cartao no TaskHS reflete a etapa.' },
+    ],
+  },
+  {
     versao: '1.10.0',
     data: '25/06/2026',
     itens: [
