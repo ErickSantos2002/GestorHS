@@ -8,7 +8,7 @@ def test_listar_fases(client, usuario_admin, fases_seed):
     r = client.get("/fases", headers=h)
     assert r.status_code == 200
     fases = r.json()
-    assert [f["id"] for f in fases] == [4, 5, 6, 7, 8, 9]
+    assert [f["id"] for f in fases] == [4, 5, 6, 7, 8, 9, 10]
     recebido = next(f for f in fases if f["id"] == 4)
     assert recebido["descricao"] == "Recebido"
     assert recebido["funcao_nome"] == "Expedição"

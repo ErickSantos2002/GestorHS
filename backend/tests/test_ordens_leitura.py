@@ -54,11 +54,11 @@ def test_quadro_inclui_finalizada_agrupado(client, usuario_admin, fases_seed, os
     _ordem(db_session, os_base["cliente"], os_base["equipamento_cliente"], 8)
     h = _headers(client, "admin", "senha123")
     colunas = client.get("/ordens/quadro", headers=h).json()
-    assert [c["fase"] for c in colunas] == [4, 5, 6, 7, 8]
+    assert [c["fase"] for c in colunas] == [4, 5, 6, 10, 7, 8]
     por_fase = {c["fase"]: len(c["ordens"]) for c in colunas}
-    assert por_fase == {4: 1, 5: 0, 6: 1, 7: 0, 8: 1}
+    assert por_fase == {4: 1, 5: 0, 6: 1, 10: 0, 7: 0, 8: 1}
     por_total = {c["fase"]: c["total"] for c in colunas}
-    assert por_total == {4: 1, 5: 0, 6: 1, 7: 0, 8: 1}
+    assert por_total == {4: 1, 5: 0, 6: 1, 10: 0, 7: 0, 8: 1}
     col8 = next(c for c in colunas if c["fase"] == 8)
     assert col8["descricao"] == "Finalizada"
 

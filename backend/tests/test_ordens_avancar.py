@@ -8,10 +8,11 @@ def _abrir(client, h, equipamento_cliente):
     return client.post("/ordens", json={"equipamento_cliente": equipamento_cliente, "tipo_servico": "C", "caixa": cid}, headers=h).json()
 
 
-def test_cadeia_feliz_completa(client, usuario_admin, usuario_comum, usuario_lab, usuario_comercial, fases_seed, os_base, db_session):
-    he = _headers(client, "comum", "senha123")       # Expedição
-    hl = _headers(client, "lab", "senha123")          # Laboratório
-    hc = _headers(client, "comercial", "senha123")    # Comercial
+def test_cadeia_feliz_completa(client, usuario_admin, usuario_comum, usuario_lab, usuario_comercial, usuario_financeiro, fases_seed, os_base, db_session):
+    he = _headers(client, "comum", "senha123")         # Expedição
+    hl = _headers(client, "lab", "senha123")            # Laboratório
+    hc = _headers(client, "comercial", "senha123")      # Comercial
+    hf = _headers(client, "fin", "senha123")            # Financeiro
     o = _abrir(client, he, os_base["equipamento_cliente"])
     oid = o["id"]
     # 4 -> 5 (Expedição)
@@ -25,14 +26,17 @@ def test_cadeia_feliz_completa(client, usuario_admin, usuario_comum, usuario_lab
     # 5 -> 6 (Laboratório) — só próxima calibração + obs
     r = client.post(f"/ordens/{oid}/avancar", json={"prox_calibragem": "2027-06-09"}, headers=hl)
     assert r.json()["fase"] == 6
-    # 6 -> 7 (Comercial) seta aceite
+    # 6 -> 10 (Comercial) seta aceite
     r = client.post(f"/ordens/{oid}/avancar", json={}, headers=hc)
-    assert r.json()["fase"] == 7 and r.json()["aceite"] is True and r.json()["data_aceite"] is not None
+    assert r.json()["fase"] == 10 and r.json()["aceite"] is True and r.json()["data_aceite"] is not None
+    # 10 -> 7 (Financeiro)
+    r = client.post(f"/ordens/{oid}/avancar", json={}, headers=hf)
+    assert r.json()["fase"] == 7
     # 7 -> 8 (Expedição) exige cod_retorno, situacao=F
     r = client.post(f"/ordens/{oid}/avancar", json={"cod_retorno": "BR123"}, headers=he)
     assert r.json()["fase"] == 8 and r.json()["situacao"] == "F" and r.json()["cod_retorno"] == "BR123"
-    # logs acumulados: abertura + 4 avanços = 5
-    assert len(client.get(f"/ordens/{oid}/logs", headers=he).json()) == 5
+    # logs acumulados: abertura + 5 avanços = 6
+    assert len(client.get(f"/ordens/{oid}/logs", headers=he).json()) == 6
 
 
 def test_avancar_funcao_errada_403(client, usuario_comum, usuario_lab, fases_seed, os_base):
