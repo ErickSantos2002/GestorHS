@@ -60,3 +60,8 @@ def test_montar_payload_due_date_de_prox_calibragem():
 
 def test_montar_payload_arquivado_true():
     assert taskhs.montar_payload(_ordem(), lista="L", arquivado=True)["archived"] is True
+
+
+def test_lista_da_fase_financeiro():
+    from app.core import taskhs
+    assert taskhs.lista_da_fase(10) == "💰 Financeiro"

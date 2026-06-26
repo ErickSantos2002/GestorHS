@@ -4,6 +4,8 @@ Monta o payload do card a partir de uma OS e mapeia fase → nome de lista.
 As strings de lista são exatas (emoji incluso) — o TaskHS resolve por nome.
 """
 
+from app.core import os_workflow as wf
+
 SOURCE = "gestorhs"
 BOARD = "Serviço"
 
@@ -11,6 +13,7 @@ FASE_PARA_LISTA: dict[int, str] = {
     4: "🚚 Expedição (Abrindo caixa)",
     5: "🔬Laboratório Calibração",
     6: "Serviços 🪛",
+    10: "💰 Financeiro",
     7: "🚚 Expedição (Preparando para Envio)",
     8: "📮Correios",
 }
@@ -107,7 +110,7 @@ def _sec_laboratorio(ordem, certificados: list[dict]) -> str | None:
 
 
 def _sec_posvendas(ordem) -> str | None:
-    if ordem.fase < 6:
+    if wf.posicao(ordem.fase) < wf.posicao(6):
         return None
     cli = ordem.cliente_rel
     telefone = None
@@ -123,8 +126,18 @@ def _sec_posvendas(ordem) -> str | None:
     ])
 
 
+def _sec_financeiro(ordem) -> str | None:
+    if wf.posicao(ordem.fase) < wf.posicao(10):
+        return None
+    if ordem.pago:
+        linha = f"Pagamento: confirmado em {_fmt(ordem.data_pagamento)}" if ordem.data_pagamento else "Pagamento: confirmado"
+    else:
+        linha = "Pagamento: pendente"
+    return _bloco("💰 Financeiro", [linha])
+
+
 def _sec_preparando(ordem) -> str | None:
-    if ordem.fase < 7:
+    if wf.posicao(ordem.fase) < wf.posicao(7):
         return None
     end = _endereco(ordem.cliente_rel)
     return _bloco("🚚 Preparando Retorno", [f"Enviar para: {end}" if end else None])
@@ -141,9 +154,10 @@ def _sec_finalizada(ordem) -> str | None:
 def montar_descricao(ordem, *, certificados: list[dict]) -> str | None:
     cabecalho = "\n".join(_cabecalho(ordem)) or None
     secoes = [
-        _sec_recebido(ordem) if ordem.fase >= 4 else None,
+        _sec_recebido(ordem) if wf.posicao(ordem.fase) >= wf.posicao(4) else None,
         _sec_laboratorio(ordem, certificados),
         _sec_posvendas(ordem),
+        _sec_financeiro(ordem),
         _sec_preparando(ordem),
         _sec_finalizada(ordem),
     ]
