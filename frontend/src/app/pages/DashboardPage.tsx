@@ -33,7 +33,7 @@ export function DashboardPage() {
   return (
     <PageContainer>
       <div>
-        <h1 className="text-2xl font-extrabold text-slate-100">Olá, {user?.nome ?? user?.login} 👋</h1>
+        <h1 className="text-2xl font-extrabold text-slate-100">Olá, {user?.nome ?? user?.email} 👋</h1>
         <p className="text-sm text-slate-500 mt-1">Visão geral da operação.</p>
       </div>
 

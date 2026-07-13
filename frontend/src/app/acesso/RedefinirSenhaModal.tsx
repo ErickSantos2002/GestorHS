@@ -33,7 +33,7 @@ export function RedefinirSenhaModal({ usuario, onClose, onSalvo }: Props) {
     <Modal
       open
       onClose={onClose}
-      title={`Redefinir senha — ${usuario.login}`}
+      title={`Redefinir senha — ${usuario.nome ?? usuario.email}`}
       footer={
         <>
           <button

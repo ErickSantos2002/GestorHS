@@ -6,10 +6,11 @@ import { Spinner } from '../../components/ui/Spinner'
 import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
 import { isAdmin } from '../../auth/roles'
-import { listarUsuarios, listarFuncoes, excluirUsuario, type UsuarioItem, type Funcao } from './api'
+import { listarUsuarios, listarFuncoes, desativarUsuario, reativarUsuario, type UsuarioItem, type Funcao } from './api'
 import { UsuarioFormModal } from './UsuarioFormModal'
 import { RedefinirSenhaModal } from './RedefinirSenhaModal'
 import { PageContainer } from '../../components/ui/Page'
+import { Toggle } from '../../components/ui/Toggle'
 
 export function UsuariosPage() {
   const { user } = useAuth()
@@ -19,11 +20,12 @@ export function UsuariosPage() {
   const [formAberto, setFormAberto] = useState(false)
   const [editando, setEditando] = useState<UsuarioItem | null>(null)
   const [senhaDe, setSenhaDe] = useState<UsuarioItem | null>(null)
+  const [mostrarInativos, setMostrarInativos] = useState(false)
 
   async function carregar() {
     setErro('')
     try {
-      const [us, fs] = await Promise.all([listarUsuarios(), listarFuncoes()])
+      const [us, fs] = await Promise.all([listarUsuarios(mostrarInativos), listarFuncoes()])
       setUsuarios(us)
       setFuncoes(fs)
     } catch (err) {
@@ -35,7 +37,8 @@ export function UsuariosPage() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (isAdmin(user)) void carregar()
-  }, [user])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, mostrarInativos])
 
   if (!isAdmin(user)) {
     return (
@@ -45,13 +48,23 @@ export function UsuariosPage() {
     )
   }
 
-  async function onExcluir(u: UsuarioItem) {
-    if (!window.confirm(`Excluir o usuário "${u.login}"?`)) return
+  async function onDesativar(u: UsuarioItem) {
+    const alvo = u.nome ?? u.email
+    if (!window.confirm(`Desativar o usuário "${alvo}"?\n\nEle perde o acesso ao sistema, mas o histórico das OS é preservado.`)) return
     try {
-      await excluirUsuario(u.id)
+      await desativarUsuario(u.id)
       await carregar()
     } catch (err) {
-      setErro(err instanceof ApiError ? err.message : 'Falha ao excluir')
+      setErro(err instanceof ApiError ? err.message : 'Falha ao desativar')
+    }
+  }
+
+  async function onReativar(u: UsuarioItem) {
+    try {
+      await reativarUsuario(u.id)
+      await carregar()
+    } catch (err) {
+      setErro(err instanceof ApiError ? err.message : 'Falha ao reativar')
     }
   }
 
@@ -59,14 +72,17 @@ export function UsuariosPage() {
     <PageContainer>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-extrabold text-slate-100">Usuários</h1>
-        <Button
-          onClick={() => {
-            setEditando(null)
-            setFormAberto(true)
-          }}
-        >
-          Novo usuário
-        </Button>
+        <div className="flex items-center gap-4">
+          <Toggle checked={mostrarInativos} onChange={setMostrarInativos} label="Mostrar desativados" />
+          <Button
+            onClick={() => {
+              setEditando(null)
+              setFormAberto(true)
+            }}
+          >
+            Novo usuário
+          </Button>
+        </div>
       </div>
 
       {erro && <div className="rounded-lg bg-danger/10 border border-danger/20 px-3 py-2.5 text-sm text-danger">{erro}</div>}
@@ -82,9 +98,9 @@ export function UsuariosPage() {
           head={
             <>
               <TH>Nome</TH>
-              <TH>Login</TH>
               <TH>E-mail</TH>
               <TH>Função</TH>
+              <TH>Status</TH>
               <TH>Ações</TH>
             </>
           }
@@ -92,9 +108,9 @@ export function UsuariosPage() {
           {usuarios.map((u) => (
             <tr key={u.id} className="hover:bg-background-elevated transition-colors">
               <TD>{u.nome ?? '—'}</TD>
-              <TD>{u.login}</TD>
-              <TD>{u.email ?? '—'}</TD>
+              <TD>{u.email}</TD>
               <TD>{u.funcao ? <Badge tone={u.funcao === 'Administrador' ? 'primary' : 'neutral'}>{u.funcao}</Badge> : '—'}</TD>
+              <TD>{u.ativo ? <Badge tone="primary">Ativo</Badge> : <Badge tone="warning">Desativado</Badge>}</TD>
               <TD>
                 <div className="flex gap-3">
                   <button
@@ -109,9 +125,15 @@ export function UsuariosPage() {
                   <button onClick={() => setSenhaDe(u)} className="text-xs text-slate-400 hover:text-slate-200">
                     Senha
                   </button>
-                  <button onClick={() => onExcluir(u)} className="text-xs text-danger hover:underline">
-                    Excluir
-                  </button>
+                  {u.ativo ? (
+                    <button onClick={() => onDesativar(u)} className="text-xs text-danger hover:underline">
+                      Desativar
+                    </button>
+                  ) : (
+                    <button onClick={() => onReativar(u)} className="text-xs text-primary hover:underline">
+                      Reativar
+                    </button>
+                  )}
                 </div>
               </TD>
             </tr>

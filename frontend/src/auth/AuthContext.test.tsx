@@ -10,15 +10,15 @@ function jsonResponse(body: unknown, status = 200): Response {
   })
 }
 
-const ME = { id: 1, nome: 'Erick', login: 'erick', email: null, funcao_id: 1, funcao: 'Administrador' }
+const ME = { id: 1, nome: 'Erick', email: 'erick@hs.com', funcao_id: 1, funcao: 'Administrador' }
 
 function Probe() {
   const { user, loading, login, logout } = useAuth()
   return (
     <div>
       <span data-testid="loading">{String(loading)}</span>
-      <span data-testid="user">{user ? user.login : 'anon'}</span>
-      <button onClick={() => login('erick', 'senha')}>entrar</button>
+      <span data-testid="user">{user ? user.email : 'anon'}</span>
+      <button onClick={() => login('erick@hs.com', 'senha')}>entrar</button>
       <button onClick={() => logout()}>sair</button>
     </div>
   )
@@ -49,7 +49,7 @@ describe('AuthContext', () => {
     setTokens({ access_token: 'a', refresh_token: 'r' })
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(ME)))
     renderProbe()
-    await waitFor(() => expect(screen.getByTestId('user').textContent).toBe('erick'))
+    await waitFor(() => expect(screen.getByTestId('user').textContent).toBe('erick@hs.com'))
   })
 
   it('com token inválido: limpa e fica deslogado', async () => {
@@ -72,7 +72,7 @@ describe('AuthContext', () => {
       screen.getByText('entrar').click()
     })
 
-    await waitFor(() => expect(screen.getByTestId('user').textContent).toBe('erick'))
+    await waitFor(() => expect(screen.getByTestId('user').textContent).toBe('erick@hs.com'))
     expect(getTokens()?.access_token).toBe('a')
   })
 
@@ -80,7 +80,7 @@ describe('AuthContext', () => {
     setTokens({ access_token: 'a', refresh_token: 'r' })
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(ME)))
     renderProbe()
-    await waitFor(() => expect(screen.getByTestId('user').textContent).toBe('erick'))
+    await waitFor(() => expect(screen.getByTestId('user').textContent).toBe('erick@hs.com'))
 
     await act(async () => {
       screen.getByText('sair').click()
@@ -95,7 +95,7 @@ function ProbeReset() {
   const { user, login, definirSenha } = useAuth()
   return (
     <div>
-      <span data-testid="user2">{user ? user.login : 'anon'}</span>
+      <span data-testid="user2">{user ? user.email : 'anon'}</span>
       <span data-testid="res" />
       <button onClick={async () => { const r = await login('temp', 'prov'); document.querySelector('[data-testid=res]')!.textContent = String(r.precisa_redefinir) }}>login</button>
       <button onClick={() => definirSenha('temp', 'prov', 'novasenha123')}>definir</button>
@@ -120,7 +120,7 @@ describe('AuthContext — reset forçado', () => {
       .mockResolvedValueOnce(jsonResponse(ME)))  // /auth/me
     render(<AuthProvider><ProbeReset /></AuthProvider>)
     await act(async () => { screen.getByText('definir').click() })
-    await waitFor(() => expect(screen.getByTestId('user2').textContent).toBe('erick'))
+    await waitFor(() => expect(screen.getByTestId('user2').textContent).toBe('erick@hs.com'))
     expect(getTokens()?.access_token).toBe('a')
   })
 })

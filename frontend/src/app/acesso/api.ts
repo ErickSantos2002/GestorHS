@@ -8,26 +8,24 @@ export interface Funcao {
 export interface UsuarioItem {
   id: number
   nome: string | null
-  login: string
-  email: string | null
+  email: string
   funcao_id: number | null
   funcao: string | null
   precisa_redefinir_senha: boolean
+  ativo: boolean
 }
 
 export interface UsuarioCreatePayload {
   nome?: string | null
-  login: string
-  email?: string | null
+  email: string
   senha: string
   funcao_id?: number | null
 }
 
 export interface UsuarioUpdatePayload {
   nome?: string | null
-  email?: string | null
+  email?: string
   funcao_id?: number | null
-  login?: string
 }
 
 async function apiVoid(path: string, options: RequestInit = {}): Promise<void> {
@@ -51,8 +49,9 @@ export function listarFuncoes(): Promise<Funcao[]> {
   return apiJson<Funcao[]>('/funcoes')
 }
 
-export function listarUsuarios(): Promise<UsuarioItem[]> {
-  return apiJson<UsuarioItem[]>('/usuarios')
+export function listarUsuarios(incluirInativos = false): Promise<UsuarioItem[]> {
+  const qs = incluirInativos ? '?incluir_inativos=true' : ''
+  return apiJson<UsuarioItem[]>(`/usuarios${qs}`)
 }
 
 export function obterUsuario(id: number): Promise<UsuarioItem> {
@@ -67,8 +66,12 @@ export function atualizarUsuario(id: number, payload: UsuarioUpdatePayload): Pro
   return apiJson<UsuarioItem>(`/usuarios/${id}`, { method: 'PATCH', body: JSON.stringify(payload) })
 }
 
-export function excluirUsuario(id: number): Promise<void> {
-  return apiVoid(`/usuarios/${id}`, { method: 'DELETE' })
+export function desativarUsuario(id: number): Promise<void> {
+  return apiVoid(`/usuarios/${id}/desativar`, { method: 'POST' })
+}
+
+export function reativarUsuario(id: number): Promise<void> {
+  return apiVoid(`/usuarios/${id}/reativar`, { method: 'POST' })
 }
 
 export function redefinirSenha(id: number, nova_senha: string): Promise<void> {
