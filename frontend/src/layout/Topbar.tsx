@@ -49,7 +49,7 @@ export function Topbar({ dark, onToggleTheme, onToggleSidebar }: TopbarProps) {
             aria-label="Menu do usuário"
             className="w-8 h-8 rounded-full bg-linear-to-br from-primary-400 to-primary-700 flex items-center justify-center text-white text-xs font-bold shadow-sm"
           >
-            {user ? iniciais(user.nome, user.email ?? '') : '?'}
+            {user ? iniciais(user.nome, user.email) : '?'}
           </button>
           {aberto && (
             <div className="absolute right-0 top-full mt-2 w-48 rounded-xl bg-background-surface border border-border shadow-2xl z-50 overflow-hidden">

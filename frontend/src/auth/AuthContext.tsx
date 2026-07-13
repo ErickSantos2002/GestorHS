@@ -5,7 +5,7 @@ import { clearTokens, getTokens, setTokens, type Tokens } from '../lib/auth-stor
 export interface User {
   id: number
   nome: string | null
-  email: string | null
+  email: string
   funcao_id: number | null
   funcao: string | null
 }

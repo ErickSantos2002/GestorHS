@@ -23,6 +23,14 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.12.0',
+    data: '13/07/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'O login agora é feito com o e-mail, no lugar do nome de usuário. Ao cadastrar um usuário, o e-mail passou a ser obrigatório (e único) — ele é a credencial de acesso.' },
+      { tipo: 'correcao', texto: 'Corrigido o erro ao remover um usuário. Como o usuário fica ligado ao histórico das Ordens de Serviço (quem fez cada etapa), agora em vez de excluir ele é "Desativado": perde o acesso ao sistema, mas o histórico é preservado. Desativados ficam ocultos na lista (use "Mostrar desativados") e podem ser reativados.' },
+    ],
+  },
+  {
     versao: '1.11.0',
     data: '26/06/2026',
     itens: [
