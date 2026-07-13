@@ -92,6 +92,16 @@ def test_atualizar_email_duplicado_409(client, usuario_admin):
     assert r.status_code == 409
 
 
+def test_atualizar_email_null_422(client, usuario_admin, usuario_comum, db_session):
+    from app.models import Usuario
+    h = _headers(client, "admin@hs.com", "senha123")
+    alvo = db_session.query(Usuario).filter(Usuario.email == "comum@hs.com").first()
+    r = client.patch(f"/usuarios/{alvo.id}", json={"email": None}, headers=h)
+    assert r.status_code == 422
+    db_session.refresh(alvo)
+    assert alvo.email == "comum@hs.com"   # inalterado
+
+
 def test_patch_nega_rebaixar_ultimo_admin(client, usuario_admin, db_session):
     from app.models import Funcao
     lab = db_session.query(Funcao).filter(Funcao.descricao == "Laboratório").first()

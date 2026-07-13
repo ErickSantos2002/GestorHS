@@ -67,7 +67,9 @@ def atualizar(usuario_id: int, dados: UsuarioUpdate, db: Session = Depends(get_d
     if u is None:
         raise HTTPException(status_code=404, detail="usuário não encontrado")
     campos = dados.model_dump(exclude_unset=True)
-    if "email" in campos and campos["email"] is not None:
+    if "email" in campos:
+        if campos["email"] is None:
+            raise HTTPException(status_code=422, detail="e-mail é obrigatório")
         campos["email"] = emails.normalizar(campos["email"])
         if campos["email"] != u.email:
             if db.query(Usuario).filter(Usuario.email == campos["email"]).first() is not None:

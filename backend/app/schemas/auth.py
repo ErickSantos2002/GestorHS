@@ -20,7 +20,7 @@ class RefreshRequest(BaseModel):
 class UsuarioOut(BaseModel):
     id: int
     nome: Optional[str]
-    email: Optional[str]
+    email: str
     funcao_id: Optional[int]
     funcao: Optional[str] = None
 
