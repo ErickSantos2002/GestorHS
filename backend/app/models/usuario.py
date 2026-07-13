@@ -13,6 +13,7 @@ class Usuario(Base):
     email = Column(String(200), nullable=True)
     funcao_id = Column(Integer, ForeignKey("funcoes.id"), nullable=True)
     precisa_redefinir_senha = Column(Boolean, nullable=False, default=False)
+    ativo = Column(Boolean, nullable=False, default=True)
 
     funcao_rel = relationship("Funcao", lazy="joined")
 

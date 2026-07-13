@@ -34,6 +34,8 @@ def _verificar_credenciais(registro, senha: str) -> None:
 def login(dados: LoginRequest, db: Session = Depends(get_db)):
     usuario = db.query(Usuario).filter(Usuario.login == dados.login).first()
     _verificar_credenciais(usuario, dados.senha)
+    if not usuario.ativo:
+        raise HTTPException(status_code=403, detail="Usuário desativado. Fale com o administrador.")
     if usuario.precisa_redefinir_senha:
         return LoginOut(precisa_redefinir=True)
     return LoginOut(
@@ -95,6 +97,8 @@ def refresh(dados: RefreshRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh inválido")
 
     if registro is None or registro.precisa_redefinir_senha:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh inválido")
+    if tipo == "usuario" and not registro.ativo:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh inválido")
 
     return Token(

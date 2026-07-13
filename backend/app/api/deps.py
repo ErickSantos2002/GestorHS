@@ -33,7 +33,7 @@ def get_current_usuario(token: str = Depends(oauth2_scheme), db: Session = Depen
     except (KeyError, ValueError, TypeError):
         raise _cred_invalida
     usuario = db.query(Usuario).filter(Usuario.id == sub_id).first()
-    if usuario is None:
+    if usuario is None or not usuario.ativo:
         raise _cred_invalida
     return usuario
 

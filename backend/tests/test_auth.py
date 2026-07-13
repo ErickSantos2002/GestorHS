@@ -196,3 +196,34 @@ def test_definir_senha_portal_fluxo(client, cliente_portal, db_session):
     assert r.status_code == 200 and r.json()["access_token"]
     r2 = client.post("/auth/login-portal", json={"documento": "11222333000144", "login": "cliente1", "senha": "novasenha123"})
     assert r2.status_code == 200 and r2.json()["access_token"] and not r2.json().get("precisa_redefinir")
+
+
+def test_login_usuario_desativado_403(client, usuario_admin, usuario_comum, db_session):
+    from app.models import Usuario
+    alvo = db_session.query(Usuario).filter(Usuario.login == "comum").first()
+    alvo.ativo = False
+    db_session.commit()
+    r = client.post("/auth/login", json={"login": "comum", "senha": "senha123"})
+    assert r.status_code == 403
+    assert "desativado" in r.json()["detail"].lower()
+
+
+def test_token_de_usuario_desativado_401(client, usuario_admin, usuario_comum, db_session):
+    from app.models import Usuario
+    tok = client.post("/auth/login", json={"login": "comum", "senha": "senha123"}).json()
+    h = {"Authorization": f"Bearer {tok['access_token']}"}
+    assert client.get("/auth/me", headers=h).status_code == 200
+    alvo = db_session.query(Usuario).filter(Usuario.login == "comum").first()
+    alvo.ativo = False
+    db_session.commit()
+    assert client.get("/auth/me", headers=h).status_code == 401
+
+
+def test_refresh_de_usuario_desativado_401(client, usuario_admin, usuario_comum, db_session):
+    from app.models import Usuario
+    tok = client.post("/auth/login", json={"login": "comum", "senha": "senha123"}).json()
+    alvo = db_session.query(Usuario).filter(Usuario.login == "comum").first()
+    alvo.ativo = False
+    db_session.commit()
+    r = client.post("/auth/refresh", json={"refresh_token": tok["refresh_token"]})
+    assert r.status_code == 401

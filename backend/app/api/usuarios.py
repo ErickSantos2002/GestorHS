@@ -16,7 +16,7 @@ def _conta_admins(db: Session) -> int:
     return (
         db.query(Usuario)
         .join(Funcao, Usuario.funcao_id == Funcao.id)
-        .filter(Funcao.descricao == ADMIN)
+        .filter(Funcao.descricao == ADMIN, Usuario.ativo.is_(True))
         .count()
     )
 
@@ -26,8 +26,12 @@ def _eh_admin(usuario: Usuario) -> bool:
 
 
 @router.get("", response_model=list[UsuarioListOut])
-def listar(db: Session = Depends(get_db), _: Usuario = Depends(require_funcao(ADMIN))):
-    return db.query(Usuario).order_by(Usuario.id).all()
+def listar(incluir_inativos: bool = False, db: Session = Depends(get_db),
+           _: Usuario = Depends(require_funcao(ADMIN))):
+    query = db.query(Usuario)
+    if not incluir_inativos:
+        query = query.filter(Usuario.ativo.is_(True))
+    return query.order_by(Usuario.id).all()
 
 
 @router.post("", response_model=UsuarioListOut, status_code=status.HTTP_201_CREATED)
@@ -75,16 +79,29 @@ def atualizar(usuario_id: int, dados: UsuarioUpdate, db: Session = Depends(get_d
     return u
 
 
-@router.delete("/{usuario_id}", status_code=status.HTTP_204_NO_CONTENT)
-def excluir(usuario_id: int, db: Session = Depends(get_db), atual: Usuario = Depends(require_funcao(ADMIN))):
+@router.post("/{usuario_id}/desativar", status_code=status.HTTP_204_NO_CONTENT)
+def desativar(usuario_id: int, db: Session = Depends(get_db),
+              atual: Usuario = Depends(require_funcao(ADMIN))):
     u = db.query(Usuario).filter(Usuario.id == usuario_id).first()
     if u is None:
         raise HTTPException(status_code=404, detail="usuário não encontrado")
     if u.id == atual.id:
-        raise HTTPException(status_code=400, detail="não é possível excluir o próprio usuário")
+        raise HTTPException(status_code=400, detail="não é possível desativar o próprio usuário")
+    if not u.ativo:
+        return  # idempotente
     if _eh_admin(u) and _conta_admins(db) <= 1:
-        raise HTTPException(status_code=400, detail="não é possível excluir o último administrador")
-    db.delete(u)
+        raise HTTPException(status_code=400, detail="não é possível desativar o último administrador")
+    u.ativo = False
+    db.commit()
+
+
+@router.post("/{usuario_id}/reativar", status_code=status.HTTP_204_NO_CONTENT)
+def reativar(usuario_id: int, db: Session = Depends(get_db),
+             _: Usuario = Depends(require_funcao(ADMIN))):
+    u = db.query(Usuario).filter(Usuario.id == usuario_id).first()
+    if u is None:
+        raise HTTPException(status_code=404, detail="usuário não encontrado")
+    u.ativo = True
     db.commit()
 
 

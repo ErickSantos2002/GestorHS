@@ -16,6 +16,7 @@ class UsuarioListOut(BaseModel):
     funcao_id: Optional[int]
     funcao: Optional[str] = None
     precisa_redefinir_senha: bool
+    ativo: bool
     model_config = {"from_attributes": True}
 
 

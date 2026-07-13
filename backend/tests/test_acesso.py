@@ -87,20 +87,6 @@ def test_patch_nega_rebaixar_ultimo_admin(client, usuario_admin, db_session):
     assert r.status_code == 400
 
 
-def test_excluir_a_si_mesmo_400(client, usuario_admin):
-    h = _headers(client, "admin", "senha123")
-    r = client.delete(f"/usuarios/{usuario_admin.id}", headers=h)
-    assert r.status_code == 400
-
-
-def test_excluir_usuario_comum_ok(client, usuario_admin):
-    h = _headers(client, "admin", "senha123")
-    novo = _criar(client, h, login="temp", senha="segredo123").json()
-    r = client.delete(f"/usuarios/{novo['id']}", headers=h)
-    assert r.status_code == 204
-    assert client.get(f"/usuarios/{novo['id']}", headers=h).status_code == 404
-
-
 def test_redefinir_senha_admin_deixa_temporaria(client, usuario_admin, db_session):
     from app.models import Usuario
     from app.core.security import hash_senha
@@ -138,3 +124,63 @@ def test_trocar_senha_negada_se_precisa_redefinir(client, usuario_comum, db_sess
     db_session.commit()
     r = client.post("/auth/trocar-senha", json={"senha_atual": "senha123", "nova_senha": "outraSenha9"}, headers=h)
     assert r.status_code == 403
+
+
+def test_desativar_usuario(client, usuario_admin, usuario_comum, db_session):
+    from app.models import Usuario
+    h = _headers(client, "admin", "senha123")
+    alvo = db_session.query(Usuario).filter(Usuario.login == "comum").first()
+    r = client.post(f"/usuarios/{alvo.id}/desativar", headers=h)
+    assert r.status_code == 204
+    db_session.refresh(alvo)
+    assert alvo.ativo is False
+
+
+def test_reativar_usuario(client, usuario_admin, usuario_comum, db_session):
+    from app.models import Usuario
+    h = _headers(client, "admin", "senha123")
+    alvo = db_session.query(Usuario).filter(Usuario.login == "comum").first()
+    client.post(f"/usuarios/{alvo.id}/desativar", headers=h)
+    r = client.post(f"/usuarios/{alvo.id}/reativar", headers=h)
+    assert r.status_code == 204
+    db_session.refresh(alvo)
+    assert alvo.ativo is True
+
+
+def test_nao_desativa_a_si_mesmo(client, usuario_admin):
+    h = _headers(client, "admin", "senha123")
+    r = client.post(f"/usuarios/{usuario_admin.id}/desativar", headers=h)
+    assert r.status_code == 400
+
+
+def test_admin_pode_desativar_outro_admin(client, usuario_admin, usuario_comum, db_session):
+    # com 2 admins ativos, um pode desativar o outro (a guarda do "ultimo admin" nao dispara)
+    from app.models import Usuario, Funcao
+    admin_funcao = db_session.query(Funcao).filter(Funcao.descricao == "Administrador").first()
+    outro = db_session.query(Usuario).filter(Usuario.login == "comum").first()
+    outro.funcao_id = admin_funcao.id
+    db_session.commit()
+    h = _headers(client, "comum", "senha123")   # "comum" agora e admin
+    r = client.post(f"/usuarios/{usuario_admin.id}/desativar", headers=h)
+    assert r.status_code == 204
+    db_session.refresh(usuario_admin)
+    assert usuario_admin.ativo is False
+
+
+def test_listar_oculta_inativos_por_padrao(client, usuario_admin, usuario_comum, db_session):
+    from app.models import Usuario
+    h = _headers(client, "admin", "senha123")
+    alvo = db_session.query(Usuario).filter(Usuario.login == "comum").first()
+    client.post(f"/usuarios/{alvo.id}/desativar", headers=h)
+    ids = [u["id"] for u in client.get("/usuarios", headers=h).json()]
+    assert alvo.id not in ids
+    ids_todos = [u["id"] for u in client.get("/usuarios?incluir_inativos=true", headers=h).json()]
+    assert alvo.id in ids_todos
+
+
+def test_delete_usuario_nao_existe_mais(client, usuario_admin, usuario_comum, db_session):
+    from app.models import Usuario
+    h = _headers(client, "admin", "senha123")
+    alvo = db_session.query(Usuario).filter(Usuario.login == "comum").first()
+    r = client.delete(f"/usuarios/{alvo.id}", headers=h)
+    assert r.status_code == 405   # método não permitido: a rota DELETE foi removida
