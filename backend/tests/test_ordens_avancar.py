@@ -1,5 +1,5 @@
-def _headers(client, login, senha):
-    tok = client.post("/auth/login", json={"login": login, "senha": senha}).json()
+def _headers(client, email, senha):
+    tok = client.post("/auth/login", json={"email": email, "senha": senha}).json()
     return {"Authorization": f"Bearer {tok['access_token']}"}
 
 
@@ -9,10 +9,10 @@ def _abrir(client, h, equipamento_cliente):
 
 
 def test_cadeia_feliz_completa(client, usuario_admin, usuario_comum, usuario_lab, usuario_comercial, usuario_financeiro, fases_seed, os_base, db_session):
-    he = _headers(client, "comum", "senha123")         # Expedição
-    hl = _headers(client, "lab", "senha123")            # Laboratório
-    hc = _headers(client, "comercial", "senha123")      # Comercial
-    hf = _headers(client, "fin", "senha123")            # Financeiro
+    he = _headers(client, "comum@hs.com", "senha123")         # Expedição
+    hl = _headers(client, "lab@hs.com", "senha123")            # Laboratório
+    hc = _headers(client, "comercial@hs.com", "senha123")      # Comercial
+    hf = _headers(client, "fin@hs.com", "senha123")            # Financeiro
     o = _abrir(client, he, os_base["equipamento_cliente"])
     oid = o["id"]
     # 4 -> 5 (Expedição)
@@ -44,16 +44,16 @@ def test_cadeia_feliz_completa(client, usuario_admin, usuario_comum, usuario_lab
 
 
 def test_avancar_funcao_errada_403(client, usuario_comum, usuario_lab, fases_seed, os_base):
-    he = _headers(client, "comum", "senha123")
-    hl = _headers(client, "lab", "senha123")
+    he = _headers(client, "comum@hs.com", "senha123")
+    hl = _headers(client, "lab@hs.com", "senha123")
     o = _abrir(client, he, os_base["equipamento_cliente"])   # fase 4 (Expedição)
     # Laboratório não pode avançar a fase 4
     assert client.post(f"/ordens/{o['id']}/avancar", json={}, headers=hl).status_code == 403
 
 
 def test_admin_override_avanca_qualquer_fase(client, usuario_admin, usuario_comum, fases_seed, os_base):
-    he = _headers(client, "comum", "senha123")
-    ha = _headers(client, "admin", "senha123")
+    he = _headers(client, "comum@hs.com", "senha123")
+    ha = _headers(client, "admin@hs.com", "senha123")
     o = _abrir(client, he, os_base["equipamento_cliente"])
     # admin avança 4->5 mesmo sendo Administrador (não Expedição)
     assert client.post(f"/ordens/{o['id']}/avancar", json={}, headers=ha).json()["fase"] == 5
@@ -63,7 +63,7 @@ def test_avancar_cod_retorno_obrigatorio_422(client, usuario_admin, fases_seed, 
     from app.models import Ordem
     o = Ordem(cliente=os_base["cliente"], equipamento_cliente=os_base["equipamento_cliente"], fase=7, situacao="E")
     db_session.add(o); db_session.commit(); db_session.refresh(o)
-    ha = _headers(client, "admin", "senha123")
+    ha = _headers(client, "admin@hs.com", "senha123")
     r = client.post(f"/ordens/{o.id}/avancar", json={}, headers=ha)
     assert r.status_code == 422
 
@@ -72,12 +72,12 @@ def test_avancar_os_encerrada_409(client, usuario_admin, fases_seed, os_base, db
     from app.models import Ordem
     o = Ordem(cliente=os_base["cliente"], equipamento_cliente=os_base["equipamento_cliente"], fase=8, situacao="F")
     db_session.add(o); db_session.commit(); db_session.refresh(o)
-    ha = _headers(client, "admin", "senha123")
+    ha = _headers(client, "admin@hs.com", "senha123")
     assert client.post(f"/ordens/{o.id}/avancar", json={}, headers=ha).status_code == 409
 
 
 def test_avancar_os_inexistente_404(client, usuario_admin, fases_seed):
-    ha = _headers(client, "admin", "senha123")
+    ha = _headers(client, "admin@hs.com", "senha123")
     assert client.post("/ordens/9999/avancar", json={}, headers=ha).status_code == 404
 
 
@@ -87,7 +87,7 @@ def test_avancar_lab_com_calibracao_espelha(client, usuario_lab, fases_seed, os_
     db_session.commit()
     o = Ordem(cliente=os_base["cliente"], equipamento_cliente=os_base["equipamento_cliente"], fase=5, situacao="E")
     db_session.add(o); db_session.commit(); db_session.refresh(o)
-    h = _headers(client, "lab", "senha123")
+    h = _headers(client, "lab@hs.com", "senha123")
     # gerar-certificado escreve os calib_* na OS
     client.post(f"/ordens/{o.id}/gerar-certificado", json={
         "calib_cert": "HF999", "calib_temp": "22.0", "calib_teste_media": "0,16",
@@ -117,7 +117,7 @@ def test_avancar_lab_manutencao_pura_nao_espelha(client, usuario_lab, fases_seed
     # cert direto sem calib_* (manutenção pura)
     db_session.add(OSCertificado(os=o.id, tipo="M"))
     db_session.commit()
-    h = _headers(client, "lab", "senha123")
+    h = _headers(client, "lab@hs.com", "senha123")
     r = client.post(f"/ordens/{o.id}/avancar", json={"obs": "só manutenção"}, headers=h)
     assert r.status_code == 200 and r.json()["fase"] == 6
     ec = db_session.get(EquipamentoCliente, os_base["equipamento_cliente"])
@@ -131,7 +131,7 @@ def test_avancar_lab_sem_equipamento_nao_quebra(client, usuario_lab, fases_seed,
     db_session.add(o); db_session.commit(); db_session.refresh(o)
     db_session.add(OSCertificado(os=o.id, tipo="C"))
     db_session.commit()
-    h = _headers(client, "lab", "senha123")
+    h = _headers(client, "lab@hs.com", "senha123")
     r = client.post(f"/ordens/{o.id}/avancar", json={}, headers=h)
     assert r.status_code == 200 and r.json()["fase"] == 6
 
@@ -141,15 +141,15 @@ def test_calibracao_ignorada_fora_da_fase_lab(client, usuario_comum, fases_seed,
     from app.models import Ordem
     o = Ordem(cliente=os_base["cliente"], equipamento_cliente=os_base["equipamento_cliente"], fase=4, situacao="E")
     db_session.add(o); db_session.commit(); db_session.refresh(o)
-    h = _headers(client, "comum", "senha123")
+    h = _headers(client, "comum@hs.com", "senha123")
     r = client.post(f"/ordens/{o.id}/avancar", json={"calib_cert": "NAOAPLICA"}, headers=h)
     assert r.status_code == 200 and r.json()["fase"] == 5
     assert r.json()["calib_cert"] is None
 
 
 def test_concluir_lab_bloqueia_sem_certificado(client, usuario_comum, usuario_lab, fases_seed, os_base):
-    he = _headers(client, "comum", "senha123")
-    hl = _headers(client, "lab", "senha123")
+    he = _headers(client, "comum@hs.com", "senha123")
+    hl = _headers(client, "lab@hs.com", "senha123")
     oid = _abrir(client, he, os_base["equipamento_cliente"])["id"]
     client.post(f"/ordens/{oid}/avancar", json={}, headers=he)  # 4->5
     r = client.post(f"/ordens/{oid}/avancar", json={"prox_calibragem": "2027-06-09"}, headers=hl)  # 5->6 sem cert
@@ -160,8 +160,8 @@ def test_concluir_lab_com_certificado(client, usuario_comum, usuario_lab, fases_
     from app.models import CertificadoModelo
     db_session.add(CertificadoModelo(equipamento=os_base["equipamento"], tipo="C", texto="<p>[serie]</p>"))
     db_session.commit()
-    he = _headers(client, "comum", "senha123")
-    hl = _headers(client, "lab", "senha123")
+    he = _headers(client, "comum@hs.com", "senha123")
+    hl = _headers(client, "lab@hs.com", "senha123")
     oid = _abrir(client, he, os_base["equipamento_cliente"])["id"]
     client.post(f"/ordens/{oid}/avancar", json={}, headers=he)  # 4->5
     client.post(f"/ordens/{oid}/gerar-certificado", json={"calib_cert": "C-1"}, headers=hl)
@@ -174,7 +174,7 @@ def test_financeiro_marca_pago(client, usuario_financeiro, fases_seed, os_base, 
     from app.models import Ordem
     o = Ordem(cliente=os_base["cliente"], equipamento_cliente=os_base["equipamento_cliente"], fase=10, situacao="E")
     db_session.add(o); db_session.commit(); db_session.refresh(o)
-    hf = _headers(client, "fin", "senha123")
+    hf = _headers(client, "fin@hs.com", "senha123")
     r = client.post(f"/ordens/{o.id}/avancar", json={}, headers=hf)
     assert r.status_code == 200 and r.json()["fase"] == 7
     db_session.refresh(o)
@@ -185,5 +185,5 @@ def test_financeiro_exige_funcao_financeiro_403(client, usuario_lab, fases_seed,
     from app.models import Ordem
     o = Ordem(cliente=os_base["cliente"], equipamento_cliente=os_base["equipamento_cliente"], fase=10, situacao="E")
     db_session.add(o); db_session.commit(); db_session.refresh(o)
-    hl = _headers(client, "lab", "senha123")
+    hl = _headers(client, "lab@hs.com", "senha123")
     assert client.post(f"/ordens/{o.id}/avancar", json={}, headers=hl).status_code == 403

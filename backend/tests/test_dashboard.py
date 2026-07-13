@@ -1,8 +1,8 @@
 from datetime import date, timedelta
 
 
-def _headers(client, login, senha):
-    tok = client.post("/auth/login", json={"login": login, "senha": senha}).json()
+def _headers(client, email, senha):
+    tok = client.post("/auth/login", json={"email": email, "senha": senha}).json()
     return {"Authorization": f"Bearer {tok['access_token']}"}
 
 
@@ -50,7 +50,7 @@ def _setup(db_session):
 
 def test_contagens(client, usuario_comum, fases_seed, db_session):
     _setup(db_session)
-    r = client.get("/dashboard", headers=_headers(client, "comum", "senha123"))
+    r = client.get("/dashboard", headers=_headers(client, "comum@hs.com", "senha123"))
     assert r.status_code == 200
     body = r.json()
     assert body["aparelhos_vencidos"] == 2       # A + B vencidos (ecB_hoje é vencendo, não vencido; inativo ignorado)
@@ -61,7 +61,7 @@ def test_contagens(client, usuario_comum, fases_seed, db_session):
 
 def test_os_por_fase(client, usuario_comum, fases_seed, db_session):
     _setup(db_session)
-    r = client.get("/dashboard", headers=_headers(client, "comum", "senha123"))
+    r = client.get("/dashboard", headers=_headers(client, "comum@hs.com", "senha123"))
     fases = r.json()["os_por_fase"]
     ids = [f["fase"] for f in fases]
     assert ids == [4, 5, 6, 10, 7]   # logical workflow order: Recebido→Lab→PosVendas→Financeiro→PrepRetorno

@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.models.database import get_db
 from app.models import Usuario, Funcao
 from app.core.security import hash_senha
+from app.core import emails
 from app.api.deps import require_funcao
 from app.schemas.acesso import UsuarioListOut, UsuarioCreate, UsuarioUpdate, RedefinirSenhaIn
 
@@ -36,12 +37,12 @@ def listar(incluir_inativos: bool = False, db: Session = Depends(get_db),
 
 @router.post("", response_model=UsuarioListOut, status_code=status.HTTP_201_CREATED)
 def criar(dados: UsuarioCreate, db: Session = Depends(get_db), _: Usuario = Depends(require_funcao(ADMIN))):
-    if db.query(Usuario).filter(Usuario.login == dados.login).first() is not None:
-        raise HTTPException(status_code=409, detail="login já em uso")
+    email = emails.normalizar(dados.email)
+    if db.query(Usuario).filter(Usuario.email == email).first() is not None:
+        raise HTTPException(status_code=409, detail="e-mail já em uso")
     u = Usuario(
         nome=dados.nome,
-        login=dados.login,
-        email=dados.email,
+        email=email,
         senha=hash_senha(dados.senha),
         funcao_id=dados.funcao_id,
         precisa_redefinir_senha=False,
@@ -66,9 +67,11 @@ def atualizar(usuario_id: int, dados: UsuarioUpdate, db: Session = Depends(get_d
     if u is None:
         raise HTTPException(status_code=404, detail="usuário não encontrado")
     campos = dados.model_dump(exclude_unset=True)
-    if "login" in campos and campos["login"] != u.login:
-        if db.query(Usuario).filter(Usuario.login == campos["login"]).first() is not None:
-            raise HTTPException(status_code=409, detail="login já em uso")
+    if "email" in campos and campos["email"] is not None:
+        campos["email"] = emails.normalizar(campos["email"])
+        if campos["email"] != u.email:
+            if db.query(Usuario).filter(Usuario.email == campos["email"]).first() is not None:
+                raise HTTPException(status_code=409, detail="e-mail já em uso")
     if "funcao_id" in campos and campos["funcao_id"] != u.funcao_id and _eh_admin(u):
         if _conta_admins(db) <= 1:
             raise HTTPException(status_code=400, detail="não é possível remover o último administrador")

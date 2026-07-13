@@ -1,5 +1,5 @@
-def _headers(client, login, senha):
-    tok = client.post("/auth/login", json={"login": login, "senha": senha}).json()
+def _headers(client, email, senha):
+    tok = client.post("/auth/login", json={"email": email, "senha": senha}).json()
     return {"Authorization": f"Bearer {tok['access_token']}"}
 
 
@@ -25,7 +25,7 @@ def test_transferir_muda_dono_zera_os_atual_e_registra(
     ec.os_atual = 12345
     db_session.commit()
     destino = _cliente(db_session, "Empresa Nova")
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
 
     r = client.post(f"/equipamentos-cliente/{os_base['equipamento_cliente']}/transferir",
                     json={"cliente": destino, "obs": "venda"}, headers=h)
@@ -48,21 +48,21 @@ def test_transferir_muda_dono_zera_os_atual_e_registra(
 def test_transferir_bloqueia_com_os_ativa_409(client, usuario_admin, fases_seed, os_base, db_session):
     destino = _cliente(db_session, "Destino")
     _ordem(db_session, os_base["cliente"], os_base["equipamento_cliente"], 5)  # ativa
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
     r = client.post(f"/equipamentos-cliente/{os_base['equipamento_cliente']}/transferir",
                     json={"cliente": destino}, headers=h)
     assert r.status_code == 409
 
 
 def test_transferir_destino_inexistente_404(client, usuario_admin, os_base):
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
     r = client.post(f"/equipamentos-cliente/{os_base['equipamento_cliente']}/transferir",
                     json={"cliente": 99999}, headers=h)
     assert r.status_code == 404
 
 
 def test_transferir_mesmo_cliente_400(client, usuario_admin, os_base):
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
     r = client.post(f"/equipamentos-cliente/{os_base['equipamento_cliente']}/transferir",
                     json={"cliente": os_base["cliente"]}, headers=h)
     assert r.status_code == 400
@@ -70,7 +70,7 @@ def test_transferir_mesmo_cliente_400(client, usuario_admin, os_base):
 
 def test_transferir_exige_admin_403(client, usuario_lab, os_base, db_session):
     destino = _cliente(db_session, "Destino")
-    h = _headers(client, "lab", "senha123")
+    h = _headers(client, "lab@hs.com", "senha123")
     r = client.post(f"/equipamentos-cliente/{os_base['equipamento_cliente']}/transferir",
                     json={"cliente": destino}, headers=h)
     assert r.status_code == 403
@@ -80,7 +80,7 @@ def test_os_antiga_mantem_cliente_antigo(client, usuario_admin, fases_seed, os_b
     from app.models import Ordem
     oid = _ordem(db_session, os_base["cliente"], os_base["equipamento_cliente"], 8)  # finalizada
     destino = _cliente(db_session, "Empresa Nova")
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
     client.post(f"/equipamentos-cliente/{os_base['equipamento_cliente']}/transferir",
                 json={"cliente": destino}, headers=h)
     db_session.expire_all()

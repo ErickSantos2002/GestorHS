@@ -1,5 +1,5 @@
-def _headers(client, login, senha):
-    tok = client.post("/auth/login", json={"login": login, "senha": senha}).json()
+def _headers(client, email, senha):
+    tok = client.post("/auth/login", json={"email": email, "senha": senha}).json()
     return {"Authorization": f"Bearer {tok['access_token']}"}
 
 
@@ -35,7 +35,7 @@ def _aparelho_com_os(db_session):
 
 def test_ordens_do_aparelho(client, usuario_admin, db_session):
     ec_id, _outro, o1, o2 = _aparelho_com_os(db_session)
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
     r = client.get(f"/equipamentos-cliente/{ec_id}/ordens", headers=h)
     assert r.status_code == 200
     ids = [o["id"] for o in r.json()]
@@ -46,7 +46,7 @@ def test_ordens_do_aparelho(client, usuario_admin, db_session):
 
 def test_certificados_do_aparelho(client, usuario_admin, db_session):
     ec_id, _outro, o1, _o2 = _aparelho_com_os(db_session)
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
     r = client.get(f"/equipamentos-cliente/{ec_id}/certificados", headers=h)
     assert r.status_code == 200
     body = r.json()
@@ -56,6 +56,6 @@ def test_certificados_do_aparelho(client, usuario_admin, db_session):
 
 
 def test_ordens_aparelho_inexistente_404(client, usuario_admin):
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
     assert client.get("/equipamentos-cliente/99999/ordens", headers=h).status_code == 404
     assert client.get("/equipamentos-cliente/99999/certificados", headers=h).status_code == 404

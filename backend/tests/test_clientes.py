@@ -1,15 +1,15 @@
-def _headers(client, login, senha):
-    tok = client.post("/auth/login", json={"login": login, "senha": senha}).json()
+def _headers(client, email, senha):
+    tok = client.post("/auth/login", json={"email": email, "senha": senha}).json()
     return {"Authorization": f"Bearer {tok['access_token']}"}
 
 
 def test_clientes_read_interno_write_admin(client, usuario_admin, usuario_comum):
-    assert client.get("/clientes", headers=_headers(client, "comum", "senha123")).status_code == 200
-    assert client.post("/clientes", json={"nome": "X"}, headers=_headers(client, "comum", "senha123")).status_code == 403
+    assert client.get("/clientes", headers=_headers(client, "comum@hs.com", "senha123")).status_code == 200
+    assert client.post("/clientes", json={"nome": "X"}, headers=_headers(client, "comum@hs.com", "senha123")).status_code == 403
 
 
 def test_cliente_crud(client, usuario_admin):
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
     criado = client.post("/clientes", json={"nome": "ACME LTDA", "municipio": "São Paulo", "cgc": "11222333000144"}, headers=h)
     assert criado.status_code == 201
     cid = criado.json()["id"]
@@ -26,7 +26,7 @@ def test_clientes_busca_e_paginacao(client, usuario_admin, db_session):
         db_session.add(Cliente(nome=f"Cliente {i:02d}", municipio="Sorocaba"))
     db_session.add(Cliente(nome="Especial", municipio="Bauru"))
     db_session.commit()
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
     r = client.get("/clientes?offset=0&limit=10", headers=h).json()
     assert r["total"] == 31
     assert len(r["items"]) == 10
@@ -44,5 +44,5 @@ def test_excluir_cliente_em_uso_409(client, usuario_admin, db_session):
     db_session.flush()
     db_session.add(Funcionario(cliente=c.id, nome="João"))
     db_session.commit()
-    r = client.delete(f"/clientes/{c.id}", headers=_headers(client, "admin", "senha123"))
+    r = client.delete(f"/clientes/{c.id}", headers=_headers(client, "admin@hs.com", "senha123"))
     assert r.status_code == 409

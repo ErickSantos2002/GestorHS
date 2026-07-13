@@ -1,5 +1,5 @@
-def _headers(client, login, senha):
-    tok = client.post("/auth/login", json={"login": login, "senha": senha}).json()
+def _headers(client, email, senha):
+    tok = client.post("/auth/login", json={"email": email, "senha": senha}).json()
     return {"Authorization": f"Bearer {tok['access_token']}"}
 
 
@@ -14,7 +14,7 @@ def _base(db_session):
 
 def test_frota_write_exige_admin(client, usuario_admin, usuario_comum, db_session):
     cid, eid = _base(db_session)
-    hc = _headers(client, "comum", "senha123")
+    hc = _headers(client, "comum@hs.com", "senha123")
     assert client.post("/equipamentos-cliente", json={"cliente": cid, "equipamento": eid}, headers=hc).status_code == 403
     assert client.patch("/equipamentos-cliente/1", json={"serie": "X"}, headers=hc).status_code == 403
     assert client.delete("/equipamentos-cliente/1", headers=hc).status_code == 403
@@ -22,7 +22,7 @@ def test_frota_write_exige_admin(client, usuario_admin, usuario_comum, db_sessio
 
 def test_frota_crud(client, usuario_admin, db_session):
     cid, eid = _base(db_session)
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
     criado = client.post("/equipamentos-cliente", json={"cliente": cid, "equipamento": eid, "serie": "S1", "status": "A"}, headers=h)
     assert criado.status_code == 201
     iid = criado.json()["id"]
@@ -38,7 +38,7 @@ def test_patch_nao_altera_campos_espelho(client, usuario_admin, db_session):
     ec = EquipamentoCliente(cliente=cid, equipamento=eid, calib_cert="ORIG", os_atual=7)
     db_session.add(ec)
     db_session.commit()
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
     r = client.patch(f"/equipamentos-cliente/{ec.id}", json={"serie": "NOVA", "calib_cert": "HACK", "os_atual": 99}, headers=h)
     assert r.status_code == 200
     assert r.json()["serie"] == "NOVA"
@@ -54,5 +54,5 @@ def test_excluir_frota_em_uso_409(client, usuario_admin, db_session):
     db_session.flush()
     db_session.add(HistoricoEquipamento(equipamento_cliente=ec.id, saida=1))
     db_session.commit()
-    r = client.delete(f"/equipamentos-cliente/{ec.id}", headers=_headers(client, "admin", "senha123"))
+    r = client.delete(f"/equipamentos-cliente/{ec.id}", headers=_headers(client, "admin@hs.com", "senha123"))
     assert r.status_code == 409

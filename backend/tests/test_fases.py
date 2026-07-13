@@ -1,10 +1,10 @@
-def _headers(client, login, senha):
-    tok = client.post("/auth/login", json={"login": login, "senha": senha}).json()
+def _headers(client, email, senha):
+    tok = client.post("/auth/login", json={"email": email, "senha": senha}).json()
     return {"Authorization": f"Bearer {tok['access_token']}"}
 
 
 def test_listar_fases(client, usuario_admin, fases_seed):
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
     r = client.get("/fases", headers=h)
     assert r.status_code == 200
     fases = r.json()
@@ -15,7 +15,7 @@ def test_listar_fases(client, usuario_admin, fases_seed):
 
 
 def test_patch_fase_responsavel_admin(client, usuario_admin, usuario_lab, fases_seed):
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
     lab_id = fases_seed["lab"]
     r = client.patch("/fases/4", json={"funcao_responsavel": lab_id}, headers=h)
     assert r.status_code == 200
@@ -24,15 +24,15 @@ def test_patch_fase_responsavel_admin(client, usuario_admin, usuario_lab, fases_
 
 
 def test_patch_fase_funcao_inexistente_404(client, usuario_admin, fases_seed):
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
     assert client.patch("/fases/4", json={"funcao_responsavel": 9999}, headers=h).status_code == 404
 
 
 def test_patch_fase_inexistente_404(client, usuario_admin, fases_seed):
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
     assert client.patch("/fases/99", json={"funcao_responsavel": None}, headers=h).status_code == 404
 
 
 def test_patch_fase_exige_admin(client, usuario_admin, usuario_comum, fases_seed):
-    h = _headers(client, "comum", "senha123")
+    h = _headers(client, "comum@hs.com", "senha123")
     assert client.patch("/fases/4", json={"funcao_responsavel": None}, headers=h).status_code == 403

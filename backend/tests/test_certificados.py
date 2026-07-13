@@ -1,5 +1,5 @@
-def _headers(client, login, senha):
-    tok = client.post("/auth/login", json={"login": login, "senha": senha}).json()
+def _headers(client, email, senha):
+    tok = client.post("/auth/login", json={"email": email, "senha": senha}).json()
     return {"Authorization": f"Bearer {tok['access_token']}"}
 
 
@@ -20,7 +20,7 @@ def test_upload_e_download_interno(client, usuario_lab, upload_tmp, db_session):
     from app.models import Cliente
     cli = Cliente(nome="Cli"); db_session.add(cli); db_session.commit()
     os_id = _os_do_cliente(db_session, cli.id)
-    h = _headers(client, "lab", "senha123")
+    h = _headers(client, "lab@hs.com", "senha123")
     r = client.post(f"/ordens/{os_id}/certificado", files=_pdf(), headers=h)
     assert r.status_code == 200
     arq = client.get(f"/ordens/{os_id}/certificado", headers=h)
@@ -31,7 +31,7 @@ def test_upload_tipo_invalido(client, usuario_lab, upload_tmp, db_session):
     from app.models import Cliente
     cli = Cliente(nome="Cli"); db_session.add(cli); db_session.commit()
     os_id = _os_do_cliente(db_session, cli.id)
-    h = _headers(client, "lab", "senha123")
+    h = _headers(client, "lab@hs.com", "senha123")
     r = client.post(f"/ordens/{os_id}/certificado", files={"file": ("a.txt", b"x", "text/plain")}, headers=h)
     assert r.status_code == 415
 
@@ -40,19 +40,19 @@ def test_upload_403(client, usuario_comum, upload_tmp, db_session):
     from app.models import Cliente
     cli = Cliente(nome="Cli"); db_session.add(cli); db_session.commit()
     os_id = _os_do_cliente(db_session, cli.id)
-    h = _headers(client, "comum", "senha123")
+    h = _headers(client, "comum@hs.com", "senha123")
     assert client.post(f"/ordens/{os_id}/certificado", files=_pdf(), headers=h).status_code == 403
 
 
 def test_upload_404_os(client, usuario_lab, upload_tmp, db_session):
-    assert client.post("/ordens/999999/certificado", files=_pdf(), headers=_headers(client, "lab", "senha123")).status_code == 404
+    assert client.post("/ordens/999999/certificado", files=_pdf(), headers=_headers(client, "lab@hs.com", "senha123")).status_code == 404
 
 
 def test_download_sem_certificado_404(client, usuario_lab, upload_tmp, db_session):
     from app.models import Cliente
     cli = Cliente(nome="Cli"); db_session.add(cli); db_session.commit()
     os_id = _os_do_cliente(db_session, cli.id)
-    assert client.get(f"/ordens/{os_id}/certificado", headers=_headers(client, "lab", "senha123")).status_code == 404
+    assert client.get(f"/ordens/{os_id}/certificado", headers=_headers(client, "lab@hs.com", "senha123")).status_code == 404
 
 
 def test_download_url_legada_redireciona(client, usuario_lab, upload_tmp, db_session):
@@ -60,7 +60,7 @@ def test_download_url_legada_redireciona(client, usuario_lab, upload_tmp, db_ses
     cli = Cliente(nome="Cli"); db_session.add(cli); db_session.commit()
     os_id = _os_do_cliente(db_session, cli.id)
     o = db_session.query(Ordem).get(os_id); o.pdf_certificado = "http://exemplo/cert.pdf"; db_session.commit()
-    r = client.get(f"/ordens/{os_id}/certificado", headers=_headers(client, "lab", "senha123"), follow_redirects=False)
+    r = client.get(f"/ordens/{os_id}/certificado", headers=_headers(client, "lab@hs.com", "senha123"), follow_redirects=False)
     assert r.status_code in (302, 307)
 
 
@@ -69,7 +69,7 @@ def test_reenvio_substitui_arquivo(client, usuario_lab, upload_tmp, db_session):
     from app.core import storage
     cli = Cliente(nome="Cli"); db_session.add(cli); db_session.commit()
     os_id = _os_do_cliente(db_session, cli.id)
-    h = _headers(client, "lab", "senha123")
+    h = _headers(client, "lab@hs.com", "senha123")
     r1 = client.post(f"/ordens/{os_id}/certificado", files=_pdf(), headers=h)
     antigo = r1.json()["pdf_certificado"]
     # reenviar outro PDF
@@ -90,7 +90,7 @@ def test_upload_413(client, usuario_lab, upload_tmp, db_session):
     cli = Cliente(nome="Cli"); db_session.add(cli); db_session.commit()
     os_id = _os_do_cliente(db_session, cli.id)
     grande = b"x" * (10 * 1024 * 1024 + 1)
-    r = client.post(f"/ordens/{os_id}/certificado", files={"file": ("g.pdf", grande, "application/pdf")}, headers=_headers(client, "lab", "senha123"))
+    r = client.post(f"/ordens/{os_id}/certificado", files={"file": ("g.pdf", grande, "application/pdf")}, headers=_headers(client, "lab@hs.com", "senha123"))
     assert r.status_code == 413
 
 
@@ -109,10 +109,10 @@ def test_portal_baixa_so_do_proprio_cliente(client, usuario_lab, upload_tmp, db_
     from app.models import Cliente
     dono = Cliente(nome="Dono"); outro = Cliente(nome="Outro"); db_session.add_all([dono, outro]); db_session.commit()
     os_id = _os_do_cliente(db_session, dono.id)
-    client.post(f"/ordens/{os_id}/certificado", files=_pdf(), headers=_headers(client, "lab", "senha123"))
+    client.post(f"/ordens/{os_id}/certificado", files=_pdf(), headers=_headers(client, "lab@hs.com", "senha123"))
     h = _portal_headers(client, db_session, dono.id)
     assert client.get(f"/portal/certificados/{os_id}", headers=h).status_code == 200
     os_outro = _os_do_cliente(db_session, outro.id)
     # dá um certificado à OS do outro cliente: agora o 404 só pode vir do filtro de tenant
-    client.post(f"/ordens/{os_outro}/certificado", files=_pdf(), headers=_headers(client, "lab", "senha123"))
+    client.post(f"/ordens/{os_outro}/certificado", files=_pdf(), headers=_headers(client, "lab@hs.com", "senha123"))
     assert client.get(f"/portal/certificados/{os_outro}", headers=h).status_code == 404

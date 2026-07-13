@@ -74,7 +74,6 @@ def usuario_admin(db_session):
     db_session.flush()
     u = Usuario(
         nome="Admin",
-        login="admin",
         senha=hash_senha("senha123"),
         email="admin@hs.com",
         funcao_id=funcao.id,
@@ -95,7 +94,6 @@ def usuario_comum(db_session):
         db_session.flush()
     u = Usuario(
         nome="Comum",
-        login="comum",
         senha=hash_senha("senha123"),
         email="comum@hs.com",
         funcao_id=funcao.id,
@@ -139,7 +137,7 @@ def fases_seed(db_session):
 @pytest.fixture()
 def usuario_lab(db_session):
     f = _get_or_create_funcao(db_session, "Laboratório")
-    u = Usuario(nome="Lab", login="lab", senha=hash_senha("senha123"),
+    u = Usuario(nome="Lab", senha=hash_senha("senha123"),
                 email="lab@hs.com", funcao_id=f.id, precisa_redefinir_senha=False)
     db_session.add(u); db_session.commit(); db_session.refresh(u)
     return u
@@ -148,7 +146,7 @@ def usuario_lab(db_session):
 @pytest.fixture()
 def usuario_financeiro(db_session):
     f = _get_or_create_funcao(db_session, "Financeiro")
-    u = Usuario(nome="Fin", login="fin", senha=hash_senha("senha123"),
+    u = Usuario(nome="Fin", senha=hash_senha("senha123"),
                 email="fin@hs.com", funcao_id=f.id, precisa_redefinir_senha=False)
     db_session.add(u); db_session.commit(); db_session.refresh(u)
     return u
@@ -157,7 +155,7 @@ def usuario_financeiro(db_session):
 @pytest.fixture()
 def usuario_comercial(db_session):
     f = _get_or_create_funcao(db_session, "Comercial Pós-Vendas")
-    u = Usuario(nome="Comercial", login="comercial", senha=hash_senha("senha123"),
+    u = Usuario(nome="Comercial", senha=hash_senha("senha123"),
                 email="comercial@hs.com", funcao_id=f.id, precisa_redefinir_senha=False)
     db_session.add(u); db_session.commit(); db_session.refresh(u)
     return u

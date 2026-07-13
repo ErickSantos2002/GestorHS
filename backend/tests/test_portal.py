@@ -20,7 +20,7 @@ def test_portal_me_sem_token_401(client):
 
 
 def test_portal_me_token_de_usuario_401(client, usuario_admin):
-    tokens = client.post("/auth/login", json={"login": "admin", "senha": "senha123"}).json()
+    tokens = client.post("/auth/login", json={"email": "admin@hs.com", "senha": "senha123"}).json()
     r = client.get("/portal/me", headers={"Authorization": f"Bearer {tokens['access_token']}"})
     assert r.status_code == 401
 
