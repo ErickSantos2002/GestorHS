@@ -9,12 +9,16 @@ MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
 
 TIPOS_IMAGEM = {"image/jpeg", "image/png", "image/webp"}
 TIPOS_PDF = {"application/pdf"}
+TIPOS_XML = {"application/xml", "text/xml"}
+TIPOS_NOTA_FISCAL = TIPOS_PDF | TIPOS_XML
 
 _EXT = {
     "image/jpeg": ".jpg",
     "image/png": ".png",
     "image/webp": ".webp",
     "application/pdf": ".pdf",
+    "application/xml": ".xml",
+    "text/xml": ".xml",
 }
 
 

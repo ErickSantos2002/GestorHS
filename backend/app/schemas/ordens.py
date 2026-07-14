@@ -84,6 +84,8 @@ class OrdemOut(BaseModel):
     calib_teste_media: str | None = None
     calib_situacao: str | None = None
     pdf_certificado: str | None = None
+    nota_fiscal: str | None = None
+    nota_fiscal_numero: str | None = None
     checklist_ids: list[int] = []
     acessorios_presentes: list[str] = []
     pilhas: int = 0
