@@ -216,6 +216,8 @@ def avancar(ordem_id: int, dados: AvancarIn, background_tasks: BackgroundTasks,
         ordem.data_aceite = agora()
         texto = "Aceite registrado"
     elif origem == 10:                    # Financeiro -> Preparando Retorno
+        if not ordem.nota_fiscal:
+            raise HTTPException(status_code=409, detail="anexe a nota fiscal antes de confirmar o pagamento")
         ordem.pago = True
         ordem.data_pagamento = agora()
         texto = "Pagamento confirmado"

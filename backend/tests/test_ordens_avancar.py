@@ -29,6 +29,12 @@ def test_cadeia_feliz_completa(client, usuario_admin, usuario_comum, usuario_lab
     # 6 -> 10 (Comercial) seta aceite
     r = client.post(f"/ordens/{oid}/avancar", json={}, headers=hc)
     assert r.json()["fase"] == 10 and r.json()["aceite"] is True and r.json()["data_aceite"] is not None
+    # o Financeiro so avanca com a nota fiscal anexada
+    from app.models import Ordem
+    o_db = db_session.get(Ordem, oid)
+    o_db.nota_fiscal = "nf.pdf"
+    o_db.nota_fiscal_numero = "777"
+    db_session.commit()
     # 10 -> 7 (Financeiro) marca pago
     r = client.post(f"/ordens/{oid}/avancar", json={}, headers=hf)
     assert r.json()["fase"] == 7
@@ -172,7 +178,8 @@ def test_concluir_lab_com_certificado(client, usuario_comum, usuario_lab, fases_
 
 def test_financeiro_marca_pago(client, usuario_financeiro, fases_seed, os_base, db_session):
     from app.models import Ordem
-    o = Ordem(cliente=os_base["cliente"], equipamento_cliente=os_base["equipamento_cliente"], fase=10, situacao="E")
+    o = Ordem(cliente=os_base["cliente"], equipamento_cliente=os_base["equipamento_cliente"], fase=10, situacao="E",
+              nota_fiscal="nf.pdf", nota_fiscal_numero="1")
     db_session.add(o); db_session.commit(); db_session.refresh(o)
     hf = _headers(client, "fin@hs.com", "senha123")
     r = client.post(f"/ordens/{o.id}/avancar", json={}, headers=hf)
@@ -187,3 +194,27 @@ def test_financeiro_exige_funcao_financeiro_403(client, usuario_lab, fases_seed,
     db_session.add(o); db_session.commit(); db_session.refresh(o)
     hl = _headers(client, "lab@hs.com", "senha123")
     assert client.post(f"/ordens/{o.id}/avancar", json={}, headers=hl).status_code == 403
+
+
+def test_financeiro_sem_nota_fiscal_409(client, usuario_financeiro, fases_seed, os_base, db_session):
+    from app.models import Ordem
+    o = Ordem(cliente=os_base["cliente"], equipamento_cliente=os_base["equipamento_cliente"], fase=10, situacao="E")
+    db_session.add(o); db_session.commit(); db_session.refresh(o)
+    hf = _headers(client, "fin@hs.com", "senha123")
+    r = client.post(f"/ordens/{o.id}/avancar", json={}, headers=hf)
+    assert r.status_code == 409
+    assert "nota fiscal" in r.json()["detail"].lower()
+    db_session.refresh(o)
+    assert o.fase == 10 and o.pago is False   # nada mudou
+
+
+def test_financeiro_com_nota_fiscal_avanca(client, usuario_financeiro, fases_seed, os_base, db_session):
+    from app.models import Ordem
+    o = Ordem(cliente=os_base["cliente"], equipamento_cliente=os_base["equipamento_cliente"], fase=10, situacao="E",
+              nota_fiscal="abc123.pdf", nota_fiscal_numero="777")
+    db_session.add(o); db_session.commit(); db_session.refresh(o)
+    hf = _headers(client, "fin@hs.com", "senha123")
+    r = client.post(f"/ordens/{o.id}/avancar", json={}, headers=hf)
+    assert r.status_code == 200 and r.json()["fase"] == 7
+    db_session.refresh(o)
+    assert o.pago is True and o.data_pagamento is not None
