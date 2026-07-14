@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.14.0',
+    data: '14/07/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'O laboratório agora pode emitir um certificado em branco, sem OS: na página Certificados, aba "Em branco", escolha um modelo já cadastrado, preencha os dados e gere o PDF. Serve para aparelhos de POC, de empresas que não estão cadastradas no sistema. O certificado fica registrado (com quem emitiu e quando) e pode ser baixado a qualquer momento, sem ficar vinculado a nenhuma empresa ou aparelho.' },
+    ],
+  },
+  {
     versao: '1.13.1',
     data: '14/07/2026',
     itens: [
