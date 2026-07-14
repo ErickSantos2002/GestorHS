@@ -7,7 +7,7 @@ from app.models.database import get_db
 from app.models import Usuario, Ordem, OSCertificado
 from app.api.deps import get_current_usuario, require_funcao
 from app.api.ordens_acoes import agora
-from app.core.certificado_gerar import gerar_certificados, tipos_para, montar_contexto
+from app.core.certificado_gerar import gerar_certificados, tipos_para, tipos_sem_modelo, montar_contexto
 from app.core.certificado_pdf import html_para_pdf
 from app.schemas.ordens import GerarCertificadoIn, CertificadoCamposOut
 from app.schemas.certificados_modelo import OSCertificadoOut
@@ -53,9 +53,23 @@ def certificado_campos(ordem_id: int, db: Session = Depends(get_db), _: Usuario 
     )
 
 
+_LABEL_TIPO = {"C": "Calibração", "M": "Manutenção"}
+
+
 @router.post("/ordens/{ordem_id}/gerar-certificado", response_model=list[OSCertificadoOut])
 def gerar(ordem_id: int, dados: GerarCertificadoIn | None = None, db: Session = Depends(get_db), _: Usuario = Depends(_gerar)):
     ordem = _os_ou_404(db, ordem_id)
+    # Sem modelo cadastrado para o aparelho não há o que preencher: recusa com mensagem
+    # clara em vez de gerar nada e responder 200 (falha silenciosa).
+    faltando = tipos_sem_modelo(db, ordem, tipos_para(ordem))
+    if faltando:
+        nomes = " e ".join(_LABEL_TIPO[t] for t in faltando)
+        aparelho = ordem.equipamento_descricao or "este aparelho"
+        raise HTTPException(
+            status_code=409,
+            detail=f"O aparelho {aparelho} não tem modelo de certificado de {nomes} cadastrado. "
+                   f"Cadastre o modelo em Certificados antes de gerar.",
+        )
     if dados is not None:
         for campo in _CAMPOS_CALIB:
             setattr(ordem, campo, getattr(dados, campo))

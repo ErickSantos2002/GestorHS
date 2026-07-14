@@ -179,6 +179,11 @@ export function OrdemDetailPage() {
   // Gerar/regerar: do laboratório em diante (calibração já ocorre/ocorreu, inclusive no
   // Financeiro), ou onde já existe certificado. Fora: Recebido (ainda não calibrada) e Cancelada.
   const podeGerarOuRegerar = podeGerarCert && (certs.length > 0 || posLaboratorio(os.fase))
+  // O aparelho nao tem modelo cadastrado para algum tipo pedido -> nao da para gerar.
+  // Avisamos aqui, antes de o usuario tentar (o backend tambem recusa com 409).
+  const faltantes = os.certificado_modelos_faltantes ?? []
+  const semModelo = faltantes.length > 0
+  const modelosFaltantesLabel = faltantes.map((t) => (t === 'C' ? 'Calibração' : 'Manutenção')).join(' e ')
   // A secao aparece do Financeiro em diante — use posicaoFase, NUNCA comparacao numerica (id 10 > 7/8).
   const mostraNotaFiscal = posicaoFase(os.fase) >= posicaoFase(10)
   const podeAnexarNF = podeAnexarNotaFiscal(user)
@@ -421,13 +426,23 @@ export function OrdemDetailPage() {
       <Secao
         icon={<IconCertificado className="w-4 h-4" />}
         titulo="Certificados"
-        acao={podeGerarOuRegerar && (
+        acao={podeGerarOuRegerar && !semModelo && (
           <Button variant={certs.length ? 'secondary' : 'primary'} onClick={() => setAcao('gerar')}>
             {certs.length ? 'Regerar certificado' : 'Gerar certificado de calibração'}
           </Button>
         )}
       >
-        {certs.length === 0 ? (
+        {semModelo ? (
+          <div className="rounded-lg bg-warning/10 border border-warning/20 px-3 py-2.5 space-y-1.5">
+            <p className="text-sm text-warning">
+              Este aparelho não tem modelo de certificado de {modelosFaltantesLabel} cadastrado — por isso não é
+              possível gerar o certificado.
+            </p>
+            <Link to="/app/certificados" className="inline-block text-xs font-semibold text-primary hover:underline">
+              Cadastrar modelo de certificado
+            </Link>
+          </div>
+        ) : certs.length === 0 ? (
           <p className="text-sm text-slate-500">Nenhum certificado gerado.{podeGerarOuRegerar ? ' Clique em "Gerar certificado de calibração".' : ''}</p>
         ) : (
           <ul className="space-y-2">

@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.13.1',
+    data: '14/07/2026',
+    itens: [
+      { tipo: 'correcao', texto: 'Corrigida a geração de certificado em aparelhos sem modelo cadastrado: antes o sistema respondia como se tivesse gerado, mas nada acontecia e nenhum aviso aparecia. Agora a OS avisa na hora ("Este aparelho não tem modelo de certificado cadastrado"), com link direto para cadastrar o modelo, e a tentativa de gerar é recusada com a mensagem dizendo exatamente qual modelo falta.' },
+    ],
+  },
+  {
     versao: '1.13.0',
     data: '14/07/2026',
     itens: [

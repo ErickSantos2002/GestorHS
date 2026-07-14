@@ -12,6 +12,7 @@ from app.core import os_workflow as wf
 from app.core import recebimento as rec
 from app.core import taskhs
 from app.core.garantia import garantias as _calc_garantias
+from app.core.certificado_gerar import tipos_para, tipos_sem_modelo
 from app.core.os_workflow import FASE_FINALIZADA
 from app.api.espelhamento import agendar_espelhamento as _agendar_espelhamento
 from app.schemas.ordens import OrdemListOut, OrdemPage, QuadroColuna, OrdemOut, LogOut, OrdemAbrirIn, AvancarIn, CancelarIn
@@ -110,6 +111,9 @@ def obter(ordem_id: int, db: Session = Depends(get_db), _: Usuario = Depends(get
         )
     else:
         obj.garantias = None
+    # A tela avisa ANTES de o usuário tentar gerar: quais tipos de certificado o
+    # aparelho não tem modelo cadastrado (lista vazia = pode gerar).
+    obj.certificado_modelos_faltantes = tipos_sem_modelo(db, obj, tipos_para(obj))
     return obj
 
 

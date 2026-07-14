@@ -148,6 +148,26 @@ def tipos_para(ordem) -> list[str]:
     return tipos
 
 
+def tipos_sem_modelo(db: Session, ordem, tipos: list[str]) -> list[str]:
+    """Dos tipos pedidos, quais o aparelho NÃO tem modelo de certificado cadastrado.
+
+    Existe para que a falta de modelo vire um aviso explícito: antes, `gerar_certificados`
+    apenas ignorava o tipo sem modelo e devolvia lista vazia, e o endpoint respondia 200 —
+    o usuário clicava em "Gerar certificado" e nada acontecia, sem explicação.
+    """
+    ec = ordem.equipamento_rel
+    if ec is None:
+        return list(tipos)
+    faltando = []
+    for tipo in tipos:
+        modelo = db.query(CertificadoModelo).filter(
+            CertificadoModelo.equipamento == ec.equipamento, CertificadoModelo.tipo == tipo
+        ).first()
+        if modelo is None or not modelo.texto:
+            faltando.append(tipo)
+    return faltando
+
+
 def gerar_certificados(db: Session, ordem, tipos: list[str]) -> list:
     """Para cada tipo pedido, preenche o modelo do aparelho e upserta em os_certificados.
     Sem modelo p/ o tipo → ignora. Retorna os OSCertificado gerados/atualizados."""

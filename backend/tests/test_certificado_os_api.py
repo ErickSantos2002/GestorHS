@@ -55,7 +55,13 @@ def test_nao_gera_manutencao_quando_servico_C(client, usuario_admin, db_session)
     assert {c["tipo"] for c in r} == {"C"}
 
 
-def test_sem_modelo_nao_gera_mas_nao_quebra(client, usuario_admin, db_session):
+def test_sem_modelo_recusa_com_aviso(client, usuario_admin, db_session):
+    """Aparelho sem modelo cadastrado: recusa com 409 e mensagem clara.
+
+    Antes este teste esperava 200 — ou seja, cristalizava a falha silenciosa: o endpoint
+    nao gerava nada e mesmo assim respondia sucesso, e o usuario ficava sem saber por que
+    o certificado nao aparecia.
+    """
     from app.models import Cliente, Equipamento, EquipamentoCliente, Ordem
     h = _headers(client, "admin@hs.com", "senha123")
     _seed_fase5_se_necessario(db_session)
@@ -65,8 +71,8 @@ def test_sem_modelo_nao_gera_mas_nao_quebra(client, usuario_admin, db_session):
     o = Ordem(cliente=cli.id, equipamento_cliente=ec.id, fase=5, situacao="E", tipo_servico="C")
     db_session.add(o); db_session.commit(); db_session.refresh(o)
     r = client.post(f"/ordens/{o.id}/gerar-certificado", headers=h)
-    assert r.status_code == 200
-    assert r.json() == []
+    assert r.status_code == 409
+    assert "modelo" in r.json()["detail"].lower()
 
 
 def test_regerar_atualiza_nao_duplica(client, usuario_admin, db_session):

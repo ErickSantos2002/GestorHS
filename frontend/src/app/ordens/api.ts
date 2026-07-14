@@ -173,6 +173,8 @@ export interface OrdemDetalhe extends OrdemListItem {
   pdf_certificado: string | null
   nota_fiscal: string | null
   nota_fiscal_numero: string | null
+  /** Tipos ("C"/"M") sem modelo de certificado cadastrado para o aparelho. Vazio = pode gerar. */
+  certificado_modelos_faltantes: string[]
   pilhas: number
   bocais: number
   checklist_ids: number[]
