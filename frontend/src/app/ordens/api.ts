@@ -62,9 +62,41 @@ export interface OrdemPage {
 // Fases ativas (em andamento) da OS — espelha ATIVAS do backend (os_workflow).
 export const FASES_ATIVAS = [4, 5, 6, 10, 7]
 
+/**
+ * Fluxo linear da OS, na ordem LOGICA (nao na ordem dos ids!).
+ * O Financeiro tem id 10, numericamente maior que Preparando Retorno (7) e
+ * Finalizada (8) — por isso comparar fase com `>=`/`<=` esta SEMPRE errado.
+ * Use `posicaoFase` para qualquer nocao de "antes/depois". Espelha ORDEM_FASES do backend.
+ */
+export const FLUXO_FASES: { id: number; nome: string }[] = [
+  { id: 4, nome: 'Recebido' },
+  { id: 5, nome: 'Laboratório' },
+  { id: 6, nome: 'Pós-Vendas' },
+  { id: 10, nome: 'Financeiro' },
+  { id: 7, nome: 'Preparando Retorno' },
+  { id: 8, nome: 'Finalizada' },
+]
+
+/** Posicao da fase na sequencia logica; -1 se nao pertence ao fluxo linear (ex.: 9 = cancelada). */
+export function posicaoFase(fase: number | null): number {
+  if (fase == null) return -1
+  return FLUXO_FASES.findIndex((f) => f.id === fase)
+}
+
+/** A OS esta em andamento (fase ativa)? */
+export function faseAtiva(fase: number | null): boolean {
+  return fase != null && FASES_ATIVAS.includes(fase)
+}
+
+/** Do laboratorio em diante (a calibracao ja ocorre/ocorreu) — inclui Financeiro. */
+export function posLaboratorio(fase: number | null): boolean {
+  const p = posicaoFase(fase)
+  return p > -1 && p >= posicaoFase(5)
+}
+
 /** Retorna a OS em andamento (fase ativa) de uma lista; no maximo uma por aparelho. */
 export function osAtiva(ordens: OrdemListItem[]): OrdemListItem | undefined {
-  return ordens.find((o) => o.fase != null && FASES_ATIVAS.includes(o.fase))
+  return ordens.find((o) => faseAtiva(o.fase))
 }
 
 export interface QuadroColuna {

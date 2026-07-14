@@ -11,22 +11,13 @@ import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
 import { isAdmin, podeAbrirOS } from '../../auth/roles'
 import { fasesApi, type Fase } from '../cadastros/api'
-import { ordensApi, fotosApi, TIPO_SERVICO, TRANSICOES, formatData, garantiaBadge, garantiasAtivas, type OrdemDetalhe, type GarantiaItem, type LogOS, type Foto, type OSCertificado } from './api'
+import { ordensApi, fotosApi, TIPO_SERVICO, TRANSICOES, FLUXO_FASES, posicaoFase, faseAtiva, posLaboratorio, formatData, garantiaBadge, garantiasAtivas, type OrdemDetalhe, type GarantiaItem, type LogOS, type Foto, type OSCertificado } from './api'
 import { AvancarModal } from './AvancarModal'
 import { GerarCertificadoModal } from './GerarCertificadoModal'
 import { CancelarModal } from './CancelarModal'
 import { FotoImg } from './FotoImg'
 import { FotoLightbox } from './FotoLightbox'
 import { PageContainer, DetailGrid, DetailMain, DetailAside } from '../../components/ui/Page'
-
-// Fluxo linear de fases para a barra de progresso
-const FLUXO_FASES = [
-  { id: 4, nome: 'Recebido' },
-  { id: 5, nome: 'Laboratório' },
-  { id: 6, nome: 'Pós-Vendas' },
-  { id: 7, nome: 'Preparando Retorno' },
-  { id: 8, nome: 'Finalizada' },
-]
 
 function Campo({ label, valor }: { label: ReactNode; valor: ReactNode }) {
   return (
@@ -66,7 +57,7 @@ function FaseStepper({ faseAtual, cor }: { faseAtual: number | null; cor: string
       </div>
     )
   }
-  const posAtual = FLUXO_FASES.findIndex((f) => f.id === faseAtual)
+  const posAtual = posicaoFase(faseAtual)
   return (
     <div className="flex items-start overflow-x-auto pb-1">
       {FLUXO_FASES.map((f, i) => {
@@ -179,13 +170,13 @@ export function OrdemDetailPage() {
   const faseAtual = fases.find((f) => f.id === os.fase)
   const responsavelNome = faseAtual?.funcao_nome ?? null
   const podeAgir = isAdmin(user) || (!!responsavelNome && user?.funcao === responsavelNome)
-  const ativa = os.fase != null && os.fase >= 4 && os.fase <= 7
+  const ativa = faseAtiva(os.fase)
   const transicao = os.fase != null ? TRANSICOES[os.fase] : undefined
   const podeFotos = podeAbrirOS(user)
   const podeGerarCert = isAdmin(user) || user?.funcao === 'Laboratório'
-  // Gerar/regerar: no laboratório em diante (5–8, calibração já ocorre/ocorreu),
-  // ou onde já existe certificado. Fora: Recebido (4, ainda não calibrada) e Cancelada (9).
-  const podeGerarOuRegerar = podeGerarCert && (certs.length > 0 || (os.fase != null && os.fase >= 5 && os.fase <= 8))
+  // Gerar/regerar: do laboratório em diante (calibração já ocorre/ocorreu, inclusive no
+  // Financeiro), ou onde já existe certificado. Fora: Recebido (ainda não calibrada) e Cancelada.
+  const podeGerarOuRegerar = podeGerarCert && (certs.length > 0 || posLaboratorio(os.fase))
 
   function aoGerarCert(cs: OSCertificado[]) {
     setCerts(cs)

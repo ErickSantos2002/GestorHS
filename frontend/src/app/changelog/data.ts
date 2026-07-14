@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.12.1',
+    data: '14/07/2026',
+    itens: [
+      { tipo: 'correcao', texto: 'Corrigida a etapa Financeiro na tela da OS: o botão "Confirmar pagamento" não aparecia (impedindo avançar a OS) e a barra de progresso não mostrava a etapa. Também voltou a ser possível gerar/regerar o certificado com a OS em Financeiro.' },
+    ],
+  },
+  {
     versao: '1.12.0',
     data: '13/07/2026',
     itens: [
