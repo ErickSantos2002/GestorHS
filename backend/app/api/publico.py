@@ -1,10 +1,11 @@
-"""Endpoints públicos (sem autenticação). Hoje: download de certificado por token."""
+"""Endpoints públicos (sem autenticação). Hoje: download de certificado e de nota fiscal por token."""
 from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
-from app.core import certificado_link
+from app.core import certificado_link, nota_fiscal_link, storage
 from app.core.certificado_pdf import html_para_pdf
-from app.models import OSCertificado
+from app.models import OSCertificado, Ordem
 from app.models.database import get_db
 
 router = APIRouter(prefix="/publico", tags=["publico"])
@@ -33,4 +34,25 @@ def baixar_certificado_publico(ordem_id: int, tipo: str, t: str = "", db: Sessio
         content=pdf,
         media_type="application/pdf",
         headers={"Content-Disposition": f'inline; filename="certificado-{ordem_id}-{tipo}.pdf"'},
+    )
+
+
+@router.get("/nota-fiscal/{ordem_id}")
+def baixar_nota_fiscal_publica(ordem_id: int, t: str = "", db: Session = Depends(get_db)):
+    if not nota_fiscal_link.verificar(ordem_id, t):
+        raise HTTPException(status_code=403, detail="link inválido")
+    o = db.query(Ordem).filter(Ordem.id == ordem_id).first()
+    if o is None or not o.nota_fiscal:
+        raise HTTPException(status_code=404, detail="nota fiscal não encontrada")
+    try:
+        caminho = storage.caminho_arquivo(f"notas-fiscais/{ordem_id}", o.nota_fiscal)
+    except storage.ArquivoInvalido:
+        raise HTTPException(status_code=404, detail="nota fiscal não encontrada")
+    if not caminho.exists():
+        raise HTTPException(status_code=404, detail="arquivo não encontrado")
+    media = "application/xml" if o.nota_fiscal.lower().endswith(".xml") else "application/pdf"
+    return FileResponse(
+        caminho,
+        media_type=media,
+        headers={"Content-Disposition": f'inline; filename="nota-fiscal-{ordem_id}"'},
     )

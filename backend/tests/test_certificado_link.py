@@ -32,3 +32,15 @@ def test_link_completo_com_base(monkeypatch):
     url = cl.link_certificado(1234, "C")
     assert url.startswith("http://localhost:8001/publico/certificado/1234/calibracao?t=")
     assert url.endswith(cl.assinar(1234, "C"))
+
+
+def test_token_do_certificado_nao_mudou(monkeypatch):
+    """REGRESSAO: links de certificado ja publicados nos cards do TaskHS nao podem quebrar.
+    O HMAC e sobre a mensagem exata "cert:{ordem_id}:{tipo}"."""
+    import hashlib
+    import hmac as _hmac
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "JWT_SECRET_KEY", "segredo-fixo-de-teste")
+    esperado = _hmac.new(b"segredo-fixo-de-teste", b"cert:1234:C", hashlib.sha256).hexdigest()
+    assert cl.assinar(1234, "C") == esperado
+    assert cl.verificar(1234, "C", esperado) is True
