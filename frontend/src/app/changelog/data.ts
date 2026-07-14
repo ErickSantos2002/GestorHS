@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.14.1',
+    data: '14/07/2026',
+    itens: [
+      { tipo: 'melhoria', texto: 'No certificado em branco, os campos Modelo, Marca e Patrimônio saíram do formulário: eles não tinham efeito nenhum no PDF. A marca e o modelo já vêm do aparelho do modelo de certificado escolhido — não precisam ser digitados.' },
+    ],
+  },
+  {
     versao: '1.14.0',
     data: '14/07/2026',
     itens: [
