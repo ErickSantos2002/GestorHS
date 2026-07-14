@@ -54,5 +54,6 @@ def baixar_nota_fiscal_publica(ordem_id: int, t: str = "", db: Session = Depends
     return FileResponse(
         caminho,
         media_type=media,
-        headers={"Content-Disposition": f'inline; filename="nota-fiscal-{ordem_id}"'},
+        filename=nota_fiscal.nome_download(ordem_id, o.nota_fiscal),
+        headers={"X-Content-Type-Options": "nosniff"},
     )

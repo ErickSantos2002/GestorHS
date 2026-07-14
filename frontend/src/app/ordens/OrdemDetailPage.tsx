@@ -11,7 +11,7 @@ import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
 import { isAdmin, podeAbrirOS, podeAnexarNotaFiscal } from '../../auth/roles'
 import { fasesApi, type Fase } from '../cadastros/api'
-import { ordensApi, fotosApi, buscarBlobUrl, TIPO_SERVICO, TRANSICOES, FLUXO_FASES, posicaoFase, faseAtiva, posLaboratorio, formatData, garantiaBadge, garantiasAtivas, type OrdemDetalhe, type GarantiaItem, type LogOS, type Foto, type OSCertificado } from './api'
+import { ordensApi, fotosApi, TIPO_SERVICO, TRANSICOES, FLUXO_FASES, posicaoFase, faseAtiva, posLaboratorio, formatData, garantiaBadge, garantiasAtivas, type OrdemDetalhe, type GarantiaItem, type LogOS, type Foto, type OSCertificado } from './api'
 import { AvancarModal } from './AvancarModal'
 import { GerarCertificadoModal } from './GerarCertificadoModal'
 import { CancelarModal } from './CancelarModal'
@@ -110,6 +110,7 @@ export function OrdemDetailPage() {
   const [certs, setCerts] = useState<OSCertificado[]>([])
   const [erroFoto, setErroFoto] = useState('')
   const [erroCert, setErroCert] = useState('')
+  const [erroNF, setErroNF] = useState('')
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null)
 
   useEffect(() => {
@@ -199,6 +200,16 @@ export function OrdemDetailPage() {
       await ordensApi.baixarCertificadoPdf(osId, tipo)
     } catch (e) {
       setErroCert(e instanceof ApiError ? e.message : 'Falha ao baixar PDF')
+    }
+  }
+
+  async function onBaixarNotaFiscal() {
+    if (!os || !os.nota_fiscal) return
+    setErroNF('')
+    try {
+      await ordensApi.baixarNotaFiscal(os.id, os.nota_fiscal)
+    } catch (e) {
+      setErroNF(e instanceof ApiError ? e.message : 'Falha ao baixar nota fiscal')
     }
   }
 
@@ -448,10 +459,7 @@ export function OrdemDetailPage() {
             <div className="flex items-center justify-between gap-3">
               <Campo label="Número" valor={os.nota_fiscal_numero} />
               <button
-                onClick={async () => {
-                  const url = await buscarBlobUrl(`/ordens/${os.id}/nota-fiscal`)
-                  window.open(url, '_blank')
-                }}
+                onClick={onBaixarNotaFiscal}
                 className="text-xs font-semibold text-primary hover:underline"
               >
                 Baixar
@@ -462,6 +470,7 @@ export function OrdemDetailPage() {
               Nenhuma nota fiscal anexada. É obrigatória para o Financeiro confirmar o pagamento.
             </p>
           )}
+          {erroNF && <p className="text-sm text-danger">{erroNF}</p>}
         </Secao>
       )}
 

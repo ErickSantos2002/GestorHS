@@ -49,7 +49,7 @@ export function NotaFiscalModal({ ordemId, onClose, onEnviado }: Props) {
       }
     >
       <form id="form-nota-fiscal" className="space-y-4" onSubmit={onSubmit}>
-        <Input id="numero-nf" label="Número da nota fiscal" value={numero} onChange={(e) => setNumero(e.target.value)} required />
+        <Input id="numero-nf" label="Número da nota fiscal" value={numero} onChange={(e) => setNumero(e.target.value)} maxLength={50} required />
         <div>
           <label htmlFor="arquivo-nf" className="block text-sm font-medium text-slate-300 mb-1.5">Arquivo (PDF ou XML)</label>
           <input

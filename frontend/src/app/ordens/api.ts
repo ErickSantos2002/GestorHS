@@ -66,7 +66,12 @@ export const FASES_ATIVAS = [4, 5, 6, 10, 7]
  * Fluxo linear da OS, na ordem LOGICA (nao na ordem dos ids!).
  * O Financeiro tem id 10, numericamente maior que Preparando Retorno (7) e
  * Finalizada (8) — por isso comparar fase com `>=`/`<=` esta SEMPRE errado.
- * Use `posicaoFase` para qualquer nocao de "antes/depois". Espelha ORDEM_FASES do backend.
+ * Use `posicaoFase` para qualquer nocao de "antes/depois". Espelha a ordem de
+ * ORDEM_FASES do backend (os_workflow.py) — mas o sentinela de "fase fora do
+ * fluxo" diverge entre os dois lados: aqui `posicaoFase` devolve -1 (ex.: fase
+ * 9 = cancelada), enquanto o backend usa 99 em `os_workflow.posicao()`. Cada
+ * lado usa seu proprio sentinela para o mesmo significado ("nao pertence ao
+ * fluxo linear") — nao compare os dois valores entre si.
  */
 export const FLUXO_FASES: { id: number; nome: string }[] = [
   { id: 4, nome: 'Recebido' },
@@ -358,5 +363,23 @@ export const ordensApi = {
       try { const b = await res.json(); if (b.detail) detail = b.detail } catch { /* sem corpo */ }
       throw new ApiError(res.status, detail)
     }
+  },
+  // Nunca abrir o arquivo numa aba (blob: herda a origem do app — um XML malicioso
+  // executaria <script>). Forca download via link com atributo `download`, como o PDF do certificado.
+  // `basename` (os.nota_fiscal) ja traz a extensao real — evita depender de Content-Disposition,
+  // que so e legivel via JS em requisicoes cross-origin se o backend expor o header no CORS.
+  baixarNotaFiscal: async (ordemId: number, basename: string): Promise<void> => {
+    const res = await apiFetch(`/ordens/${ordemId}/nota-fiscal`)
+    if (!res.ok) throw new ApiError(res.status, 'Falha ao baixar nota fiscal')
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const ext = basename.toLowerCase().endsWith('.xml') ? '.xml' : '.pdf'
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `nota-fiscal-${ordemId}${ext}`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
   },
 }

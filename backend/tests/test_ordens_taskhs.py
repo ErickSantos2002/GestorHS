@@ -90,6 +90,25 @@ def test_abrir_descricao_no_payload(client, usuario_comum, fases_seed, os_base, 
     assert "🤝 Pós-Vendas" not in p["description"]  # ainda em Recebido
 
 
+def test_upload_nota_fiscal_reagenda_card(client, usuario_financeiro, fases_seed,
+                                          os_base, db_session, upload_tmp, captura):
+    import io
+    from app.models import Ordem
+    # OS ja em Financeiro (fase 10) — upload da NF deve reespelhar o card sem precisar avancar a OS
+    o = Ordem(cliente=os_base["cliente"], equipamento_cliente=os_base["equipamento_cliente"],
+              fase=10, tipo_servico="C", situacao="E")
+    db_session.add(o); db_session.commit(); db_session.refresh(o)
+    h = _headers(client, "fin@hs.com", "senha123")
+    captura.clear()
+    r = client.post(f"/ordens/{o.id}/nota-fiscal",
+                     files={"file": ("nf.pdf", io.BytesIO(b"%PDF-1.4 fake"), "application/pdf")},
+                     data={"numero": "555"}, headers=h)
+    assert r.status_code == 200
+    assert len(captura) == 1
+    assert captura[0]["list"] == "💰 Financeiro"
+    assert "Nota fiscal:" in captura[0]["description"]
+
+
 def test_descricao_inclui_link_certificado(client, usuario_comum, fases_seed,
                                            os_base, caixa_base, captura, db_session, monkeypatch):
     from app.core.config import settings

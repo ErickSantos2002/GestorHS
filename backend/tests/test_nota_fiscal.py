@@ -63,6 +63,16 @@ def test_upload_numero_em_branco_422(client, usuario_financeiro, fases_seed, os_
     assert r.status_code == 422
 
 
+def test_upload_numero_muito_longo_422(client, usuario_financeiro, fases_seed, os_base, db_session, upload_tmp):
+    # String(50) na coluna: sem essa validacao o Postgres levantaria StringDataRightTruncation (500).
+    # SQLite (usado nos testes) nao enforca o limite, entao o teste deve checar so o status.
+    o = _os(db_session, os_base)
+    h = _headers(client, "fin@hs.com", "senha123")
+    numero_longo = "1" * 51
+    r = client.post(f"/ordens/{o.id}/nota-fiscal", files={"file": _pdf()}, data={"numero": numero_longo}, headers=h)
+    assert r.status_code == 422
+
+
 def test_substituir_remove_o_arquivo_anterior(client, usuario_financeiro, fases_seed, os_base, db_session, upload_tmp):
     o = _os(db_session, os_base)
     h = _headers(client, "fin@hs.com", "senha123")
