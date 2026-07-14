@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
-from app.core import certificado_link, nota_fiscal_link, storage
+from app.core import certificado_link, nota_fiscal, nota_fiscal_link, storage
 from app.core.certificado_pdf import html_para_pdf
 from app.models import OSCertificado, Ordem
 from app.models.database import get_db
@@ -45,12 +45,12 @@ def baixar_nota_fiscal_publica(ordem_id: int, t: str = "", db: Session = Depends
     if o is None or not o.nota_fiscal:
         raise HTTPException(status_code=404, detail="nota fiscal não encontrada")
     try:
-        caminho = storage.caminho_arquivo(f"notas-fiscais/{ordem_id}", o.nota_fiscal)
+        caminho = storage.caminho_arquivo(nota_fiscal.subdir(ordem_id), o.nota_fiscal)
     except storage.ArquivoInvalido:
         raise HTTPException(status_code=404, detail="nota fiscal não encontrada")
     if not caminho.exists():
         raise HTTPException(status_code=404, detail="arquivo não encontrado")
-    media = "application/xml" if o.nota_fiscal.lower().endswith(".xml") else "application/pdf"
+    media = nota_fiscal.media_type(o.nota_fiscal)
     return FileResponse(
         caminho,
         media_type=media,

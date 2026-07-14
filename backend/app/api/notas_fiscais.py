@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.models.database import get_db
 from app.models import Usuario, Ordem
 from app.api.deps import get_current_usuario, require_funcao
-from app.core import storage
+from app.core import nota_fiscal, storage
 
 router = APIRouter(tags=["notas-fiscais"])
 GESTOR_NF = ("Financeiro", "Administrador")
@@ -16,14 +16,6 @@ def _os_ou_404(db: Session, ordem_id: int) -> Ordem:
     if o is None:
         raise HTTPException(404, "OS não encontrada")
     return o
-
-
-def _subdir(ordem_id: int) -> str:
-    return f"notas-fiscais/{ordem_id}"
-
-
-def _media_type(basename: str) -> str:
-    return "application/xml" if basename.lower().endswith(".xml") else "application/pdf"
 
 
 @router.post("/ordens/{ordem_id}/nota-fiscal")
@@ -41,12 +33,12 @@ def enviar_nota_fiscal(
     anterior = o.nota_fiscal
     try:
         basename = storage.salvar_upload(
-            file, subdir=_subdir(ordem_id), tipos_permitidos=storage.TIPOS_NOTA_FISCAL
+            file, subdir=nota_fiscal.subdir(ordem_id), tipos_permitidos=storage.TIPOS_NOTA_FISCAL
         )
     except storage.ArquivoInvalido as e:
         raise HTTPException(e.status, e.detail)
     if anterior:
-        storage.remover_arquivo(_subdir(ordem_id), anterior)
+        storage.remover_arquivo(nota_fiscal.subdir(ordem_id), anterior)
     o.nota_fiscal = basename
     o.nota_fiscal_numero = num
     db.commit()
@@ -59,9 +51,9 @@ def baixar_nota_fiscal(ordem_id: int, db: Session = Depends(get_db), _: Usuario 
     if not o.nota_fiscal:
         raise HTTPException(404, "sem nota fiscal")
     try:
-        caminho = storage.caminho_arquivo(_subdir(ordem_id), o.nota_fiscal)
+        caminho = storage.caminho_arquivo(nota_fiscal.subdir(ordem_id), o.nota_fiscal)
     except storage.ArquivoInvalido as e:
         raise HTTPException(e.status, e.detail)
     if not caminho.exists():
         raise HTTPException(404, "arquivo não encontrado")
-    return FileResponse(caminho, media_type=_media_type(o.nota_fiscal))
+    return FileResponse(caminho, media_type=nota_fiscal.media_type(o.nota_fiscal))
