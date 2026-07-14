@@ -12,6 +12,7 @@ from app.core import os_workflow as wf
 from app.core import recebimento as rec
 from app.core import taskhs
 from app.core import certificado_link
+from app.core import nota_fiscal_link
 from app.core.garantia import garantias as _calc_garantias
 from app.core.os_workflow import FASE_FINALIZADA
 from app.integrations import taskhs_client
@@ -23,7 +24,7 @@ LIMITE_FINALIZADAS_QUADRO = 300
 
 
 def _agendar_espelhamento(db, background_tasks, ordem, *, lista, arquivado):
-    """Monta descricao (com links de certificado) e agenda o upsert no TaskHS."""
+    """Monta descricao (com links de certificado e nota fiscal) e agenda o upsert no TaskHS."""
     if lista is None or not taskhs_client.integracao_ativa():
         return
     certs = db.query(OSCertificado).filter(OSCertificado.os == ordem.id).all()
@@ -31,7 +32,8 @@ def _agendar_espelhamento(db, background_tasks, ordem, *, lista, arquivado):
         {"tipo": c.tipo, "url": certificado_link.link_certificado(ordem.id, c.tipo)}
         for c in certs
     ]
-    descricao = taskhs.montar_descricao(ordem, certificados=certificados)
+    nf_url = nota_fiscal_link.link_nota_fiscal(ordem.id) if ordem.nota_fiscal else None
+    descricao = taskhs.montar_descricao(ordem, certificados=certificados, nota_fiscal_url=nf_url)
     payload = taskhs.montar_payload(ordem, lista=lista, arquivado=arquivado, descricao=descricao)
     background_tasks.add_task(taskhs_client.enviar_card, payload)
 

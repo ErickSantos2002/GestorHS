@@ -126,14 +126,19 @@ def _sec_posvendas(ordem) -> str | None:
     ])
 
 
-def _sec_financeiro(ordem) -> str | None:
+def _sec_financeiro(ordem, nota_fiscal_url: str | None = None) -> str | None:
     if wf.posicao(ordem.fase) < wf.posicao(10):
         return None
     if ordem.pago:
-        linha = f"Pagamento: confirmado em {_fmt(ordem.data_pagamento)}" if ordem.data_pagamento else "Pagamento: confirmado"
+        pagamento = f"Pagamento: confirmado em {_fmt(ordem.data_pagamento)}" if ordem.data_pagamento else "Pagamento: confirmado"
     else:
-        linha = "Pagamento: pendente"
-    return _bloco("💰 Financeiro", [linha])
+        pagamento = "Pagamento: pendente"
+    nota = None
+    if ordem.nota_fiscal_numero:
+        nota = f"Nota fiscal: {ordem.nota_fiscal_numero}"
+        if nota_fiscal_url:
+            nota = f"{nota} — {nota_fiscal_url}"
+    return _bloco("💰 Financeiro", [pagamento, nota])
 
 
 def _sec_preparando(ordem) -> str | None:
@@ -151,13 +156,13 @@ def _sec_finalizada(ordem) -> str | None:
     return _bloco("📮 Finalizada", [linha or None])
 
 
-def montar_descricao(ordem, *, certificados: list[dict]) -> str | None:
+def montar_descricao(ordem, *, certificados: list[dict], nota_fiscal_url: str | None = None) -> str | None:
     cabecalho = "\n".join(_cabecalho(ordem)) or None
     secoes = [
         _sec_recebido(ordem) if wf.posicao(ordem.fase) >= wf.posicao(4) else None,
         _sec_laboratorio(ordem, certificados),
         _sec_posvendas(ordem),
-        _sec_financeiro(ordem),
+        _sec_financeiro(ordem, nota_fiscal_url),
         _sec_preparando(ordem),
         _sec_finalizada(ordem),
     ]

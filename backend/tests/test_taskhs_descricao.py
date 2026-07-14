@@ -27,6 +27,7 @@ def _ordem(**kw):
         ),
         cod_retorno="BR123", data_retorno=_dt(2026, 6, 25),
         pago=True, data_pagamento=_dt(2026, 6, 26),
+        nota_fiscal=None, nota_fiscal_numero=None,
     )
     base.update(kw)
     return SimpleNamespace(**base)
@@ -132,3 +133,26 @@ def test_financeiro_oculto_antes_da_fase():
     o = _ordem(fase=6, pago=False, data_pagamento=None, cod_retorno=None, data_retorno=None)
     d = taskhs.montar_descricao(o, certificados=[])
     assert "💰 Financeiro" not in d
+
+
+def test_secao_financeiro_com_nota_fiscal():
+    o = _ordem(fase=10, pago=False, data_pagamento=None, cod_retorno=None, data_retorno=None,
+               nota_fiscal="abc.pdf", nota_fiscal_numero="12345")
+    d = taskhs.montar_descricao(o, certificados=[], nota_fiscal_url="http://x/nf")
+    assert "💰 Financeiro" in d
+    assert "Nota fiscal: 12345 — http://x/nf" in d
+
+
+def test_secao_financeiro_sem_nota_fiscal_omite_a_linha():
+    o = _ordem(fase=10, pago=False, data_pagamento=None, cod_retorno=None, data_retorno=None)
+    d = taskhs.montar_descricao(o, certificados=[])
+    assert "💰 Financeiro" in d
+    assert "Nota fiscal" not in d
+
+
+def test_nota_fiscal_sem_url_mostra_so_o_numero():
+    o = _ordem(fase=10, pago=False, data_pagamento=None, cod_retorno=None, data_retorno=None,
+               nota_fiscal="abc.pdf", nota_fiscal_numero="12345")
+    d = taskhs.montar_descricao(o, certificados=[], nota_fiscal_url=None)
+    assert "Nota fiscal: 12345" in d
+    assert "—" not in d.split("Nota fiscal: 12345")[1].split("\n")[0]
