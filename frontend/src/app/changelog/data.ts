@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.13.0',
+    data: '14/07/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'O Financeiro agora precisa anexar a nota fiscal de serviço (PDF ou XML) e informar o número da NF antes de confirmar o pagamento e liberar a OS para envio. A nota fica disponível para download na própria OS e no cartão do TaskHS.' },
+    ],
+  },
+  {
     versao: '1.12.1',
     data: '14/07/2026',
     itens: [

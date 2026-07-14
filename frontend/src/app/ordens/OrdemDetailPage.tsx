@@ -436,7 +436,7 @@ export function OrdemDetailPage() {
       {/* Nota fiscal */}
       {mostraNotaFiscal && (
         <Secao
-          icon={<IconCertificado />}
+          icon={<IconCertificado className="w-4 h-4" />}
           titulo="Nota fiscal"
           acao={podeAnexarNF ? (
             <Button variant={os.nota_fiscal ? 'secondary' : 'primary'} onClick={() => setAcao('nota-fiscal')}>
@@ -452,7 +452,7 @@ export function OrdemDetailPage() {
                   const url = await buscarBlobUrl(`/ordens/${os.id}/nota-fiscal`)
                   window.open(url, '_blank')
                 }}
-                className="text-xs text-primary hover:underline"
+                className="text-xs font-semibold text-primary hover:underline"
               >
                 Baixar
               </button>
