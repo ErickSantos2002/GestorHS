@@ -9,12 +9,13 @@ import {
 } from '../../components/ui/icons'
 import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
-import { isAdmin, podeAbrirOS } from '../../auth/roles'
+import { isAdmin, podeAbrirOS, podeAnexarNotaFiscal } from '../../auth/roles'
 import { fasesApi, type Fase } from '../cadastros/api'
-import { ordensApi, fotosApi, TIPO_SERVICO, TRANSICOES, FLUXO_FASES, posicaoFase, faseAtiva, posLaboratorio, formatData, garantiaBadge, garantiasAtivas, type OrdemDetalhe, type GarantiaItem, type LogOS, type Foto, type OSCertificado } from './api'
+import { ordensApi, fotosApi, buscarBlobUrl, TIPO_SERVICO, TRANSICOES, FLUXO_FASES, posicaoFase, faseAtiva, posLaboratorio, formatData, garantiaBadge, garantiasAtivas, type OrdemDetalhe, type GarantiaItem, type LogOS, type Foto, type OSCertificado } from './api'
 import { AvancarModal } from './AvancarModal'
 import { GerarCertificadoModal } from './GerarCertificadoModal'
 import { CancelarModal } from './CancelarModal'
+import { NotaFiscalModal } from './NotaFiscalModal'
 import { FotoImg } from './FotoImg'
 import { FotoLightbox } from './FotoLightbox'
 import { PageContainer, DetailGrid, DetailMain, DetailAside } from '../../components/ui/Page'
@@ -104,7 +105,7 @@ export function OrdemDetailPage() {
   const [fases, setFases] = useState<Fase[]>([])
   const [erro, setErro] = useState('')
   const [carregando, setCarregando] = useState(true)
-  const [acao, setAcao] = useState<'avancar' | 'cancelar' | 'gerar' | null>(null)
+  const [acao, setAcao] = useState<'avancar' | 'cancelar' | 'gerar' | 'nota-fiscal' | null>(null)
   const [fotos, setFotos] = useState<Foto[]>([])
   const [certs, setCerts] = useState<OSCertificado[]>([])
   const [erroFoto, setErroFoto] = useState('')
@@ -177,9 +178,17 @@ export function OrdemDetailPage() {
   // Gerar/regerar: do laboratório em diante (calibração já ocorre/ocorreu, inclusive no
   // Financeiro), ou onde já existe certificado. Fora: Recebido (ainda não calibrada) e Cancelada.
   const podeGerarOuRegerar = podeGerarCert && (certs.length > 0 || posLaboratorio(os.fase))
+  // A secao aparece do Financeiro em diante — use posicaoFase, NUNCA comparacao numerica (id 10 > 7/8).
+  const mostraNotaFiscal = posicaoFase(os.fase) >= posicaoFase(10)
+  const podeAnexarNF = podeAnexarNotaFiscal(user)
 
   function aoGerarCert(cs: OSCertificado[]) {
     setCerts(cs)
+    setAcao(null)
+    void ordensApi.obter(osId).then(setOs).catch(() => {})
+  }
+
+  function aoAnexarNF() {
     setAcao(null)
     void ordensApi.obter(osId).then(setOs).catch(() => {})
   }
@@ -424,6 +433,38 @@ export function OrdemDetailPage() {
         )}
       </Secao>
 
+      {/* Nota fiscal */}
+      {mostraNotaFiscal && (
+        <Secao
+          icon={<IconCertificado />}
+          titulo="Nota fiscal"
+          acao={podeAnexarNF ? (
+            <Button variant={os.nota_fiscal ? 'secondary' : 'primary'} onClick={() => setAcao('nota-fiscal')}>
+              {os.nota_fiscal ? 'Substituir' : 'Anexar nota fiscal'}
+            </Button>
+          ) : undefined}
+        >
+          {os.nota_fiscal ? (
+            <div className="flex items-center justify-between gap-3">
+              <Campo label="Número" valor={os.nota_fiscal_numero} />
+              <button
+                onClick={async () => {
+                  const url = await buscarBlobUrl(`/ordens/${os.id}/nota-fiscal`)
+                  window.open(url, '_blank')
+                }}
+                className="text-xs text-primary hover:underline"
+              >
+                Baixar
+              </button>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-500">
+              Nenhuma nota fiscal anexada. É obrigatória para o Financeiro confirmar o pagamento.
+            </p>
+          )}
+        </Secao>
+      )}
+
       {/* Histórico */}
       <Secao icon={<IconClock className="w-4 h-4" />} titulo="Histórico">
         {logs.length === 0 ? (
@@ -453,6 +494,9 @@ export function OrdemDetailPage() {
       )}
       {acao === 'gerar' && <GerarCertificadoModal os={os} onClose={() => setAcao(null)} onGerado={aoGerarCert} />}
       {acao === 'cancelar' && <CancelarModal os={os} onClose={() => setAcao(null)} onConcluido={aoConcluir} />}
+      {acao === 'nota-fiscal' && (
+        <NotaFiscalModal ordemId={os.id} onClose={() => setAcao(null)} onEnviado={aoAnexarNF} />
+      )}
 
       {lightboxIdx !== null && fotos[lightboxIdx] && (
         <FotoLightbox fotos={fotos} indiceInicial={lightboxIdx} onClose={() => setLightboxIdx(null)} />

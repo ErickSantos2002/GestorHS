@@ -166,6 +166,8 @@ export interface OrdemDetalhe extends OrdemListItem {
   calib_teste_media: string | null
   calib_situacao: string | null
   pdf_certificado: string | null
+  nota_fiscal: string | null
+  nota_fiscal_numero: string | null
   pilhas: number
   bocais: number
   checklist_ids: number[]
@@ -345,5 +347,16 @@ export const ordensApi = {
     a.click()
     a.remove()
     URL.revokeObjectURL(url)
+  },
+  enviarNotaFiscal: async (ordemId: number, file: File, numero: string): Promise<void> => {
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('numero', numero)
+    const res = await apiFetch(`/ordens/${ordemId}/nota-fiscal`, { method: 'POST', body: fd })
+    if (!res.ok) {
+      let detail = res.statusText
+      try { const b = await res.json(); if (b.detail) detail = b.detail } catch { /* sem corpo */ }
+      throw new ApiError(res.status, detail)
+    }
   },
 }

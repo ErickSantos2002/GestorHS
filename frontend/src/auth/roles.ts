@@ -23,3 +23,7 @@ export function podeRegistrarContato(user: User | null): boolean {
 export function podeAtenderSolicitacao(user: User | null): boolean {
   return isAdmin(user) || user?.funcao === FUNCAO_COMERCIAL
 }
+
+export function podeAnexarNotaFiscal(user: User | null): boolean {
+  return isAdmin(user) || user?.funcao === FUNCAO_FINANCEIRO
+}
