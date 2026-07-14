@@ -29,10 +29,7 @@ export function CertificadoAvulsoModal({ onClose, onGerado }: {
   const [nomecli, setNomecli] = useState('')
   const [cnpj, setCnpj] = useState('')
   const [endcli, setEndcli] = useState('')
-  const [modelo, setModelo] = useState('')
-  const [marca, setMarca] = useState('')
   const [serie, setSerie] = useState('')
-  const [patrimonio, setPatrimonio] = useState('')
   const [datacompra, setDatacompra] = useState('')
   const [os, setOs] = useState('XXXX')
   const [dataRecebimento, setDataRecebimento] = useState(hojeISO())
@@ -75,10 +72,7 @@ export function CertificadoAvulsoModal({ onClose, onGerado }: {
       nomecli: nomecli.trim() || null,
       cnpj: cnpj.trim() || null,
       endcli: endcli.trim() || null,
-      modelo: modelo.trim() || null,
-      marca: marca.trim() || null,
       serie: serie.trim() || null,
-      patrimonio: patrimonio.trim() || null,
       datacompra: datacompra.trim() || null,
       os: os.trim() || null,
       data_recebimento: dataRecebimento || null,
@@ -155,13 +149,10 @@ export function CertificadoAvulsoModal({ onClose, onGerado }: {
 
           <div className="space-y-3">
             <p className={secao}>Aparelho</p>
+            {/* Modelo e marca NAO sao digitados: vem do cadastro do aparelho do modelo
+                escolhido acima — nos modelos atuais eles ja estao escritos no proprio HTML. */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Input id="modelo" label="Modelo" value={modelo} onChange={(e) => setModelo(e.target.value)} />
-              <Input id="marca" label="Marca" value={marca} onChange={(e) => setMarca(e.target.value)} />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <Input id="serie" label="Série" value={serie} onChange={(e) => setSerie(e.target.value)} />
-              <Input id="patrimonio" label="Patrimônio" value={patrimonio} onChange={(e) => setPatrimonio(e.target.value)} />
               {/* type="date": o backend recebe `Optional[date]` — texto livre viraria 422. */}
               <Input id="datacompra" label="Data de compra" type="date" value={datacompra} onChange={(e) => setDatacompra(e.target.value)} />
             </div>

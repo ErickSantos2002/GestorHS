@@ -13,7 +13,7 @@ def _payload(os_base, **kw):
     base = {
         "equipamento": os_base["equipamento"], "tipo": "C",
         "nomecli": "POC Ltda", "cnpj": "11222333000144", "endcli": "Rua X, 10",
-        "modelo": "ALCOSCAN", "marca": "AC", "serie": "SN-POC-1", "patrimonio": "",
+        "serie": "SN-POC-1",
         "datacompra": None, "os": "XXXX", "data_recebimento": "2026-07-14",
         "calib_cert": "AV-001", "data_calibracao": "2026-07-14",
         "calib_temp": "22", "calib_pressao": "1013",
@@ -39,6 +39,45 @@ def test_gerar_avulso_salva_e_preenche_o_html(client, usuario_lab, os_base, db_s
     assert "[" not in av.html          # nenhum token vazou
     assert av.usuario == usuario_lab.id
     assert av.data_geracao is not None
+
+
+def test_modelo_e_marca_vem_do_catalogo_e_nao_sao_digitados(client, usuario_lab, os_base, db_session):
+    """[modelo]/[marca] saem do cadastro do aparelho do template — como no fluxo da OS.
+
+    Nenhum dos 12 modelos reais usa esses tokens (a marca/modelo estao escritos no proprio
+    HTML), entao pedi-los no formulario era um campo morto. Se um modelo novo usar o token,
+    ele precisa sair certo sozinho.
+    """
+    from app.models import Equipamento, Marca
+    m = Marca(descricao="Alcoscan")
+    db_session.add(m); db_session.flush()
+    eq = db_session.get(Equipamento, os_base["equipamento"])
+    eq.marca = m.id
+    db_session.commit()
+
+    _modelo(db_session, os_base, texto="<p>[modelo] / [marca] / [patrimonio]</p>")
+    h = _headers(client, "lab@hs.com", "senha123")
+    r = client.post("/certificados-avulsos", json=_payload(os_base), headers=h)
+    assert r.status_code == 201
+
+    from app.models import CertificadoAvulso
+    av = db_session.query(CertificadoAvulso).filter(CertificadoAvulso.id == r.json()["id"]).first()
+    assert "Bafômetro" in av.html and "Alcoscan" in av.html
+    assert "[" not in av.html      # patrimonio (aparelho de POC nao tem) sai vazio, nao literal
+
+
+def test_campos_mortos_do_payload_sao_recusados(client, usuario_lab, os_base, db_session):
+    """modelo/marca/patrimonio saíram do formulario: nao adianta mandar, nao sao lidos."""
+    _modelo(db_session, os_base, texto="<p>[modelo]</p>")
+    h = _headers(client, "lab@hs.com", "senha123")
+    r = client.post("/certificados-avulsos",
+                    json=_payload(os_base, modelo="INVENTADO"), headers=h)
+    assert r.status_code == 201
+
+    from app.models import CertificadoAvulso
+    av = db_session.query(CertificadoAvulso).filter(CertificadoAvulso.id == r.json()["id"]).first()
+    assert "INVENTADO" not in av.html
+    assert "Bafômetro" in av.html      # o catalogo vence
 
 
 def test_gerar_avulso_nao_cria_nem_altera_nenhuma_OS(client, usuario_lab, os_base, db_session):

@@ -41,15 +41,12 @@ export interface AvulsoItem {
 }
 
 export interface AvulsoPayload {
-  equipamento: number
+  equipamento: number       // o aparelho do template — [modelo]/[marca] saem do cadastro dele
   tipo: 'C' | 'M'
   nomecli?: string | null
   cnpj?: string | null
   endcli?: string | null
-  modelo?: string | null
-  marca?: string | null
   serie?: string | null
-  patrimonio?: string | null
   datacompra?: string | null
   os?: string | null
   data_recebimento?: string | null

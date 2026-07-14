@@ -29,7 +29,7 @@ def gerar(dados: CertificadoAvulsoIn, db: Session = Depends(get_db),
             status_code=409,
             detail=f"O aparelho escolhido não tem modelo de certificado de {rotulo} cadastrado.",
         )
-    html = preencher(modelo.texto, montar_contexto_avulso(dados.model_dump()))
+    html = preencher(modelo.texto, montar_contexto_avulso(db, dados.model_dump()))
     av = CertificadoAvulso(
         tipo=dados.tipo,
         html=html,

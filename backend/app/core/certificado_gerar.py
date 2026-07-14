@@ -118,17 +118,29 @@ def _montar_contexto(
     }
 
 
+def modelo_marca(db: Session, equipamento_id: int | None) -> tuple[str, str]:
+    """(modelo, marca) do catalogo do aparelho — nunca digitados.
+
+    Fonte unica para o fluxo da OS e para o avulso: o modelo/marca sao um atributo do
+    APARELHO, nao algo que o laboratorio informa. No avulso o aparelho vem do template
+    escolhido.
+    """
+    if equipamento_id is None:
+        return "", ""
+    cat = db.get(Equipamento, equipamento_id)
+    if cat is None:
+        return "", ""
+    marca = ""
+    if cat.marca:
+        m = db.get(Marca, cat.marca)
+        marca = (m.descricao if m else "") or ""
+    return cat.descricao or "", marca
+
+
 def montar_contexto(db: Session, ordem) -> dict[str, str]:
     cli = ordem.cliente_rel
     ec = ordem.equipamento_rel  # EquipamentoCliente
-    modelo = marca = ""
-    if ec is not None:
-        cat = db.get(Equipamento, ec.equipamento)
-        if cat is not None:
-            modelo = cat.descricao or ""
-            if cat.marca:
-                m = db.get(Marca, cat.marca)
-                marca = (m.descricao if m else "") or ""
+    modelo, marca = modelo_marca(db, ec.equipamento if ec is not None else None)
     tipocal = ""
     if ordem.tipo_calibragem:
         tc = db.get(TipoCalibragem, ordem.tipo_calibragem)
@@ -162,20 +174,23 @@ def montar_contexto(db: Session, ordem) -> dict[str, str]:
     return ctx
 
 
-def montar_contexto_avulso(valores: dict) -> dict[str, str]:
+def montar_contexto_avulso(db: Session, valores: dict) -> dict[str, str]:
     """Contexto de um certificado sem OS (aparelho de POC): os valores sao DIGITADOS.
+
+    Exceto `modelo`/`marca`, que saem do catalogo do aparelho do template (o laboratorio
+    nao os digita), e `patrimonio`, que nao existe para um aparelho de POC.
 
     Delega ao mesmo `_montar_contexto` do fluxo da OS — e por isso emite exatamente o
     mesmo conjunto de chaves, sem risco de um token vazar como [token] no PDF.
     """
+    modelo, marca = modelo_marca(db, valores.get("equipamento"))
     return _montar_contexto(
         nomecli=valores.get("nomecli") or "",
         cnpj=valores.get("cnpj") or "",
         endcli=valores.get("endcli") or "",
-        modelo=valores.get("modelo") or "",
-        marca=valores.get("marca") or "",
+        modelo=modelo,
+        marca=marca,
         serie=valores.get("serie") or "",
-        patrimonio=valores.get("patrimonio") or "",
         datacompra=_fmt(valores.get("datacompra")),
         os_num=valores.get("os") or "",
         calibcert=valores.get("calib_cert") or "",

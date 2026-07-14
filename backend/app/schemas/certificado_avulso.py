@@ -11,10 +11,9 @@ class CertificadoAvulsoIn(BaseModel):
     nomecli: Optional[str] = None
     cnpj: Optional[str] = None
     endcli: Optional[str] = None
-    modelo: Optional[str] = None
-    marca: Optional[str] = None
     serie: Optional[str] = None
-    patrimonio: Optional[str] = None
+    # modelo/marca NAO entram aqui: saem do catalogo do `equipamento` do template.
+    # patrimonio tambem nao: um aparelho de POC nao esta cadastrado.
     datacompra: Optional[date] = None
     os: Optional[str] = None                    # default do form: "XXXX"
     data_recebimento: Optional[date] = None     # default do form: hoje

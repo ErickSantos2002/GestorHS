@@ -38,19 +38,19 @@ def test_avulso_tem_exatamente_as_mesmas_chaves_da_os(db_session, os_base):
     """A regressao que este teste impede: o avulso esquecer uma chave e vazar [token] no PDF."""
     o = _os_com_dados(db_session, os_base)
     ctx_os = montar_contexto(db_session, o)
-    ctx_avulso = montar_contexto_avulso({})
+    ctx_avulso = montar_contexto_avulso(db_session, {})
     assert set(ctx_avulso.keys()) == set(ctx_os.keys())
 
 
-def test_nenhum_token_conhecido_vaza_no_avulso():
+def test_nenhum_token_conhecido_vaza_no_avulso(db_session):
     """Um modelo que usa TODOS os tokens nao pode sair com nenhum [token] literal."""
     html = " ".join(f"[{campo}]" for campo, _ in CAMPOS)
-    saida = preencher(html, montar_contexto_avulso({"nomecli": "ACME"}))
+    saida = preencher(html, montar_contexto_avulso(db_session, {"nomecli": "ACME"}))
     assert "[" not in saida and "]" not in saida
 
 
-def test_avulso_usa_os_valores_digitados():
-    ctx = montar_contexto_avulso({
+def test_avulso_usa_os_valores_digitados(db_session):
+    ctx = montar_contexto_avulso(db_session, {
         "nomecli": "POC Ltda", "serie": "SN-9", "calib_cert": "AV-1",
         "calib_situacao": "Aprovado", "data_calibracao": date(2026, 7, 14),
     })
@@ -61,20 +61,20 @@ def test_avulso_usa_os_valores_digitados():
     assert ctx["datacali"] == "14/07/2026"      # formatado DD/MM/AAAA
 
 
-def test_avulso_preenche_vazio_o_que_nao_foi_informado():
-    ctx = montar_contexto_avulso({})
+def test_avulso_preenche_vazio_o_que_nao_foi_informado(db_session):
+    ctx = montar_contexto_avulso(db_session, {})
     assert ctx["nomecli"] == ""
     assert ctx["proxcalibragem"] == ""      # nenhum modelo real usa, mas a chave existe
     assert ctx["tipocalibragem"] == ""
 
 
-def test_avulso_nao_inclui_pulapagina_no_contexto():
+def test_avulso_nao_inclui_pulapagina_no_contexto(db_session):
     """pulapagina e tratado FORA do laco (HTML estrutural, sem escape).
     No contexto ele seria escapado e a quebra de pagina pararia de funcionar."""
-    assert "pulapagina" not in montar_contexto_avulso({})
+    assert "pulapagina" not in montar_contexto_avulso(db_session, {})
 
 
-def test_pulapagina_continua_virando_quebra_de_pagina():
-    saida = preencher("<p>a</p>[pulapagina]<p>b</p>", montar_contexto_avulso({}))
+def test_pulapagina_continua_virando_quebra_de_pagina(db_session):
+    saida = preencher("<p>a</p>[pulapagina]<p>b</p>", montar_contexto_avulso(db_session, {}))
     assert "page-break-after" in saida
     assert "[pulapagina]" not in saida
