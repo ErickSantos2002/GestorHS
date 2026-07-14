@@ -79,6 +79,16 @@ def quadro(cliente: int | None = None, db: Session = Depends(get_db),
     return colunas
 
 
+def _anotar_modelos_faltantes(db: Session, ordem) -> None:
+    """Anota na OS quais tipos de certificado o aparelho não tem modelo cadastrado.
+
+    A tela usa isso para avisar ANTES de o usuário tentar gerar. Precisa ser aplicado em
+    TODA resposta `OrdemOut` — se ficar só no `obter`, o default `[]` do schema faz o
+    aviso sumir (e o botão "Gerar" reaparecer) depois de avançar/cancelar a OS.
+    """
+    ordem.certificado_modelos_faltantes = tipos_sem_modelo(db, ordem, tipos_para(ordem))
+
+
 def _ultima_manutencao(db: Session, equipamento_cliente_id: int) -> date | None:
     """Data da última manutenção: data_calibracao da OS finalizada mais recente
     com tipo_servico em ('M', 'A') para o aparelho."""
@@ -111,9 +121,7 @@ def obter(ordem_id: int, db: Session = Depends(get_db), _: Usuario = Depends(get
         )
     else:
         obj.garantias = None
-    # A tela avisa ANTES de o usuário tentar gerar: quais tipos de certificado o
-    # aparelho não tem modelo cadastrado (lista vazia = pode gerar).
-    obj.certificado_modelos_faltantes = tipos_sem_modelo(db, obj, tipos_para(obj))
+    _anotar_modelos_faltantes(db, obj)
     return obj
 
 
@@ -177,6 +185,7 @@ def abrir(dados: OrdemAbrirIn, background_tasks: BackgroundTasks, db: Session = 
     db.commit()
     db.refresh(ordem)
     _agendar_espelhamento(db, background_tasks, ordem, lista=taskhs.lista_da_fase(ordem.fase), arquivado=False)
+    _anotar_modelos_faltantes(db, ordem)
     return ordem
 
 
@@ -227,6 +236,7 @@ def avancar(ordem_id: int, dados: AvancarIn, background_tasks: BackgroundTasks,
     db.commit()
     db.refresh(ordem)
     _agendar_espelhamento(db, background_tasks, ordem, lista=taskhs.lista_da_fase(ordem.fase), arquivado=False)
+    _anotar_modelos_faltantes(db, ordem)
     return ordem
 
 
@@ -246,4 +256,5 @@ def cancelar(ordem_id: int, dados: CancelarIn, background_tasks: BackgroundTasks
     db.commit()
     db.refresh(ordem)
     _agendar_espelhamento(db, background_tasks, ordem, lista=taskhs.lista_da_fase(origem), arquivado=True)
+    _anotar_modelos_faltantes(db, ordem)
     return ordem

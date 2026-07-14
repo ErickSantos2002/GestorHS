@@ -432,18 +432,23 @@ export function OrdemDetailPage() {
           </Button>
         )}
       >
-        {semModelo ? (
+        {/* O aviso ACOMPANHA a lista, nunca a substitui: uma OS "Ambas" pode ter o
+            certificado de Calibração já gerado e faltar só o modelo de Manutenção —
+            esconder a lista tiraria do usuário um documento que já foi emitido. */}
+        {semModelo && (
           <div className="rounded-lg bg-warning/10 border border-warning/20 px-3 py-2.5 space-y-1.5">
             <p className="text-sm text-warning">
               Este aparelho não tem modelo de certificado de {modelosFaltantesLabel} cadastrado — por isso não é
-              possível gerar o certificado.
+              possível gerar {certs.length ? 'esse certificado' : 'o certificado'}.
             </p>
             <Link to="/app/certificados" className="inline-block text-xs font-semibold text-primary hover:underline">
               Cadastrar modelo de certificado
             </Link>
           </div>
-        ) : certs.length === 0 ? (
-          <p className="text-sm text-slate-500">Nenhum certificado gerado.{podeGerarOuRegerar ? ' Clique em "Gerar certificado de calibração".' : ''}</p>
+        )}
+        {certs.length === 0 ? (
+          // A dica só faz sentido se o botão estiver de fato na tela (sem modelo ele some).
+          <p className="text-sm text-slate-500">Nenhum certificado gerado.{podeGerarOuRegerar && !semModelo ? ' Clique em "Gerar certificado de calibração".' : ''}</p>
         ) : (
           <ul className="space-y-2">
             {certs.map((c) => (

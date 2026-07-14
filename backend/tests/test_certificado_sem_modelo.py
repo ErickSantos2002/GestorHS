@@ -75,3 +75,14 @@ def test_sem_faltantes_quando_tudo_cadastrado(client, usuario_lab, fases_seed, o
     h = _headers(client, "lab@hs.com", "senha123")
     body = client.get(f"/ordens/{o.id}", headers=h).json()
     assert body["certificado_modelos_faltantes"] == []
+
+
+def test_avancar_tambem_devolve_os_modelos_faltantes(client, usuario_comum, fases_seed, os_base, db_session):
+    """REGRESSAO: o campo so era preenchido no `obter`. Como `avancar` tambem devolve
+    OrdemOut, o default [] do schema fazia o aviso sumir da tela (e o botao "Gerar"
+    reaparecer) logo apos avancar a OS — levando o usuario direto ao 409."""
+    o = _os(db_session, os_base, fase=4)          # aparelho sem nenhum modelo
+    h = _headers(client, "comum@hs.com", "senha123")   # Expedicao: avanca 4->5
+    r = client.post(f"/ordens/{o.id}/avancar", json={}, headers=h)
+    assert r.status_code == 200
+    assert r.json()["certificado_modelos_faltantes"] == ["C"]

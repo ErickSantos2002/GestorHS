@@ -162,7 +162,8 @@ export function CertificadoAvulsoModal({ onClose, onGerado }: {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <Input id="serie" label="Série" value={serie} onChange={(e) => setSerie(e.target.value)} />
               <Input id="patrimonio" label="Patrimônio" value={patrimonio} onChange={(e) => setPatrimonio(e.target.value)} />
-              <Input id="datacompra" label="Data de compra" value={datacompra} onChange={(e) => setDatacompra(e.target.value)} />
+              {/* type="date": o backend recebe `Optional[date]` — texto livre viraria 422. */}
+              <Input id="datacompra" label="Data de compra" type="date" value={datacompra} onChange={(e) => setDatacompra(e.target.value)} />
             </div>
           </div>
 
