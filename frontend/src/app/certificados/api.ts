@@ -29,6 +29,41 @@ export interface ImagemCert {
   url: string
 }
 
+export interface AvulsoItem {
+  id: number
+  tipo: 'C' | 'M'
+  nomecli: string | null
+  serie: string | null
+  calib_cert: string | null
+  data_calibracao: string | null
+  data_geracao: string | null
+  usuario_nome: string | null
+}
+
+export interface AvulsoPayload {
+  equipamento: number
+  tipo: 'C' | 'M'
+  nomecli?: string | null
+  cnpj?: string | null
+  endcli?: string | null
+  modelo?: string | null
+  marca?: string | null
+  serie?: string | null
+  patrimonio?: string | null
+  datacompra?: string | null
+  os?: string | null
+  data_recebimento?: string | null
+  calib_cert?: string | null
+  data_calibracao?: string | null
+  calib_temp?: string | null
+  calib_pressao?: string | null
+  calib_teste1?: string | null
+  calib_teste2?: string | null
+  calib_teste3?: string | null
+  calib_teste_media?: string | null
+  calib_situacao?: string | null
+}
+
 export const CAMPOS_CERTIFICADO: { campo: string; desc: string }[] = [
   { campo: '[nomecli]', desc: 'Nome do cliente' },
   { campo: '[cnpj]', desc: 'CNPJ/CPF do cliente' },
@@ -81,4 +116,26 @@ export const certificadosApi = {
     return (await res.json()) as ImagemCert
   },
   excluirImagem: (id: number): Promise<void> => apiVoid(`/certificado-imagens/${id}`, { method: 'DELETE' }),
+
+  gerarAvulso: (payload: AvulsoPayload): Promise<AvulsoItem> =>
+    apiJson<AvulsoItem>('/certificados-avulsos', { method: 'POST', body: JSON.stringify(payload) }),
+
+  listarAvulsos: (): Promise<AvulsoItem[]> => apiJson<AvulsoItem[]>('/certificados-avulsos'),
+
+  // Nunca abrir o PDF numa aba via blob: (herda a origem do app — vetor de XSS ja
+  // corrigido nesta base). Forca download via link com atributo `download`, como
+  // ordensApi.baixarCertificadoPdf.
+  baixarAvulsoPdf: async (id: number): Promise<void> => {
+    const res = await apiFetch(`/certificados-avulsos/${id}/pdf`)
+    if (!res.ok) throw new ApiError(res.status, 'Falha ao baixar PDF')
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `certificado-avulso-${id}.pdf`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  },
 }

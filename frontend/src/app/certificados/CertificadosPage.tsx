@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { cn } from '../../lib/utils'
 import { ModelosTab } from './ModelosTab'
 import { ImagensTab } from './ImagensTab'
+import { AvulsosTab } from './AvulsosTab'
 import { PageContainer } from '../../components/ui/Page'
 
-const ABAS = ['Modelos', 'Imagens'] as const
+const ABAS = ['Modelos', 'Imagens', 'Em branco'] as const
 type Aba = (typeof ABAS)[number]
 
 export function CertificadosPage() {
@@ -13,7 +14,7 @@ export function CertificadosPage() {
     <PageContainer>
       <div>
         <h1 className="text-2xl font-extrabold text-slate-100">Certificados</h1>
-        <p className="text-sm text-slate-500 mt-0.5">Modelos de certificado por aparelho e biblioteca de imagens.</p>
+        <p className="text-sm text-slate-500 mt-0.5">Modelos de certificado por aparelho, biblioteca de imagens e certificados em branco.</p>
       </div>
       <div className="flex gap-2">
         {ABAS.map((a) => (
@@ -24,7 +25,7 @@ export function CertificadosPage() {
           </button>
         ))}
       </div>
-      {aba === 'Modelos' ? <ModelosTab /> : <ImagensTab />}
+      {aba === 'Modelos' ? <ModelosTab /> : aba === 'Imagens' ? <ImagensTab /> : <AvulsosTab />}
     </PageContainer>
   )
 }
