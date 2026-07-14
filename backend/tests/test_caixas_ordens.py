@@ -1,5 +1,5 @@
-def _headers(client, login, senha):
-    tok = client.post("/auth/login", json={"login": login, "senha": senha}).json()
+def _headers(client, email, senha):
+    tok = client.post("/auth/login", json={"email": email, "senha": senha}).json()
     return {"Authorization": f"Bearer {tok['access_token']}"}
 
 
@@ -13,7 +13,7 @@ def _ordem_solta(db_session, nome="Cliente OS"):
 
 
 def test_vincular_ordem(client, usuario_comum, fases_seed, db_session):
-    h = _headers(client, "comum", "senha123")
+    h = _headers(client, "comum@hs.com", "senha123")
     cid = client.post("/caixas", json={}, headers=h).json()["id"]
     oid = _ordem_solta(db_session)
     r = client.post(f"/caixas/{cid}/ordens", json={"ordem_id": oid}, headers=h)
@@ -23,7 +23,7 @@ def test_vincular_ordem(client, usuario_comum, fases_seed, db_session):
 
 
 def test_vincular_aceita_clientes_diferentes(client, usuario_comum, fases_seed, db_session):
-    h = _headers(client, "comum", "senha123")
+    h = _headers(client, "comum@hs.com", "senha123")
     cid = client.post("/caixas", json={}, headers=h).json()["id"]
     o1 = _ordem_solta(db_session, "Cliente A")
     o2 = _ordem_solta(db_session, "Cliente B")
@@ -35,7 +35,7 @@ def test_vincular_aceita_clientes_diferentes(client, usuario_comum, fases_seed, 
 
 
 def test_mover_ordem_entre_caixas(client, usuario_comum, fases_seed, db_session):
-    h = _headers(client, "comum", "senha123")
+    h = _headers(client, "comum@hs.com", "senha123")
     c1 = client.post("/caixas", json={}, headers=h).json()["id"]
     c2 = client.post("/caixas", json={}, headers=h).json()["id"]
     oid = _ordem_solta(db_session)
@@ -46,7 +46,7 @@ def test_mover_ordem_entre_caixas(client, usuario_comum, fases_seed, db_session)
 
 
 def test_desvincular_ordem(client, usuario_comum, fases_seed, db_session):
-    h = _headers(client, "comum", "senha123")
+    h = _headers(client, "comum@hs.com", "senha123")
     cid = client.post("/caixas", json={}, headers=h).json()["id"]
     oid = _ordem_solta(db_session)
     client.post(f"/caixas/{cid}/ordens", json={"ordem_id": oid}, headers=h)
@@ -56,13 +56,13 @@ def test_desvincular_ordem(client, usuario_comum, fases_seed, db_session):
 
 
 def test_vincular_ordem_inexistente_404(client, usuario_comum):
-    h = _headers(client, "comum", "senha123")
+    h = _headers(client, "comum@hs.com", "senha123")
     cid = client.post("/caixas", json={}, headers=h).json()["id"]
     assert client.post(f"/caixas/{cid}/ordens", json={"ordem_id": 9999}, headers=h).status_code == 404
 
 
 def test_desvincular_ordem_de_outra_caixa_404(client, usuario_comum, fases_seed, db_session):
-    h = _headers(client, "comum", "senha123")
+    h = _headers(client, "comum@hs.com", "senha123")
     c1 = client.post("/caixas", json={}, headers=h).json()["id"]
     c2 = client.post("/caixas", json={}, headers=h).json()["id"]
     oid = _ordem_solta(db_session)

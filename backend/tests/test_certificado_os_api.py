@@ -1,5 +1,5 @@
-def _headers(client, login, senha):
-    tok = client.post("/auth/login", json={"login": login, "senha": senha}).json()
+def _headers(client, email, senha):
+    tok = client.post("/auth/login", json={"email": email, "senha": senha}).json()
     return {"Authorization": f"Bearer {tok['access_token']}"}
 
 
@@ -30,7 +30,7 @@ def _os_com_modelo(client, db_session, hadmin, tipos=("C",), tipo_servico="C"):
 
 
 def test_gerar_calibracao(client, usuario_admin, db_session):
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
     oid = _os_com_modelo(client, db_session, h, tipos=("C",), tipo_servico="C")
     r = client.post(f"/ordens/{oid}/gerar-certificado", headers=h)
     assert r.status_code == 200
@@ -42,14 +42,14 @@ def test_gerar_calibracao(client, usuario_admin, db_session):
 
 
 def test_gerar_manutencao_quando_servico_A(client, usuario_admin, db_session):
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
     oid = _os_com_modelo(client, db_session, h, tipos=("C", "M"), tipo_servico="A")
     r = client.post(f"/ordens/{oid}/gerar-certificado", headers=h).json()
     assert {c["tipo"] for c in r} == {"C", "M"}
 
 
 def test_nao_gera_manutencao_quando_servico_C(client, usuario_admin, db_session):
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
     oid = _os_com_modelo(client, db_session, h, tipos=("C", "M"), tipo_servico="C")
     r = client.post(f"/ordens/{oid}/gerar-certificado", headers=h).json()
     assert {c["tipo"] for c in r} == {"C"}
@@ -57,7 +57,7 @@ def test_nao_gera_manutencao_quando_servico_C(client, usuario_admin, db_session)
 
 def test_sem_modelo_nao_gera_mas_nao_quebra(client, usuario_admin, db_session):
     from app.models import Cliente, Equipamento, EquipamentoCliente, Ordem
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
     _seed_fase5_se_necessario(db_session)
     cat = Equipamento(descricao="X"); db_session.add(cat); db_session.flush()
     cli = Cliente(nome="C"); db_session.add(cli); db_session.flush()
@@ -70,7 +70,7 @@ def test_sem_modelo_nao_gera_mas_nao_quebra(client, usuario_admin, db_session):
 
 
 def test_regerar_atualiza_nao_duplica(client, usuario_admin, db_session):
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
     oid = _os_com_modelo(client, db_session, h, tipos=("C",), tipo_servico="C")
     client.post(f"/ordens/{oid}/gerar-certificado", headers=h)
     client.post(f"/ordens/{oid}/gerar-certificado", headers=h)
@@ -79,18 +79,18 @@ def test_regerar_atualiza_nao_duplica(client, usuario_admin, db_session):
 
 
 def test_gerar_exige_lab_ou_admin(client, usuario_admin, usuario_comercial, db_session):
-    h = _headers(client, "comercial", "senha123")
-    oid = _os_com_modelo(client, db_session, _headers(client, "admin", "senha123"), tipos=("C",))
+    h = _headers(client, "comercial@hs.com", "senha123")
+    oid = _os_com_modelo(client, db_session, _headers(client, "admin@hs.com", "senha123"), tipos=("C",))
     assert client.post(f"/ordens/{oid}/gerar-certificado", headers=h).status_code == 403
 
 
 def test_gerar_os_inexistente_404(client, usuario_admin):
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
     assert client.post("/ordens/99999/gerar-certificado", headers=h).status_code == 404
 
 
 def test_gerar_com_dados_salva_e_preenche(client, usuario_admin, db_session):
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
     oid = _os_com_modelo(client, db_session, h, tipos=("C",), tipo_servico="C")
     body = {
         "calib_cert": "CERT-9", "calib_temp": "25",
@@ -108,7 +108,7 @@ def test_gerar_com_dados_salva_e_preenche(client, usuario_admin, db_session):
 
 
 def test_gerar_sem_corpo_regenera_sem_alterar(client, usuario_admin, db_session):
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
     oid = _os_com_modelo(client, db_session, h, tipos=("C",), tipo_servico="C")
     client.post(f"/ordens/{oid}/gerar-certificado", json={"calib_cert": "X1"}, headers=h)
     from app.models import Ordem
@@ -121,7 +121,7 @@ def test_gerar_sem_corpo_regenera_sem_alterar(client, usuario_admin, db_session)
 def test_baixar_pdf_sucesso(client, usuario_admin, db_session, monkeypatch):
     import app.api.certificados_os as mod
     monkeypatch.setattr(mod, "html_para_pdf", lambda html: b"%PDF-1.4 fake")
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
     oid = _os_com_modelo(client, db_session, h, tipos=("C",), tipo_servico="C")
     assert client.post(f"/ordens/{oid}/gerar-certificado", headers=h).status_code == 200
     r = client.get(f"/ordens/{oid}/certificado/C/pdf", headers=h)
@@ -134,14 +134,14 @@ def test_baixar_pdf_sucesso(client, usuario_admin, db_session, monkeypatch):
 def test_baixar_pdf_sem_certificado_404(client, usuario_admin, db_session, monkeypatch):
     import app.api.certificados_os as mod
     monkeypatch.setattr(mod, "html_para_pdf", lambda html: b"%PDF")
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
     oid = _os_com_modelo(client, db_session, h, tipos=("C",), tipo_servico="C")
     # sem gerar certificado
     assert client.get(f"/ordens/{oid}/certificado/C/pdf", headers=h).status_code == 404
 
 
 def test_gerar_grava_data_calibracao_informada(client, usuario_admin, db_session):
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
     oid = _os_com_modelo(client, db_session, h, tipos=("C",), tipo_servico="C")
     r = client.post(f"/ordens/{oid}/gerar-certificado", json={"calib_cert": "C1", "data_calibracao": "2026-01-15"}, headers=h)
     assert r.status_code == 200
@@ -152,7 +152,7 @@ def test_gerar_grava_data_calibracao_informada(client, usuario_admin, db_session
 
 
 def test_regerar_sem_data_preserva_a_existente(client, usuario_admin, db_session):
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
     oid = _os_com_modelo(client, db_session, h, tipos=("C",), tipo_servico="C")
     client.post(f"/ordens/{oid}/gerar-certificado", json={"calib_cert": "C1", "data_calibracao": "2026-01-15"}, headers=h)
     r = client.post(f"/ordens/{oid}/gerar-certificado", json={"calib_cert": "C2"}, headers=h)
@@ -164,7 +164,7 @@ def test_regerar_sem_data_preserva_a_existente(client, usuario_admin, db_session
 
 
 def test_certificado_campos_deriva_e_aplica_override(client, usuario_admin, db_session):
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
     oid = _os_com_modelo(client, db_session, h, tipos=("C",), tipo_servico="C")
     r = client.get(f"/ordens/{oid}/certificado-campos", headers=h)
     assert r.status_code == 200
@@ -177,7 +177,7 @@ def test_certificado_campos_deriva_e_aplica_override(client, usuario_admin, db_s
 
 
 def test_gerar_grava_overrides_sem_alterar_cliente(client, usuario_admin, db_session):
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
     oid = _os_com_modelo(client, db_session, h, tipos=("C",), tipo_servico="C")
     r = client.post(f"/ordens/{oid}/gerar-certificado", json={"nomecli": "OUTRO NOME", "cnpj": "123"}, headers=h)
     assert r.status_code == 200
@@ -190,5 +190,5 @@ def test_gerar_grava_overrides_sem_alterar_cliente(client, usuario_admin, db_ses
 
 
 def test_certificado_campos_404(client, usuario_admin):
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
     assert client.get("/ordens/99999/certificado-campos", headers=h).status_code == 404

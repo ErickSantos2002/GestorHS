@@ -3,7 +3,7 @@ from typing import Optional
 
 
 class LoginRequest(BaseModel):
-    login: str
+    email: str
     senha: str
 
 
@@ -20,8 +20,7 @@ class RefreshRequest(BaseModel):
 class UsuarioOut(BaseModel):
     id: int
     nome: Optional[str]
-    login: str
-    email: Optional[str]
+    email: str
     funcao_id: Optional[int]
     funcao: Optional[str] = None
 
@@ -47,7 +46,7 @@ class LoginOut(BaseModel):
 
 
 class DefinirSenhaIn(BaseModel):
-    login: str
+    email: str
     senha_atual: str
     nova_senha: str = Field(min_length=8)
 

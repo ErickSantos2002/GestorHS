@@ -4,8 +4,8 @@ from app.core.config import settings
 from app.integrations import taskhs_client
 
 
-def _headers(client, login, senha):
-    tok = client.post("/auth/login", json={"login": login, "senha": senha}).json()
+def _headers(client, email, senha):
+    tok = client.post("/auth/login", json={"email": email, "senha": senha}).json()
     return {"Authorization": f"Bearer {tok['access_token']}"}
 
 
@@ -20,7 +20,7 @@ def captura(monkeypatch):
 
 
 def test_abrir_agenda_card_recebido(client, usuario_comum, fases_seed, os_base, caixa_base, captura):
-    h = _headers(client, "comum", "senha123")
+    h = _headers(client, "comum@hs.com", "senha123")
     r = client.post("/ordens", json={
         "equipamento_cliente": os_base["equipamento_cliente"], "tipo_servico": "C",
         "caixa": caixa_base,
@@ -38,7 +38,7 @@ def test_abrir_sem_integracao_nao_agenda(client, usuario_comum, fases_seed, os_b
     monkeypatch.setattr(settings, "TASKHS_API_KEY", "")
     chamadas = []
     monkeypatch.setattr(taskhs_client, "enviar_card", lambda payload: chamadas.append(payload))
-    h = _headers(client, "comum", "senha123")
+    h = _headers(client, "comum@hs.com", "senha123")
     r = client.post("/ordens", json={
         "equipamento_cliente": os_base["equipamento_cliente"], "tipo_servico": "C",
         "caixa": caixa_base,
@@ -49,7 +49,7 @@ def test_abrir_sem_integracao_nao_agenda(client, usuario_comum, fases_seed, os_b
 
 def test_avancar_agenda_card_laboratorio(client, usuario_comum, fases_seed, os_base, caixa_base, captura):
     # avançar de Recebido(4)→Laboratório(5) exige a função da fase de origem = Expedição (usuario_comum)
-    h = _headers(client, "comum", "senha123")
+    h = _headers(client, "comum@hs.com", "senha123")
     oid = client.post("/ordens", json={
         "equipamento_cliente": os_base["equipamento_cliente"], "tipo_servico": "C",
         "caixa": caixa_base,
@@ -63,7 +63,7 @@ def test_avancar_agenda_card_laboratorio(client, usuario_comum, fases_seed, os_b
 
 
 def test_cancelar_agenda_card_arquivado_na_lista_de_origem(client, usuario_comum, fases_seed, os_base, caixa_base, captura):
-    h = _headers(client, "comum", "senha123")
+    h = _headers(client, "comum@hs.com", "senha123")
     oid = client.post("/ordens", json={
         "equipamento_cliente": os_base["equipamento_cliente"], "tipo_servico": "C",
         "caixa": caixa_base,
@@ -78,7 +78,7 @@ def test_cancelar_agenda_card_arquivado_na_lista_de_origem(client, usuario_comum
 
 
 def test_abrir_descricao_no_payload(client, usuario_comum, fases_seed, os_base, caixa_base, captura):
-    h = _headers(client, "comum", "senha123")
+    h = _headers(client, "comum@hs.com", "senha123")
     r = client.post("/ordens", json={
         "equipamento_cliente": os_base["equipamento_cliente"], "tipo_servico": "C",
         "caixa": caixa_base,
@@ -95,7 +95,7 @@ def test_descricao_inclui_link_certificado(client, usuario_comum, fases_seed,
     from app.core.config import settings
     from app.models import OSCertificado
     monkeypatch.setattr(settings, "CERT_PUBLIC_BASE_URL", "http://localhost:8001")
-    h = _headers(client, "comum", "senha123")
+    h = _headers(client, "comum@hs.com", "senha123")
     oid = client.post("/ordens", json={
         "equipamento_cliente": os_base["equipamento_cliente"], "tipo_servico": "C",
         "caixa": caixa_base,

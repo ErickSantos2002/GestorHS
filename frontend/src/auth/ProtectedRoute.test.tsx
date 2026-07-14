@@ -43,7 +43,7 @@ describe('ProtectedRoute', () => {
 
   it('com usuário renderiza o conteúdo', async () => {
     setTokens({ access_token: 'a', refresh_token: 'r' })
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ id: 1, nome: 'E', login: 'e', email: null, funcao_id: 1 })))
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ id: 1, nome: 'E', email: 'e@hs.com', funcao_id: 1 })))
     renderAt('/app')
     await waitFor(() => expect(screen.getByText('conteudo protegido')).toBeInTheDocument())
   })

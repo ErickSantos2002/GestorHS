@@ -15,7 +15,6 @@ interface Props {
 export function UsuarioFormModal({ funcoes, usuario, onClose, onSalvo }: Props) {
   const editando = usuario !== null
   const [nome, setNome] = useState(usuario?.nome ?? '')
-  const [login, setLogin] = useState(usuario?.login ?? '')
   const [email, setEmail] = useState(usuario?.email ?? '')
   const [senha, setSenha] = useState('')
   const [funcaoId, setFuncaoId] = useState(usuario?.funcao_id ? String(usuario.funcao_id) : '')
@@ -29,11 +28,11 @@ export function UsuarioFormModal({ funcoes, usuario, onClose, onSalvo }: Props) 
     try {
       const funcao_id = funcaoId ? Number(funcaoId) : null
       const nomeVal = nome.trim() || null
-      const emailVal = email.trim() || null
+      const emailVal = email.trim()
       if (usuario) {
-        await atualizarUsuario(usuario.id, { nome: nomeVal, email: emailVal, funcao_id, login })
+        await atualizarUsuario(usuario.id, { nome: nomeVal, email: emailVal, funcao_id })
       } else {
-        await criarUsuario({ nome: nomeVal, login, email: emailVal, senha, funcao_id })
+        await criarUsuario({ nome: nomeVal, email: emailVal, senha, funcao_id })
       }
       onSalvo()
     } catch (err) {
@@ -70,8 +69,7 @@ export function UsuarioFormModal({ funcoes, usuario, onClose, onSalvo }: Props) 
     >
       <form id="form-usuario" className="space-y-4" onSubmit={onSubmit}>
         <Input id="nome" label="Nome" value={nome} onChange={(e) => setNome(e.target.value)} />
-        <Input id="login" label="Login" value={login} onChange={(e) => setLogin(e.target.value)} required maxLength={20} />
-        <Input id="email" label="E-mail" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <Input id="email" label="E-mail" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
         {!editando && (
           <Input
             id="senha"

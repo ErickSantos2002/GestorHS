@@ -1,8 +1,8 @@
 import io
 
 
-def _headers(client, login, senha):
-    tok = client.post("/auth/login", json={"login": login, "senha": senha}).json()
+def _headers(client, email, senha):
+    tok = client.post("/auth/login", json={"email": email, "senha": senha}).json()
     return {"Authorization": f"Bearer {tok['access_token']}"}
 
 
@@ -14,7 +14,7 @@ def _png_bytes():
 
 
 def test_upload_listar_excluir(client, usuario_admin, upload_tmp):
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
     files = {"file": ("logo.png", io.BytesIO(_png_bytes()), "image/png")}
     r = client.post("/certificado-imagens", data={"nome": "Logo"}, files=files, headers=h)
     assert r.status_code == 201, r.text
@@ -27,7 +27,7 @@ def test_upload_listar_excluir(client, usuario_admin, upload_tmp):
 
 
 def test_serve_publico_sem_token(client, usuario_admin, upload_tmp):
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
     files = {"file": ("a.png", io.BytesIO(_png_bytes()), "image/png")}
     arquivo = client.post("/certificado-imagens", files=files, headers=h).json()["arquivo"]
     r = client.get(f"/certificado-imagens/arquivo/{arquivo}")  # SEM auth
@@ -41,6 +41,6 @@ def test_serve_path_traversal_bloqueado(client):
 
 
 def test_upload_exige_admin_ou_lab(client, usuario_admin, usuario_comercial, upload_tmp):
-    h = _headers(client, "comercial", "senha123")
+    h = _headers(client, "comercial@hs.com", "senha123")
     files = {"file": ("a.png", io.BytesIO(_png_bytes()), "image/png")}
     assert client.post("/certificado-imagens", files=files, headers=h).status_code == 403

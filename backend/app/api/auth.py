@@ -5,6 +5,7 @@ from jose import JWTError
 
 from app.models.database import get_db
 from app.models import Usuario, UsuarioCliente, Cliente
+from app.core import emails
 from app.core.security import (
     hash_senha,
     verificar_senha,
@@ -32,8 +33,10 @@ def _verificar_credenciais(registro, senha: str) -> None:
 
 @router.post("/login", response_model=LoginOut)
 def login(dados: LoginRequest, db: Session = Depends(get_db)):
-    usuario = db.query(Usuario).filter(Usuario.login == dados.login).first()
+    usuario = db.query(Usuario).filter(Usuario.email == emails.normalizar(dados.email)).first()
     _verificar_credenciais(usuario, dados.senha)
+    if not usuario.ativo:
+        raise HTTPException(status_code=403, detail="Usuário desativado. Fale com o administrador.")
     if usuario.precisa_redefinir_senha:
         return LoginOut(precisa_redefinir=True)
     return LoginOut(
@@ -96,6 +99,8 @@ def refresh(dados: RefreshRequest, db: Session = Depends(get_db)):
 
     if registro is None or registro.precisa_redefinir_senha:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh inválido")
+    if tipo == "usuario" and not registro.ativo:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh inválido")
 
     return Token(
         access_token=criar_access_token(sub=sub, tipo=tipo, cliente=cliente_claim),
@@ -119,7 +124,7 @@ def trocar_senha(
 
 @router.post("/definir-senha", response_model=Token)
 def definir_senha(dados: DefinirSenhaIn, db: Session = Depends(get_db)):
-    usuario = db.query(Usuario).filter(Usuario.login == dados.login).first()
+    usuario = db.query(Usuario).filter(Usuario.email == emails.normalizar(dados.email)).first()
     _verificar_credenciais(usuario, dados.senha_atual)
     if not usuario.precisa_redefinir_senha:
         raise HTTPException(status_code=400, detail="conta não requer redefinição")

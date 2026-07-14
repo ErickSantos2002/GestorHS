@@ -5,8 +5,7 @@ import { clearTokens, getTokens, setTokens, type Tokens } from '../lib/auth-stor
 export interface User {
   id: number
   nome: string | null
-  login: string
-  email: string | null
+  email: string
   funcao_id: number | null
   funcao: string | null
 }
@@ -24,9 +23,9 @@ interface LoginRespBody {
 interface AuthContextValue {
   user: User | null
   loading: boolean
-  login: (login: string, senha: string) => Promise<LoginResult>
+  login: (email: string, senha: string) => Promise<LoginResult>
   logout: () => void
-  definirSenha: (login: string, senhaAtual: string, novaSenha: string) => Promise<void>
+  definirSenha: (email: string, senhaAtual: string, novaSenha: string) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -63,8 +62,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  async function login(login: string, senha: string): Promise<LoginResult> {
-    const r = await apiJson<LoginRespBody>('/auth/login', { method: 'POST', body: JSON.stringify({ login, senha }) })
+  async function login(email: string, senha: string): Promise<LoginResult> {
+    const r = await apiJson<LoginRespBody>('/auth/login', { method: 'POST', body: JSON.stringify({ email, senha }) })
     if (r.precisa_redefinir) return { precisa_redefinir: true }
     setTokens({ access_token: r.access_token as string, refresh_token: r.refresh_token as string })
     const me = await apiJson<User>('/auth/me')
@@ -72,10 +71,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { precisa_redefinir: false }
   }
 
-  async function definirSenha(login: string, senhaAtual: string, novaSenha: string) {
+  async function definirSenha(email: string, senhaAtual: string, novaSenha: string) {
     const tokens = await apiJson<Tokens>('/auth/definir-senha', {
       method: 'POST',
-      body: JSON.stringify({ login, senha_atual: senhaAtual, nova_senha: novaSenha }),
+      body: JSON.stringify({ email, senha_atual: senhaAtual, nova_senha: novaSenha }),
     })
     setTokens(tokens)
     const me = await apiJson<User>('/auth/me')

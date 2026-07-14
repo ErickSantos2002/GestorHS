@@ -8,11 +8,11 @@ class Usuario(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     nome = Column(String(100), nullable=True)
-    login = Column(String(20), nullable=False, unique=True)
     senha = Column(Text, nullable=False)            # hash argon2
-    email = Column(String(200), nullable=True)
+    email = Column(String(200), nullable=False, unique=True)
     funcao_id = Column(Integer, ForeignKey("funcoes.id"), nullable=True)
     precisa_redefinir_senha = Column(Boolean, nullable=False, default=False)
+    ativo = Column(Boolean, nullable=False, default=True)
 
     funcao_rel = relationship("Funcao", lazy="joined")
 

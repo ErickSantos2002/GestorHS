@@ -1,5 +1,5 @@
-def _headers(client, login, senha):
-    tok = client.post("/auth/login", json={"login": login, "senha": senha}).json()
+def _headers(client, email, senha):
+    tok = client.post("/auth/login", json={"email": email, "senha": senha}).json()
     return {"Authorization": f"Bearer {tok['access_token']}"}
 
 
@@ -28,7 +28,7 @@ def _img():
 
 
 def test_upload_listar_servir_excluir(client, usuario_comum, upload_tmp, db_session):
-    h = _headers(client, "comum", "senha123")   # comum = Expedição (autorizado)
+    h = _headers(client, "comum@hs.com", "senha123")   # comum = Expedição (autorizado)
     os_id = _abrir_os(db_session)
 
     r = client.post(f"/ordens/{os_id}/fotos", files=_img(), data={"legenda": "frente"}, headers=h)
@@ -47,34 +47,34 @@ def test_upload_listar_servir_excluir(client, usuario_comum, upload_tmp, db_sess
 
 
 def test_upload_tipo_invalido(client, usuario_comum, upload_tmp, db_session):
-    h = _headers(client, "comum", "senha123")
+    h = _headers(client, "comum@hs.com", "senha123")
     os_id = _abrir_os(db_session)
     r = client.post(f"/ordens/{os_id}/fotos", files={"file": ("a.txt", b"x", "text/plain")}, headers=h)
     assert r.status_code == 415
 
 
 def test_upload_404_os(client, usuario_comum, upload_tmp, db_session):
-    h = _headers(client, "comum", "senha123")
+    h = _headers(client, "comum@hs.com", "senha123")
     assert client.post("/ordens/999999/fotos", files=_img(), headers=h).status_code == 404
 
 
 def test_upload_403_nao_autorizado(client, usuario_lab, upload_tmp, db_session):
-    h = _headers(client, "lab", "senha123")  # Laboratório não pode subir foto de recebimento
+    h = _headers(client, "lab@hs.com", "senha123")  # Laboratório não pode subir foto de recebimento
     os_id = _abrir_os(db_session)
     assert client.post(f"/ordens/{os_id}/fotos", files=_img(), headers=h).status_code == 403
 
 
 def test_excluir_403_nao_autorizado(client, usuario_comum, usuario_lab, upload_tmp, db_session):
     # cria a foto como Expedição (comum), tenta excluir como Laboratório (lab) -> 403
-    hcom = _headers(client, "comum", "senha123")
+    hcom = _headers(client, "comum@hs.com", "senha123")
     os_id = _abrir_os(db_session)
     foto = client.post(f"/ordens/{os_id}/fotos", files=_img(), headers=hcom).json()
-    hlab = _headers(client, "lab", "senha123")
+    hlab = _headers(client, "lab@hs.com", "senha123")
     assert client.delete(f"/fotos/{foto['id']}", headers=hlab).status_code == 403
 
 
 def test_upload_413_acima_do_limite(client, usuario_comum, upload_tmp, db_session):
-    h = _headers(client, "comum", "senha123")
+    h = _headers(client, "comum@hs.com", "senha123")
     os_id = _abrir_os(db_session)
     grande = b"x" * (10 * 1024 * 1024 + 1)
     r = client.post(f"/ordens/{os_id}/fotos", files={"file": ("g.jpg", grande, "image/jpeg")}, headers=h)
@@ -82,7 +82,7 @@ def test_upload_413_acima_do_limite(client, usuario_comum, upload_tmp, db_sessio
 
 
 def test_baixar_foto_de_outra_os_404(client, usuario_comum, upload_tmp, db_session):
-    h = _headers(client, "comum", "senha123")
+    h = _headers(client, "comum@hs.com", "senha123")
     os_a = _abrir_os(db_session)
     os_b = _abrir_os(db_session)
     foto = client.post(f"/ordens/{os_a}/fotos", files=_img(), headers=h).json()
@@ -91,7 +91,7 @@ def test_baixar_foto_de_outra_os_404(client, usuario_comum, upload_tmp, db_sessi
 
 
 def test_baixar_foto_exige_auth(client, usuario_comum, upload_tmp, db_session):
-    h = _headers(client, "comum", "senha123")
+    h = _headers(client, "comum@hs.com", "senha123")
     os_id = _abrir_os(db_session)
     foto = client.post(f"/ordens/{os_id}/fotos", files=_img(), headers=h).json()
     # sem header de autorização -> 401

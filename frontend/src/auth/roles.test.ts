@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { isAdmin, podeAbrirOS, podeRegistrarContato, podeAtenderSolicitacao } from './roles'
 import { type User } from './AuthContext'
 
-const admin: User = { id: 1, nome: null, login: 'a', email: null, funcao_id: 1, funcao: 'Administrador' }
-const comum: User = { id: 2, nome: null, login: 'b', email: null, funcao_id: 2, funcao: 'Expedição' }
+const admin: User = { id: 1, nome: null, email: 'a@hs.com', funcao_id: 1, funcao: 'Administrador' }
+const comum: User = { id: 2, nome: null, email: 'b@hs.com', funcao_id: 2, funcao: 'Expedição' }
 
 describe('isAdmin', () => {
   it('true para Administrador', () => expect(isAdmin(admin)).toBe(true))
@@ -12,7 +12,7 @@ describe('isAdmin', () => {
 })
 
 function u(funcao: string | null): User {
-  return { id: 1, nome: 'x', login: 'x', funcao } as User
+  return { id: 1, nome: 'x', email: 'x@hs.com', funcao } as User
 }
 
 describe('auth/roles — podeAbrirOS', () => {

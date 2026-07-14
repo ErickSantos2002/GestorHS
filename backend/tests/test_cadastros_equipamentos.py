@@ -1,10 +1,10 @@
-def _headers(client, login, senha):
-    tok = client.post("/auth/login", json={"login": login, "senha": senha}).json()
+def _headers(client, email, senha):
+    tok = client.post("/auth/login", json={"email": email, "senha": senha}).json()
     return {"Authorization": f"Bearer {tok['access_token']}"}
 
 
 def test_equipamentos_read_interno_write_admin(client, usuario_admin, usuario_comum):
-    h_comum = _headers(client, "comum", "senha123")
+    h_comum = _headers(client, "comum@hs.com", "senha123")
     assert client.get("/equipamentos", headers=h_comum).status_code == 200
     assert client.post("/equipamentos", json={"descricao": "X"}, headers=h_comum).status_code == 403
     assert client.patch("/equipamentos/1", json={"descricao": "X"}, headers=h_comum).status_code == 403
@@ -17,7 +17,7 @@ def test_equipamento_crud_com_fks(client, usuario_admin, db_session):
     c = Categoria(descricao="Bafômetros", posicao=0)
     db_session.add_all([m, c])
     db_session.commit()
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
     corpo = {"descricao": "Alcotest 6820", "categoria": c.id, "marca": m.id, "preco_por": 1500.50, "estoque": 3, "ativo": True}
     criado = client.post("/equipamentos", json=corpo, headers=h)
     assert criado.status_code == 201
@@ -36,7 +36,7 @@ def test_excluir_marca_em_uso_409(client, usuario_admin, db_session):
     db_session.flush()
     db_session.add(Equipamento(descricao="Eq", marca=m.id))
     db_session.commit()
-    r = client.delete(f"/marcas/{m.id}", headers=_headers(client, "admin", "senha123"))
+    r = client.delete(f"/marcas/{m.id}", headers=_headers(client, "admin@hs.com", "senha123"))
     assert r.status_code == 409
 
 
@@ -47,5 +47,5 @@ def test_excluir_categoria_em_uso_409(client, usuario_admin, db_session):
     db_session.flush()
     db_session.add(Equipamento(descricao="Eq", categoria=c.id))
     db_session.commit()
-    r = client.delete(f"/categorias/{c.id}", headers=_headers(client, "admin", "senha123"))
+    r = client.delete(f"/categorias/{c.id}", headers=_headers(client, "admin@hs.com", "senha123"))
     assert r.status_code == 409

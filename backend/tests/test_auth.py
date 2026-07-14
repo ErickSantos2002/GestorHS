@@ -1,5 +1,5 @@
 def test_login_sucesso_retorna_tokens(client, usuario_admin):
-    r = client.post("/auth/login", json={"login": "admin", "senha": "senha123"})
+    r = client.post("/auth/login", json={"email": "admin@hs.com", "senha": "senha123"})
     assert r.status_code == 200
     corpo = r.json()
     assert corpo["token_type"] == "bearer"
@@ -7,24 +7,37 @@ def test_login_sucesso_retorna_tokens(client, usuario_admin):
     assert corpo["refresh_token"]
 
 
+def test_login_com_email(client, usuario_admin):
+    r = client.post("/auth/login", json={"email": "admin@hs.com", "senha": "senha123"})
+    assert r.status_code == 200 and r.json()["access_token"]
+
+
+def test_login_email_case_insensitive_e_com_espacos(client, usuario_admin):
+    r = client.post("/auth/login", json={"email": "  Admin@HS.com ", "senha": "senha123"})
+    assert r.status_code == 200 and r.json()["access_token"]
+
+
+def test_login_email_inexistente_401(client, usuario_admin):
+    assert client.post("/auth/login", json={"email": "naoexiste@hs.com", "senha": "senha123"}).status_code == 401
+
+
 def test_login_senha_errada_401(client, usuario_admin):
-    r = client.post("/auth/login", json={"login": "admin", "senha": "errada"})
-    assert r.status_code == 401
+    assert client.post("/auth/login", json={"email": "admin@hs.com", "senha": "errada99"}).status_code == 401
 
 
 def test_login_legado_hash_vazio_401(client, db_session):
     from app.models import Usuario
-    db_session.add(Usuario(nome="Velho", login="velho", senha="", precisa_redefinir_senha=True))
+    db_session.add(Usuario(nome="Velho", email="velho@hs.com", senha="", precisa_redefinir_senha=True))
     db_session.commit()
-    r = client.post("/auth/login", json={"login": "velho", "senha": "qualquer"})
+    r = client.post("/auth/login", json={"email": "velho@hs.com", "senha": "qualquer"})
     assert r.status_code == 401
 
 
 def test_me_com_token(client, usuario_admin):
-    tokens = client.post("/auth/login", json={"login": "admin", "senha": "senha123"}).json()
+    tokens = client.post("/auth/login", json={"email": "admin@hs.com", "senha": "senha123"}).json()
     r = client.get("/auth/me", headers={"Authorization": f"Bearer {tokens['access_token']}"})
     assert r.status_code == 200
-    assert r.json()["login"] == "admin"
+    assert r.json()["email"] == "admin@hs.com"
 
 
 def test_me_sem_token_401(client):
@@ -33,7 +46,7 @@ def test_me_sem_token_401(client):
 
 
 def test_refresh_gera_novo_access(client, usuario_admin):
-    tokens = client.post("/auth/login", json={"login": "admin", "senha": "senha123"}).json()
+    tokens = client.post("/auth/login", json={"email": "admin@hs.com", "senha": "senha123"}).json()
     r = client.post("/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
     assert r.status_code == 200
     assert r.json()["access_token"]
@@ -104,9 +117,9 @@ def test_login_portal_emite_claim_cliente_correto(client, cliente_portal):
 
 def test_refresh_apos_reset_e_negado(client, usuario_admin, db_session):
     from app.models import Usuario
-    tokens = client.post("/auth/login", json={"login": "admin", "senha": "senha123"}).json()
+    tokens = client.post("/auth/login", json={"email": "admin@hs.com", "senha": "senha123"}).json()
     # força a redefinição de senha no usuário
-    u = db_session.query(Usuario).filter(Usuario.login == "admin").first()
+    u = db_session.query(Usuario).filter(Usuario.email == "admin@hs.com").first()
     u.precisa_redefinir_senha = True
     db_session.commit()
     r = client.post("/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
@@ -122,7 +135,7 @@ def test_refresh_de_usuario_inexistente_e_negado(client):
 
 
 def test_me_retorna_descricao_da_funcao(client, usuario_admin):
-    tokens = client.post("/auth/login", json={"login": "admin", "senha": "senha123"}).json()
+    tokens = client.post("/auth/login", json={"email": "admin@hs.com", "senha": "senha123"}).json()
     r = client.get("/auth/me", headers={"Authorization": f"Bearer {tokens['access_token']}"})
     assert r.status_code == 200
     assert r.json()["funcao"] == "Administrador"
@@ -131,9 +144,9 @@ def test_me_retorna_descricao_da_funcao(client, usuario_admin):
 def test_login_precisa_redefinir_sinaliza(client, db_session):
     from app.models import Usuario
     from app.core.security import hash_senha
-    db_session.add(Usuario(nome="Temp", login="temp", senha=hash_senha("provisoria1"), precisa_redefinir_senha=True))
+    db_session.add(Usuario(nome="Temp", email="temp@hs.com", senha=hash_senha("provisoria1"), precisa_redefinir_senha=True))
     db_session.commit()
-    r = client.post("/auth/login", json={"login": "temp", "senha": "provisoria1"})
+    r = client.post("/auth/login", json={"email": "temp@hs.com", "senha": "provisoria1"})
     assert r.status_code == 200
     body = r.json()
     assert body["precisa_redefinir"] is True
@@ -141,7 +154,7 @@ def test_login_precisa_redefinir_sinaliza(client, db_session):
 
 
 def test_login_normal_nao_pede_redefinir(client, usuario_admin):
-    r = client.post("/auth/login", json={"login": "admin", "senha": "senha123"})
+    r = client.post("/auth/login", json={"email": "admin@hs.com", "senha": "senha123"})
     assert r.status_code == 200
     body = r.json()
     assert body.get("precisa_redefinir") in (False, None)
@@ -162,26 +175,26 @@ def test_login_portal_precisa_redefinir(client, cliente_portal, db_session):
 def test_definir_senha_fluxo(client, db_session):
     from app.models import Usuario
     from app.core.security import hash_senha
-    db_session.add(Usuario(nome="Temp", login="temp2", senha=hash_senha("provisoria1"), precisa_redefinir_senha=True))
+    db_session.add(Usuario(nome="Temp", email="temp2@hs.com", senha=hash_senha("provisoria1"), precisa_redefinir_senha=True))
     db_session.commit()
-    r = client.post("/auth/definir-senha", json={"login": "temp2", "senha_atual": "provisoria1", "nova_senha": "novasenha123"})
+    r = client.post("/auth/definir-senha", json={"email": "temp2@hs.com", "senha_atual": "provisoria1", "nova_senha": "novasenha123"})
     assert r.status_code == 200 and r.json()["access_token"]
     # login normal com a nova senha funciona e não pede redefinir
-    r2 = client.post("/auth/login", json={"login": "temp2", "senha": "novasenha123"})
+    r2 = client.post("/auth/login", json={"email": "temp2@hs.com", "senha": "novasenha123"})
     assert r2.status_code == 200 and r2.json()["access_token"] and not r2.json().get("precisa_redefinir")
 
 
 def test_definir_senha_atual_errada_401(client, db_session):
     from app.models import Usuario
     from app.core.security import hash_senha
-    db_session.add(Usuario(nome="Temp", login="temp3", senha=hash_senha("provisoria1"), precisa_redefinir_senha=True))
+    db_session.add(Usuario(nome="Temp", email="temp3@hs.com", senha=hash_senha("provisoria1"), precisa_redefinir_senha=True))
     db_session.commit()
-    r = client.post("/auth/definir-senha", json={"login": "temp3", "senha_atual": "errada", "nova_senha": "novasenha123"})
+    r = client.post("/auth/definir-senha", json={"email": "temp3@hs.com", "senha_atual": "errada", "nova_senha": "novasenha123"})
     assert r.status_code == 401
 
 
 def test_definir_senha_conta_sem_flag_400(client, usuario_admin):
-    r = client.post("/auth/definir-senha", json={"login": "admin", "senha_atual": "senha123", "nova_senha": "novasenha123"})
+    r = client.post("/auth/definir-senha", json={"email": "admin@hs.com", "senha_atual": "senha123", "nova_senha": "novasenha123"})
     assert r.status_code == 400
 
 
@@ -196,3 +209,34 @@ def test_definir_senha_portal_fluxo(client, cliente_portal, db_session):
     assert r.status_code == 200 and r.json()["access_token"]
     r2 = client.post("/auth/login-portal", json={"documento": "11222333000144", "login": "cliente1", "senha": "novasenha123"})
     assert r2.status_code == 200 and r2.json()["access_token"] and not r2.json().get("precisa_redefinir")
+
+
+def test_login_usuario_desativado_403(client, usuario_admin, usuario_comum, db_session):
+    from app.models import Usuario
+    alvo = db_session.query(Usuario).filter(Usuario.email == "comum@hs.com").first()
+    alvo.ativo = False
+    db_session.commit()
+    r = client.post("/auth/login", json={"email": "comum@hs.com", "senha": "senha123"})
+    assert r.status_code == 403
+    assert "desativado" in r.json()["detail"].lower()
+
+
+def test_token_de_usuario_desativado_401(client, usuario_admin, usuario_comum, db_session):
+    from app.models import Usuario
+    tok = client.post("/auth/login", json={"email": "comum@hs.com", "senha": "senha123"}).json()
+    h = {"Authorization": f"Bearer {tok['access_token']}"}
+    assert client.get("/auth/me", headers=h).status_code == 200
+    alvo = db_session.query(Usuario).filter(Usuario.email == "comum@hs.com").first()
+    alvo.ativo = False
+    db_session.commit()
+    assert client.get("/auth/me", headers=h).status_code == 401
+
+
+def test_refresh_de_usuario_desativado_401(client, usuario_admin, usuario_comum, db_session):
+    from app.models import Usuario
+    tok = client.post("/auth/login", json={"email": "comum@hs.com", "senha": "senha123"}).json()
+    alvo = db_session.query(Usuario).filter(Usuario.email == "comum@hs.com").first()
+    alvo.ativo = False
+    db_session.commit()
+    r = client.post("/auth/refresh", json={"refresh_token": tok["refresh_token"]})
+    assert r.status_code == 401

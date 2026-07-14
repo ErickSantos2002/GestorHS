@@ -1,8 +1,8 @@
 from datetime import date, timedelta
 
 
-def _headers(client, login, senha):
-    tok = client.post("/auth/login", json={"login": login, "senha": senha}).json()
+def _headers(client, email, senha):
+    tok = client.post("/auth/login", json={"email": email, "senha": senha}).json()
     return {"Authorization": f"Bearer {tok['access_token']}"}
 
 
@@ -16,7 +16,7 @@ def _base(db_session):
 
 
 def test_frota_read_liberada_a_interno(client, usuario_comum):
-    r = client.get("/equipamentos-cliente", headers=_headers(client, "comum", "senha123"))
+    r = client.get("/equipamentos-cliente", headers=_headers(client, "comum@hs.com", "senha123"))
     assert r.status_code == 200
     assert r.json() == {"items": [], "total": 0}
 
@@ -32,7 +32,7 @@ def test_frota_filtro_por_status(client, usuario_admin, db_session):
         EquipamentoCliente(cliente=cid, equipamento=eid, serie="SEMD", prox_calibragem=None),
     ])
     db_session.commit()
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
     assert client.get("/equipamentos-cliente", headers=h).json()["total"] == 4
     assert client.get("/equipamentos-cliente?status=vencido", headers=h).json()["total"] == 1
     assert client.get("/equipamentos-cliente?status=vencendo", headers=h).json()["total"] == 1
@@ -52,7 +52,7 @@ def test_frota_filtro_cliente_e_busca(client, usuario_admin, db_session):
         EquipamentoCliente(cliente=outro.id, equipamento=eid, serie="BBB222", patrimonio="P2"),
     ])
     db_session.commit()
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
     assert client.get(f"/equipamentos-cliente?cliente={cid}", headers=h).json()["total"] == 1
     assert client.get("/equipamentos-cliente?q=BBB", headers=h).json()["total"] == 1
     item = client.get(f"/equipamentos-cliente?cliente={cid}", headers=h).json()["items"][0]
@@ -66,7 +66,7 @@ def test_frota_detalhe_e_404(client, usuario_admin, db_session):
     ec = EquipamentoCliente(cliente=cid, equipamento=eid, serie="X1", calib_cert="CERT-1")
     db_session.add(ec)
     db_session.commit()
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
     d = client.get(f"/equipamentos-cliente/{ec.id}", headers=h)
     assert d.status_code == 200
     assert d.json()["calib_cert"] == "CERT-1"
@@ -81,7 +81,7 @@ def test_frota_historico(client, usuario_admin, db_session):
     db_session.flush()
     db_session.add(HistoricoEquipamento(equipamento_cliente=ec.id, datamov=date.today(), saida=1, entrada=2))
     db_session.commit()
-    h = _headers(client, "admin", "senha123")
+    h = _headers(client, "admin@hs.com", "senha123")
     hist = client.get(f"/equipamentos-cliente/{ec.id}/historico", headers=h).json()
     assert len(hist) == 1 and hist[0]["saida"] == 1
     assert client.get("/equipamentos-cliente/99999/historico", headers=h).status_code == 404

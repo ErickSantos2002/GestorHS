@@ -10,7 +10,7 @@ import logo from '../../assets/logo.png'
 export function LoginPage() {
   const { login, definirSenha, user, loading } = useAuth()
   const navigate = useNavigate()
-  const [usuario, setUsuario] = useState('')
+  const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [etapa, setEtapa] = useState<'login' | 'definir'>('login')
   const [novaSenha, setNovaSenha] = useState('')
@@ -27,7 +27,7 @@ export function LoginPage() {
     e.preventDefault()
     setErro(''); setEnviando(true)
     try {
-      const r = await login(usuario, senha)
+      const r = await login(email, senha)
       if (r.precisa_redefinir) { setNovaSenha(''); setConfirma(''); setEtapa('definir') }
       else navigate('/app', { replace: true })
     } catch (err) {
@@ -42,7 +42,7 @@ export function LoginPage() {
     if (novaSenha !== confirma) { setErro('As senhas não conferem.'); return }
     setEnviando(true)
     try {
-      await definirSenha(usuario, senha, novaSenha)
+      await definirSenha(email, senha, novaSenha)
       navigate('/app', { replace: true })
     } catch (err) {
       setErro(err instanceof ApiError ? err.message : 'Falha ao definir a senha.')
@@ -60,7 +60,7 @@ export function LoginPage() {
         <div className="rounded-2xl bg-background-surface border border-border shadow-sm p-6">
           {etapa === 'login' ? (
             <form className="space-y-4" onSubmit={onLogin}>
-              <Input id="login" label="Usuário" value={usuario} onChange={(e) => setUsuario(e.target.value)} autoComplete="username" autoFocus />
+              <Input id="email" label="E-mail" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" autoFocus />
               <Input id="senha" label="Senha" type="password" value={senha} onChange={(e) => setSenha(e.target.value)} autoComplete="current-password" />
               {erro && (
                 <div className="flex items-center gap-2 rounded-lg bg-danger/10 border border-danger/20 px-3 py-2.5 text-sm text-danger">

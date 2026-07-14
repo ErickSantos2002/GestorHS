@@ -51,8 +51,8 @@ def test_minhas_solicitacoes_sem_token_401(client):
     assert client.get("/portal/minhas-solicitacoes").status_code == 401
 
 
-def _hdr(client, login, senha):
-    tok = client.post("/auth/login", json={"login": login, "senha": senha}).json()
+def _hdr(client, email, senha):
+    tok = client.post("/auth/login", json={"email": email, "senha": senha}).json()
     return {"Authorization": f"Bearer {tok['access_token']}"}
 
 
@@ -70,7 +70,7 @@ def _solic(db_session, cliente_portal):
 
 def test_listar_solicitacoes_interno(client, usuario_comum, cliente_portal, db_session):
     _solic(db_session, cliente_portal)
-    r = client.get("/solicitacoes", headers=_hdr(client, "comum", "senha123"))
+    r = client.get("/solicitacoes", headers=_hdr(client, "comum@hs.com", "senha123"))
     assert r.status_code == 200
     assert r.json()["total"] == 1
     assert r.json()["items"][0]["cliente_nome"] == "Cliente Teste"
@@ -78,7 +78,7 @@ def test_listar_solicitacoes_interno(client, usuario_comum, cliente_portal, db_s
 
 def test_atender_comercial(client, usuario_comercial, cliente_portal, db_session):
     s = _solic(db_session, cliente_portal)
-    r = client.post(f"/solicitacoes/{s.id}/atender", headers=_hdr(client, "comercial", "senha123"))
+    r = client.post(f"/solicitacoes/{s.id}/atender", headers=_hdr(client, "comercial@hs.com", "senha123"))
     assert r.status_code == 200
     assert r.json()["status"] == "atendida"
     assert r.json()["atendido_por_nome"] is not None
@@ -86,20 +86,20 @@ def test_atender_comercial(client, usuario_comercial, cliente_portal, db_session
 
 def test_atender_admin(client, usuario_admin, cliente_portal, db_session):
     s = _solic(db_session, cliente_portal)
-    assert client.post(f"/solicitacoes/{s.id}/atender", headers=_hdr(client, "admin", "senha123")).json()["status"] == "atendida"
+    assert client.post(f"/solicitacoes/{s.id}/atender", headers=_hdr(client, "admin@hs.com", "senha123")).json()["status"] == "atendida"
 
 
 def test_atender_403(client, usuario_lab, cliente_portal, db_session):
     s = _solic(db_session, cliente_portal)
-    assert client.post(f"/solicitacoes/{s.id}/atender", headers=_hdr(client, "lab", "senha123")).status_code == 403
+    assert client.post(f"/solicitacoes/{s.id}/atender", headers=_hdr(client, "lab@hs.com", "senha123")).status_code == 403
 
 
 def test_reatender_409(client, usuario_comercial, cliente_portal, db_session):
     s = _solic(db_session, cliente_portal)
-    h = _hdr(client, "comercial", "senha123")
+    h = _hdr(client, "comercial@hs.com", "senha123")
     client.post(f"/solicitacoes/{s.id}/atender", headers=h)
     assert client.post(f"/solicitacoes/{s.id}/atender", headers=h).status_code == 409
 
 
 def test_atender_404(client, usuario_comercial, db_session):
-    assert client.post("/solicitacoes/99999/atender", headers=_hdr(client, "comercial", "senha123")).status_code == 404
+    assert client.post("/solicitacoes/99999/atender", headers=_hdr(client, "comercial@hs.com", "senha123")).status_code == 404
