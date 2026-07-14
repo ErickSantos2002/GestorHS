@@ -63,6 +63,61 @@ def _endereco(cli) -> str:
     return ", ".join(p for p in partes if p)
 
 
+def _montar_contexto(
+    *,
+    nomecli: str = "", cnpj: str = "", endcli: str = "",
+    modelo: str = "", marca: str = "", serie: str = "", patrimonio: str = "",
+    datacompra: str = "", os_num: str = "", calibcert: str = "",
+    proxcalibragem: str = "", tipocalibragem: str = "",
+    datacali: str = "", dataentr: str = "",
+    temp: str = "", pressao: str = "", t1: str = "", t2: str = "", t3: str = "",
+    media: str = "", situ: str = "",
+) -> dict[str, str]:
+    """Fonte UNICA do conjunto de chaves do certificado.
+
+    Usado pelo fluxo da OS (`montar_contexto`) e pelo avulso (`montar_contexto_avulso`).
+    Manter os dois caminhos aqui impede que um token novo entre em um e falte no outro —
+    e um token que falta no contexto sai LITERALMENTE escrito no PDF.
+    NAO inclui `pulapagina`: `preencher()` o trata fora do laco, sem escapar.
+    """
+    hoje = _fmt(date.today())
+    return {
+        "nomecli": nomecli,
+        "cnpj": cnpj,
+        "endcli": endcli,
+        "modelo": modelo,
+        "marca": marca,
+        "serie": serie,
+        "patrimonio": patrimonio,
+        "datacompra": datacompra,
+        "os": os_num,
+        "calibcert": calibcert,
+        "proxcalibragem": proxcalibragem,
+        "tipocalibragem": tipocalibragem,
+        "dataemissao": hoje,
+        # nomes legados (usados nos 12 modelos migrados)
+        "datacali": datacali,
+        "dataentr": dataentr,
+        "calibtemp": temp,
+        "calibpressao": pressao,
+        "calibteste1": t1,
+        "calibteste2": t2,
+        "calibteste3": t3,
+        "calibtestemedia": media,
+        "situcalib": situ,
+        # aliases amigáveis (para modelos novos)
+        "datacalibracao": datacali,
+        "temperatura": temp,
+        "pressao": pressao,
+        "teste1": t1,
+        "teste2": t2,
+        "teste3": t3,
+        "media": media,
+        "situacao": situ,
+        "datacli": hoje,
+    }
+
+
 def montar_contexto(db: Session, ordem) -> dict[str, str]:
     cli = ordem.cliente_rel
     ec = ordem.equipamento_rel  # EquipamentoCliente
@@ -78,54 +133,62 @@ def montar_contexto(db: Session, ordem) -> dict[str, str]:
     if ordem.tipo_calibragem:
         tc = db.get(TipoCalibragem, ordem.tipo_calibragem)
         tipocal = (tc.descricao if tc else "") or ""
-    hoje = _fmt(date.today())
-    datacalib = _fmt(ordem.data_calibracao)
-    temp = ordem.calib_temp or ""
-    pressao = ordem.calib_pressao or ""
-    t1 = ordem.calib_teste1 or ""
-    t2 = ordem.calib_teste2 or ""
-    t3 = ordem.calib_teste3 or ""
-    media = ordem.calib_teste_media or ""
-    situ = ordem.calib_situacao or ""
-    ctx = {
-        "nomecli": (cli.nome if cli else "") or "",
-        "cnpj": ((cli.cgc or cli.cpf) if cli else "") or "",
-        "endcli": _endereco(cli),
-        "modelo": modelo,
-        "marca": marca,
-        "serie": (ec.serie if ec else "") or "",
-        "patrimonio": (ec.patrimonio if ec else "") or "",
-        "datacompra": _fmt(ec.datacompra) if ec else "",
-        "os": str(ordem.id),
-        "calibcert": ordem.calib_cert or "",
-        "proxcalibragem": _fmt(ordem.prox_calibragem),
-        "tipocalibragem": tipocal,
-        "dataemissao": hoje,
-        # nomes legados (usados nos 12 modelos migrados)
-        "datacali": datacalib,
-        "dataentr": _fmt(ordem.data_chegada),
-        "calibtemp": temp,
-        "calibpressao": pressao,
-        "calibteste1": t1,
-        "calibteste2": t2,
-        "calibteste3": t3,
-        "calibtestemedia": media,
-        "situcalib": situ,
-        # aliases amigáveis (para modelos novos)
-        "datacalibracao": datacalib,
-        "temperatura": temp,
-        "pressao": pressao,
-        "teste1": t1,
-        "teste2": t2,
-        "teste3": t3,
-        "media": media,
-        "situacao": situ,
-        "datacli": hoje,
-    }
+    ctx = _montar_contexto(
+        nomecli=(cli.nome if cli else "") or "",
+        cnpj=((cli.cgc or cli.cpf) if cli else "") or "",
+        endcli=_endereco(cli),
+        modelo=modelo,
+        marca=marca,
+        serie=(ec.serie if ec else "") or "",
+        patrimonio=(ec.patrimonio if ec else "") or "",
+        datacompra=_fmt(ec.datacompra) if ec else "",
+        os_num=str(ordem.id),
+        calibcert=ordem.calib_cert or "",
+        proxcalibragem=_fmt(ordem.prox_calibragem),
+        tipocalibragem=tipocal,
+        datacali=_fmt(ordem.data_calibracao),
+        dataentr=_fmt(ordem.data_chegada),
+        temp=ordem.calib_temp or "",
+        pressao=ordem.calib_pressao or "",
+        t1=ordem.calib_teste1 or "",
+        t2=ordem.calib_teste2 or "",
+        t3=ordem.calib_teste3 or "",
+        media=ordem.calib_teste_media or "",
+        situ=ordem.calib_situacao or "",
+    )
     for chave, valor in (ordem.cert_overrides or {}).items():
         if valor:
             ctx[chave] = valor
     return ctx
+
+
+def montar_contexto_avulso(valores: dict) -> dict[str, str]:
+    """Contexto de um certificado sem OS (aparelho de POC): os valores sao DIGITADOS.
+
+    Delega ao mesmo `_montar_contexto` do fluxo da OS — e por isso emite exatamente o
+    mesmo conjunto de chaves, sem risco de um token vazar como [token] no PDF.
+    """
+    return _montar_contexto(
+        nomecli=valores.get("nomecli") or "",
+        cnpj=valores.get("cnpj") or "",
+        endcli=valores.get("endcli") or "",
+        modelo=valores.get("modelo") or "",
+        marca=valores.get("marca") or "",
+        serie=valores.get("serie") or "",
+        patrimonio=valores.get("patrimonio") or "",
+        datacompra=_fmt(valores.get("datacompra")),
+        os_num=valores.get("os") or "",
+        calibcert=valores.get("calib_cert") or "",
+        datacali=_fmt(valores.get("data_calibracao")),
+        dataentr=_fmt(valores.get("data_recebimento")),
+        temp=valores.get("calib_temp") or "",
+        pressao=valores.get("calib_pressao") or "",
+        t1=valores.get("calib_teste1") or "",
+        t2=valores.get("calib_teste2") or "",
+        t3=valores.get("calib_teste3") or "",
+        media=valores.get("calib_teste_media") or "",
+        situ=valores.get("calib_situacao") or "",
+    )
 
 
 def preencher(html: str, contexto: dict[str, str]) -> str:
