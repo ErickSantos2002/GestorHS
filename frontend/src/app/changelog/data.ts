@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.15.1',
+    data: '15/07/2026',
+    itens: [
+      { tipo: 'correcao', texto: 'A média dos 3 testes no certificado agora acompanha a precisão dos testes: usa até 3 casas decimais e não mostra zeros à direita (ex.: 0,186 / 0,183 / 0,183 → 0,184; 0,18 / 0,18 / 0,18 → 0,18). Antes a média era sempre cortada em 2 casas (0,18).' },
+    ],
+  },
+  {
     versao: '1.15.0',
     data: '15/07/2026',
     itens: [

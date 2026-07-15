@@ -4,15 +4,8 @@ import { Input } from '../../components/ui/Input'
 import { Select } from '../../components/ui/Select'
 import { Spinner } from '../../components/ui/Spinner'
 import { ApiError } from '../../lib/api'
+import { mediaTestes } from '../../lib/calibragem'
 import { certificadosApi, type ModeloItem, type AvulsoPayload } from './api'
-
-function calcMedia(t1: string, t2: string, t3: string): string {
-  const vals = [t1, t2, t3]
-  if (vals.some((v) => v.trim() === '')) return ''
-  const nums = vals.map((v) => Number(v.replace(',', '.')))
-  if (nums.some((n) => Number.isNaN(n))) return ''
-  return ((nums[0] + nums[1] + nums[2]) / 3).toFixed(2).replace('.', ',')
-}
 
 function hojeISO(): string {
   return new Date().toISOString().slice(0, 10)
@@ -58,7 +51,7 @@ export function CertificadoAvulsoModal({ onClose, onGerado }: {
   useEffect(() => {
     if (mediaEditada) return
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMedia(calcMedia(t1, t2, t3))
+    setMedia(mediaTestes(t1, t2, t3))
   }, [t1, t2, t3, mediaEditada])
 
   async function submeter(e: FormEvent) {
