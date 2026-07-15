@@ -76,7 +76,7 @@ export function SolicitacoesPage() {
                   <TD>{s.atendido_por_nome ?? '—'}</TD>
                   <TD>
                     <div className="flex gap-3">
-                      <button onClick={() => navigate(`/app/equipamentos?cliente=${s.cliente}`)} className="text-xs text-primary hover:underline">Ver equipamentos</button>
+                      <button onClick={() => navigate(`/app/clientes/${s.cliente}/equipamentos`)} className="text-xs text-primary hover:underline">Ver equipamentos</button>
                       {podeAtender && s.status === 'pendente' && (
                         <button onClick={() => atender(s)} className="text-xs text-primary hover:underline">Marcar como atendida</button>
                       )}

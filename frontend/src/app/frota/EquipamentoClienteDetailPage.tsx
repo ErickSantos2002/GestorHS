@@ -30,15 +30,17 @@ function Secao({ titulo, children }: { titulo: string; children: ReactNode }) {
   )
 }
 
-export function EquipamentoClienteDetailPage() {
-  const { id } = useParams()
+export function EquipamentoClienteDetailPage({ embutido = false }: { embutido?: boolean } = {}) {
+  const params = useParams()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const { user } = useAuth()
-  const editando = id !== undefined
+  const aparelhoId = embutido ? params.aparelho : params.id
+  const editando = aparelhoId !== undefined
   const podeEditar = isAdmin(user)
   const clienteParam = searchParams.get('cliente')
-  const clienteId = clienteParam ? Number(clienteParam) : 0
+  const clienteId = embutido ? Number(params.id) : (clienteParam ? Number(clienteParam) : 0)
+  const voltarBase = embutido ? `/app/clientes/${clienteId}/equipamentos` : '/app/equipamentos'
 
   const [form, setForm] = useState<EquipamentoClientePayload>({ ...VAZIO, cliente: clienteId })
   const [obj, setObj] = useState<EquipamentoCliente | null>(null)
@@ -63,7 +65,7 @@ export function EquipamentoClienteDetailPage() {
     if (!editando) return
     let ativo = true
     equipamentosClienteApi
-      .obter(Number(id))
+      .obter(Number(aparelhoId))
       .then((e) => {
         if (!ativo) return
         setObj(e)
@@ -79,14 +81,14 @@ export function EquipamentoClienteDetailPage() {
       .finally(() => {
         if (ativo) setCarregando(false)
       })
-    void equipamentosClienteApi.historico(Number(id)).then((h) => { if (ativo) setHistorico(h) }).catch(() => {})
-    void equipamentosClienteApi.ordens(Number(id)).then((o) => { if (ativo) setOrdens(o) }).catch(() => {})
-    void equipamentosClienteApi.certificados(Number(id)).then((c) => { if (ativo) setCerts(c) }).catch(() => {})
-    void equipamentosClienteApi.transferencias(Number(id)).then((t) => { if (ativo) setTransferencias(t) }).catch(() => {})
+    void equipamentosClienteApi.historico(Number(aparelhoId)).then((h) => { if (ativo) setHistorico(h) }).catch(() => {})
+    void equipamentosClienteApi.ordens(Number(aparelhoId)).then((o) => { if (ativo) setOrdens(o) }).catch(() => {})
+    void equipamentosClienteApi.certificados(Number(aparelhoId)).then((c) => { if (ativo) setCerts(c) }).catch(() => {})
+    void equipamentosClienteApi.transferencias(Number(aparelhoId)).then((t) => { if (ativo) setTransferencias(t) }).catch(() => {})
     return () => {
       ativo = false
     }
-  }, [id, editando, recarga])
+  }, [aparelhoId, editando, recarga])
 
   function set<K extends keyof EquipamentoClientePayload>(chave: K, valor: EquipamentoClientePayload[K]) {
     setForm((f) => ({ ...f, [chave]: valor }))
@@ -98,11 +100,11 @@ export function EquipamentoClienteDetailPage() {
       if (editando) {
         const { cliente: _c, ...resto } = form
         void _c
-        const atualizado = await equipamentosClienteApi.atualizar(Number(id), resto)
+        const atualizado = await equipamentosClienteApi.atualizar(Number(aparelhoId), resto)
         setObj(atualizado)
       } else {
         const novo = await equipamentosClienteApi.criar(form)
-        navigate(`/app/equipamentos/${novo.id}`, { replace: true })
+        navigate(`${voltarBase}/${novo.id}`, { replace: true })
         return
       }
     } catch (err) {
@@ -126,8 +128,8 @@ export function EquipamentoClienteDetailPage() {
     if (!window.confirm('Excluir este aparelho?')) return
     setErro('')
     try {
-      await equipamentosClienteApi.excluir(Number(id))
-      navigate('/app/equipamentos', { replace: true })
+      await equipamentosClienteApi.excluir(Number(aparelhoId))
+      navigate(voltarBase, { replace: true })
     } catch (err) {
       setErro(err instanceof ApiError ? err.message : 'Falha ao excluir')
     }
@@ -141,7 +143,7 @@ export function EquipamentoClienteDetailPage() {
     return (
       <div className="px-4 md:px-6 py-6">
         <p className="text-sm text-slate-400">Abra a partir dos equipamentos de um cliente para cadastrar um aparelho.</p>
-        <Button variant="secondary" className="mt-3" onClick={() => navigate('/app/equipamentos')}>Ir para os Equipamentos</Button>
+        <Button variant="secondary" className="mt-3" onClick={() => navigate(voltarBase)}>Ir para os Equipamentos</Button>
       </div>
     )
   }
@@ -193,8 +195,14 @@ export function EquipamentoClienteDetailPage() {
     </>
   )
 
-  return (
-    <PageContainer>
+  const corpo = (
+    <>
+      {embutido && (
+        <p className="text-sm text-slate-400">
+          <Link to={voltarBase} className="hover:underline">Equipamentos</Link>
+          {' › '}{editando ? (obj?.equipamento_descricao || 'Aparelho') : 'Novo aparelho'}
+        </p>
+      )}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-extrabold text-slate-100">{editando ? (obj?.equipamento_descricao || 'Aparelho') : 'Novo aparelho'}</h1>
@@ -217,7 +225,7 @@ export function EquipamentoClienteDetailPage() {
             </Button>
           )}
           {editando && podeEditar && <Button variant="danger" onClick={excluir}>Excluir</Button>}
-          <Button variant="secondary" onClick={() => navigate('/app/equipamentos')}>Voltar</Button>
+          <Button variant="secondary" onClick={() => navigate(voltarBase)}>Voltar</Button>
         </div>
       </div>
 
@@ -342,6 +350,8 @@ export function EquipamentoClienteDetailPage() {
           onTransferida={() => { setTransferindo(false); setRecarga((n) => n + 1) }}
         />
       )}
-    </PageContainer>
+    </>
   )
+
+  return embutido ? corpo : <PageContainer>{corpo}</PageContainer>
 }

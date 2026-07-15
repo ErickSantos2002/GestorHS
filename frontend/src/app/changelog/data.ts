@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.15.0',
+    data: '15/07/2026',
+    itens: [
+      { tipo: 'melhoria', texto: 'A página de um cliente agora tem abas Dados e Equipamentos. Em "Equipamentos" você vê a lista de aparelhos daquele cliente e abre o detalhe de cada um sem sair da página, facilitando ir e voltar entre os dados do cliente e os equipamentos dele.' },
+    ],
+  },
+  {
     versao: '1.14.1',
     data: '14/07/2026',
     itens: [

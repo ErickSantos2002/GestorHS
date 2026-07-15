@@ -6,6 +6,9 @@ import { UsuariosPage } from './acesso/UsuariosPage'
 import { CadastrosPage } from './cadastros/CadastrosPage'
 import { ClientesPage } from './clientes/ClientesPage'
 import { ClienteDetailPage } from './clientes/ClienteDetailPage'
+import { ClienteLayout } from './clientes/ClienteLayout'
+import { ClienteDadosTab } from './clientes/ClienteDadosTab'
+import { ClienteEquipamentosTab } from './clientes/ClienteEquipamentosTab'
 import { FrotaPage } from './frota/FrotaPage'
 import { EquipamentoClienteDetailPage } from './frota/EquipamentoClienteDetailPage'
 import { OrdensPage } from './ordens/OrdensPage'
@@ -32,7 +35,12 @@ export default function AppRoutes() {
         <Route path="cadastros" element={<CadastrosPage />} />
         <Route path="clientes" element={<ClientesPage />} />
         <Route path="clientes/novo" element={<ClienteDetailPage />} />
-        <Route path="clientes/:id" element={<ClienteDetailPage />} />
+        <Route path="clientes/:id" element={<ClienteLayout />}>
+          <Route index element={<ClienteDadosTab />} />
+          <Route path="equipamentos" element={<ClienteEquipamentosTab />} />
+          <Route path="equipamentos/novo" element={<EquipamentoClienteDetailPage embutido />} />
+          <Route path="equipamentos/:aparelho" element={<EquipamentoClienteDetailPage embutido />} />
+        </Route>
         <Route path="equipamentos" element={<FrotaPage />} />
         <Route path="equipamentos/novo" element={<EquipamentoClienteDetailPage />} />
         <Route path="equipamentos/:id" element={<EquipamentoClienteDetailPage />} />
