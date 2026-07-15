@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { NavLink, Outlet, useNavigate, useOutletContext, useParams } from 'react-router-dom'
+import { NavLink, Outlet, useMatch, useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/Spinner'
 import { ApiError } from '../../lib/api'
@@ -21,6 +21,9 @@ export function ClienteLayout() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const matchNovo = useMatch('/app/clientes/:id/equipamentos/novo')
+  const matchDetalhe = useMatch('/app/clientes/:id/equipamentos/:aparelho')
+  const noDetalhe = !!(matchNovo || matchDetalhe)
   const [cliente, setCliente] = useState<Cliente | null>(null)
   const [erro, setErro] = useState('')
   const [recarga, setRecarga] = useState(0)
@@ -58,10 +61,12 @@ export function ClienteLayout() {
     <PageContainer>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-extrabold text-slate-100">{cliente.nome || 'Cliente'}</h1>
-        <div className="flex gap-2">
-          {isAdmin(user) && <Button variant="danger" onClick={excluir}>Excluir</Button>}
-          <Button variant="secondary" onClick={() => navigate('/app/clientes')}>Voltar</Button>
-        </div>
+        {!noDetalhe && (
+          <div className="flex gap-2">
+            {isAdmin(user) && <Button variant="danger" onClick={excluir}>Excluir</Button>}
+            <Button variant="secondary" onClick={() => navigate('/app/clientes')}>Voltar</Button>
+          </div>
+        )}
       </div>
 
       <div className="flex gap-2">

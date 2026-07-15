@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 
 vi.mock('../../auth/AuthContext', () => ({ useAuth: () => ({ user: { funcao: 'Administrador' } }) }))
@@ -44,7 +44,7 @@ describe('EquipamentoClienteDetailPage (embutido)', () => {
   it('"Voltar" leva para a aba de equipamentos do cliente', async () => {
     const { getByText } = tela()
     await screen.findByText('Bafômetro X')
-    getByText('Voltar').click()
+    fireEvent.click(getByText('Voltar'))
     expect(await screen.findByText('lista do cliente')).toBeInTheDocument()
   })
 })

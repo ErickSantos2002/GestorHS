@@ -195,8 +195,14 @@ export function EquipamentoClienteDetailPage({ embutido = false }: { embutido?: 
     </>
   )
 
-  return (
-    <PageContainer>
+  const corpo = (
+    <>
+      {embutido && (
+        <p className="text-sm text-slate-400">
+          <Link to={voltarBase} className="hover:underline">Equipamentos</Link>
+          {' › '}{editando ? (obj?.equipamento_descricao || 'Aparelho') : 'Novo aparelho'}
+        </p>
+      )}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-extrabold text-slate-100">{editando ? (obj?.equipamento_descricao || 'Aparelho') : 'Novo aparelho'}</h1>
@@ -344,6 +350,8 @@ export function EquipamentoClienteDetailPage({ embutido = false }: { embutido?: 
           onTransferida={() => { setTransferindo(false); setRecarga((n) => n + 1) }}
         />
       )}
-    </PageContainer>
+    </>
   )
+
+  return embutido ? corpo : <PageContainer>{corpo}</PageContainer>
 }
