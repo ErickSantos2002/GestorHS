@@ -38,6 +38,8 @@ export default function AppRoutes() {
         <Route path="clientes/:id" element={<ClienteLayout />}>
           <Route index element={<ClienteDadosTab />} />
           <Route path="equipamentos" element={<ClienteEquipamentosTab />} />
+          <Route path="equipamentos/novo" element={<EquipamentoClienteDetailPage embutido />} />
+          <Route path="equipamentos/:aparelho" element={<EquipamentoClienteDetailPage embutido />} />
         </Route>
         <Route path="equipamentos" element={<FrotaPage />} />
         <Route path="equipamentos/novo" element={<EquipamentoClienteDetailPage />} />
