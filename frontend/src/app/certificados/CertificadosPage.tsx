@@ -3,9 +3,10 @@ import { cn } from '../../lib/utils'
 import { ModelosTab } from './ModelosTab'
 import { ImagensTab } from './ImagensTab'
 import { AvulsosTab } from './AvulsosTab'
+import { CertificadosGeraisTab } from './CertificadosGeraisTab'
 import { PageContainer } from '../../components/ui/Page'
 
-const ABAS = ['Modelos', 'Imagens', 'Em branco'] as const
+const ABAS = ['Modelos', 'Imagens', 'Em branco', 'Gerais'] as const
 type Aba = (typeof ABAS)[number]
 
 export function CertificadosPage() {
@@ -25,7 +26,7 @@ export function CertificadosPage() {
           </button>
         ))}
       </div>
-      {aba === 'Modelos' ? <ModelosTab /> : aba === 'Imagens' ? <ImagensTab /> : <AvulsosTab />}
+      {aba === 'Modelos' ? <ModelosTab /> : aba === 'Imagens' ? <ImagensTab /> : aba === 'Em branco' ? <AvulsosTab /> : <CertificadosGeraisTab />}
     </PageContainer>
   )
 }
