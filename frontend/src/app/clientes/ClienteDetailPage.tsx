@@ -104,7 +104,6 @@ export function ClienteDetailPage() {
         <h1 className="text-2xl font-extrabold text-slate-100">{editando ? (form.nome || 'Cliente') : 'Novo cliente'}</h1>
         <div className="flex gap-2">
           {editando && podeEditar && <Button variant="danger" onClick={excluir}>Excluir</Button>}
-          {editando && <Button variant="secondary" onClick={() => navigate(`/app/equipamentos?cliente=${id}`)}>Equipamentos</Button>}
           <Button variant="secondary" onClick={() => navigate('/app/clientes')}>Voltar</Button>
         </div>
       </div>
