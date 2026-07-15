@@ -1,14 +1,13 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Button } from '../../components/ui/Button'
-import { Input } from '../../components/ui/Input'
-import { Select } from '../../components/ui/Select'
 import { Spinner } from '../../components/ui/Spinner'
 import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
 import { isAdmin } from '../../auth/roles'
 import { clientesApi, type ClientePayload } from './api'
 import { gruposApi, type Grupo } from '../cadastros/api'
+import { ClienteFormFields } from './ClienteFormFields'
 import { FuncionariosSection } from './FuncionariosSection'
 import { UsuariosPortalSection } from './UsuariosPortalSection'
 import { PageContainer, DetailGrid, DetailMain, DetailAside } from '../../components/ui/Page'
@@ -18,15 +17,6 @@ const VAZIO: ClientePayload = {
   bairro: null, municipio: null, estado: null, cep: null, contato: null, email: null, telefones: null,
   celular: null, whatsapp: null, whatsapp1: null, whatsapp2: null, insc_mun: null, insc_est: null,
   obs: null, ativo: true,
-}
-
-function Secao({ titulo, children }: { titulo: string; children: ReactNode }) {
-  return (
-    <div className="rounded-2xl bg-background-surface border border-border p-5 space-y-4">
-      <h2 className="text-sm font-semibold text-slate-100">{titulo}</h2>
-      {children}
-    </div>
-  )
 }
 
 export function ClienteDetailPage() {
@@ -108,69 +98,6 @@ export function ClienteDetailPage() {
     return <div className="flex justify-center py-16"><Spinner className="w-8 h-8" /></div>
   }
 
-  const ro = !podeEditar
-  const txt = (label: string, chave: keyof ClientePayload) => (
-    <Input
-      id={`c-${chave}`}
-      label={label}
-      value={(form[chave] as string | null) ?? ''}
-      onChange={(e) => set(chave, (e.target.value || null) as ClientePayload[typeof chave])}
-      disabled={ro}
-    />
-  )
-
-  const formConteudo = (
-    <>
-      <Secao titulo="Identificação">
-        <Input id="c-nome" label="Nome" value={form.nome} onChange={(e) => set('nome', e.target.value)} required disabled={ro} />
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Select id="c-grupo" label="Grupo" value={form.grupo ? String(form.grupo) : ''} onChange={(e) => set('grupo', e.target.value ? Number(e.target.value) : null)} disabled={ro}>
-            <option value="">— sem grupo —</option>
-            {grupos.map((g) => <option key={g.id} value={g.id}>{g.descricao}</option>)}
-          </Select>
-          <label className="flex items-center gap-2 text-sm text-slate-300 mt-6">
-            <input type="checkbox" checked={form.ativo} onChange={(e) => set('ativo', e.target.checked)} disabled={ro} className="accent-primary" />
-            Ativo
-          </label>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{txt('CNPJ', 'cgc')}{txt('CPF', 'cpf')}</div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{txt('Inscrição municipal', 'insc_mun')}{txt('Inscrição estadual', 'insc_est')}</div>
-      </Secao>
-
-      <Secao titulo="Endereço">
-        {txt('Logradouro', 'endereco')}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Input id="c-numero" label="Número" type="number" value={form.numero != null ? String(form.numero) : ''} onChange={(e) => set('numero', e.target.value ? Number(e.target.value) : null)} disabled={ro} />
-          {txt('Complemento', 'complemento')}
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{txt('Bairro', 'bairro')}{txt('CEP', 'cep')}</div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{txt('Município', 'municipio')}{txt('UF', 'estado')}</div>
-      </Secao>
-
-      <Secao titulo="Contatos">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{txt('Contato', 'contato')}{txt('E-mail', 'email')}</div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{txt('Telefones', 'telefones')}{txt('Celular', 'celular')}</div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">{txt('WhatsApp', 'whatsapp')}{txt('WhatsApp 2', 'whatsapp1')}{txt('WhatsApp 3', 'whatsapp2')}</div>
-      </Secao>
-
-      <Secao titulo="Observações">
-        <textarea
-          value={form.obs ?? ''}
-          onChange={(e) => set('obs', e.target.value || null)}
-          disabled={ro}
-          rows={3}
-          className="w-full text-sm text-slate-200 bg-background-elevated border border-border rounded-lg px-3 py-2.5 resize-none focus:outline-none focus:ring-2 focus:ring-primary/40 placeholder-slate-500 leading-relaxed disabled:opacity-60"
-        />
-      </Secao>
-
-      {podeEditar && (
-        <button type="submit" disabled={enviando} className="w-full py-2.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary-600 disabled:opacity-60 transition-all">
-          {editando ? 'Salvar alterações' : 'Criar cliente'}
-        </button>
-      )}
-    </>
-  )
-
   return (
     <PageContainer>
       <div className="flex items-center justify-between">
@@ -187,7 +114,16 @@ export function ClienteDetailPage() {
       {editando ? (
         <DetailGrid>
           <DetailMain>
-            <form className="space-y-6" onSubmit={salvar}>{formConteudo}</form>
+            <ClienteFormFields
+              form={form}
+              set={set}
+              grupos={grupos}
+              readOnly={!podeEditar}
+              podeEditar={podeEditar}
+              enviando={enviando}
+              labelSubmit={editando ? 'Salvar alterações' : 'Criar cliente'}
+              onSubmit={salvar}
+            />
           </DetailMain>
           <DetailAside>
             <FuncionariosSection clienteId={Number(id)} podeEditar={podeEditar} />
@@ -196,7 +132,16 @@ export function ClienteDetailPage() {
         </DetailGrid>
       ) : (
         <div className="max-w-3xl">
-          <form className="space-y-6" onSubmit={salvar}>{formConteudo}</form>
+          <ClienteFormFields
+            form={form}
+            set={set}
+            grupos={grupos}
+            readOnly={!podeEditar}
+            podeEditar={podeEditar}
+            enviando={enviando}
+            labelSubmit={editando ? 'Salvar alterações' : 'Criar cliente'}
+            onSubmit={salvar}
+          />
         </div>
       )}
     </PageContainer>
