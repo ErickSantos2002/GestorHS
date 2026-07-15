@@ -21,9 +21,8 @@ export function ClienteLayout() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
-  const matchNovo = useMatch('/app/clientes/:id/equipamentos/novo')
-  const matchDetalhe = useMatch('/app/clientes/:id/equipamentos/:aparelho')
-  const noDetalhe = !!(matchNovo || matchDetalhe)
+  // `:aparelho` tambem casa com `equipamentos/novo` (novo vira o valor do param).
+  const noDetalhe = !!useMatch('/app/clientes/:id/equipamentos/:aparelho')
   const [cliente, setCliente] = useState<Cliente | null>(null)
   const [erro, setErro] = useState('')
   const [recarga, setRecarga] = useState(0)
