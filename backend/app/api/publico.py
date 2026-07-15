@@ -3,12 +3,14 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
-from app.core import certificado_link, nota_fiscal, nota_fiscal_link, storage
+from app.core import certificado_geral_link, certificado_link, nota_fiscal, nota_fiscal_link, storage
 from app.core.certificado_pdf import html_para_pdf
-from app.models import OSCertificado, Ordem
+from app.models import CertificadoGeral, OSCertificado, Ordem
 from app.models.database import get_db
 
 router = APIRouter(prefix="/publico", tags=["publico"])
+
+SUBDIR_CERT_GERAL = "certificados-gerais"
 
 # nome público -> código do tipo no OSCertificado
 _TIPO_POR_NOME = {v: k for k, v in certificado_link.NOME_PUBLICO.items()}  # calibracao->C, manutencao->M
@@ -56,4 +58,27 @@ def baixar_nota_fiscal_publica(ordem_id: int, t: str = "", db: Session = Depends
         media_type=media,
         filename=nota_fiscal.nome_download(ordem_id, o.nota_fiscal),
         headers={"X-Content-Type-Options": "nosniff"},
+    )
+
+
+@router.get("/certificado-geral/{cert_id}")
+def baixar_certificado_geral_publico(cert_id: int, t: str = "", db: Session = Depends(get_db)):
+    if not certificado_geral_link.verificar(cert_id, t):
+        raise HTTPException(status_code=403, detail="link inválido")
+    c = db.query(CertificadoGeral).filter(CertificadoGeral.id == cert_id).first()
+    if c is None or not c.arquivo:
+        raise HTTPException(status_code=404, detail="certificado não encontrado")
+    try:
+        caminho = storage.caminho_arquivo(SUBDIR_CERT_GERAL, c.arquivo)
+    except storage.ArquivoInvalido:
+        raise HTTPException(status_code=404, detail="arquivo não encontrado")
+    if not caminho.exists():
+        raise HTTPException(status_code=404, detail="arquivo não encontrado")
+    return FileResponse(
+        caminho,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'inline; filename="certificado-geral-{cert_id}.pdf"',
+            "X-Content-Type-Options": "nosniff",
+        },
     )
