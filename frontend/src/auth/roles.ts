@@ -27,3 +27,10 @@ export function podeAtenderSolicitacao(user: User | null): boolean {
 export function podeAnexarNotaFiscal(user: User | null): boolean {
   return isAdmin(user) || user?.funcao === FUNCAO_FINANCEIRO
 }
+
+export const FUNCAO_LABORATORIO = 'Laboratório'
+export const FUNCAO_QUALIDADE = 'Qualidade'
+
+export function podeGerenciarCertificadosGerais(user: User | null): boolean {
+  return isAdmin(user) || user?.funcao === FUNCAO_LABORATORIO || user?.funcao === FUNCAO_QUALIDADE
+}

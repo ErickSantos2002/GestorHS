@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.16.0',
+    data: '15/07/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'Nova aba "Gerais" na página Certificados: anexe um PDF (ex.: certificado de gás anual), dê um nome e gere um link público e um QR code para o cliente baixar sem precisar de login — economizando papel. Só PDF, até 10 MB.' },
+    ],
+  },
+  {
     versao: '1.15.1',
     data: '15/07/2026',
     itens: [

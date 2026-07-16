@@ -29,6 +29,14 @@ export interface ImagemCert {
   url: string
 }
 
+export interface CertGeralItem {
+  id: number
+  nome: string
+  data_upload: string | null
+  usuario_nome: string | null
+  link: string | null
+}
+
 export interface AvulsoItem {
   id: number
   tipo: 'C' | 'M'
@@ -113,6 +121,21 @@ export const certificadosApi = {
     return (await res.json()) as ImagemCert
   },
   excluirImagem: (id: number): Promise<void> => apiVoid(`/certificado-imagens/${id}`, { method: 'DELETE' }),
+
+  listarGerais: (): Promise<CertGeralItem[]> => apiJson<CertGeralItem[]>('/certificados-gerais'),
+  enviarGeral: async (nome: string, file: File): Promise<CertGeralItem> => {
+    const fd = new FormData()
+    fd.append('nome', nome)
+    fd.append('arquivo', file)
+    const res = await apiFetch('/certificados-gerais', { method: 'POST', body: fd })
+    if (!res.ok) {
+      let detail = res.statusText
+      try { const b = await res.json(); if (b.detail) detail = b.detail } catch { /* sem corpo */ }
+      throw new ApiError(res.status, detail)
+    }
+    return (await res.json()) as CertGeralItem
+  },
+  excluirGeral: (id: number): Promise<void> => apiVoid(`/certificados-gerais/${id}`, { method: 'DELETE' }),
 
   gerarAvulso: (payload: AvulsoPayload): Promise<AvulsoItem> =>
     apiJson<AvulsoItem>('/certificados-avulsos', { method: 'POST', body: JSON.stringify(payload) }),
