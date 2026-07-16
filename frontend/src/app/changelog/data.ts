@@ -23,6 +23,14 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.17.0',
+    data: '16/07/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'Na tela de uma Caixa, agora dá para fechar as OS direto por ali: marque as OS que estão em "Preparando Retorno" e clique em "Fechar OS selecionadas" para finalizá-las juntas com o mesmo código de retorno (ou marque só uma). Útil quando a caixa toda volta com o mesmo rastreio; as que ficam para manutenção é só não marcar.' },
+      { tipo: 'melhoria', texto: 'Removido o botão "Vincular OS existente" de dentro da caixa — a caixa já é escolhida na abertura da OS.' },
+    ],
+  },
+  {
     versao: '1.16.0',
     data: '15/07/2026',
     itens: [
