@@ -67,6 +67,7 @@ export function CaixaDetailPage() {
   function carregar() {
     setCarregando(true)
     setErro('')
+    setSelecionadas(new Set())
     caixasApi.obter(caixaId)
       .then((c) => {
         setCaixa(c)
@@ -120,9 +121,9 @@ export function CaixaDetailPage() {
   function toggleTodas() {
     setSelecionadas((s) => s.size === elegiveis.length ? new Set() : new Set(elegiveis.map((o) => o.id)))
   }
-  async function confirmarFechar(cod: string, obs: string | null) {
+  async function confirmarFechar(cod: string, obsFechar: string | null) {
     const ids = [...selecionadas]
-    const { sucessos, falhas } = await fecharOrdens(ids, cod, obs, ordensApi.avancar)
+    const { sucessos, falhas } = await fecharOrdens(ids, cod, obsFechar, ordensApi.avancar)
     setFecharAberto(false)
     setSelecionadas(new Set())
     setErroAcao(falhas.length

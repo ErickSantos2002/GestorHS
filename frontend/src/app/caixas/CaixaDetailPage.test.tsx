@@ -4,10 +4,10 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom'
 
 vi.mock('../../auth/AuthContext', () => ({ useAuth: () => ({ user: { funcao: 'Administrador' } }) }))
 
-const { obter, avancar } = vi.hoisted(() => ({ obter: vi.fn(), avancar: vi.fn() }))
+const { obter, avancar, desvincularOrdem } = vi.hoisted(() => ({ obter: vi.fn(), avancar: vi.fn(), desvincularOrdem: vi.fn() }))
 vi.mock('./api', async (orig) => {
   const real = await orig<typeof import('./api')>()
-  return { ...real, caixasApi: { ...real.caixasApi, obter } }
+  return { ...real, caixasApi: { ...real.caixasApi, obter, desvincularOrdem } }
 })
 vi.mock('../ordens/api', async (orig) => {
   const real = await orig<typeof import('../ordens/api')>()
@@ -33,7 +33,10 @@ function tela() {
 }
 
 describe('CaixaDetailPage — fechar OS por seleção', () => {
-  beforeEach(() => { obter.mockReset(); avancar.mockReset(); obter.mockResolvedValue({ ...CAIXA }); avancar.mockResolvedValue({}) })
+  beforeEach(() => {
+    obter.mockReset(); avancar.mockReset(); desvincularOrdem.mockReset()
+    obter.mockResolvedValue({ ...CAIXA }); avancar.mockResolvedValue({}); desvincularOrdem.mockResolvedValue({})
+  })
 
   it('removeu o botão "Vincular OS existente"', async () => {
     tela()
@@ -56,5 +59,21 @@ describe('CaixaDetailPage — fechar OS por seleção', () => {
 
     await waitFor(() => expect(avancar).toHaveBeenCalledWith(10, { cod_retorno: 'BR777', obs: null }))
     expect(avancar).toHaveBeenCalledTimes(1)
+  })
+
+  it('recarregar a caixa (sem fechar) limpa a seleção', async () => {
+    tela()
+    await screen.findByText('Caixa #3')
+    const checks = screen.getAllByRole('checkbox')
+    const daLinha = checks.filter((c) => (c as HTMLInputElement).dataset.os === '10')
+    fireEvent.click(daLinha[0])
+    await screen.findByText(/Fechar OS selecionadas \(1\)/)
+
+    // Aciona um reload por outro caminho (remover a OS #11), sem fechar nada.
+    const botoesRemover = screen.getAllByRole('button', { name: 'Remover' })
+    fireEvent.click(botoesRemover[1])
+
+    await waitFor(() => expect(desvincularOrdem).toHaveBeenCalledWith(3, 11))
+    await waitFor(() => expect(screen.getByText(/Fechar OS selecionadas \(0\)/)).toBeInTheDocument())
   })
 })
