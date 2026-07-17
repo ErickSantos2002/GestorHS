@@ -47,7 +47,7 @@ def enviar_nota_fiscal(
     o.nota_fiscal_numero = num
     db.commit()
     db.refresh(o)
-    _agendar_espelhamento(db, background_tasks, o, lista=taskhs.lista_da_fase(o.fase), arquivado=False)
+    _agendar_espelhamento(db, background_tasks, o, list_id=taskhs.list_id_da_fase(o.fase), arquivado=False)
     return {"nota_fiscal": basename, "nota_fiscal_numero": num}
 
 

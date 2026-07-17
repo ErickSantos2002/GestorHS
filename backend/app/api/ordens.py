@@ -184,7 +184,7 @@ def abrir(dados: OrdemAbrirIn, background_tasks: BackgroundTasks, db: Session = 
     registrar_log(db, ordem, usuario, "OS aberta — Recebido")
     db.commit()
     db.refresh(ordem)
-    _agendar_espelhamento(db, background_tasks, ordem, lista=taskhs.lista_da_fase(ordem.fase), arquivado=False)
+    _agendar_espelhamento(db, background_tasks, ordem, list_id=taskhs.list_id_da_fase(ordem.fase), arquivado=False)
     _anotar_modelos_faltantes(db, ordem)
     return ordem
 
@@ -235,7 +235,7 @@ def avancar(ordem_id: int, dados: AvancarIn, background_tasks: BackgroundTasks,
     registrar_log(db, ordem, usuario, texto)
     db.commit()
     db.refresh(ordem)
-    _agendar_espelhamento(db, background_tasks, ordem, lista=taskhs.lista_da_fase(ordem.fase), arquivado=False)
+    _agendar_espelhamento(db, background_tasks, ordem, list_id=taskhs.list_id_da_fase(ordem.fase), arquivado=False)
     _anotar_modelos_faltantes(db, ordem)
     return ordem
 
@@ -255,6 +255,6 @@ def cancelar(ordem_id: int, dados: CancelarIn, background_tasks: BackgroundTasks
     registrar_log(db, ordem, usuario, f"OS cancelada: {dados.motivo}")
     db.commit()
     db.refresh(ordem)
-    _agendar_espelhamento(db, background_tasks, ordem, lista=taskhs.lista_da_fase(origem), arquivado=True)
+    _agendar_espelhamento(db, background_tasks, ordem, list_id=taskhs.list_id_da_fase(origem), arquivado=True)
     _anotar_modelos_faltantes(db, ordem)
     return ordem
