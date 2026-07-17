@@ -1,28 +1,29 @@
 """Integração GestorHS → TaskHS: lógica pura (sem I/O).
 
-Monta o payload do card a partir de uma OS e mapeia fase → nome de lista.
-As strings de lista são exatas (emoji incluso) — o TaskHS resolve por nome.
+Monta o payload do card a partir de uma OS: título, obs por etapa (obs1…obs6)
+e mapeia fase → list_id (id da lista no TaskHS, contrato v2).
 """
 
 from app.core import os_workflow as wf
 
 SOURCE = "gestorhs"
-BOARD = "Serviço"
 
-FASE_PARA_LISTA: dict[int, str] = {
-    4: "🚚 Expedição (Abrindo caixa)",
-    5: "🔬Laboratório Calibração",
-    6: "Serviços 🪛",
-    10: "💰 Financeiro",
-    7: "🚚 Expedição (Preparando para Envio)",
-    8: "📮Correios",
+# Fase da OS (GestorHS) → id da lista no quadro "Serviço" do TaskHS (contrato v2).
+# Ids fixos de produção; a lista tem que existir no TaskHS (senão o upsert dá 404).
+FASE_PARA_LIST_ID: dict[int, int] = {
+    4: 21,   # 🚚 Expedição (Abrindo caixa)
+    5: 22,   # 🔬 Laboratório Calibração
+    6: 27,   # 🔬 LIBERADOS DO LABORATÓRIO
+    10: 30,  # 💰 Financeiro
+    7: 34,   # 🚚 Expedição (Preparando para Envio)
+    8: 35,   # 📮 Correios
 }
 
 TIPO_SERVICO_LABEL: dict[str, str] = {"C": "Calibração", "M": "Manutenção", "A": "Ambas"}
 
 
-def lista_da_fase(fase: int) -> str | None:
-    return FASE_PARA_LISTA.get(fase)
+def list_id_da_fase(fase: int) -> int | None:
+    return FASE_PARA_LIST_ID.get(fase)
 
 
 def montar_titulo(ordem) -> str:
@@ -73,11 +74,12 @@ def _cabecalho(ordem) -> list[str]:
     return linhas
 
 
-def _bloco(titulo: str, linhas: list[str | None]) -> str | None:
+def _bloco(linhas: list[str | None]) -> str | None:
+    """Junta as linhas não-vazias em bullets. Sem título — a obs já é nomeada no TaskHS."""
     conteudo = [f"- {x}" for x in linhas if x]
     if not conteudo:
         return None
-    return "\n".join([titulo, *conteudo])
+    return "\n".join(conteudo)
 
 
 def _sec_recebido(ordem) -> str | None:
@@ -86,7 +88,7 @@ def _sec_recebido(ordem) -> str | None:
     acess = ", ".join(ordem.acessorios_presentes) if ordem.acessorios_presentes else None
     pilhas_bocais = _juntar([f"Pilhas: {ordem.pilhas}" if ordem.pilhas else None,
                              f"Bocais: {ordem.bocais}" if ordem.bocais else None])
-    return _bloco("📋 Recebido", [
+    return _bloco([
         chegada or None,
         f"Acessórios: {acess}" if acess else None,
         pilhas_bocais or None,
@@ -101,7 +103,7 @@ def _sec_laboratorio(ordem, certificados: list[dict]) -> str | None:
                          f"Próxima: {_fmt(ordem.prox_calibragem)}" if ordem.prox_calibragem else None])
     links = [f"Certificado de {TIPO_SERVICO_LABEL.get(c['tipo'], c['tipo'])}: {c['url']}"
              for c in certificados if c.get("url")]
-    return _bloco("🔬 Laboratório", [
+    return _bloco([
         f"Resultado: {ordem.calib_situacao}" if ordem.calib_situacao else None,
         calibrado or None,
         f"Certificado: {ordem.calib_cert}" if ordem.calib_cert else None,
@@ -120,7 +122,7 @@ def _sec_posvendas(ordem) -> str | None:
     aceite = None
     if ordem.aceite:
         aceite = f"Aceite: {_fmt(ordem.data_aceite)}" if ordem.data_aceite else "Aceite: sim"
-    return _bloco("🤝 Pós-Vendas", [
+    return _bloco([
         f"Contato: {contato}" if contato else None,
         aceite,
     ])
@@ -138,14 +140,14 @@ def _sec_financeiro(ordem, nota_fiscal_url: str | None = None) -> str | None:
         nota = f"Nota fiscal: {ordem.nota_fiscal_numero}"
         if nota_fiscal_url:
             nota = f"{nota} — {nota_fiscal_url}"
-    return _bloco("💰 Financeiro", [pagamento, nota])
+    return _bloco([pagamento, nota])
 
 
 def _sec_preparando(ordem) -> str | None:
     if wf.posicao(ordem.fase) < wf.posicao(7):
         return None
     end = _endereco(ordem.cliente_rel)
-    return _bloco("🚚 Preparando Retorno", [f"Enviar para: {end}" if end else None])
+    return _bloco([f"Enviar para: {end}" if end else None])
 
 
 def _sec_finalizada(ordem) -> str | None:
@@ -153,32 +155,40 @@ def _sec_finalizada(ordem) -> str | None:
         return None
     linha = _juntar([f"Rastreio: {ordem.cod_retorno}",
                      f"Postado em: {_fmt(ordem.data_retorno)}" if ordem.data_retorno else None])
-    return _bloco("📮 Finalizada", [linha or None])
+    return _bloco([linha or None])
 
 
-def montar_descricao(ordem, *, certificados: list[dict], nota_fiscal_url: str | None = None) -> str | None:
+def montar_obs(ordem, *, certificados: list[dict], nota_fiscal_url: str | None = None) -> dict:
+    """Monta as 6 obs por etapa. Sempre retorna as 6 chaves (None quando a etapa não se aplica).
+
+    obs1 leva o cabeçalho (Cliente/Aparelho/Serviço) no topo, seguido da seção Recebido.
+    """
     cabecalho = "\n".join(_cabecalho(ordem)) or None
-    secoes = [
-        _sec_recebido(ordem) if wf.posicao(ordem.fase) >= wf.posicao(4) else None,
-        _sec_laboratorio(ordem, certificados),
-        _sec_posvendas(ordem),
-        _sec_financeiro(ordem, nota_fiscal_url),
-        _sec_preparando(ordem),
-        _sec_finalizada(ordem),
-    ]
-    blocos = [b for b in [cabecalho, *secoes] if b]
-    return "\n\n".join(blocos) if blocos else None
+    recebido = _sec_recebido(ordem) if wf.posicao(ordem.fase) >= wf.posicao(4) else None
+    obs1 = "\n".join([x for x in (cabecalho, recebido) if x]) or None
+    return {
+        "obs1": obs1,
+        "obs2": _sec_laboratorio(ordem, certificados),
+        "obs3": _sec_posvendas(ordem),
+        "obs4": _sec_financeiro(ordem, nota_fiscal_url),
+        "obs5": _sec_preparando(ordem),
+        "obs6": _sec_finalizada(ordem),
+    }
 
 
-def montar_payload(ordem, *, lista: str, arquivado: bool, descricao: str | None = None) -> dict:
+def montar_payload(ordem, *, list_id: int, arquivado: bool, obs: dict) -> dict:
     due_date = ordem.prox_calibragem.date().isoformat() if ordem.prox_calibragem else None
     return {
         "source": SOURCE,
         "external_id": str(ordem.id),
-        "board": BOARD,
-        "list": lista,
+        "list_id": list_id,
         "title": montar_titulo(ordem),
-        "description": descricao if descricao is not None else (ordem.obs or None),
+        "obs1": obs.get("obs1"),
+        "obs2": obs.get("obs2"),
+        "obs3": obs.get("obs3"),
+        "obs4": obs.get("obs4"),
+        "obs5": obs.get("obs5"),
+        "obs6": obs.get("obs6"),
         "due_date": due_date,
         "priority": "medium",
         "archived": arquivado,

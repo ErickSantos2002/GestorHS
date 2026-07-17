@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.18.0',
+    data: '17/07/2026',
+    itens: [
+      { tipo: 'melhoria', texto: 'Integração com o TaskHS atualizada: os cards de OS agora são posicionados na lista exata (por id) e as informações de cada etapa vão em campos de observação separados (Recebido, Laboratório, Pós-Vendas, Financeiro, Preparando Retorno e Finalizada), em vez de tudo na descrição — que passa a ser livre para anotações da equipe direto no TaskHS.' },
+    ],
+  },
+  {
     versao: '1.17.0',
     data: '16/07/2026',
     itens: [
