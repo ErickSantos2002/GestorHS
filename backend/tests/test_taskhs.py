@@ -13,17 +13,21 @@ def _ordem(**kw):
     return SimpleNamespace(**base)
 
 
-def test_lista_da_fase_cobre_ativas_e_finalizada():
-    assert taskhs.lista_da_fase(4) == "🚚 Expedição (Abrindo caixa)"
-    assert taskhs.lista_da_fase(5) == "🔬Laboratório Calibração"
-    assert taskhs.lista_da_fase(6) == "Serviços 🪛"
-    assert taskhs.lista_da_fase(7) == "🚚 Expedição (Preparando para Envio)"
-    assert taskhs.lista_da_fase(8) == "📮Correios"
+def test_list_id_da_fase_cobre_ativas_e_finalizada():
+    assert taskhs.list_id_da_fase(4) == 21
+    assert taskhs.list_id_da_fase(5) == 22
+    assert taskhs.list_id_da_fase(6) == 27
+    assert taskhs.list_id_da_fase(7) == 34
+    assert taskhs.list_id_da_fase(8) == 35
 
 
-def test_lista_da_fase_cancelada_e_desconhecida_none():
-    assert taskhs.lista_da_fase(9) is None
-    assert taskhs.lista_da_fase(999) is None
+def test_list_id_da_fase_financeiro():
+    assert taskhs.list_id_da_fase(10) == 30
+
+
+def test_list_id_da_fase_cancelada_e_desconhecida_none():
+    assert taskhs.list_id_da_fase(9) is None
+    assert taskhs.list_id_da_fase(999) is None
 
 
 def test_montar_titulo_completo():
@@ -41,27 +45,33 @@ def test_montar_titulo_so_id_quando_resto_vazio():
 
 
 def test_montar_payload_campos_basicos():
-    p = taskhs.montar_payload(_ordem(obs="veio sem maleta"), lista="L", arquivado=False)
+    o = _ordem()
+    p = taskhs.montar_payload(o, list_id=22, arquivado=False, obs={"obs1": "cab"})
     assert p["source"] == "gestorhs"
     assert p["external_id"] == "1234"
-    assert p["board"] == "Serviço"
-    assert p["list"] == "L"
+    assert p["list_id"] == 22
     assert p["title"] == "OS #1234 · Cliente X · Bafômetro"
-    assert p["description"] == "veio sem maleta"
     assert p["priority"] == "medium"
     assert p["archived"] is False
     assert p["due_date"] is None
+    assert "board" not in p and "list" not in p and "description" not in p
+
+
+def test_montar_payload_espalha_as_seis_obs():
+    obs = {"obs1": "A", "obs2": "B", "obs6": "F"}
+    p = taskhs.montar_payload(_ordem(), list_id=21, arquivado=False, obs=obs)
+    assert p["obs1"] == "A"
+    assert p["obs2"] == "B"
+    assert p["obs3"] is None
+    assert p["obs4"] is None
+    assert p["obs5"] is None
+    assert p["obs6"] == "F"
 
 
 def test_montar_payload_due_date_de_prox_calibragem():
     o = _ordem(prox_calibragem=datetime(2026, 7, 10, 12, 0, tzinfo=timezone.utc))
-    assert taskhs.montar_payload(o, lista="L", arquivado=False)["due_date"] == "2026-07-10"
+    assert taskhs.montar_payload(o, list_id=22, arquivado=False, obs={})["due_date"] == "2026-07-10"
 
 
 def test_montar_payload_arquivado_true():
-    assert taskhs.montar_payload(_ordem(), lista="L", arquivado=True)["archived"] is True
-
-
-def test_lista_da_fase_financeiro():
-    from app.core import taskhs
-    assert taskhs.lista_da_fase(10) == "💰 Financeiro"
+    assert taskhs.montar_payload(_ordem(), list_id=22, arquivado=True, obs={})["archived"] is True

@@ -33,46 +33,61 @@ def _ordem(**kw):
     return SimpleNamespace(**base)
 
 
-def test_descricao_completa_finalizada():
-    d = taskhs.montar_descricao(_ordem(), certificados=[{"tipo": "C", "url": "http://x/c"}])
-    assert "Cliente: Cliente X" in d
-    assert "Aparelho: Bafômetro · Série SN-987 / Patr. PAT-1" in d
-    assert "Serviço: Calibração" in d
-    assert "📋 Recebido" in d
-    assert "Chegada: 22/06/2026 · Condição: bom estado" in d
-    assert "Acessórios: Bobinas, Cabos USB" in d
-    assert "Pilhas: 4 · Bocais: 2" in d
-    assert "Obs: veio sem maleta" in d
-    assert "🔬 Laboratório" in d
-    assert "Resultado: APROVADO" in d
-    assert "Calibrado em: 23/06/2026 · Próxima: 10/07/2027" in d
-    assert "Certificado: 12345" in d
-    assert "Certificado de Calibração: http://x/c" in d
-    assert "🤝 Pós-Vendas" in d
-    assert "Contato: João · (11) 99999-9999" in d
-    assert "Aceite: 24/06/2026" in d
-    assert "🚚 Preparando Retorno" in d
-    assert "Enviar para: Rua X, 100 ap 2 · Centro · São Paulo/SP · CEP 01000000" in d
-    assert "📮 Finalizada" in d
-    assert "Rastreio: BR123 · Postado em: 25/06/2026" in d
+def test_obs1_tem_cabecalho_recebido_e_sem_titulo_interno():
+    obs = taskhs.montar_obs(_ordem(), certificados=[{"tipo": "C", "url": "http://x/c"}])
+    o1 = obs["obs1"]
+    assert "Cliente: Cliente X" in o1
+    assert "Aparelho: Bafômetro · Série SN-987 / Patr. PAT-1" in o1
+    assert "Serviço: Calibração" in o1
+    assert "Chegada: 22/06/2026 · Condição: bom estado" in o1
+    assert "Acessórios: Bobinas, Cabos USB" in o1
+    assert "Pilhas: 4 · Bocais: 2" in o1
+    assert "Obs: veio sem maleta" in o1
+    assert "📋 Recebido" not in o1  # título interno removido
 
 
-def test_secoes_aparecem_por_fase():
-    # Em Recebido (fase 4): só cabeçalho + Recebido; sem Pós-Vendas/Retorno/Finalizada
+def test_obs2_laboratorio_com_certificado_sem_titulo():
+    obs = taskhs.montar_obs(_ordem(), certificados=[{"tipo": "C", "url": "http://x/c"}])
+    o2 = obs["obs2"]
+    assert "Resultado: APROVADO" in o2
+    assert "Calibrado em: 23/06/2026 · Próxima: 10/07/2027" in o2
+    assert "Certificado: 12345" in o2
+    assert "Certificado de Calibração: http://x/c" in o2
+    assert "🔬 Laboratório" not in o2
+
+
+def test_obs3_posvendas():
+    obs = taskhs.montar_obs(_ordem(), certificados=[])
+    assert "Contato: João · (11) 99999-9999" in obs["obs3"]
+    assert "Aceite: 24/06/2026" in obs["obs3"]
+
+
+def test_obs5_preparando_endereco():
+    obs = taskhs.montar_obs(_ordem(), certificados=[])
+    assert "Enviar para: Rua X, 100 ap 2 · Centro · São Paulo/SP · CEP 01000000" in obs["obs5"]
+
+
+def test_obs6_finalizada_rastreio():
+    obs = taskhs.montar_obs(_ordem(), certificados=[])
+    assert "Rastreio: BR123 · Postado em: 25/06/2026" in obs["obs6"]
+
+
+def test_secoes_por_fase_recebido():
+    # fase 4: só obs1 (Recebido); demais None
     o = _ordem(fase=4, aceite=False, data_aceite=None, cod_retorno=None, data_retorno=None)
-    d = taskhs.montar_descricao(o, certificados=[])
-    assert "📋 Recebido" in d
-    assert "🤝 Pós-Vendas" not in d
-    assert "🚚 Preparando Retorno" not in d
-    assert "📮 Finalizada" not in d
-    assert "🔬 Laboratório" not in d  # sem certificados
+    obs = taskhs.montar_obs(o, certificados=[])
+    assert obs["obs1"] is not None
+    assert obs["obs2"] is None  # sem certificados
+    assert obs["obs3"] is None
+    assert obs["obs4"] is None
+    assert obs["obs5"] is None
+    assert obs["obs6"] is None
 
 
-def test_laboratorio_aparece_com_certificado():
+def test_obs2_aparece_com_certificado_manutencao():
     o = _ordem(fase=6, cod_retorno=None, data_retorno=None)
-    d = taskhs.montar_descricao(o, certificados=[{"tipo": "M", "url": "http://x/m"}])
-    assert "🔬 Laboratório" in d
-    assert "Certificado de Manutenção: http://x/m" in d
+    obs = taskhs.montar_obs(o, certificados=[{"tipo": "M", "url": "http://x/m"}])
+    assert "Certificado de Manutenção: http://x/m" in obs["obs2"]
 
 
 def test_telefone_pega_primeiro_nao_vazio():
@@ -80,79 +95,56 @@ def test_telefone_pega_primeiro_nao_vazio():
         endereco=None, numero=None, complemento=None, bairro=None, municipio=None,
         estado=None, cep=None, contato="Maria", celular=None, whatsapp="(11) 8888",
         telefones="3333-3333"))
-    d = taskhs.montar_descricao(o, certificados=[])
-    assert "Contato: Maria · (11) 8888" in d
+    obs = taskhs.montar_obs(o, certificados=[])
+    assert "Contato: Maria · (11) 8888" in obs["obs3"]
 
 
 def test_linhas_vazias_omitidas():
     o = _ordem(fase=4, condicao_chegada=None, acessorios_presentes=[], pilhas=0,
                bocais=0, obs=None, aceite=False, data_aceite=None,
                cod_retorno=None, data_retorno=None)
-    d = taskhs.montar_descricao(o, certificados=[])
-    assert "Chegada: 22/06/2026" in d
-    assert "Condição:" not in d
-    assert "Acessórios:" not in d
-    assert "Pilhas:" not in d
+    obs = taskhs.montar_obs(o, certificados=[])
+    assert "Chegada: 22/06/2026" in obs["obs1"]
+    assert "Condição:" not in obs["obs1"]
+    assert "Acessórios:" not in obs["obs1"]
+    assert "Pilhas:" not in obs["obs1"]
 
 
 def test_link_omitido_quando_url_none():
     o = _ordem(fase=6, cod_retorno=None, data_retorno=None)
-    d = taskhs.montar_descricao(o, certificados=[{"tipo": "C", "url": None}])
-    assert "🔬 Laboratório" in d
-    assert "Certificado de Calibração:" not in d
+    obs = taskhs.montar_obs(o, certificados=[{"tipo": "C", "url": None}])
+    assert obs["obs2"] is not None
+    assert "Certificado de Calibração:" not in obs["obs2"]
 
 
-def test_montar_payload_usa_descricao_quando_passada():
-    p = taskhs.montar_payload(_ordem(), lista="L", arquivado=False, descricao="RESUMO")
-    assert p["description"] == "RESUMO"
+def test_obs4_financeiro_confirmado():
+    obs = taskhs.montar_obs(_ordem(fase=7), certificados=[])
+    assert "Pagamento: confirmado em 26/06/2026" in obs["obs4"]
 
 
-def test_montar_payload_sem_descricao_mantem_obs():
-    o = SimpleNamespace(id=1, cliente_nome=None, equipamento_descricao=None,
-                        equipamento_serie=None, prox_calibragem=None, obs="apenas obs")
-    p = taskhs.montar_payload(o, lista="L", arquivado=False)
-    assert p["description"] == "apenas obs"
-
-
-def test_secao_financeiro_confirmado():
-    d = taskhs.montar_descricao(_ordem(fase=7), certificados=[])
-    assert "💰 Financeiro" in d
-    assert "Pagamento: confirmado em 26/06/2026" in d
-
-
-def test_financeiro_pendente_e_preparando_oculto_durante_financeiro():
-    # Em Financeiro (fase 10): mostra pagamento pendente, NAO mostra Preparando Retorno
+def test_obs4_pendente_e_obs5_oculto_em_financeiro():
     o = _ordem(fase=10, pago=False, data_pagamento=None, cod_retorno=None, data_retorno=None)
-    d = taskhs.montar_descricao(o, certificados=[])
-    assert "💰 Financeiro" in d
-    assert "Pagamento: pendente" in d
-    assert "🚚 Preparando Retorno" not in d
+    obs = taskhs.montar_obs(o, certificados=[])
+    assert "Pagamento: pendente" in obs["obs4"]
+    assert obs["obs5"] is None
 
 
-def test_financeiro_oculto_antes_da_fase():
+def test_obs4_oculto_antes_da_fase():
     o = _ordem(fase=6, pago=False, data_pagamento=None, cod_retorno=None, data_retorno=None)
-    d = taskhs.montar_descricao(o, certificados=[])
-    assert "💰 Financeiro" not in d
+    obs = taskhs.montar_obs(o, certificados=[])
+    assert obs["obs4"] is None
 
 
-def test_secao_financeiro_com_nota_fiscal():
+def test_obs4_com_nota_fiscal():
     o = _ordem(fase=10, pago=False, data_pagamento=None, cod_retorno=None, data_retorno=None,
                nota_fiscal="abc.pdf", nota_fiscal_numero="12345")
-    d = taskhs.montar_descricao(o, certificados=[], nota_fiscal_url="http://x/nf")
-    assert "💰 Financeiro" in d
-    assert "Nota fiscal: 12345 — http://x/nf" in d
+    obs = taskhs.montar_obs(o, certificados=[], nota_fiscal_url="http://x/nf")
+    assert "Nota fiscal: 12345 — http://x/nf" in obs["obs4"]
 
 
-def test_secao_financeiro_sem_nota_fiscal_omite_a_linha():
-    o = _ordem(fase=10, pago=False, data_pagamento=None, cod_retorno=None, data_retorno=None)
-    d = taskhs.montar_descricao(o, certificados=[])
-    assert "💰 Financeiro" in d
-    assert "Nota fiscal" not in d
-
-
-def test_nota_fiscal_sem_url_mostra_so_o_numero():
+def test_obs4_nota_fiscal_sem_url_mostra_so_numero():
     o = _ordem(fase=10, pago=False, data_pagamento=None, cod_retorno=None, data_retorno=None,
                nota_fiscal="abc.pdf", nota_fiscal_numero="12345")
-    d = taskhs.montar_descricao(o, certificados=[], nota_fiscal_url=None)
-    assert "Nota fiscal: 12345" in d
-    assert "—" not in d.split("Nota fiscal: 12345")[1].split("\n")[0]
+    obs = taskhs.montar_obs(o, certificados=[], nota_fiscal_url=None)
+    linha = [l for l in obs["obs4"].splitlines() if "Nota fiscal" in l][0]
+    assert linha.strip() == "- Nota fiscal: 12345"
