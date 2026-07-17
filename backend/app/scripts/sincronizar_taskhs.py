@@ -5,6 +5,7 @@ Idempotente — pode rodar quantas vezes quiser.
 """
 from sqlalchemy.orm import Session
 
+from app.api import espelhamento
 from app.core import taskhs
 from app.core import os_workflow as wf
 from app.integrations import taskhs_client
@@ -28,13 +29,13 @@ def sincronizar(db: Session) -> tuple[int, int]:
     )
     enviadas = 0
     for o in ordens:
-        lista = taskhs.lista_da_fase(o.fase)
-        if lista is None:
+        list_id = taskhs.list_id_da_fase(o.fase)
+        if list_id is None:
             continue
         try:
-            taskhs_client.espelhar_os(o, lista=lista, arquivado=False)
+            espelhamento.espelhar_os_sync(db, o, list_id=list_id, arquivado=False)
             enviadas += 1
-            print(f"OK   OS #{o.id} -> {lista}")
+            print(f"OK   OS #{o.id} -> lista {list_id}")
         except Exception as e:  # noqa: BLE001 — relatório, segue para a próxima
             print(f"ERRO OS #{o.id}: {e}")
     return enviadas, len(ordens)
