@@ -3,7 +3,6 @@ import logging
 
 import httpx
 
-from app.core import taskhs
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -37,6 +36,6 @@ def enviar_card(payload: dict) -> None:
         )
 
 
-def espelhar_os(ordem, *, lista: str, arquivado: bool = False) -> None:
-    """Monta o payload da OS e envia, PROPAGANDO erros (uso em script de backfill)."""
-    _post(taskhs.montar_payload(ordem, lista=lista, arquivado=arquivado))
+def enviar_card_sync(payload: dict) -> None:
+    """Envia PROPAGANDO erro (uso no script de backfill, que quer relatar falhas)."""
+    _post(payload)

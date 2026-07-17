@@ -1,6 +1,5 @@
 import httpx
 import pytest
-from types import SimpleNamespace
 
 from app.core.config import settings
 from app.integrations import taskhs_client
@@ -57,31 +56,17 @@ def test_enviar_card_engole_excecao(monkeypatch, ativa):
     taskhs_client.enviar_card({"external_id": "1"})  # nao deve levantar
 
 
-def test_espelhar_os_monta_payload_e_propaga(monkeypatch, ativa):
+def test_enviar_card_sync_chama_post(monkeypatch, ativa):
     enviados = {}
-
-    def fake_post(payload):
-        enviados.update(payload)
-
-    monkeypatch.setattr(taskhs_client, "_post", fake_post)
-    ordem = SimpleNamespace(
-        id=7, cliente_nome="Cli", equipamento_descricao="Baf",
-        equipamento_serie="S1", prox_calibragem=None, obs=None,
-    )
-    taskhs_client.espelhar_os(ordem, lista="🔬Laboratorio Calibracao", arquivado=False)
-    assert enviados["external_id"] == "7"
-    assert enviados["list"] == "🔬Laboratorio Calibracao"
-    assert enviados["archived"] is False
+    monkeypatch.setattr(taskhs_client, "_post", lambda payload: enviados.update(payload))
+    taskhs_client.enviar_card_sync({"external_id": "9"})
+    assert enviados["external_id"] == "9"
 
 
-def test_espelhar_os_propaga_excecao(monkeypatch, ativa):
-    def fake_post(payload):
+def test_enviar_card_sync_propaga_excecao(monkeypatch, ativa):
+    def boom(payload):
         raise httpx.ConnectError("down")
 
-    monkeypatch.setattr(taskhs_client, "_post", fake_post)
-    ordem = SimpleNamespace(
-        id=7, cliente_nome="Cli", equipamento_descricao="Baf",
-        equipamento_serie="S1", prox_calibragem=None, obs=None,
-    )
+    monkeypatch.setattr(taskhs_client, "_post", boom)
     with pytest.raises(httpx.ConnectError):
-        taskhs_client.espelhar_os(ordem, lista="🔬Laboratorio Calibracao", arquivado=False)
+        taskhs_client.enviar_card_sync({"external_id": "1"})
