@@ -1,7 +1,6 @@
 import pytest
 
 from app.core.config import settings
-from app.integrations import taskhs_client
 from app.scripts import sincronizar_taskhs
 
 
