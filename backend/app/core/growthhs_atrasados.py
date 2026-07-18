@@ -31,7 +31,7 @@ def agrupar_por_cliente(linhas: list[dict]) -> list[dict]:
     grupos = []
     for cliente_id in sorted(por_cliente):
         grupo = por_cliente[cliente_id]
-        grupo["itens"].sort(key=lambda item: item["ec"].prox_calibragem)
+        grupo["itens"].sort(key=lambda item: (item["ec"].prox_calibragem, item["ec"].id))
         grupo["vencimento_mais_antigo"] = grupo["itens"][0]["ec"].prox_calibragem
         grupos.append(grupo)
 

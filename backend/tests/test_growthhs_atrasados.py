@@ -102,6 +102,35 @@ def test_ordenacao_deterministica_independente_da_ordem_de_entrada():
     assert series_2 == ["SN-A", "SN-B"]
 
 
+def test_itens_com_mesma_data_ordenados_deterministicamente_por_id():
+    """Quando dois aparelhos do mesmo cliente têm a mesma data de próxima calibragem,
+    a ordem deve ser determinística (por id), independente da ordem de entrada."""
+    c1 = _cliente(id=1)
+    same_date = date(2026, 1, 15)
+
+    # Primeira rodada: EC 11 antes de EC 10
+    linhas_1 = [
+        _linha(1, c1, _ec(11, "SN-B", same_date)),
+        _linha(1, c1, _ec(10, "SN-A", same_date)),
+    ]
+
+    # Segunda rodada: EC 10 antes de EC 11 (reverso)
+    linhas_2 = [
+        _linha(1, c1, _ec(10, "SN-A", same_date)),
+        _linha(1, c1, _ec(11, "SN-B", same_date)),
+    ]
+
+    grupos_1 = agrupar_por_cliente(linhas_1)
+    grupos_2 = agrupar_por_cliente(linhas_2)
+
+    # Ambos devem produzir a mesma sequência de IDs (10 antes de 11)
+    ids_1 = [item["ec"].id for item in grupos_1[0]["itens"]]
+    ids_2 = [item["ec"].id for item in grupos_2[0]["itens"]]
+
+    assert ids_1 == [10, 11]
+    assert ids_2 == [10, 11]
+
+
 # ---------------------------------------------------------------------------
 # montar_card_atrasados
 # ---------------------------------------------------------------------------
