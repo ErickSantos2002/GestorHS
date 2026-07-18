@@ -22,13 +22,33 @@ def _data_iso(valor: Optional[date]) -> Optional[str]:
     return valor.strftime("%Y-%m-%d")
 
 
-def _telefone(cliente) -> Optional[str]:
-    """Extrai telefone do cliente com fallback: celular > whatsapp > telefones."""
-    return (
+# Limites do schema do GrowthHS (backend/app/schemas/integration.py):
+# IntegrationCardClient.phone = max_length 20; IntegrationCardContact.phone = 50.
+LIMITE_PHONE_CLIENTE = 20
+LIMITE_PHONE_CONTATO = 50
+
+
+def _telefone(cliente, limite: int) -> Optional[str]:
+    """Um unico telefone do cliente, dentro do limite do GrowthHS.
+
+    Fallback entre os campos: celular > whatsapp > telefones.
+
+    O GestorHS guarda VARIOS telefones no mesmo campo, separados por barra
+    (ex.: "019 3984 9248 / 011 3709 2415"). O GrowthHS limita `client.phone` a
+    20 caracteres e `contact.phone` a 50 — medido na base real, 169 de 969
+    clientes estouravam o limite de 20 e tomariam 422. Truncar cortaria o numero
+    no meio e produziria lixo, entao pegamos o PRIMEIRO telefone da lista.
+    O corte no `limite` fica so como ultima linha de defesa.
+    """
+    bruto = (
         _texto(getattr(cliente, "celular", None))
         or _texto(getattr(cliente, "whatsapp", None))
         or _texto(getattr(cliente, "telefones", None))
     )
+    if not bruto:
+        return None
+    primeiro = bruto.split("/")[0].strip() or bruto.strip()
+    return primeiro[:limite]
 
 
 def montar_cliente(cliente) -> dict:
@@ -52,7 +72,7 @@ def montar_cliente(cliente) -> dict:
     partes_endereco = [p for p in partes_endereco if p]
     address = ", ".join(partes_endereco) if partes_endereco else None
 
-    phone = _telefone(cliente)
+    phone = _telefone(cliente, LIMITE_PHONE_CLIENTE)
 
     return {
         "external_id": str(cliente.id),
@@ -72,7 +92,7 @@ def montar_contato(cliente) -> Optional[dict]:
     if not nome:
         return None
 
-    phone = _telefone(cliente)
+    phone = _telefone(cliente, LIMITE_PHONE_CONTATO)
 
     return {
         "name": nome,

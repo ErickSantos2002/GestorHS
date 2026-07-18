@@ -88,3 +88,33 @@ def test_device_com_elo_manda_o_phoebus_no_serial_e_o_modulo_no_alcohol_module()
 def test_device_sem_data():
     ec = NS(serie="SN-1", prox_calibragem=None)
     assert montar_device(ec, "X")["next_recalibration_date"] is None
+
+
+# --- limites de tamanho do schema do GrowthHS -------------------------------
+# Medido na base real: 169 de 969 clientes tinham client.phone acima de 20
+# caracteres (varios telefones no mesmo campo, separados por barra) e tomariam
+# 422. O certo e pegar o PRIMEIRO telefone, nao truncar no meio do numero.
+
+def test_phone_do_cliente_pega_o_primeiro_e_cabe_em_20():
+    c = montar_cliente(_cliente(celular=None, whatsapp=None,
+                                telefones="019 3984 9248 / 011 3709 2415"))
+    assert c["phone"] == "019 3984 9248"
+    assert len(c["phone"]) <= 20
+
+
+def test_phone_do_contato_pega_o_primeiro_e_cabe_em_50():
+    ct = montar_contato(_cliente(celular=None, whatsapp=None,
+                                 telefones="062 3383-3944 / 3900 / (62) 9106-4423 / (62) 3383-3900"))
+    assert ct["phone"] == "062 3383-3944"
+    assert len(ct["phone"]) <= 50
+
+
+def test_phone_sem_barra_fica_intacto():
+    c = montar_cliente(_cliente(celular="11987654321"))
+    assert c["phone"] == "11987654321"
+
+
+def test_phone_unico_gigante_ainda_e_cortado_no_limite():
+    """Ultima linha de defesa: um numero unico absurdo nao pode estourar o schema."""
+    c = montar_cliente(_cliente(celular="1" * 40, whatsapp=None, telefones=None))
+    assert len(c["phone"]) == 20
