@@ -29,6 +29,21 @@ export interface FrotaPage {
   total: number
 }
 
+export interface EloModulo {
+  id: number
+  serie: string | null
+  entrou_em: string | null
+  origem: string | null
+}
+
+export interface EloPhoebus {
+  id: number
+  serie: string | null
+  cliente_nome: string | null
+  entrou_em: string | null
+  origem: string | null
+}
+
 export interface EquipamentoCliente {
   id: number
   cliente: number
@@ -53,6 +68,9 @@ export interface EquipamentoCliente {
   calib_teste3: string | null
   calib_teste_media: string | null
   calib_situacao: string | null
+  modulo_instalado: EloModulo | null
+  instalado_em: EloPhoebus | null
+  em_estoque: boolean
 }
 
 export interface EquipamentoClientePayload {

@@ -243,6 +243,39 @@ export function EquipamentoClienteDetailPage({ embutido = false }: { embutido?: 
             <form className="space-y-6" onSubmit={salvar}>{formConteudo}</form>
           </DetailMain>
           <DetailAside>
+            {obj?.modulo_instalado && (
+              <Secao titulo="Módulo instalado">
+                <p className="text-sm text-slate-300">
+                  <Link to={`/app/equipamentos/${obj.modulo_instalado.id}`} className="text-primary hover:underline">
+                    {obj.modulo_instalado.serie || `#${obj.modulo_instalado.id}`}
+                  </Link>
+                </p>
+                {obj.modulo_instalado.origem && (
+                  <p className="text-xs text-slate-500">Registrado em {formatData(obj.modulo_instalado.entrou_em)} · {obj.modulo_instalado.origem}</p>
+                )}
+              </Secao>
+            )}
+
+            {obj?.instalado_em && (
+              <Secao titulo="Instalado em">
+                <p className="text-sm text-slate-300">
+                  <Link to={`/app/equipamentos/${obj.instalado_em.id}`} className="text-primary hover:underline">
+                    {obj.instalado_em.serie || `#${obj.instalado_em.id}`}
+                  </Link>
+                  {obj.instalado_em.cliente_nome && <span className="text-slate-500"> · {obj.instalado_em.cliente_nome}</span>}
+                </p>
+                {obj.instalado_em.origem && (
+                  <p className="text-xs text-slate-500">Registrado em {formatData(obj.instalado_em.entrou_em)} · {obj.instalado_em.origem}</p>
+                )}
+              </Secao>
+            )}
+
+            {obj && !obj.modulo_instalado && !obj.instalado_em && obj.em_estoque && (
+              <Secao titulo="No estoque">
+                <p className="text-sm text-slate-300">Módulo sem instalação em aberto.</p>
+              </Secao>
+            )}
+
             {obj && (obj.calib_cert || obj.calib_situacao || obj.calib_teste_media) && (
               <Secao titulo="Última calibração (resultado da OS)">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-slate-300">
