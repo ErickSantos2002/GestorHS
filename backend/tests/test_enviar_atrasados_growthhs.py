@@ -211,6 +211,50 @@ def test_processar_sem_enviar_nao_chama_enviar_card_sync(db_session, monkeypatch
     assert resultado["pendencias"] == []
 
 
+def test_simulacao_monta_o_card_de_todo_grupo(db_session, monkeypatch):
+    """A simulacao TEM que montar o payload de todos os clientes.
+
+    Se a montagem ficasse atras do `--enviar`, um cliente com dado ruim passaria
+    limpo na simulacao e so estouraria na carga real — esvaziando a protecao que
+    o modo simulacao existe para dar.
+    """
+    from app.scripts import enviar_atrasados_growthhs as script
+    _mundo_dois_clientes(db_session)
+    montados = []
+    real = script.montar_card_atrasados
+
+    def espiao(grupo, data_carga, board_id):
+        montados.append(grupo["cliente_id"])
+        return real(grupo, data_carga, board_id)
+
+    monkeypatch.setattr(script, "montar_card_atrasados", espiao)
+    monkeypatch.setattr(script, "enviar_card_sync", lambda p: pytest.fail("nao deveria enviar"))
+
+    resultado = script.processar(db_session, enviar=False)
+
+    assert len(montados) == 2          # montou os dois, mesmo sem enviar
+    assert resultado["falhas"] == 0
+
+
+def test_simulacao_reporta_cliente_que_quebra_a_montagem(db_session, monkeypatch):
+    """Dado ruim vira pendencia JA na simulacao, em vez de estourar na carga real."""
+    from app.scripts import enviar_atrasados_growthhs as script
+    _mundo_dois_clientes(db_session)
+
+    def explode_no_primeiro(grupo, data_carga, board_id):
+        if grupo["cliente_id"] == min(g["cliente_id"] for g in [grupo]):
+            raise ValueError("cliente sem nome")
+        return {}
+
+    monkeypatch.setattr(script, "montar_card_atrasados", explode_no_primeiro)
+    monkeypatch.setattr(script, "enviar_card_sync", lambda p: pytest.fail("nao deveria enviar"))
+
+    resultado = script.processar(db_session, enviar=False)
+
+    assert resultado["falhas"] == 2
+    assert all("falha ao montar o card" in p["motivo"] for p in resultado["pendencias"])
+
+
 def test_processar_com_enviar_chama_uma_vez_por_grupo(db_session, monkeypatch):
     from app.scripts import enviar_atrasados_growthhs as script
     _mundo_dois_clientes(db_session)

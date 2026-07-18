@@ -133,25 +133,41 @@ def processar(db: Session, *, enviar: bool, limite: Optional[int] = None) -> dic
     pendencias: list[dict] = []
     data_carga = date.today()
 
-    if enviar:
-        for grupo in grupos:
-            card = montar_card_atrasados(grupo, data_carga, settings.HSGROWTH_BOARD_COBRANCA)
-            try:
-                resposta = enviar_card_sync(card)
-            except Exception as exc:  # noqa: BLE001 — melhor esforco por cliente, segue pro proximo
-                falhas += 1
-                pendencias.append({
-                    "cliente_id": grupo["cliente_id"],
-                    "cliente": getattr(grupo["cliente"], "nome", None) or "",
-                    "qtd_equipamentos": len(grupo["itens"]),
-                    "motivo": str(exc),
-                })
-                continue
+    def _pendencia(grupo, motivo: str) -> None:
+        pendencias.append({
+            "cliente_id": grupo["cliente_id"],
+            "cliente": getattr(grupo["cliente"], "nome", None) or "",
+            "qtd_equipamentos": len(grupo["itens"]),
+            "motivo": motivo,
+        })
 
-            if resposta.get("created"):
-                criados += 1
-            else:
-                existentes += 1
+    for grupo in grupos:
+        # O card e' montado SEMPRE, inclusive em simulacao — e' assim que o modo
+        # simulacao cumpre o que promete: validar que o payload de TODO cliente
+        # consegue ser construido. Se a montagem ficasse atras do `--enviar`, um
+        # cliente com dado ruim passaria limpo na simulacao e so estouraria na
+        # carga real, que e' exatamente o que queremos evitar.
+        try:
+            card = montar_card_atrasados(grupo, data_carga, settings.HSGROWTH_BOARD_COBRANCA)
+        except Exception as exc:  # noqa: BLE001 — melhor esforco por cliente
+            falhas += 1
+            _pendencia(grupo, f"falha ao montar o card: {exc}")
+            continue
+
+        if not enviar:
+            continue      # simulacao: montou (validou) e para aqui, sem request
+
+        try:
+            resposta = enviar_card_sync(card)
+        except Exception as exc:  # noqa: BLE001 — melhor esforco por cliente, segue pro proximo
+            falhas += 1
+            _pendencia(grupo, str(exc))
+            continue
+
+        if resposta.get("created"):
+            criados += 1
+        else:
+            existentes += 1
 
     return {
         "grupos": grupos,
