@@ -57,6 +57,7 @@ def test_modulo_mostra_onde_esta_instalado(client, usuario_comum, os_base, db_se
     body = client.get(f"/equipamentos-cliente/{mod.id}", headers=h).json()
     assert body["instalado_em"]["id"] == pho.id
     assert body["instalado_em"]["serie"] == "WATFR01-00257"
+    assert body["instalado_em"]["cliente_nome"] == "Cliente OS"
     assert body["modulo_instalado"] is None
 
 
@@ -120,4 +121,46 @@ def test_phoebus_nunca_esta_em_estoque(client, usuario_comum, os_base, db_sessio
     pho = _equip(db_session, os_base, "AP-NAO-ESTOQUE")
     h = _headers(client, "comum@hs.com", "senha123")
     body = client.get(f"/equipamentos-cliente/{pho.id}", headers=h).json()
+    assert body["em_estoque"] is False
+
+
+def test_patch_mantem_elo_sem_get_previo(client, usuario_admin, os_base, db_session):
+    """Regressao: o PATCH tem que anotar o elo na propria resposta, sem depender
+    de um GET anterior ter deixado o atributo carimbado na instancia da sessao."""
+    pho = _equip(db_session, os_base, "WATFR01-00257")
+    mod = _equip(db_session, os_base, "F004230")
+    _instalar(db_session, mod.id, pho.id)
+    h = _headers(client, "admin@hs.com", "senha123")
+    r = client.patch(f"/equipamentos-cliente/{pho.id}", json={"patrimonio": "PAT-NOVO"}, headers=h)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["patrimonio"] == "PAT-NOVO"
+    assert body["modulo_instalado"]["id"] == mod.id
+
+
+def test_transferir_mantem_elo_sem_get_previo(client, usuario_admin, os_base, db_session):
+    from app.models import Cliente
+    pho = _equip(db_session, os_base, "WATFR01-00257")
+    mod = _equip(db_session, os_base, "F004230")
+    _instalar(db_session, mod.id, pho.id)
+    destino = Cliente(nome="Empresa Nova")
+    db_session.add(destino); db_session.commit(); db_session.refresh(destino)
+    h = _headers(client, "admin@hs.com", "senha123")
+    r = client.post(f"/equipamentos-cliente/{pho.id}/transferir",
+                    json={"cliente": destino.id}, headers=h)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["cliente"] == destino.id
+    assert body["modulo_instalado"]["id"] == mod.id
+
+
+def test_criar_nao_tem_elo(client, usuario_admin, os_base):
+    h = _headers(client, "admin@hs.com", "senha123")
+    r = client.post("/equipamentos-cliente", json={
+        "cliente": os_base["cliente"], "equipamento": os_base["equipamento"], "serie": "NOVO-SEM-ELO",
+    }, headers=h)
+    assert r.status_code == 201
+    body = r.json()
+    assert body["modulo_instalado"] is None
+    assert body["instalado_em"] is None
     assert body["em_estoque"] is False

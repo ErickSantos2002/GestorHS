@@ -6,6 +6,14 @@ regras de `resolver_elos` (Task 1) e grava/atualiza `instalacoes_modulo`
 
 Uso: python -m app.scripts.importar_elo_modulos <arquivo.xlsx> [--origem TEXTO]
      [--phoebus-id 36] [--modulo-id 47] [--dry-run] [--pendencias CAMINHO.csv]
+
+LIMITACAO (re-execucao com planilha mais nova): o script fecha (`saiu_em`)
+instalacoes cujo par phoebus/modulo MUDOU entre a planilha antiga e a nova.
+Mas se um aparelho ou modulo simplesmente SOME da nova planilha (ou a celula
+do modulo fica em branco), a instalacao aberta correspondente NAO e' fechada
+— ela continua aparecendo como o elo atual, mesmo sem confirmacao na fonte
+mais recente. Uma flag futura `--fechar-ausentes` resolveria isso fechando
+essas instalacoes; nao implementada aqui.
 """
 import argparse
 import csv

@@ -47,7 +47,7 @@ def _anotar_elo(db: Session, obj) -> None:
         pho = db.query(EquipamentoCliente).filter(EquipamentoCliente.id == inst_como_modulo.phoebus).first()
         if pho is not None:
             obj.instalado_em = {"id": pho.id, "serie": pho.serie,
-                                "cliente_nome": pho.cliente_nome if hasattr(pho, "cliente_nome") else None,
+                                "cliente_nome": pho.cliente_nome,
                                 "entrou_em": inst_como_modulo.entrou_em, "origem": inst_como_modulo.origem}
 
     if obj.equipamento == settings.EQUIPAMENTO_MODULO_ID and inst_como_modulo is None:
@@ -137,6 +137,7 @@ def criar(dados: EquipamentoClienteCreate, db: Session = Depends(get_db), _: Usu
     db.add(obj)
     db.commit()
     db.refresh(obj)
+    _anotar_elo(db, obj)
     return obj
 
 
@@ -149,6 +150,7 @@ def atualizar(item_id: int, dados: EquipamentoClienteUpdate, db: Session = Depen
         setattr(obj, chave, valor)
     db.commit()
     db.refresh(obj)
+    _anotar_elo(db, obj)
     return obj
 
 
@@ -190,6 +192,7 @@ def transferir(item_id: int, dados: TransferirIn, db: Session = Depends(get_db),
     obj.os_atual = None
     db.commit()
     db.refresh(obj)
+    _anotar_elo(db, obj)
     return obj
 
 
