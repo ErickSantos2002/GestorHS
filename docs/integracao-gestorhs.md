@@ -145,7 +145,7 @@ card existente sem alterar nada** (ver destaque no topo do documento).
 | `board_id` | int | ✅ | Board do hsgrowth onde o card deve nascer. O card sempre entra na etapa marcada como `is_entry_stage=true` desse board — **não há como escolher a lista diretamente**. Se o board não existir ou não tiver etapa de entrada configurada → `404`. |
 | `title` | string (1–500 caracteres) | ✅ | Título do card. |
 | `description` | string \| null | — | Texto livre, sem limite de tamanho. |
-| `due_date` | string ISO 8601 (aceita `"YYYY-MM-DD"` ou `"YYYY-MM-DDTHH:MM:SS"`) \| null | — | Data de vencimento do card. |
+| `due_date` | string ISO 8601 **com hora** — `"YYYY-MM-DDTHH:MM:SS"` \| null | — | Data de vencimento do card. ⚠️ **Data pura (`"YYYY-MM-DD"`) NÃO é aceita**: o campo é `Optional[datetime]` e o Pydantic v2 recusa com *"invalid datetime separator, expected `T`"* (confirmado com um `422` real em 18/07/2026). Use `"2026-07-30T00:00:00"`. |
 | `client` | objeto `IntegrationCardClient` | ✅ | Ver tabela abaixo. |
 | `contact` | objeto `IntegrationCardContact` \| null | — | Pessoa de contato. Se omitido, o card não fica vinculado a nenhuma pessoa. |
 | `devices` | array de `IntegrationCardDevice` \| null | — | Lista de aparelhos. Vira `business_info.equipamentos` no card (mesmo formato usado internamente pelo campo `aparelhos` do produto do card). |
@@ -208,7 +208,7 @@ curl -X POST "$HSGROWTH_BASE_URL/api/v1/integration/service-cards" \
     "board_id": 3,
     "title": "OS #8842 · Auto Posto Bela Vista · Bafômetro SN-4471",
     "description": "Calibração periódica — equipamento chegou em 17/07.",
-    "due_date": "2026-07-30",
+    "due_date": "2026-07-30T00:00:00",
     "client": {
       "external_id": "512",
       "name": "Auto Posto Bela Vista Ltda",
@@ -257,7 +257,7 @@ curl -X POST "$HSGROWTH_BASE_URL/api/v1/integration/service-cards" \
     "board_id": 5,
     "title": "Calibração vencendo · Auto Posto Bela Vista · Bafômetro SN-4471",
     "description": "Próxima calibração em 2026-09-08 (faltam 50 dias). Sem OS aberta ainda.",
-    "due_date": "2026-09-08",
+    "due_date": "2026-09-08T00:00:00",
     "client": {
       "external_id": "512",
       "name": "Auto Posto Bela Vista Ltda",
@@ -290,9 +290,9 @@ curl -X POST "$HSGROWTH_BASE_URL/api/v1/integration/service-cards" \
 `board_id` aqui é o board de **Cobrança** — um id diferente do exemplo anterior (ver
 checklist, seção 9).
 
-Os dois `curl` acima foram validados diretamente contra
-`app.schemas.integration.IntegrationServiceCardCreate` (ver seção "Verificação" no
-relatório da task) — nenhum dos dois deve devolver `422`.
+Os dois `curl` acima usam `due_date` **com hora**. A versão anterior deste documento
+mostrava data pura (`"2026-07-30"`) e afirmava que ambos passavam — **não passavam**:
+uma chamada real em 18/07/2026 devolveu `422` em `due_date`. Corrigido.
 
 ---
 
