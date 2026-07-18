@@ -26,6 +26,30 @@ def test_cliente_sem_cnpj_usa_cpf():
     assert c["document"] == "12345678901"
 
 
+def test_cliente_address_com_todos_os_campos():
+    """Endereco + numero + bairro todos presentes."""
+    c = montar_cliente(_cliente(endereco="Rua X", numero=220, bairro="Centro"))
+    assert c["address"] == "Rua X, 220, Centro"
+
+
+def test_cliente_address_sem_numero():
+    """Endereco + bairro, sem numero — nao deve haver dupla virgula."""
+    c = montar_cliente(_cliente(endereco="Rua X", numero=None, bairro="Centro"))
+    assert c["address"] == "Rua X, Centro"
+
+
+def test_cliente_address_sem_bairro():
+    """Endereco + numero, sem bairro."""
+    c = montar_cliente(_cliente(endereco="Rua X", numero=220, bairro=None))
+    assert c["address"] == "Rua X, 220"
+
+
+def test_cliente_address_todos_ausentes():
+    """Nenhum dos campos de endereco — retorna None."""
+    c = montar_cliente(_cliente(endereco=None, numero=None, bairro=None))
+    assert c["address"] is None
+
+
 def test_contato_none_quando_nao_ha_nome():
     assert montar_contato(_cliente(contato=None)) is None
     assert montar_contato(_cliente(contato="  ")) is None

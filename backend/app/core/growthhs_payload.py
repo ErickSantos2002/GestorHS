@@ -22,6 +22,15 @@ def _data_iso(valor: Optional[date]) -> Optional[str]:
     return valor.strftime("%Y-%m-%d")
 
 
+def _telefone(cliente) -> Optional[str]:
+    """Extrai telefone do cliente com fallback: celular > whatsapp > telefones."""
+    return (
+        _texto(getattr(cliente, "celular", None))
+        or _texto(getattr(cliente, "whatsapp", None))
+        or _texto(getattr(cliente, "telefones", None))
+    )
+
+
 def montar_cliente(cliente) -> dict:
     """Monta o payload `client` do card do GrowthHS a partir de um cliente do GestorHS."""
     # external_id é sempre o id interno do cliente (str(cliente.id)), NUNCA o
@@ -43,11 +52,7 @@ def montar_cliente(cliente) -> dict:
     partes_endereco = [p for p in partes_endereco if p]
     address = ", ".join(partes_endereco) if partes_endereco else None
 
-    phone = (
-        _texto(getattr(cliente, "celular", None))
-        or _texto(getattr(cliente, "whatsapp", None))
-        or _texto(getattr(cliente, "telefones", None))
-    )
+    phone = _telefone(cliente)
 
     return {
         "external_id": str(cliente.id),
@@ -67,11 +72,7 @@ def montar_contato(cliente) -> Optional[dict]:
     if not nome:
         return None
 
-    phone = (
-        _texto(getattr(cliente, "celular", None))
-        or _texto(getattr(cliente, "whatsapp", None))
-        or _texto(getattr(cliente, "telefones", None))
-    )
+    phone = _telefone(cliente)
 
     return {
         "name": nome,
