@@ -67,6 +67,7 @@ describe('elo Phoebus-Módulo na ficha do equipamento', () => {
   it('mostra "No estoque" quando o aparelho é um módulo sem instalação em aberto', async () => {
     obter.mockResolvedValue({
       ...BASE,
+      equipamento_descricao: 'Módulo de Calibração do Bafômetro Automatizado PHOEBUS',
       modulo_instalado: null,
       instalado_em: null,
       em_estoque: true,
@@ -75,6 +76,27 @@ describe('elo Phoebus-Módulo na ficha do equipamento', () => {
     expect(await screen.findByText('No estoque')).toBeInTheDocument()
     expect(screen.queryByText('Módulo instalado')).not.toBeInTheDocument()
     expect(screen.queryByText('Instalado em')).not.toBeInTheDocument()
+  })
+
+  it('mostra a data mesmo quando origem é null', async () => {
+    obter.mockResolvedValue({
+      ...BASE,
+      modulo_instalado: { id: 9, serie: 'F004230', entrou_em: '2026-01-10', origem: null },
+    })
+    tela()
+    expect(await screen.findByText('Módulo instalado')).toBeInTheDocument()
+    expect(screen.getByText('Registrado em 10/01/2026')).toBeInTheDocument()
+  })
+
+  it('mostra a origem sem data quebrada quando entrou_em é null', async () => {
+    obter.mockResolvedValue({
+      ...BASE,
+      instalado_em: { id: 5, serie: 'WATFR01-00257', cliente_nome: 'Filial Norte', entrou_em: null, origem: 'planilha 2026-07-18' },
+    })
+    tela()
+    expect(await screen.findByText('Instalado em')).toBeInTheDocument()
+    expect(screen.getByText('planilha 2026-07-18')).toBeInTheDocument()
+    expect(screen.queryByText(/Registrado em/)).not.toBeInTheDocument()
   })
 
   it('não mostra nenhuma seção do elo quando não aplicável (não é módulo nem tem módulo instalado)', async () => {
