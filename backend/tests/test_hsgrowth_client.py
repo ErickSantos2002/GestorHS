@@ -69,3 +69,22 @@ def test_url_e_header(monkeypatch):
     assert capturado["url"] == "https://growth.test/api/v1/integration/service-cards"
     assert capturado["headers"]["X-API-Key"] == "chave-123"
     assert r["created"] is True
+
+
+def test_erro_inclui_o_corpo_da_resposta(monkeypatch):
+    """Um 422 sem o corpo e indiagnosticavel: o FastAPI diz QUAL campo falhou ali."""
+    from app.integrations import hsgrowth_client as cli
+    _ligar(monkeypatch)
+
+    class RespErro:
+        status_code = 422
+        text = '{"detail":[{"loc":["body","due_date"],"msg":"invalid datetime"}]}'
+        def json(self): return {}
+
+    monkeypatch.setattr(cli.httpx, "post", lambda *a, **k: RespErro())
+    try:
+        cli.enviar_card_sync({"external_id": "1"})
+        raise AssertionError("deveria ter levantado")
+    except RuntimeError as exc:
+        assert "422" in str(exc)
+        assert "due_date" in str(exc)      # o campo culpado aparece

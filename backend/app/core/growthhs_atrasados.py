@@ -70,7 +70,12 @@ def montar_card_atrasados(grupo: dict, data_carga: date, board_id: int) -> dict:
         "board_id": board_id,
         "title": title,
         "description": description,
-        "due_date": vencimento_mais_antigo.isoformat(),
+        # datetime COMPLETO, nao data pura: `due_date` e' `Optional[datetime]` no
+        # schema do GrowthHS e o Pydantic v2 recusa "YYYY-MM-DD" com
+        # "invalid datetime separator, expected `T`". Confirmado com 422 numa
+        # chamada real em 18/07/2026 — o contrato (§3) diz que aceita data pura,
+        # mas nao aceita; os exemplos de curl do proprio documento falhariam.
+        "due_date": f"{vencimento_mais_antigo.isoformat()}T00:00:00",
         "client": montar_cliente(cliente),
         "contact": montar_contato(cliente),
         "devices": devices,

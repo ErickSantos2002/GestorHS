@@ -27,7 +27,13 @@ def _post(payload: dict) -> dict:
         headers={"X-API-Key": settings.HSGROWTH_API_KEY},
         timeout=10,
     )
-    resp.raise_for_status()      # 201 e 200 passam; 4xx/5xx levantam
+    if resp.status_code >= 400:
+        # O raise_for_status() do httpx joga fora o CORPO da resposta — e num 422
+        # e' exatamente ali que o FastAPI diz QUAL campo falhou. Sem isso, uma
+        # falha na carga vira "422 Unprocessable Entity" pelado no CSV e nao da
+        # para diagnosticar. Anexamos o corpo (truncado) na mensagem.
+        detalhe = resp.text[:500]
+        raise RuntimeError(f"GrowthHS respondeu {resp.status_code}: {detalhe}")
     return resp.json()
 
 

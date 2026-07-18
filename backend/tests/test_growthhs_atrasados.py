@@ -157,8 +157,11 @@ def test_due_date_e_o_vencimento_mais_antigo():
     ]
     grupos = agrupar_por_cliente(linhas)
     card = montar_card_atrasados(grupos[0], date(2026, 7, 18), board_id=2)
-    # segue o mesmo padrao do taskhs.py (due_date como string ISO, pronta pro JSON do POST)
-    assert card["due_date"] == "2026-01-05"
+    # datetime COMPLETO: o schema do GrowthHS declara `Optional[datetime]` e o
+    # Pydantic v2 recusa data pura ("invalid datetime separator, expected `T`").
+    # Confirmado com um 422 real em 18/07/2026 — o contrato diz que aceita
+    # "YYYY-MM-DD", mas nao aceita.
+    assert card["due_date"] == "2026-01-05T00:00:00"
 
 
 def test_titulo_singular_com_um_aparelho():
