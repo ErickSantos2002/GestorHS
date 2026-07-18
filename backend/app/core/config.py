@@ -19,6 +19,9 @@ class Settings(BaseSettings):
         "http://localhost:5173",
         "http://localhost:5174",
     ]
+    # Id de catalogo do "Modulo de Calibracao do Bafometro Automatizado PHOEBUS".
+    # Fonte unica; tambem usada como default do script de carga (Task 3).
+    EQUIPAMENTO_MODULO_ID: int = 47
 
     class Config:
         env_file = ".env"

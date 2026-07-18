@@ -23,6 +23,23 @@ class FrotaPage(BaseModel):
     total: int
 
 
+class EloModuloOut(BaseModel):
+    id: int
+    serie: Optional[str] = None
+    entrou_em: Optional[date] = None
+    origem: Optional[str] = None
+    model_config = {"from_attributes": True}
+
+
+class EloPhoebusOut(BaseModel):
+    id: int
+    serie: Optional[str] = None
+    cliente_nome: Optional[str] = None
+    entrou_em: Optional[date] = None
+    origem: Optional[str] = None
+    model_config = {"from_attributes": True}
+
+
 class EquipamentoClienteOut(BaseModel):
     id: int
     cliente: int
@@ -47,6 +64,9 @@ class EquipamentoClienteOut(BaseModel):
     calib_teste3: Optional[str] = None
     calib_teste_media: Optional[str] = None
     calib_situacao: Optional[str] = None
+    modulo_instalado: Optional[EloModuloOut] = None
+    instalado_em: Optional[EloPhoebusOut] = None
+    em_estoque: bool = False
     model_config = {"from_attributes": True}
 
 
