@@ -27,3 +27,7 @@ Thumbs.db
 # Logs
 *.log
 /.playwright-mcp
+
+# Planilhas de dados (dados de cliente — nao versionar)
+docs/*.xlsx
+docs/*.csv

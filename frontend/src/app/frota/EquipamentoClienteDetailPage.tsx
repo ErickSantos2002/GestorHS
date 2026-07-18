@@ -30,6 +30,17 @@ function Secao({ titulo, children }: { titulo: string; children: ReactNode }) {
   )
 }
 
+function Provenancia({ entrouEm, origem }: { entrouEm: string | null; origem: string | null }) {
+  if (!entrouEm && !origem) return null
+  return (
+    <p className="text-xs text-slate-500">
+      {entrouEm && `Registrado em ${formatData(entrouEm)}`}
+      {entrouEm && origem && ' · '}
+      {origem}
+    </p>
+  )
+}
+
 export function EquipamentoClienteDetailPage({ embutido = false }: { embutido?: boolean } = {}) {
   const params = useParams()
   const [searchParams] = useSearchParams()
@@ -243,6 +254,35 @@ export function EquipamentoClienteDetailPage({ embutido = false }: { embutido?: 
             <form className="space-y-6" onSubmit={salvar}>{formConteudo}</form>
           </DetailMain>
           <DetailAside>
+            {/* O elo Phoebus<->Módulo é sempre um dos três estados abaixo — nunca dois ao mesmo tempo
+                (invariante do backend: um aparelho não pode ser simultaneamente um Phoebus com módulo
+                instalado e um módulo instalado em outro lugar). Encadeado como else-if para deixar
+                essa exclusividade explícita mesmo se o invariante um dia falhar. */}
+            {obj?.modulo_instalado ? (
+              <Secao titulo="Módulo instalado">
+                <p className="text-sm text-slate-300">
+                  <Link to={`/app/equipamentos/${obj.modulo_instalado.id}`} className="text-primary hover:underline">
+                    {obj.modulo_instalado.serie || `#${obj.modulo_instalado.id}`}
+                  </Link>
+                </p>
+                <Provenancia entrouEm={obj.modulo_instalado.entrou_em} origem={obj.modulo_instalado.origem} />
+              </Secao>
+            ) : obj?.instalado_em ? (
+              <Secao titulo="Instalado em">
+                <p className="text-sm text-slate-300">
+                  <Link to={`/app/equipamentos/${obj.instalado_em.id}`} className="text-primary hover:underline">
+                    {obj.instalado_em.serie || `#${obj.instalado_em.id}`}
+                  </Link>
+                  {obj.instalado_em.cliente_nome && <span className="text-slate-500"> · {obj.instalado_em.cliente_nome}</span>}
+                </p>
+                <Provenancia entrouEm={obj.instalado_em.entrou_em} origem={obj.instalado_em.origem} />
+              </Secao>
+            ) : obj?.em_estoque ? (
+              <Secao titulo="No estoque">
+                <p className="text-sm text-slate-300">Módulo sem instalação em aberto.</p>
+              </Secao>
+            ) : null}
+
             {obj && (obj.calib_cert || obj.calib_situacao || obj.calib_teste_media) && (
               <Secao titulo="Última calibração (resultado da OS)">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-slate-300">

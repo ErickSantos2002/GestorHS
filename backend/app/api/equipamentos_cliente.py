@@ -10,6 +10,7 @@ from app.api.deps import get_current_usuario, require_funcao
 from app.api.cadastros_common import excluir_protegido
 from app.api.ordens_acoes import agora
 from app.core import os_workflow as wf
+from app.core.config import settings
 from app.schemas.frota import (
     FrotaListOut, FrotaPage, EquipamentoClienteOut,
     EquipamentoClienteCreate, EquipamentoClienteUpdate, HistoricoOut, EquipCertItem,
@@ -19,6 +20,38 @@ from app.schemas.ordens import OrdemListOut
 
 router = APIRouter(prefix="/equipamentos-cliente", tags=["frota"])
 ADMIN = "Administrador"
+
+
+def _anotar_elo(db: Session, obj) -> None:
+    """Preenche o elo conforme o PAPEL do equipamento, sem precisar saber ids de catalogo:
+    se ha instalacao aberta com phoebus=obj -> ele e um Phoebus e tem modulo instalado;
+    se ha instalacao aberta com modulo=obj -> ele e um modulo e esta dentro de um Phoebus."""
+    from app.models import InstalacaoModulo
+    obj.modulo_instalado = None
+    obj.instalado_em = None
+    obj.em_estoque = False
+
+    inst = db.query(InstalacaoModulo).filter(
+        InstalacaoModulo.phoebus == obj.id, InstalacaoModulo.saiu_em.is_(None)
+    ).first()
+    if inst is not None:
+        mod = db.query(EquipamentoCliente).filter(EquipamentoCliente.id == inst.modulo).first()
+        if mod is not None:
+            obj.modulo_instalado = {"id": mod.id, "serie": mod.serie,
+                                    "entrou_em": inst.entrou_em, "origem": inst.origem}
+
+    inst_como_modulo = db.query(InstalacaoModulo).filter(
+        InstalacaoModulo.modulo == obj.id, InstalacaoModulo.saiu_em.is_(None)
+    ).first()
+    if inst_como_modulo is not None:
+        pho = db.query(EquipamentoCliente).filter(EquipamentoCliente.id == inst_como_modulo.phoebus).first()
+        if pho is not None:
+            obj.instalado_em = {"id": pho.id, "serie": pho.serie,
+                                "cliente_nome": pho.cliente_nome,
+                                "entrou_em": inst_como_modulo.entrou_em, "origem": inst_como_modulo.origem}
+
+    if obj.equipamento == settings.EQUIPAMENTO_MODULO_ID and inst_como_modulo is None:
+        obj.em_estoque = True
 
 
 @router.get("", response_model=FrotaPage)
@@ -60,6 +93,7 @@ def obter(item_id: int, db: Session = Depends(get_db), _: Usuario = Depends(get_
     obj = db.query(EquipamentoCliente).filter(EquipamentoCliente.id == item_id).first()
     if obj is None:
         raise HTTPException(status_code=404, detail="não encontrado")
+    _anotar_elo(db, obj)
     return obj
 
 
@@ -103,6 +137,7 @@ def criar(dados: EquipamentoClienteCreate, db: Session = Depends(get_db), _: Usu
     db.add(obj)
     db.commit()
     db.refresh(obj)
+    _anotar_elo(db, obj)
     return obj
 
 
@@ -115,6 +150,7 @@ def atualizar(item_id: int, dados: EquipamentoClienteUpdate, db: Session = Depen
         setattr(obj, chave, valor)
     db.commit()
     db.refresh(obj)
+    _anotar_elo(db, obj)
     return obj
 
 
@@ -156,6 +192,7 @@ def transferir(item_id: int, dados: TransferirIn, db: Session = Depends(get_db),
     obj.os_atual = None
     db.commit()
     db.refresh(obj)
+    _anotar_elo(db, obj)
     return obj
 
 

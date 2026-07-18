@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.19.0',
+    data: '18/07/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'A ficha de um aparelho agora mostra o elo entre o Phoebus e o módulo de calibração: abrindo um Phoebus você vê qual módulo está instalado nele, e abrindo um módulo vê em qual aparelho (e cliente) ele está — ou que está no estoque. A informação vem de uma carga feita a partir da lista de dispositivos e mostra de quando é aquele retrato.' },
+    ],
+  },
+  {
     versao: '1.18.0',
     data: '17/07/2026',
     itens: [
