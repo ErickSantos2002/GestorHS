@@ -25,7 +25,10 @@ def escolher_vencedor(linhas):
 
     Um modulo so pode estar em um aparelho; a linha com calibracao mais recente e onde
     ele esta de fato (a outra e o aparelho onde ele estava). Sem data valida perde.
+    Em empate exato de data, vence a primeira linha. Lista vazia devolve None.
     """
+    if not linhas:
+        return None
     melhor = linhas[0]
     melhor_data = parse_data(melhor.get("prox_calib"))
     for atual in linhas[1:]:

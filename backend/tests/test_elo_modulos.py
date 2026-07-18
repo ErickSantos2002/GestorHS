@@ -56,3 +56,44 @@ def test_resolver_elos_duplicado_vence_o_mais_recente():
     assert elos == [{"linha": 42, "phoebus_id": 10, "modulo_id": 20}]
     assert len(pend) == 1 and pend[0]["linha"] == 43
     assert "duplicado" in pend[0]["motivo"]
+
+
+def test_resolver_elos_duplicado_vencedora_sem_aparelho_tambem_vira_pendencia():
+    """A vencedora nao some silenciosamente: se o proprio aparelho dela nao
+    existe em series_phoebus, ela GANHA sua propria pendencia, alem da
+    'duplicado' da perdedora."""
+    linhas = [
+        _l(42, "AP_NAO_EXISTE", "M1", "2026-09-28 11:01:40"),
+        _l(43, "AP2", "M1", "2000-11-24 07:46:30"),
+    ]
+    elos, pend = resolver_elos(linhas, {"AP2": 11}, {"M1": 20})
+    assert elos == []
+    assert len(pend) == 2
+    motivos_por_linha = {p["linha"]: p["motivo"] for p in pend}
+    assert motivos_por_linha[43] == "duplicado (modulo em outro aparelho mais recente)"
+    assert motivos_por_linha[42] == "aparelho nao encontrado"
+
+
+def test_resolver_elos_duplicado_vencedora_sem_modulo_tambem_vira_pendencia():
+    """Mesma logica, mas o que falta e o proprio modulo da vencedora."""
+    linhas = [
+        _l(42, "AP1", "M_NAO_EXISTE", "2026-09-28 11:01:40"),
+        _l(43, "AP2", "M_NAO_EXISTE", "2000-11-24 07:46:30"),
+    ]
+    elos, pend = resolver_elos(linhas, {"AP1": 10, "AP2": 11}, {})
+    assert elos == []
+    assert len(pend) == 2
+    motivos_por_linha = {p["linha"]: p["motivo"] for p in pend}
+    assert motivos_por_linha[43] == "duplicado (modulo em outro aparelho mais recente)"
+    assert motivos_por_linha[42] == "modulo nao encontrado"
+
+
+def test_escolher_vencedor_empate_exato_vence_a_primeira():
+    a = _l(1, "AP1", "M1", "2027-01-01 00:00:00")
+    b = _l(2, "AP2", "M1", "2027-01-01 00:00:00")
+    assert escolher_vencedor([a, b]) is a
+    assert escolher_vencedor([b, a]) is b
+
+
+def test_escolher_vencedor_lista_vazia_devolve_none():
+    assert escolher_vencedor([]) is None
