@@ -4,7 +4,7 @@
 
 **Goal:** Construir a base da integração com o GrowthHS (config + cliente HTTP + montagem de payload) e, sobre ela, o script de carga única dos aparelhos com calibração já vencida — um card por cliente no board de Cobrança.
 
-**Architecture:** `hsgrowth_client.py` espelha o `taskhs_client.py` (gating por env, best-effort, duas variantes: silenciosa e propagando). A montagem do payload fica em `core/growthhs_payload.py`, **pura e sem I/O**, para ser testada isolada — inclusive a regra do elo Phoebus↔Módulo. A Etapa 1 é um script no molde do `importar_elo_modulos` (`--dry-run`, CSV de pendências, best-effort por item).
+**Architecture:** `hsgrowth_client.py` espelha o `taskhs_client.py` (gating por env, best-effort, duas variantes: silenciosa e propagando). A montagem do payload fica em `core/growthhs_payload.py`, **pura e sem I/O**, para ser testada isolada — inclusive a regra do elo Phoebus↔Módulo. A Etapa 1 é um script no molde do `importar_elo_modulos` (CSV de pendências, best-effort por item), mas com o default invertido: **só envia com `--enviar`**.
 
 **Tech Stack:** Python 3.12 · FastAPI · SQLAlchemy 2 · httpx · pytest.
 
@@ -23,7 +23,7 @@
 - Backend: `docker exec gestorhs-backend pytest -q` (NÃO há venv local).
 - Commits Conventional Commits em PT-BR sem acentos, uma linha, sem trailer.
 
-**Dependência externa:** o `source` `gestorhs.atrasados` ainda **não existe** no enum do GrowthHS (`backend/app/schemas/integration.py:42`) — enviar antes disso devolve `422`. Isso **não bloqueia construir nem testar** (os testes não batem na rede); bloqueia só a execução real do script.
+**Dependência externa: RESOLVIDA em 18/07/2026.** O `source` `gestorhs.atrasados` já foi adicionado ao enum do GrowthHS (`backend/app/schemas/integration.py`), sem migração (a coluna é `String(50)` sem enum de banco). A carga real está desbloqueada.
 
 ---
 
