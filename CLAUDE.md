@@ -23,7 +23,14 @@ alembic upgrade head                             # aplica migrações no Postgre
 alembic revision -m "descricao"                  # nova migração
 uvicorn app.main:app --reload                    # API em :8000 (Swagger em /docs)
 python -m app.scripts.criar_usuario admin <senha> Administrador   # bootstrap de admin (idempotente)
+python -m app.scripts.enviar_atrasados_growthhs                   # SIMULA a carga de vencidos (padrao: nao envia)
+python -m app.scripts.enviar_atrasados_growthhs --enviar          # carga real no GrowthHS (ver aviso abaixo)
 ```
+
+> ⚠️ **`enviar_atrasados_growthhs` nao envia nada sem `--enviar`.** A chave do card e
+> `{cliente_id}:{data_da_carga}`, entao rodar a carga em **duas datas diferentes cria um card
+> duplicado por cliente** — e o GrowthHS nao expoe leitura para o script detectar isso. Rode
+> sem a flag primeiro, confira o resumo e o CSV de pendencias, e so entao use `--enviar`.
 
 ### Frontend (`frontend/`, React 19 · TS · Vite 8 · Tailwind v4)
 ```bash
