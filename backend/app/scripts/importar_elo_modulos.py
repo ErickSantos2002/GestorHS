@@ -29,7 +29,7 @@ from xml.etree import ElementTree as ET
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.elo_modulos import resolver_elos
+from app.core.elo_modulos import escolher_cadastro, resolver_elos
 from app.models import EquipamentoCliente, InstalacaoModulo
 from app.models.database import SessionLocal
 
@@ -222,14 +222,44 @@ def aplicar(db: Session, elos: list[dict], origem: str, dry_run: bool) -> dict:
     return contagem
 
 
-def _montar_series(db: Session, equipamento_id: int) -> dict:
-    """serie (nao vazia) -> id, para o catalogo `equipamento_id` dado (regra 3)."""
+def _montar_series(db: Session, equipamento_id: int) -> tuple[dict, list[dict]]:
+    """serie (nao vazia) -> id, para o catalogo `equipamento_id` dado (regra 3).
+
+    Quando duas ou mais linhas de `equipamentos_cliente` compartilham a
+    mesma serie sob o mesmo catalogo (cadastro duplicado — visto em
+    producao, ex.: Phoebus WATFR01-00155), o desempate e' feito por
+    `escolher_cadastro` (ativo > mais recente > maior id). Devolve tambem
+    a lista de colisoes encontradas, pra o chamador avisar no resumo em
+    vez de resolver em silencio.
+    """
     linhas = (
-        db.query(EquipamentoCliente.serie, EquipamentoCliente.id)
+        db.query(EquipamentoCliente.id, EquipamentoCliente.serie,
+                  EquipamentoCliente.ativo, EquipamentoCliente.prox_calibragem)
         .filter(EquipamentoCliente.equipamento == equipamento_id)
         .all()
     )
-    return {serie.strip(): id_ for serie, id_ in linhas if serie and serie.strip()}
+
+    candidatos_por_serie: dict[str, list[dict]] = {}
+    for id_, serie, ativo, prox_calibragem in linhas:
+        if not serie or not serie.strip():
+            continue
+        candidatos_por_serie.setdefault(serie.strip(), []).append(
+            {"id": id_, "ativo": ativo, "prox_calibragem": prox_calibragem}
+        )
+
+    mapa: dict[str, int] = {}
+    colisoes: list[dict] = []
+    for serie, candidatos in candidatos_por_serie.items():
+        ordenados = escolher_cadastro(candidatos)
+        mapa[serie] = ordenados[0]["id"]
+        if len(ordenados) > 1:
+            colisoes.append({
+                "serie": serie,
+                "escolhido": ordenados[0]["id"],
+                "descartados": [c["id"] for c in ordenados[1:]],
+            })
+
+    return mapa, colisoes
 
 
 def _escrever_csv_pendencias(caminho: str, pendencias: list[dict]) -> None:
@@ -266,8 +296,9 @@ def main() -> None:
 
     db = SessionLocal()
     try:
-        series_phoebus = _montar_series(db, args.phoebus_id)
-        series_modulo = _montar_series(db, args.modulo_id)
+        series_phoebus, colisoes_phoebus = _montar_series(db, args.phoebus_id)
+        series_modulo, colisoes_modulo = _montar_series(db, args.modulo_id)
+        colisoes = colisoes_phoebus + colisoes_modulo
 
         elos, pendencias = resolver_elos(linhas, series_phoebus, series_modulo)
         contagem = aplicar(db, elos, origem=args.origem, dry_run=args.dry_run)
@@ -283,6 +314,12 @@ def main() -> None:
     print(f"Elos: {contagem['criados']} criados, {contagem['fechados']} fechados, "
           f"{contagem['inalterados']} inalterados"
           + (" (dry-run, nada gravado)" if args.dry_run else ""))
+    if colisoes:
+        print(f"ATENCAO: {len(colisoes)} serie(s) duplicada(s) no cadastro — "
+              "escolhido o registro ativo/mais recente:")
+        for col in colisoes:
+            descartados = ", ".join(str(d) for d in col["descartados"])
+            print(f"  - {col['serie']}: escolhido id {col['escolhido']} (descartado(s): {descartados})")
     print(f"Pendencias: {len(pendencias)} (gravadas em {caminho_pendencias})")
     for motivo, qtd in motivos.most_common():
         print(f"  - {motivo}: {qtd}")

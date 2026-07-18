@@ -3,7 +3,7 @@
 NAO confundir com `equipamentos_cliente.modulo`, uma coluna inteira legada sem
 relacao com o modulo de calibracao do Phoebus.
 """
-from datetime import datetime
+from datetime import date, datetime
 
 _FORMATOS = ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d")
 
@@ -36,6 +36,35 @@ def escolher_vencedor(linhas):
         if data is not None and (melhor_data is None or data > melhor_data):
             melhor, melhor_data = atual, data
     return melhor
+
+
+def escolher_cadastro(candidatos):
+    """Desempata `equipamentos_cliente` com a MESMA serie (mesmo catalogo).
+
+    Usado por `_montar_series` (script `importar_elo_modulos`) quando o
+    cadastro tem mais de uma linha com a mesma serie sob o mesmo
+    equipamento — situacao real detectada em producao (ex.: Phoebus
+    WATFR01-00155 cadastrado duas vezes, uma ativa e uma inativa).
+
+    Cada candidato e' um dict/tupla-like com `id`, `ativo` e
+    `prox_calibragem`. Ordem de desempate:
+      1. `ativo=True` vence `ativo=False`;
+      2. entre iguais, vence o maior `prox_calibragem` (`None` perde pra
+         qualquer data — cadastro sem calibracao registrada e' menos
+         confiavel que um com data, mesmo antiga);
+      3. empate total: vence o maior `id` (desempate final, garante
+         resultado deterministico).
+
+    Devolve a lista ordenada do melhor pro pior (candidatos[0] e' o
+    escolhido; o resto e' descartado).
+    """
+    def chave(c):
+        ativo = bool(c.get("ativo"))
+        prox = c.get("prox_calibragem")
+        tem_data = prox is not None
+        return (ativo, tem_data, prox if tem_data else date.min, c.get("id"))
+
+    return sorted(candidatos, key=chave, reverse=True)
 
 
 def resolver_elos(linhas, series_phoebus, series_modulo):

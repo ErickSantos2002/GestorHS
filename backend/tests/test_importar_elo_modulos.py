@@ -117,6 +117,30 @@ def test_aplicar_swap_no_mesmo_lote_nao_dobra_fechados(db_session, os_base):
     assert abertas == {pho_b.id: mod_x.id, pho_a.id: mod_y.id}
 
 
+def test_montar_series_desempata_serie_duplicada_e_reporta_colisao(db_session, os_base):
+    """Caso real: duas linhas de equipamentos_cliente com a MESMA serie sob o
+    mesmo catalogo (cadastro duplicado). O mapa tem que apontar pro registro
+    ativo/mais recente, e a colisao tem que aparecer pra nao ser resolvida em
+    silencio (ver escolher_cadastro em app.core.elo_modulos)."""
+    from app.scripts.importar_elo_modulos import _montar_series
+    from app.models import EquipamentoCliente
+
+    antigo = EquipamentoCliente(cliente=os_base["cliente"], equipamento=os_base["equipamento"],
+                                 serie="WATFR01-00155", ativo=False, prox_calibragem=None)
+    novo = EquipamentoCliente(cliente=os_base["cliente"], equipamento=os_base["equipamento"],
+                               serie="WATFR01-00155", ativo=True, prox_calibragem=None)
+    db_session.add_all([antigo, novo]); db_session.commit()
+    db_session.refresh(antigo); db_session.refresh(novo)
+
+    mapa, colisoes = _montar_series(db_session, os_base["equipamento"])
+
+    assert mapa["WATFR01-00155"] == novo.id
+    assert len(colisoes) == 1
+    assert colisoes[0]["serie"] == "WATFR01-00155"
+    assert colisoes[0]["escolhido"] == novo.id
+    assert colisoes[0]["descartados"] == [antigo.id]
+
+
 def test_ler_planilha_acha_colunas_pelo_cabecalho(tmp_path):
     """Le um .xlsx minimo gerado na hora (sem dependencia externa)."""
     from app.scripts.importar_elo_modulos import ler_planilha
