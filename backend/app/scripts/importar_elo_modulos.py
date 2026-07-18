@@ -9,11 +9,13 @@ Uso: python -m app.scripts.importar_elo_modulos <arquivo.xlsx> [--origem TEXTO]
 """
 import argparse
 import csv
+import os
 import re
 import unicodedata
 import zipfile
 from collections import Counter
 from datetime import date
+from pathlib import Path
 from xml.etree import ElementTree as ET
 
 from sqlalchemy.orm import Session
@@ -27,11 +29,25 @@ _NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
 
 _PHOEBUS_ID_PADRAO = 36
 
+# backend/app/scripts/importar_elo_modulos.py -> repo root (raiz do GestorHS).
+# O script roda a partir de `backend/`, entao resolver contra o CWD colocaria
+# o CSV padrao em `backend/docs/` (nao existe) em vez do `docs/` real da raiz.
+_RAIZ_REPO = Path(__file__).resolve().parents[3]
+
 _CABECALHOS = {
     "numero de serie": "serie_aparelho",
     "numero de serie do modulo": "serie_modulo",
     "proxima calibracao": "prox_calib",
     "nome da empresa": "empresa",
+}
+
+# Rotulo amigavel por campo, usado na mensagem de erro quando uma coluna
+# esperada nao e' encontrada no cabecalho da planilha.
+_LABEL_POR_CAMPO = {
+    "serie_aparelho": "Numero de Serie",
+    "serie_modulo": "Numero de Serie do Modulo",
+    "prox_calib": "Proxima Calibracao",
+    "empresa": "Nome da Empresa",
 }
 
 
@@ -45,7 +61,10 @@ def _normalizar_cabecalho(texto: str) -> str:
 
 def _col_letra(ref: str) -> str:
     """'B7' -> 'B'."""
-    return re.match(r"[A-Z]+", ref).group(0)
+    m = re.match(r"[A-Z]+", ref or "")
+    if not m:
+        raise ValueError(f"referencia de celula invalida na planilha: {ref!r}")
+    return m.group(0)
 
 
 def ler_planilha(caminho: str) -> list[dict]:
@@ -82,7 +101,11 @@ def ler_planilha(caminho: str) -> list[dict]:
 
         linhas_raw = []
         for row in sheet_root.findall(f".//{_NS}sheetData/{_NS}row"):
-            num_linha = int(row.get("r"))
+            r_attr = row.get("r")
+            try:
+                num_linha = int(r_attr)
+            except (TypeError, ValueError):
+                raise ValueError(f"linha da planilha com referencia invalida: {r_attr!r}") from None
             celulas = {}
             for c in row.findall(f"{_NS}c"):
                 celulas[_col_letra(c.get("r"))] = valor_celula(c)
@@ -92,13 +115,18 @@ def ler_planilha(caminho: str) -> list[dict]:
             return []
 
         linhas_raw.sort(key=lambda x: x[0])
-        num_cabecalho, cabecalho_cols = linhas_raw[0]
+        _, cabecalho_cols = linhas_raw[0]
 
         mapa_col_campo: dict[str, str] = {}
         for col, texto in cabecalho_cols.items():
             campo = _CABECALHOS.get(_normalizar_cabecalho(texto or ""))
             if campo:
                 mapa_col_campo[col] = campo
+
+        campos_faltando = [c for c in _LABEL_POR_CAMPO if c not in mapa_col_campo.values()]
+        if campos_faltando:
+            nomes = ", ".join(f"'{_LABEL_POR_CAMPO[c]}'" for c in campos_faltando)
+            raise ValueError(f"coluna nao encontrada na planilha: {nomes}")
 
         linhas = []
         for num_linha, celulas in linhas_raw[1:]:
@@ -116,8 +144,29 @@ def aplicar(db: Session, elos: list[dict], origem: str, dry_run: bool) -> dict:
 
     Para cada elo: se ja existe instalacao aberta identica (mesmo modulo e
     mesmo phoebus), nao faz nada. Senao, fecha as instalacoes abertas
-    daquele modulo e daquele phoebus e abre a nova. Em dry_run, so conta
-    (nao grava nem commita).
+    daquele modulo e daquele phoebus e abre a nova.
+
+    Cada elo e' seguido de `db.flush()` (NUNCA `db.commit()`) antes do
+    proximo elo do MESMO lote ser processado. A sessao tem `autoflush=False`
+    (ver `app/models/database.py`), entao sem esse flush um `db.query()` de
+    um elo posterior nao enxergaria os fechamentos/aberturas de um elo
+    anterior no mesmo lote — dois elos que colidem no mesmo indice unico
+    parcial (ex.: dois elos pro mesmo phoebus) so estourariam a constraint
+    no commit final, abortando o LOTE INTEIRO, e um "swap" entre dois pares
+    dobraria a contagem de `fechados` (reprocessando linhas que ja tinham
+    sido fechadas em memoria).
+
+    O flush de fechamento roda ANTES do flush de abertura da nova linha:
+    fechar primeiro evita que o INSERT da linha nova coexista, mesmo que so
+    transitoriamente dentro de um unico flush, com a linha antiga ainda
+    aberta sob o mesmo indice unico parcial.
+
+    Em `dry_run=True` as mesmas mutacoes e flushes acontecem — e' isso que
+    faz elos subsequentes do lote enxergarem o efeito dos anteriores e a
+    contagem sair certa tambem em dry_run. A seguranca do dry_run nao vem de
+    deixar de mutar/adicionar/flushar objetos (eles ja estao anexados a
+    sessao e sujos independente de `db.add`): vem do `db.rollback()` final,
+    que desfaz a transacao inteira antes de qualquer `db.commit()`.
     """
     contagem = {"criados": 0, "fechados": 0, "inalterados": 0}
     hoje = date.today()
@@ -148,14 +197,14 @@ def aplicar(db: Session, elos: list[dict], origem: str, dry_run: bool) -> dict:
         for row in abertas_para_fechar.values():
             row.saiu_em = hoje
             contagem["fechados"] += 1
-            if not dry_run:
-                db.add(row)
+        if abertas_para_fechar:
+            db.flush()  # fecha antes de abrir: evita colisao no indice unico parcial
 
         nova = InstalacaoModulo(modulo=modulo_id, phoebus=phoebus_id, entrou_em=hoje,
                                  saiu_em=None, origem=origem)
+        db.add(nova)
         contagem["criados"] += 1
-        if not dry_run:
-            db.add(nova)
+        db.flush()  # visivel ao db.query() do proximo elo do mesmo lote
 
     if dry_run:
         db.rollback()
@@ -195,6 +244,14 @@ def main() -> None:
     parser.add_argument("--pendencias", default=None, help="Caminho do CSV de pendencias")
     args = parser.parse_args()
 
+    caminho_pendencias = args.pendencias or str(
+        _RAIZ_REPO / "docs" / f"pendencias-elo-{date.today().isoformat()}.csv"
+    )
+    # Valida/cria o diretorio de saida ANTES de qualquer escrita no banco: um
+    # caminho invalido precisa falhar rapido, nao depois de ja ter commitado
+    # os elos em `aplicar()` (o que deixaria o operador sem CSV e sem resumo).
+    os.makedirs(os.path.dirname(caminho_pendencias) or ".", exist_ok=True)
+
     linhas = ler_planilha(args.arquivo)
     total_lidas = len(linhas)
     sem_modulo = sum(1 for l in linhas if not (l.get("serie_modulo") or "").strip())
@@ -209,7 +266,6 @@ def main() -> None:
     finally:
         db.close()
 
-    caminho_pendencias = args.pendencias or f"docs/pendencias-elo-{date.today().isoformat()}.csv"
     _escrever_csv_pendencias(caminho_pendencias, pendencias)
 
     motivos = Counter(p["motivo"] for p in pendencias)
