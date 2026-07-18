@@ -382,7 +382,14 @@ git commit -m "feat(growthhs): agrupamento e card dos atrasados por cliente"
 - Test: `backend/tests/test_enviar_atrasados_growthhs.py`
 
 **Interfaces:**
-- CLI: `python -m app.scripts.enviar_atrasados_growthhs [--dry-run] [--pendencias CAMINHO.csv] [--limite N]`
+- CLI: `python -m app.scripts.enviar_atrasados_growthhs [--enviar] [--pendencias CAMINHO.csv] [--limite N]`
+
+> **SEGURANÇA — o padrão é NÃO enviar.** Sem `--enviar`, o script monta tudo, imprime o
+> resumo e escreve o CSV, **sem fazer nenhum request**. O envio real exige `--enviar`
+> explícito. Motivo: a chave é `{cliente_id}:{data_da_carga}`, então rodar a carga em **duas
+> datas diferentes cria um card duplicado por cliente** — e o GrowthHS não expõe leitura, logo
+> o script não tem como detectar que já enviou. Invertendo o default, um comando repetido por
+> engano é inofensivo.
 - `buscar_atrasados(db) -> list[dict]` — a consulta:
   - `equipamentos_cliente.ativo` e `prox_calibragem < hoje`;
   - **exclui** `equipamento in (PHOEBUS_ID, EBS_ID)` e `cliente = CLIENTE_ESTOQUE_HS_ID`;
@@ -390,7 +397,7 @@ git commit -m "feat(growthhs): agrupamento e card dos atrasados por cliente"
     instalação aberta em `instalacoes_modulo`, o Phoebus correspondente (o `elo`).
 - `main()` — busca → `agrupar_por_cliente` → para cada grupo `montar_card_atrasados` →
   `enviar_card_sync`; conta `criados` (201) / `existentes` (200) / `falhas`; escreve CSV e
-  imprime resumo. `--dry-run` monta tudo e **não envia**.
+  imprime resumo. **Sem `--enviar`, para antes do request** (monta, resume, grava CSV).
 - `--limite N` envia só os N primeiros grupos (para um teste real controlado antes da carga cheia).
 
 - [ ] **Step 1: Escrever o teste que falha**
@@ -404,7 +411,8 @@ Testar contra SQLite, criando dados de propósito:
 - um equipamento vencido **inativo** → não entra;
 - um módulo vencido **com** instalação aberta → o device sai com a série do Phoebus e
   `alcohol_module` preenchido;
-- `--dry-run` não chama `enviar_card_sync` (monkeypatch conta chamadas) e não escreve nada;
+- **sem `--enviar`** não chama `enviar_card_sync` (monkeypatch conta chamadas) — e **com
+  `--enviar`** chama uma vez por grupo;
 - falha em um grupo não interrompe os demais (o segundo ainda é enviado) e entra no CSV.
 
 - [ ] **Step 2: Rodar e ver falhar**
@@ -425,6 +433,8 @@ Pontos obrigatórios:
   clientes foram sem contato** e **quantos módulos foram sem elo**.
 - Se `integracao_ativa()` for falso, abortar cedo com mensagem clara (em vez de "enviar" para
   o vazio).
+- Sem `--enviar`, imprimir de forma destacada que **nada foi enviado** e como enviar de
+  verdade — o operador não pode achar que a carga aconteceu.
 
 - [ ] **Step 4: Rodar e ver passar**
 
@@ -462,8 +472,9 @@ devem seguir idênticos).
 
 Acrescentar na seção de comandos do backend:
 ```
-python -m app.scripts.enviar_atrasados_growthhs --dry-run   # confere antes
-python -m app.scripts.enviar_atrasados_growthhs             # carga real
+python -m app.scripts.enviar_atrasados_growthhs             # simula (padrao): nao envia nada
+python -m app.scripts.enviar_atrasados_growthhs --enviar    # carga real (cuidado: rodar em
+                                                           # duas datas duplica os cards)
 ```
 
 - [ ] **Step 3: Verificação completa**
