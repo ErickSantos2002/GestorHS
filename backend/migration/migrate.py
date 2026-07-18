@@ -133,11 +133,16 @@ def migrar_grupos(src, dst, rel):
 
 
 def migrar_fases(src, dst, rel):
-    src.execute("SELECT id, descricao, cor FROM hsfases")
-    rows = [(r[0], r[1], r[2]) for r in src.fetchall()]
-    n = inserir(dst, "fases", ["id", "descricao", "cor"], rows)
-    resetar_sequence(dst, "fases")
-    rel.ok("fases", n)
+    """NAO migra: as fases sao definidas pelas migracoes 0002 e 0010, nao pelo legado.
+
+    A 0002 redefiniu as fases 4-9 (descricao, cor, funcao_responsavel) e apagou
+    as extintas 1-3; a 0010 acrescentou a 10 (Financeiro). Reimportar hsfases
+    cru sobrescreveria essa definicao e ressuscitaria as fases 1-3, que o
+    workflow em app/core/os_workflow.py nao conhece.
+    """
+    dst.execute("SELECT count(*) FROM fases")
+    n = dst.fetchone()[0]
+    rel.warn("fases", f"pulada de proposito — {n} fases definidas pelas migracoes 0002/0010")
 
 
 def migrar_fases_lote(src, dst, rel):
@@ -189,10 +194,10 @@ def migrar_checklist_templates(src, dst, rel):
 
 
 def migrar_caixas(src, dst, rel):
-    STATUS_MAP = {'P': 'P', 'A': 'A', 'F': 'F', 'E': 'A'}
-    src.execute("SELECT id, data, status, obs FROM hscaixas")
-    rows = [(r[0], r[1], STATUS_MAP.get(str(r[2]).strip(), 'P'), r[3]) for r in src.fetchall()]
-    n = inserir(dst, "caixas", ["id", "data", "status", "obs"], rows)
+    # 'status' foi removido pela migracao 0005 — caixa e so agrupamento fisico
+    src.execute("SELECT id, data, obs FROM hscaixas")
+    rows = [(r[0], r[1], r[2]) for r in src.fetchall()]
+    n = inserir(dst, "caixas", ["id", "data", "obs"], rows)
     resetar_sequence(dst, "caixas")
     rel.ok("caixas", n)
 
@@ -260,19 +265,19 @@ def migrar_clientes(src, dst, rel):
 
 
 def migrar_usuarios(src, dst, rel):
-    src.execute("""
-        SELECT id, email, nome, login, senha, imagem, sexo,
-               permissoes, alertas, horain, horafi, dias
-        FROM hsusuarios
-    """)
-    rows = [(r[0], r[1], r[2], r[3], r[4], r[5],
-             strip_or_none(r[6]), r[7], r[8], r[9], r[10], r[11])
-            for r in src.fetchall()]
-    cols = ["id", "email", "nome", "login", "senha", "imagem", "sexo",
-            "permissoes", "alertas", "hora_ini", "hora_fim", "dias"]
-    n = inserir(dst, "usuarios", cols, rows)
-    resetar_sequence(dst, "usuarios")
-    rel.ok("usuarios", n)
+    """NAO migra: os usuarios internos sao recadastrados no sistema novo.
+
+    O legado tem 3 usuarios com senha em texto puro, e a credencial mudou de
+    'login' para e-mail na migracao 0012. Em vez de arrastar isso, o acesso
+    comeca do zero com um admin criado por:
+        python -m app.scripts.criar_usuario <email> <senha> Administrador
+
+    Efeito colateral esperado: migrar_logs_os grava usuario=NULL em todos os
+    logs (o campo textual 'autor' preserva quem foi no legado).
+    """
+    src.execute("SELECT count(*) FROM hsusuarios")
+    n = src.fetchone()[0]
+    rel.warn("usuarios", f"pulada de proposito — {n} usuarios do legado descartados")
 
 
 def migrar_menus_sistema(src, dst, rel):
@@ -345,10 +350,11 @@ def migrar_usuarios_cliente(src, dst, rel):
             ignorados += 1
             continue
         login = (r[4] or r[2] or f"cli_{r[0]}")[:20]  # fallback: email ou id, max 20
-        rows.append((r[0], r[1], r[2], r[3], login, r[5], r[6],
+        # senha do legado e texto puro; entra vazia e forca redefinicao (igual a 0001)
+        rows.append((r[0], r[1], r[2], r[3], login, "", True, r[6],
                      strip_or_none(r[7]), r[8], r[9], r[10], r[11], r[12]))
-    cols = ["id", "cliente", "email", "nome", "login", "senha", "imagem",
-            "sexo", "permissoes", "alertas", "hora_ini", "hora_fim", "dias"]
+    cols = ["id", "cliente", "email", "nome", "login", "senha", "precisa_redefinir_senha",
+            "imagem", "sexo", "permissoes", "alertas", "hora_ini", "hora_fim", "dias"]
     n = inserir(dst, "usuarios_cliente", cols, rows)
     resetar_sequence(dst, "usuarios_cliente")
     if ignorados:
@@ -449,13 +455,22 @@ def migrar_ordens(src, dst, rel):
     dst.execute("SELECT id FROM caixas")
     caixas = {r[0] for r in dst.fetchall()}
 
-    rows, ignorados = [], 0
+    # Fases 1-3 do legado (Inicio, Com etiqueta, Enviado) sao estados pre-chegada
+    # extintos pela 0002 — as OS nesses estados entram como Recebido (FASE_RECEBIDO=4).
+    FASES_EXTINTAS = {1, 2, 3}
+    FASE_RECEBIDO = 4
+
+    rows, ignorados, remapeadas = [], 0, 0
     for r in src.fetchall():
         if r[6] not in clientes:
             ignorados += 1
             continue
         equip  = r[7]  if r[7]  and r[7]  in equips    else None
-        fase   = r[8]  if r[8]  and r[8]  in fases      else None
+        fase_origem = r[8]
+        if fase_origem in FASES_EXTINTAS:
+            fase_origem = FASE_RECEBIDO
+            remapeadas += 1
+        fase   = fase_origem if fase_origem and fase_origem in fases else None
         tipocal= r[30] if r[30] and r[30] in tipos_cal  else None
         caixa  = r[1]  if r[1]  and r[1]  in caixas     else None
         rows.append((
@@ -494,6 +509,8 @@ def migrar_ordens(src, dst, rel):
     resetar_sequence(dst, "ordens")
     if ignorados:
         rel.warn("ordens", f"{ignorados} ignorados por cliente inexistente")
+    if remapeadas:
+        rel.warn("ordens", f"{remapeadas} OS em fase extinta (1-3) remapeadas para Recebido")
     rel.ok("ordens", n)
 
 
@@ -531,20 +548,27 @@ def migrar_logs_os(src, dst, rel):
 
 
 def migrar_certificados(src, dst, rel):
+    """A 0006 trocou 'equipamento_cliente' por 'equipamento' — e o sentido mudou.
+
+    Deixou de ser "certificado do aparelho do cliente" e virou MODELO de
+    certificado por item do catalogo (FK -> equipamentos). O vinculo do legado
+    aponta mesmo para hsitens (catalogo), nao para a frota.
+    """
     src.execute("SELECT id, equipamento, descricao, texto FROM hscertificados")
-    dst.execute("SELECT id FROM equipamentos_cliente")
-    equips = {r[0] for r in dst.fetchall()}
-    rows, ignorados = [], 0
+    dst.execute("SELECT id FROM equipamentos")
+    catalogo = {r[0] for r in dst.fetchall()}
+    rows, orfaos = [], 0
     for r in src.fetchall():
-        if r[1] not in equips:
-            ignorados += 1
-            continue
-        rows.append((r[0], r[1], r[2], r[3]))
-    cols = ["id", "equipamento_cliente", "descricao", "texto"]
+        equip = r[1] if r[1] and r[1] in catalogo else None
+        if r[1] and equip is None:
+            orfaos += 1
+        rows.append((r[0], equip, r[2], r[3]))
+    # 'tipo' fica de fora: NOT NULL com server_default 'C' (migracao 0007)
+    cols = ["id", "equipamento", "descricao", "texto"]
     n = inserir(dst, "certificados", cols, rows)
     resetar_sequence(dst, "certificados")
-    if ignorados:
-        rel.warn("certificados", f"{ignorados} ignorados por equipamento inexistente")
+    if orfaos:
+        rel.warn("certificados", f"{orfaos} sem equipamento valido no catalogo (equipamento=NULL)")
     rel.ok("certificados", n)
 
 
