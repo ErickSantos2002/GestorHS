@@ -96,53 +96,55 @@ function Quadro({ clienteId, onAbrir, onVerTodas }: { clienteId?: number; onAbri
   if (colunas === null) return <div className="flex justify-center py-12"><Spinner className="w-8 h-8" /></div>
 
   return (
-    <div className="flex gap-4 overflow-x-auto pb-2">
-      {colunas.map((col) => (
-        <div key={col.fase} className="w-72 shrink-0 rounded-2xl bg-background-surface border border-border">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-            <span className="inline-flex items-center gap-2 text-sm font-semibold text-slate-100">
-              <span className="w-2.5 h-2.5 rounded-full" style={{ background: `#${col.cor}` }} />
-              {col.descricao}
-            </span>
-            <span className="text-xs text-slate-500">{col.total}</span>
-          </div>
-          <div className="p-3 space-y-2 max-h-[70vh] overflow-y-auto">
-            {col.ordens.length === 0 ? (
-              <p className="text-xs text-slate-600 px-1">—</p>
-            ) : (
-              col.ordens.map((o) => (
-                <button
-                  key={o.id}
-                  onClick={() => onAbrir(o.id)}
-                  className="w-full text-left rounded-xl bg-background-elevated border border-border p-3 hover:border-primary/40 transition-colors"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-semibold text-slate-100">
-                      {o.caixa && <span className="text-slate-500 font-medium">CX {o.caixa} · </span>}
-                      OS #{o.id}
-                    </span>
-                    {tipoBadge(o.tipo_servico)}
-                  </div>
-                  <p className="text-xs text-slate-300 mt-1 truncate">{o.cliente_nome ?? '—'}</p>
-                  <p className="text-xs text-slate-500 truncate">
-                    {o.equipamento_descricao ?? '—'}
-                    {o.equipamento_serie ? ` · ${o.equipamento_serie}` : ''}
-                  </p>
-                  <p className="text-[11px] text-slate-600 mt-1">chegou {formatData(o.data_chegada)}</p>
-                </button>
-              ))
+    <div className="rounded-2xl bg-background-surface/40 border border-border/60 p-4">
+      <div className="flex gap-4 overflow-x-auto pb-2">
+        {colunas.map((col) => (
+          <div key={col.fase} className="w-72 shrink-0 rounded-2xl bg-background-surface border border-border">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+              <span className="inline-flex items-center gap-2 text-sm font-semibold text-slate-100">
+                <span className="w-2.5 h-2.5 rounded-full" style={{ background: `#${col.cor}` }} />
+                {col.descricao}
+              </span>
+              <span className="text-xs text-slate-500">{col.total}</span>
+            </div>
+            <div className="p-3 space-y-2 max-h-[70vh] overflow-y-auto">
+              {col.ordens.length === 0 ? (
+                <p className="text-xs text-slate-600 px-1">—</p>
+              ) : (
+                col.ordens.map((o) => (
+                  <button
+                    key={o.id}
+                    onClick={() => onAbrir(o.id)}
+                    className="w-full text-left rounded-xl bg-background-elevated border border-border p-3 hover:border-primary/40 transition-colors"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-semibold text-slate-100">
+                        {o.caixa && <span className="text-slate-500 font-medium">CX {o.caixa} · </span>}
+                        OS #{o.id}
+                      </span>
+                      {tipoBadge(o.tipo_servico)}
+                    </div>
+                    <p className="text-xs text-slate-300 mt-1 truncate">{o.cliente_nome ?? '—'}</p>
+                    <p className="text-xs text-slate-500 truncate">
+                      {o.equipamento_descricao ?? '—'}
+                      {o.equipamento_serie ? ` · ${o.equipamento_serie}` : ''}
+                    </p>
+                    <p className="text-[11px] text-slate-600 mt-1">chegou {formatData(o.data_chegada)}</p>
+                  </button>
+                ))
+              )}
+            </div>
+            {col.total > col.ordens.length && (
+              <button
+                onClick={() => onVerTodas(col.fase)}
+                className="w-full text-center px-4 py-2.5 text-xs font-semibold text-primary hover:bg-primary/5 border-t border-border transition-colors"
+              >
+                Ver todas ({col.total}) →
+              </button>
             )}
           </div>
-          {col.total > col.ordens.length && (
-            <button
-              onClick={() => onVerTodas(col.fase)}
-              className="w-full text-center px-4 py-2.5 text-xs font-semibold text-primary hover:bg-primary/5 border-t border-border transition-colors"
-            >
-              Ver todas ({col.total}) →
-            </button>
-          )}
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   )
 }
