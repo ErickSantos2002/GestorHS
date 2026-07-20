@@ -38,7 +38,19 @@ from app.models.database import SessionLocal
 # arquivos efemero, invisivel no host e perdido quando o container e' recriado.
 # Descoberto em 20/07/2026 rodando o job em dry-run de verdade. `parents[2]` da o
 # mesmo lugar nos dois mundos: `backend/` no host, `/app` (= ./backend) no container.
-_DIR_RELATORIOS = Path(__file__).resolve().parents[2] / "relatorios"
+def _dir_relatorios() -> Path:
+    """Onde gravar o CSV de pendencias.
+
+    `RELATORIOS_DIR` vazio cai em `backend/relatorios/`, que funciona em
+    desenvolvimento porque o compose monta ./backend em /app. Em PRODUCAO a imagem
+    sobe pelo Dockerfile SEM bind mount: /app inteiro e efemero e o relatorio some no
+    redeploy — por isso a env aponta para o volume persistente. As falhas tambem sao
+    impressas no stdout, que o cron redireciona para o log: esse e o canal que
+    sobrevive independente de volume.
+    """
+    if settings.RELATORIOS_DIR:
+        return Path(settings.RELATORIOS_DIR)
+    return Path(__file__).resolve().parents[2] / "relatorios"
 
 DIAS_PADRAO = 50
 
@@ -177,7 +189,7 @@ def main() -> None:
         raise SystemExit(1)
 
     caminho_pendencias = args.pendencias or str(
-        _DIR_RELATORIOS / f"pendencias-vencendo-growthhs-{date.today().isoformat()}.csv"
+        _dir_relatorios() / f"pendencias-vencendo-growthhs-{date.today().isoformat()}.csv"
     )
     # Cria o diretorio ANTES de qualquer envio: um caminho invalido precisa falhar
     # rapido, nao depois de ja ter criado cards em producao.
@@ -210,6 +222,15 @@ def main() -> None:
     else:
         print("MODO DRY-RUN — NADA FOI ENVIADO. Rode sem --dry-run para valer.")
     print(f"Pendencias/falhas gravadas em: {caminho_pendencias}")
+
+    # As falhas vao TAMBEM para o stdout, nao so para o CSV. Em producao a imagem
+    # sobe pelo Dockerfile sem bind mount: se RELATORIOS_DIR nao apontar para um
+    # volume persistente, o CSV some no redeploy. O stdout, que o cron redireciona
+    # para o log, e o unico canal que sobrevive sempre — e a falha e a unica
+    # diagnose que este job produz.
+    for p in r["pendencias"]:
+        print(f"  FALHA aparelho={p['equipamento_cliente_id']} cliente={p['cliente_id']} "
+              f"serie={p['serie']} vence={p['prox_calibragem']}: {p['motivo']}")
 
     # Saida !=0 quando houve falha, para o cron conseguir alertar.
     if r["falhas"]:

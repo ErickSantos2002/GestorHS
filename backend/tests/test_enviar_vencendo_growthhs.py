@@ -213,3 +213,30 @@ def test_main_envia_por_padrao_sem_dry_run(db_session, cliente, equipamentos, mo
     recebido = _rodar_main(monkeypatch, tmp_path, [], db_session)
     assert recebido["enviar"] is True
     assert recebido["limite"] is None
+
+
+def test_main_imprime_falhas_no_stdout(db_session, cliente, equipamentos,
+                                       monkeypatch, tmp_path, capsys):
+    """Em producao a imagem sobe pelo Dockerfile sem bind mount, entao o CSV pode
+    ser efemero. O stdout vai para o log do cron e e' o unico canal que sobrevive
+    sempre — se as falhas sairem so no CSV, o job fica cego quando algo quebra."""
+    import app.scripts.enviar_vencendo_growthhs as mod
+    ec = _ec(db_session, cliente.id, dias=10)
+
+    def sempre_falha(card):
+        raise RuntimeError("GrowthHS respondeu 422: campo invalido")
+
+    monkeypatch.setattr(mod, "enviar_card_sync", sempre_falha)
+    monkeypatch.setattr(mod, "SessionLocal", lambda: db_session)
+    monkeypatch.setattr(db_session, "close", lambda: None)
+    monkeypatch.setattr(mod, "integracao_ativa", lambda: True)
+    monkeypatch.setattr(sys, "argv", ["enviar_vencendo_growthhs",
+                                      "--pendencias", str(tmp_path / "p.csv")])
+
+    with pytest.raises(SystemExit) as saida:
+        mod.main()
+
+    assert saida.value.code == 1          # cron precisa conseguir alertar
+    impresso = capsys.readouterr().out
+    assert f"aparelho={ec.id}" in impresso
+    assert "422" in impresso

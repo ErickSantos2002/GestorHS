@@ -48,13 +48,18 @@ O laço é best-effort **por aparelho**: uma falha num card não derruba a rodad
 para um CSV com o motivo — incluindo o corpo da resposta do GrowthHS, que é onde o 422 diz
 qual campo reprovou.
 
-O CSV vai para `backend/relatorios/` **no host** (dentro do container aparece como
-`/app/relatorios/`, que é o mesmo diretório montado). O diretório está no `.gitignore`.
+**As falhas saem em dois lugares:**
 
-> Por que não `docs/`: o container monta apenas `./backend` em `/app`, então um caminho
-> resolvido contra a raiz do repositório vira `/docs/` dentro do container — sistema de
-> arquivos efêmero, invisível no host e perdido quando o container é recriado. O relatório
-> de falhas é a única diagnose que o job produz; ele precisa sobreviver.
+1. **No stdout** — que o cron redireciona para `/var/log/growthhs-vencendo.log`. Este é o
+   canal que **sempre** sobrevive, independente de volume, e é onde olhar primeiro.
+2. **Num CSV**, com os mesmos dados em formato de planilha.
+
+> ⚠️ **Em produção, configure `RELATORIOS_DIR`.** O Easypanel sobe a imagem pelo
+> **Dockerfile, sem bind mount** — qualquer caminho dentro de `/app` é efêmero e some no
+> redeploy. Aponte a env para o volume persistente (o mesmo dos uploads), por exemplo
+> `RELATORIOS_DIR=/data/uploads/relatorios`. Sem isso o CSV se perde, e só o log do cron
+> resta. Em desenvolvimento a env pode ficar vazia: o padrão é `backend/relatorios/`, que
+> o compose monta (e que está no `.gitignore`).
 
 Como o job é idempotente, basta corrigir a causa e esperar a próxima execução — ela
 reprocessa a janela inteira.

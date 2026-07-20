@@ -39,7 +39,19 @@ from app.models.database import SessionLocal
 # arquivos efemero, invisivel no host e perdido quando o container e' recriado.
 # Descoberto em 20/07/2026 rodando o job em dry-run de verdade. `parents[2]` da o
 # mesmo lugar nos dois mundos: `backend/` no host, `/app` (= ./backend) no container.
-_DIR_RELATORIOS = Path(__file__).resolve().parents[2] / "relatorios"
+def _dir_relatorios() -> Path:
+    """Onde gravar o CSV de pendencias.
+
+    `RELATORIOS_DIR` vazio cai em `backend/relatorios/`, que funciona em
+    desenvolvimento porque o compose monta ./backend em /app. Em PRODUCAO a imagem
+    sobe pelo Dockerfile SEM bind mount: /app inteiro e efemero e o relatorio some no
+    redeploy — por isso a env aponta para o volume persistente. As falhas tambem sao
+    impressas no stdout, que o cron redireciona para o log: esse e o canal que
+    sobrevive independente de volume.
+    """
+    if settings.RELATORIOS_DIR:
+        return Path(settings.RELATORIOS_DIR)
+    return Path(__file__).resolve().parents[2] / "relatorios"
 
 
 def buscar_atrasados(db: Session) -> list[dict]:
@@ -194,7 +206,7 @@ def main() -> None:
         return
 
     caminho_pendencias = args.pendencias or str(
-        _DIR_RELATORIOS / f"pendencias-atrasados-growthhs-{date.today().isoformat()}.csv"
+        _dir_relatorios() / f"pendencias-atrasados-growthhs-{date.today().isoformat()}.csv"
     )
     # Cria o diretorio de saida ANTES de qualquer envio: um caminho invalido
     # precisa falhar rapido, nao depois de ja ter criado cards em producao
