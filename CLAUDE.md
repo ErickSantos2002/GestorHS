@@ -25,12 +25,20 @@ uvicorn app.main:app --reload                    # API em :8000 (Swagger em /doc
 python -m app.scripts.criar_usuario admin <senha> Administrador   # bootstrap de admin (idempotente)
 python -m app.scripts.enviar_atrasados_growthhs                   # SIMULA a carga de vencidos (padrao: nao envia)
 python -m app.scripts.enviar_atrasados_growthhs --enviar          # carga real no GrowthHS (ver aviso abaixo)
+python -m app.scripts.enviar_vencendo_growthhs --dry-run          # SIMULA o job diario dos 50 dias
+python -m app.scripts.enviar_vencendo_growthhs                    # job diario real (agendado por cron)
 ```
 
 > ⚠️ **`enviar_atrasados_growthhs` nao envia nada sem `--enviar`.** A chave do card e
 > `{cliente_id}:{data_da_carga}`, entao rodar a carga em **duas datas diferentes cria um card
 > duplicado por cliente** — e o GrowthHS nao expoe leitura para o script detectar isso. Rode
 > sem a flag primeiro, confira o resumo e o CSV de pendencias, e so entao use `--enviar`.
+
+> ℹ️ **`enviar_vencendo_growthhs` ENVIA por padrao** (use `--dry-run` para simular) — o inverso
+> do script de atrasados, de proposito. A chave e `{equipamento_cliente_id}:{prox_calibragem}`,
+> que **nao muda com a data da execucao**, entao repetir devolve `created: false` e nao duplica;
+> alem disso e um job de cron, e um default que nao envia viraria um agendamento inutil em
+> silencio. Operacao e agendamento em [docs/operacao-growthhs-cron.md](docs/operacao-growthhs-cron.md).
 
 ### Frontend (`frontend/`, React 19 · TS · Vite 8 · Tailwind v4)
 ```bash
