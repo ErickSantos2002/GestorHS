@@ -10,6 +10,8 @@ import { useAuth } from '../../auth/AuthContext'
 import { podeRegistrarContato } from '../../auth/roles'
 import { alertasApi, formatData, type AlertaItem } from './api'
 import { PageContainer } from '../../components/ui/Page'
+import { IconButton, IconButtonGroup } from '../../components/ui/IconButton'
+import { IconEye, IconPhone } from '../../components/ui/icons'
 
 const LIMITE = 25
 
@@ -98,10 +100,16 @@ export function CobrancaPage() {
                 <TD>{formatData(i.prox_antiga)}</TD>
                 <TD>{formatData(i.ult_contato)}</TD>
                 <TD>
-                  <div className="flex gap-3">
-                    <button onClick={() => navigate(`/app/clientes/${i.cliente}/equipamentos`)} className="text-xs text-primary hover:underline">Ver equipamentos</button>
-                    {podeContato && <button onClick={() => contato(i)} className="text-xs text-primary hover:underline">Registrar contato</button>}
-                  </div>
+                  <IconButtonGroup>
+                    <IconButton label="Ver equipamentos" tone="ver" onClick={() => navigate(`/app/clientes/${i.cliente}/equipamentos`)}>
+                      <IconEye className="w-4 h-4" />
+                    </IconButton>
+                    {podeContato && (
+                      <IconButton label="Registrar contato" tone="ok" onClick={() => contato(i)}>
+                        <IconPhone className="w-4 h-4" />
+                      </IconButton>
+                    )}
+                  </IconButtonGroup>
                 </TD>
               </tr>
             ))}

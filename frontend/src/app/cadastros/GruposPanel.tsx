@@ -5,6 +5,8 @@ import { Spinner } from '../../components/ui/Spinner'
 import { Modal } from '../../components/ui/Modal'
 import { Input } from '../../components/ui/Input'
 import { ApiError } from '../../lib/api'
+import { IconButton, IconButtonGroup } from '../../components/ui/IconButton'
+import { IconPencil, IconTrash } from '../../components/ui/icons'
 import { useCrud } from './useCrud'
 import { gruposApi, type Grupo } from './api'
 
@@ -62,10 +64,14 @@ export function GruposPanel() {
               <TD>{g.descricao}</TD>
               <TD>{g.texto ?? '—'}</TD>
               <TD>
-                <div className="flex gap-3">
-                  <button onClick={() => abrirEdicao(g)} className="text-xs text-primary hover:underline">Editar</button>
-                  <button onClick={() => excluir(g)} className="text-xs text-danger hover:underline">Excluir</button>
-                </div>
+                <IconButtonGroup>
+                  <IconButton label="Editar" tone="editar" onClick={() => abrirEdicao(g)}>
+                    <IconPencil className="w-4 h-4" />
+                  </IconButton>
+                  <IconButton label="Excluir" tone="excluir" onClick={() => excluir(g)}>
+                    <IconTrash className="w-4 h-4" />
+                  </IconButton>
+                </IconButtonGroup>
               </TD>
             </tr>
           ))}

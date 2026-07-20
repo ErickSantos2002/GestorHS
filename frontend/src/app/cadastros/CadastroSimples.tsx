@@ -5,6 +5,8 @@ import { Spinner } from '../../components/ui/Spinner'
 import { Modal } from '../../components/ui/Modal'
 import { Input } from '../../components/ui/Input'
 import { ApiError } from '../../lib/api'
+import { IconButton, IconButtonGroup } from '../../components/ui/IconButton'
+import { IconPencil, IconTrash } from '../../components/ui/icons'
 import { useCrud } from './useCrud'
 import { type CrudClient } from './api'
 
@@ -80,10 +82,14 @@ export function CadastroSimples<T extends SimpleItem>({ titulo, client }: { titu
             <tr key={it.id} className="hover:bg-background-elevated transition-colors">
               <TD>{it.descricao}</TD>
               <TD>
-                <div className="flex gap-3">
-                  <button onClick={() => abrirEdicao(it)} className="text-xs text-primary hover:underline">Editar</button>
-                  <button onClick={() => excluir(it)} className="text-xs text-danger hover:underline">Excluir</button>
-                </div>
+                <IconButtonGroup>
+                  <IconButton label="Editar" tone="editar" onClick={() => abrirEdicao(it)}>
+                    <IconPencil className="w-4 h-4" />
+                  </IconButton>
+                  <IconButton label="Excluir" tone="excluir" onClick={() => excluir(it)}>
+                    <IconTrash className="w-4 h-4" />
+                  </IconButton>
+                </IconButtonGroup>
               </TD>
             </tr>
           ))}

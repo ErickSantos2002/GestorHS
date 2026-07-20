@@ -6,6 +6,8 @@ import { Modal } from '../../components/ui/Modal'
 import { Input } from '../../components/ui/Input'
 import { Select } from '../../components/ui/Select'
 import { ApiError } from '../../lib/api'
+import { IconButton, IconButtonGroup } from '../../components/ui/IconButton'
+import { IconPencil, IconTrash } from '../../components/ui/icons'
 import { useCrud } from './useCrud'
 import { categoriasApi, setoresApi, type Categoria, type Setor } from './api'
 
@@ -74,10 +76,14 @@ export function CategoriasPanel() {
               <TD>{nomeSetor(c.setor)}</TD>
               <TD>{c.posicao}</TD>
               <TD>
-                <div className="flex gap-3">
-                  <button onClick={() => abrirEdicao(c)} className="text-xs text-primary hover:underline">Editar</button>
-                  <button onClick={() => excluir(c)} className="text-xs text-danger hover:underline">Excluir</button>
-                </div>
+                <IconButtonGroup>
+                  <IconButton label="Editar" tone="editar" onClick={() => abrirEdicao(c)}>
+                    <IconPencil className="w-4 h-4" />
+                  </IconButton>
+                  <IconButton label="Excluir" tone="excluir" onClick={() => excluir(c)}>
+                    <IconTrash className="w-4 h-4" />
+                  </IconButton>
+                </IconButtonGroup>
               </TD>
             </tr>
           ))}

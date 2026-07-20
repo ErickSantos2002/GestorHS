@@ -7,6 +7,8 @@ import { Modal } from '../../components/ui/Modal'
 import { Input } from '../../components/ui/Input'
 import { Select } from '../../components/ui/Select'
 import { ApiError } from '../../lib/api'
+import { IconButton, IconButtonGroup } from '../../components/ui/IconButton'
+import { IconPencil, IconTrash } from '../../components/ui/icons'
 import { useCrud } from './useCrud'
 import { equipamentosApi, categoriasApi, marcasApi, type Equipamento, type Categoria, type Marca, type EquipamentoPayload } from './api'
 
@@ -93,10 +95,14 @@ export function EquipamentosPanel() {
               <TD>{e.estoque}</TD>
               <TD><Badge tone={e.ativo ? 'primary' : 'neutral'}>{e.ativo ? 'Ativo' : 'Inativo'}</Badge></TD>
               <TD>
-                <div className="flex gap-3">
-                  <button onClick={() => abrirEdicao(e)} className="text-xs text-primary hover:underline">Editar</button>
-                  <button onClick={() => excluir(e)} className="text-xs text-danger hover:underline">Excluir</button>
-                </div>
+                <IconButtonGroup>
+                  <IconButton label="Editar" tone="editar" onClick={() => abrirEdicao(e)}>
+                    <IconPencil className="w-4 h-4" />
+                  </IconButton>
+                  <IconButton label="Excluir" tone="excluir" onClick={() => excluir(e)}>
+                    <IconTrash className="w-4 h-4" />
+                  </IconButton>
+                </IconButtonGroup>
               </TD>
             </tr>
           ))}

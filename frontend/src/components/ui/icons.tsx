@@ -255,6 +255,68 @@ export function IconChart({ className }: IconProps) {
   )
 }
 
+export function IconPencil({ className }: IconProps) {
+  return (
+    <svg className={base(className)} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+      <path d="m14.5 5.5 4 4" />
+    </svg>
+  )
+}
+
+export function IconTrash({ className }: IconProps) {
+  return (
+    <svg className={base(className)} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+      <path d="M6 7v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7M10 11v6M14 11v6" />
+    </svg>
+  )
+}
+
+export function IconEye({ className }: IconProps) {
+  return (
+    <svg className={base(className)} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  )
+}
+
+export function IconKey({ className }: IconProps) {
+  return (
+    <svg className={base(className)} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="8" cy="15" r="4" />
+      <path d="m10.85 12.15 8.15-8.15M17 6l2 2M14 9l2 2" />
+    </svg>
+  )
+}
+
+export function IconUserOff({ className }: IconProps) {
+  return (
+    <svg className={base(className)} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 11.3-5.5" />
+      <path d="M16 18h6" />
+    </svg>
+  )
+}
+
+export function IconUserCheck({ className }: IconProps) {
+  return (
+    <svg className={base(className)} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 11.3-5.5" />
+      <path d="m16 17.5 2 2 4-4" />
+    </svg>
+  )
+}
+
+export function IconPhone({ className }: IconProps) {
+  return (
+    <svg className={base(className)} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 5a2 2 0 0 1 2-2h1.6a1 1 0 0 1 1 .76l.9 3.6a1 1 0 0 1-.53 1.13L7.6 9.4a12 12 0 0 0 5 5l.9-1.37a1 1 0 0 1 1.14-.53l3.6.9a1 1 0 0 1 .76 1V16a2 2 0 0 1-2 2h-.5A13.5 13.5 0 0 1 4 5.5V5Z" />
+    </svg>
+  )
+}
+
 export function IconCertificado({ className }: IconProps) {
   return (
     <svg className={base(className)} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">

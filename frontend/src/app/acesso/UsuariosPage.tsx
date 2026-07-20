@@ -11,6 +11,8 @@ import { UsuarioFormModal } from './UsuarioFormModal'
 import { RedefinirSenhaModal } from './RedefinirSenhaModal'
 import { PageContainer } from '../../components/ui/Page'
 import { Toggle } from '../../components/ui/Toggle'
+import { IconButton, IconButtonGroup } from '../../components/ui/IconButton'
+import { IconPencil, IconKey, IconUserOff, IconUserCheck } from '../../components/ui/icons'
 
 export function UsuariosPage() {
   const { user } = useAuth()
@@ -112,29 +114,30 @@ export function UsuariosPage() {
               <TD>{u.funcao ? <Badge tone={u.funcao === 'Administrador' ? 'primary' : 'neutral'}>{u.funcao}</Badge> : '—'}</TD>
               <TD>{u.ativo ? <Badge tone="primary">Ativo</Badge> : <Badge tone="warning">Desativado</Badge>}</TD>
               <TD>
-                <div className="flex gap-3">
-                  <button
+                <IconButtonGroup>
+                  <IconButton
+                    label="Editar"
+                    tone="editar"
                     onClick={() => {
                       setEditando(u)
                       setFormAberto(true)
                     }}
-                    className="text-xs text-primary hover:underline"
                   >
-                    Editar
-                  </button>
-                  <button onClick={() => setSenhaDe(u)} className="text-xs text-slate-400 hover:text-slate-200">
-                    Senha
-                  </button>
+                    <IconPencil className="w-4 h-4" />
+                  </IconButton>
+                  <IconButton label="Redefinir senha" tone="neutro" onClick={() => setSenhaDe(u)}>
+                    <IconKey className="w-4 h-4" />
+                  </IconButton>
                   {u.ativo ? (
-                    <button onClick={() => onDesativar(u)} className="text-xs text-danger hover:underline">
-                      Desativar
-                    </button>
+                    <IconButton label="Desativar" tone="excluir" onClick={() => onDesativar(u)}>
+                      <IconUserOff className="w-4 h-4" />
+                    </IconButton>
                   ) : (
-                    <button onClick={() => onReativar(u)} className="text-xs text-primary hover:underline">
-                      Reativar
-                    </button>
+                    <IconButton label="Reativar" tone="ok" onClick={() => onReativar(u)}>
+                      <IconUserCheck className="w-4 h-4" />
+                    </IconButton>
                   )}
-                </div>
+                </IconButtonGroup>
               </TD>
             </tr>
           ))}
