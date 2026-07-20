@@ -27,7 +27,11 @@ def list_id_da_fase(fase: int) -> int | None:
 
 
 def montar_titulo(ordem) -> str:
-    partes = [f"OS #{ordem.id}"]
+    # A caixa vem na frente: e por ela que a expedicao acha a OS no board.
+    # OS sem caixa (nem toda tem) mantem o titulo comecando pela OS.
+    caixa = getattr(ordem, "caixa", None)
+    partes = [f"CX {caixa}"] if caixa else []
+    partes.append(f"OS #{ordem.id}")
     if ordem.cliente_nome:
         partes.append(ordem.cliente_nome)
     descricao = ordem.equipamento_descricao or ordem.equipamento_serie

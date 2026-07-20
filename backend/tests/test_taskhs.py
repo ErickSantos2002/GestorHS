@@ -7,7 +7,7 @@ from app.core import taskhs
 def _ordem(**kw):
     base = dict(
         id=1234, cliente_nome="Cliente X", equipamento_descricao="Bafômetro",
-        equipamento_serie="SN-987", prox_calibragem=None, obs=None,
+        equipamento_serie="SN-987", prox_calibragem=None, obs=None, caixa=None,
     )
     base.update(kw)
     return SimpleNamespace(**base)
@@ -32,6 +32,11 @@ def test_list_id_da_fase_cancelada_e_desconhecida_none():
 
 def test_montar_titulo_completo():
     assert taskhs.montar_titulo(_ordem()) == "OS #1234 · Cliente X · Bafômetro"
+
+
+def test_montar_titulo_com_caixa_comeca_pela_caixa():
+    o = _ordem(caixa=740)
+    assert taskhs.montar_titulo(o) == "CX 740 · OS #1234 · Cliente X · Bafômetro"
 
 
 def test_montar_titulo_sem_descricao_usa_serie():
