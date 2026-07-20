@@ -9,6 +9,7 @@ integração. Mesma convenção de `core/growthhs_payload.py` e
 from datetime import date, timedelta
 
 from app.core.growthhs_payload import montar_cliente, montar_contato
+from app.core.taskhs import TIPO_SERVICO_LABEL
 
 SOURCE_OS = "gestorhs.os"
 
@@ -34,6 +35,16 @@ def _fmt_data(valor):
     if hasattr(valor, "date"):
         valor = valor.date()
     return valor.strftime("%d/%m/%Y")
+
+
+def _resolve_tipo_servico_label(valor):
+    """Converte tipo_servico (código) para rótulo legível; None se ausente.
+
+    Retorna o rótulo do mapa se encontrado, senão retorna o valor bruto.
+    """
+    if valor is None:
+        return None
+    return TIPO_SERVICO_LABEL.get(valor, valor)
 
 
 def _titulo(ordem, cliente) -> str:
@@ -86,6 +97,6 @@ def montar_card_os(ordem, cliente, device: dict, board_id: int, hoje: date) -> d
         "business_info": {
             "origem": "os liberada do laboratorio",
             "os_id": ordem.id,
-            "tipo_servico": getattr(ordem, "tipo_servico", None),
+            "tipo_servico": _resolve_tipo_servico_label(getattr(ordem, "tipo_servico", None)),
         },
     }

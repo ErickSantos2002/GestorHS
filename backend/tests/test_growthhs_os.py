@@ -69,6 +69,15 @@ def test_titulo_truncado_em_500_quando_nome_cliente_gigante():
     assert len(card["title"]) == 500
 
 
+def test_titulo_fallback_sem_equipamento_descricao_e_serie():
+    # Quando ambos equipamento_descricao e equipamento_serie estão ausentes,
+    # o título deve ser "OS #{id} · {cliente}" sem separadores duplos ou finais
+    ordem = _ordem(id=42, equipamento_descricao=None, equipamento_serie=None)
+    cliente = _cliente(nome="ACME Ltda")
+    card = montar_card_os(ordem, cliente, _device(), board_id=1, hoje=date(2026, 7, 20))
+    assert card["title"] == "OS #42 · ACME Ltda"
+
+
 # ---------------------------------------------------------------------------
 # due_date — bug real de 422 (data pura recusada pelo Pydantic v2)
 # ---------------------------------------------------------------------------
@@ -131,4 +140,18 @@ def test_business_info_com_os_id():
     card = montar_card_os(ordem, _cliente(), _device(), board_id=1, hoje=date(2026, 7, 20))
     assert card["business_info"]["os_id"] == 555
     assert card["business_info"]["origem"] == "os liberada do laboratorio"
-    assert card["business_info"]["tipo_servico"] == "M"
+    assert card["business_info"]["tipo_servico"] == "Manutenção"
+
+
+def test_business_info_tipo_servico_com_todos_os_tipos():
+    # Verifica que os rótulos dos tipos estão corretos
+    for codigo, rotulo_esperado in [("C", "Calibração"), ("M", "Manutenção"), ("A", "Ambas")]:
+        ordem = _ordem(id=1, tipo_servico=codigo)
+        card = montar_card_os(ordem, _cliente(), _device(), board_id=1, hoje=date(2026, 7, 20))
+        assert card["business_info"]["tipo_servico"] == rotulo_esperado
+
+
+def test_business_info_tipo_servico_none_permanece_none():
+    ordem = _ordem(id=1, tipo_servico=None)
+    card = montar_card_os(ordem, _cliente(), _device(), board_id=1, hoje=date(2026, 7, 20))
+    assert card["business_info"]["tipo_servico"] is None
