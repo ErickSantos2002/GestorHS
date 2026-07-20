@@ -117,7 +117,10 @@ function Quadro({ clienteId, onAbrir, onVerTodas }: { clienteId?: number; onAbri
                   className="w-full text-left rounded-xl bg-background-elevated border border-border p-3 hover:border-primary/40 transition-colors"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-semibold text-slate-100">OS #{o.id}</span>
+                    <span className="text-sm font-semibold text-slate-100">
+                      {o.caixa && <span className="text-slate-500 font-medium">CX {o.caixa} · </span>}
+                      OS #{o.id}
+                    </span>
                     {tipoBadge(o.tipo_servico)}
                   </div>
                   <p className="text-xs text-slate-300 mt-1 truncate">{o.cliente_nome ?? '—'}</p>
@@ -218,9 +221,10 @@ function Lista({ clienteId, faseInicial, onAbrir }: { clienteId?: number; faseIn
         <p className="text-sm text-slate-500">Nenhuma OS encontrada.</p>
       ) : (
         <>
-          <Table head={<><TH>OS</TH><TH>Cliente</TH><TH>Equipamento</TH><TH>Fase</TH><TH>Tipo</TH><TH>Chegada</TH><TH>Situação</TH></>}>
+          <Table head={<><TH>Caixa</TH><TH>OS</TH><TH>Cliente</TH><TH>Equipamento</TH><TH>Fase</TH><TH>Tipo</TH><TH>Chegada</TH><TH>Situação</TH></>}>
             {itens.map((o) => (
               <tr key={o.id} className="hover:bg-background-elevated transition-colors cursor-pointer" onClick={() => onAbrir(o.id)}>
+                <TD>{o.caixa ? `CX ${o.caixa}` : '—'}</TD>
                 <TD>#{o.id}</TD>
                 <TD>{o.cliente_nome ?? '—'}</TD>
                 <TD>{o.equipamento_descricao ?? '—'}</TD>
