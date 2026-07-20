@@ -33,11 +33,25 @@ from app.integrations.hsgrowth_client import enviar_card_sync, integracao_ativa
 from app.models import EquipamentoCliente
 from app.models.database import SessionLocal
 
-# backend/app/scripts/enviar_atrasados_growthhs.py -> raiz do repo GestorHS.
-# O script roda a partir de `backend/`; resolver o CSV padrao contra o CWD
-# colocaria em `backend/docs/` (nao existe) em vez do `docs/` real da raiz —
-# mesma licao de `importar_elo_modulos.py`.
-_RAIZ_REPO = Path(__file__).resolve().parents[3]
+# backend/app/scripts/<arquivo>.py -> `backend/`, que e' o diretorio montado no
+# container (./backend -> /app). Resolver a raiz do REPO (parents[3]) quebra dentro
+# do container: la parents[3] e' `/`, entao o CSV ia parar em `/docs/` — sistema de
+# arquivos efemero, invisivel no host e perdido quando o container e' recriado.
+# Descoberto em 20/07/2026 rodando o job em dry-run de verdade. `parents[2]` da o
+# mesmo lugar nos dois mundos: `backend/` no host, `/app` (= ./backend) no container.
+def _dir_relatorios() -> Path:
+    """Onde gravar o CSV de pendencias.
+
+    `RELATORIOS_DIR` vazio cai em `backend/relatorios/`, que funciona em
+    desenvolvimento porque o compose monta ./backend em /app. Em PRODUCAO a imagem
+    sobe pelo Dockerfile SEM bind mount: /app inteiro e efemero e o relatorio some no
+    redeploy — por isso a env aponta para o volume persistente. As falhas tambem sao
+    impressas no stdout, que o cron redireciona para o log: esse e o canal que
+    sobrevive independente de volume.
+    """
+    if settings.RELATORIOS_DIR:
+        return Path(settings.RELATORIOS_DIR)
+    return Path(__file__).resolve().parents[2] / "relatorios"
 
 
 def buscar_atrasados(db: Session) -> list[dict]:
@@ -192,12 +206,22 @@ def main() -> None:
         return
 
     caminho_pendencias = args.pendencias or str(
-        _RAIZ_REPO / "docs" / f"pendencias-atrasados-growthhs-{date.today().isoformat()}.csv"
+        _dir_relatorios() / f"pendencias-atrasados-growthhs-{date.today().isoformat()}.csv"
     )
     # Cria o diretorio de saida ANTES de qualquer envio: um caminho invalido
     # precisa falhar rapido, nao depois de ja ter criado cards em producao
     # (mesma licao aprendida em `importar_elo_modulos.py`).
     os.makedirs(os.path.dirname(caminho_pendencias) or ".", exist_ok=True)
+    # Nao basta criar o diretorio: se ele ja existe mas pertence a outro usuario
+    # (o container roda como root, entao `relatorios/` nasce root), o makedirs passa
+    # e a falha so aparece no open() la embaixo — DEPOIS de os cards ja terem sido
+    # enviados. Abrir agora, em modo append, transforma isso em falha imediata.
+    try:
+        open(caminho_pendencias, "a", encoding="utf-8").close()
+    except OSError as exc:
+        print(f"ERRO: nao consigo gravar o relatorio em {caminho_pendencias}: {exc}\n"
+              f"Use --pendencias com um caminho gravavel. Nada foi enviado.")
+        raise SystemExit(1)
 
     db = SessionLocal()
     try:
