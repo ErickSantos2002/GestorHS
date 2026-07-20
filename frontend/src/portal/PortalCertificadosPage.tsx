@@ -47,7 +47,9 @@ export function PortalCertificadosPage() {
                 <TD>{formatData(c.prox_calibragem)}</TD>
                 <TD>{c.os != null
                   ? <button type="button" className="text-primary hover:underline text-sm" onClick={() => { portalApi.baixarCertificado(c.os!).catch(() => setErro('Certificado indisponível')) }}>Baixar</button>
-                  : '—'}</TD>
+                  : c.venda
+                    ? <button type="button" className="text-primary hover:underline text-sm" onClick={() => { portalApi.baixarCertificadoVenda(c.equipamento_cliente).catch(() => setErro('Certificado indisponível')) }}>Baixar</button>
+                    : '—'}</TD>
               </tr>
             ))}
           </Table>

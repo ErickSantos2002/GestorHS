@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.21.0',
+    data: '20/07/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'Agora dá para emitir o certificado de venda de um aparelho sem precisar abrir uma OS. Na ficha do aparelho, o botão "Gerar certificado de venda" já vem com os dados do cliente e do equipamento preenchidos — basta informar os resultados da calibração e a próxima data. O certificado fica registrado na ficha e o cliente consegue baixá-lo pelo portal.' },
+    ],
+  },
+  {
     versao: '1.20.0',
     data: '20/07/2026',
     itens: [
