@@ -12,6 +12,12 @@ class Settings(BaseSettings):
     # ou seja, o volume persistente que ja existe nos dois ambientes. So preencha para
     # tirar o relatorio de la — nao e preciso configurar no deploy.
     RELATORIOS_DIR: str = ""
+    # Worker diario do GrowthHS (janela dos 50 dias). Nasce DESLIGADO: a maquina de
+    # desenvolvimento aponta para o banco de producao com a chave real, entao ligar
+    # e' decisao explicita de quem faz o deploy. Horario no fuso de Sao Paulo.
+    JOB_VENCENDO_ATIVO: bool = False
+    JOB_VENCENDO_HORA: int = 8
+    JOB_VENCENDO_DIAS: int = 50
     # Integracao com o TaskHS (espelhar OS como cards). Vazio = desligada.
     TASKHS_BASE_URL: str = ""   # ex.: "https://taskhs.exemplo/api" (sem barra final)
     TASKHS_API_KEY: str = ""    # header X-API-Key

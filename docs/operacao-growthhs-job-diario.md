@@ -19,14 +19,45 @@ data da execução.
 
 ## O agendamento
 
-Uma vez por dia, às 08:00. No host, no crontab do usuário que roda o Docker (`crontab -e`):
+O job roda **dentro da própria aplicação**: ao subir, o backend cria uma tarefa de fundo
+que dorme até as 08:00 (horário de São Paulo), executa e repete. Não há cron, nem
+Dockerfile a alterar, nem serviço externo.
 
-```cron
-0 8 * * * docker exec gestorhs-backend python -m app.scripts.enviar_vencendo_growthhs >> /var/log/growthhs-vencendo.log 2>&1
+Ele nasce **desligado**. Para ativar em produção, no Easypanel:
+
+```
+JOB_VENCENDO_ATIVO=true
 ```
 
-O script sai com código **≠ 0** quando houve alguma falha, então qualquer monitor de cron
-consegue alertar.
+E redeploy. Confirme no log do serviço:
+
+```
+INFO app.tarefas.vencendo: job vencendo: LIGADO, disparo diario as 8h (SP)
+```
+
+Se aparecer `DESLIGADO (JOB_VENCENDO_ATIVO=false)`, a env não chegou ao container.
+
+> Por que nasce desligado: a máquina de desenvolvimento aponta para o **banco de produção
+> com a chave real**. Se o padrão fosse ligado, qualquer `docker compose up` local passaria
+> a criar cards de verdade.
+
+Outras envs (opcionais): `JOB_VENCENDO_HORA` (padrão `8`) e `JOB_VENCENDO_DIAS`
+(padrão `50`).
+
+### Por que não cron
+
+A escolha original era cron, pelo argumento de rodar uma vez só mesmo com várias réplicas.
+Esse argumento caiu: o backend é um serviço único no Easypanel, e a criação de card é
+idempotente — a chave `{equipamento_cliente_id}:{prox_calibragem}` não muda com a data da
+execução, então mesmo execuções repetidas não duplicariam nada. Em troca, cron custaria
+instalar cron na imagem ou depender de um serviço externo. O worker embutido sobe junto
+com o deploy, sem passo de infraestrutura.
+
+O script continua executável à mão quando precisar:
+
+```bash
+docker exec gestorhs-backend python -m app.scripts.enviar_vencendo_growthhs --dry-run
+```
 
 ## Flags
 

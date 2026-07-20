@@ -26,7 +26,7 @@ python -m app.scripts.criar_usuario admin <senha> Administrador   # bootstrap de
 python -m app.scripts.enviar_atrasados_growthhs                   # SIMULA a carga de vencidos (padrao: nao envia)
 python -m app.scripts.enviar_atrasados_growthhs --enviar          # carga real no GrowthHS (ver aviso abaixo)
 python -m app.scripts.enviar_vencendo_growthhs --dry-run          # SIMULA o job diario dos 50 dias
-python -m app.scripts.enviar_vencendo_growthhs                    # job diario real (agendado por cron)
+python -m app.scripts.enviar_vencendo_growthhs                    # roda o job dos 50 dias a mao
 ```
 
 > ⚠️ **`enviar_atrasados_growthhs` nao envia nada sem `--enviar`.** A chave do card e
@@ -37,8 +37,14 @@ python -m app.scripts.enviar_vencendo_growthhs                    # job diario r
 > ℹ️ **`enviar_vencendo_growthhs` ENVIA por padrao** (use `--dry-run` para simular) — o inverso
 > do script de atrasados, de proposito. A chave e `{equipamento_cliente_id}:{prox_calibragem}`,
 > que **nao muda com a data da execucao**, entao repetir devolve `created: false` e nao duplica;
-> alem disso e um job de cron, e um default que nao envia viraria um agendamento inutil em
-> silencio. Operacao e agendamento em [docs/operacao-growthhs-cron.md](docs/operacao-growthhs-cron.md).
+> alem disso o agendamento chama esse mesmo caminho, e um default que nao envia viraria um
+> job inutil em silencio.
+
+> ℹ️ **O job dos 50 dias roda sozinho dentro da API**, nao por cron: `app/tarefas/vencendo.py`
+> cria uma task de fundo no lifespan que dispara todo dia as 8h (fuso de SP). Nasce
+> DESLIGADO — ligue com `JOB_VENCENDO_ATIVO=true` no ambiente. Motivo do padrao: a maquina de
+> desenvolvimento aponta para o banco de producao com a chave real. Detalhes em
+> [docs/operacao-growthhs-job-diario.md](docs/operacao-growthhs-job-diario.md).
 
 ### Frontend (`frontend/`, React 19 · TS · Vite 8 · Tailwind v4)
 ```bash
