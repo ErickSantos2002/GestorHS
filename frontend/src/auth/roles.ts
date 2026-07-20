@@ -35,6 +35,12 @@ export function podeGerenciarCertificadosGerais(user: User | null): boolean {
   return isAdmin(user) || user?.funcao === FUNCAO_LABORATORIO || user?.funcao === FUNCAO_QUALIDADE
 }
 
+// Espelha require_funcao("Laboratório", "Administrador") em
+// backend/app/api/certificados_venda.py — mudou lá, mude aqui.
+export function podeGerarCertificadoVenda(user: User | null): boolean {
+  return isAdmin(user) || user?.funcao === FUNCAO_LABORATORIO
+}
+
 // Cadastro de clientes e aparelhos: Administrador e Laboratório podem criar,
 // alterar e transferir. EXCLUIR continua exclusivo do Administrador — por isso
 // os botões de excluir seguem usando isAdmin(), não este helper.

@@ -41,6 +41,7 @@ class PortalCertItem(BaseModel):
     prox_calibragem: date | None = None
     pdf: str | None = None
     os: int | None = None
+    venda: bool = False        # PDF vem do certificado de venda (aparelho sem OS)
 
 
 class PortalCertPage(BaseModel):

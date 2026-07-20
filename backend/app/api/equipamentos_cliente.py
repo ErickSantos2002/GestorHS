@@ -5,7 +5,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.models.database import get_db
-from app.models import Usuario, EquipamentoCliente, HistoricoEquipamento, Ordem, OSCertificado, Cliente, TransferenciaEquipamento
+from app.models import Usuario, EquipamentoCliente, HistoricoEquipamento, Ordem, OSCertificado, Cliente, TransferenciaEquipamento, CertificadoVenda
 from app.api.deps import get_current_usuario, require_funcao, GESTOR_CADASTRO
 from app.api.cadastros_common import excluir_protegido
 from app.api.ordens_acoes import agora
@@ -128,7 +128,16 @@ def certificados_do_aparelho(item_id: int, db: Session = Depends(get_db), _: Usu
         .order_by(OSCertificado.os.desc(), OSCertificado.tipo)
         .all()
     )
-    return [EquipCertItem(os=c.os, tipo=c.tipo, data_geracao=c.data_geracao) for c in rows]
+    itens = [EquipCertItem(os=c.os, tipo=c.tipo, data_geracao=c.data_geracao, origem="os")
+             for c in rows]
+    # O de venda e cronologicamente o PRIMEIRO da vida do aparelho, entao fecha a lista
+    # (que esta em ordem decrescente). Sempre tipo "C".
+    venda = db.query(CertificadoVenda).filter(
+        CertificadoVenda.equipamento_cliente == item_id).first()
+    if venda is not None:
+        itens.append(EquipCertItem(os=None, tipo="C",
+                                   data_geracao=venda.data_geracao, origem="venda"))
+    return itens
 
 
 @router.post("", response_model=EquipamentoClienteOut, status_code=http_status.HTTP_201_CREATED)

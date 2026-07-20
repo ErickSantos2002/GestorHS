@@ -105,9 +105,10 @@ class HistoricoOut(BaseModel):
 
 
 class EquipCertItem(BaseModel):
-    os: int
+    os: int | None = None          # nulo no certificado de venda (nao ha OS)
     tipo: str
     data_geracao: datetime | None = None
+    origem: str = "os"             # "os" | "venda"
     model_config = {"from_attributes": True}
 
 

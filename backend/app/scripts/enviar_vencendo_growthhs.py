@@ -41,16 +41,24 @@ from app.models.database import SessionLocal
 def _dir_relatorios() -> Path:
     """Onde gravar o CSV de pendencias.
 
-    `RELATORIOS_DIR` vazio cai em `backend/relatorios/`, que funciona em
-    desenvolvimento porque o compose monta ./backend em /app. Em PRODUCAO a imagem
-    sobe pelo Dockerfile SEM bind mount: /app inteiro e efemero e o relatorio some no
-    redeploy — por isso a env aponta para o volume persistente. As falhas tambem sao
-    impressas no stdout, que o cron redireciona para o log: esse e o canal que
-    sobrevive independente de volume.
+    Por padrao, uma subpasta do UPLOAD_DIR — o volume PERSISTENTE que ja existe nos
+    dois ambientes (`/data/uploads`: volume nomeado do compose em dev, volume do
+    Easypanel em producao). Reusar o volume ja configurado evita uma env a mais para
+    esquecer no deploy: um caminho dentro de /app seria efemero em producao, onde a
+    imagem sobe pelo Dockerfile SEM bind mount, e o relatorio sumiria no redeploy.
+
+    `RELATORIOS_DIR` sobrescreve, se algum dia o relatorio precisar sair de la.
+
+    Nada dentro do UPLOAD_DIR e servido estaticamente (nao ha StaticFiles montado; os
+    arquivos saem so por endpoints que resolvem um registro especifico), entao o CSV
+    nao fica alcancavel pela web.
+
+    De todo modo as falhas tambem vao para o stdout, que o cron redireciona para o
+    log: esse e o canal que sobrevive independente de volume.
     """
     if settings.RELATORIOS_DIR:
         return Path(settings.RELATORIOS_DIR)
-    return Path(__file__).resolve().parents[2] / "relatorios"
+    return Path(settings.UPLOAD_DIR) / "relatorios"
 
 DIAS_PADRAO = 50
 

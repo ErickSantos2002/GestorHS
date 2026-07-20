@@ -8,10 +8,9 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     UPLOAD_DIR: str = "uploads"
-    # Onde os scripts gravam o CSV de pendencias. Vazio = `backend/relatorios/`, que
-    # serve em desenvolvimento (o compose monta ./backend). Em PRODUCAO a imagem sobe
-    # pelo Dockerfile, SEM bind mount: qualquer caminho dentro de /app e efemero e
-    # some no redeploy. Aponte para o volume persistente (o mesmo dos uploads).
+    # Onde os scripts gravam o CSV de pendencias. Vazio = `{UPLOAD_DIR}/relatorios`,
+    # ou seja, o volume persistente que ja existe nos dois ambientes. So preencha para
+    # tirar o relatorio de la — nao e preciso configurar no deploy.
     RELATORIOS_DIR: str = ""
     # Integracao com o TaskHS (espelhar OS como cards). Vazio = desligada.
     TASKHS_BASE_URL: str = ""   # ex.: "https://taskhs.exemplo/api" (sem barra final)

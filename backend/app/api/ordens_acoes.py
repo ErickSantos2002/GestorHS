@@ -31,6 +31,23 @@ _CAMPOS_CALIB = (
 )
 
 
+def espelhar_calibracao_valores(db: Session, ec, valores: dict,
+                                ult=None, prox=None) -> None:
+    """Copia resultados de calibracao para o equipamento_cliente a partir de valores soltos.
+
+    Miolo compartilhado entre o fluxo da OS (`espelhar_calibracao`) e o certificado de
+    venda, que nao tem OS. Valor ausente/None NAO apaga o que ja existe no cadastro.
+    """
+    for campo in _CAMPOS_CALIB:
+        valor = valores.get(campo)
+        if valor is not None:
+            setattr(ec, campo, valor)
+    if ult is not None:
+        ec.ult_calibragem = ult
+    if prox is not None:
+        ec.prox_calibragem = prox
+
+
 def espelhar_calibracao(db: Session, ordem) -> None:
     """Copia os resultados de calibração da OS para o equipamento_cliente."""
     from app.models import EquipamentoCliente
@@ -39,11 +56,9 @@ def espelhar_calibracao(db: Session, ordem) -> None:
     ec = db.query(EquipamentoCliente).filter(EquipamentoCliente.id == ordem.equipamento_cliente).first()
     if ec is None:
         return
-    for campo in _CAMPOS_CALIB:
-        valor = getattr(ordem, campo)
-        if valor is not None:
-            setattr(ec, campo, valor)
-    if ordem.data_calibracao is not None:
-        ec.ult_calibragem = ordem.data_calibracao.date()
-    if ordem.prox_calibragem is not None:
-        ec.prox_calibragem = ordem.prox_calibragem.date()
+    espelhar_calibracao_valores(
+        db, ec,
+        {campo: getattr(ordem, campo) for campo in _CAMPOS_CALIB},
+        ult=ordem.data_calibracao.date() if ordem.data_calibracao is not None else None,
+        prox=ordem.prox_calibragem.date() if ordem.prox_calibragem is not None else None,
+    )

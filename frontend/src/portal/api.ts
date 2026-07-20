@@ -52,6 +52,12 @@ export const portalApi = {
     const url = URL.createObjectURL(await res.blob())
     window.open(url, '_blank', 'noopener')
   },
+  baixarCertificadoVenda: async (equipamentoClienteId: number): Promise<void> => {
+    const res = await apiFetch(`/portal/certificado-venda/${equipamentoClienteId}`)
+    if (!res.ok) throw new ApiError(res.status, 'Certificado indisponível')
+    const url = URL.createObjectURL(await res.blob())
+    window.open(url, '_blank', 'noopener')
+  },
 }
 
 export { formatData } from '../lib/utils'
@@ -84,6 +90,7 @@ export interface PortalCertItem {
   prox_calibragem: string | null
   pdf: string | null
   os: number | null
+  venda: boolean       // PDF vem do certificado de venda (aparelho sem OS)
 }
 export interface PortalCertPage { items: PortalCertItem[]; total: number }
 

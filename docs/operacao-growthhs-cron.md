@@ -54,12 +54,17 @@ qual campo reprovou.
    canal que **sempre** sobrevive, independente de volume, e é onde olhar primeiro.
 2. **Num CSV**, com os mesmos dados em formato de planilha.
 
-> ⚠️ **Em produção, configure `RELATORIOS_DIR`.** O Easypanel sobe a imagem pelo
-> **Dockerfile, sem bind mount** — qualquer caminho dentro de `/app` é efêmero e some no
-> redeploy. Aponte a env para o volume persistente (o mesmo dos uploads), por exemplo
-> `RELATORIOS_DIR=/data/uploads/relatorios`. Sem isso o CSV se perde, e só o log do cron
-> resta. Em desenvolvimento a env pode ficar vazia: o padrão é `backend/relatorios/`, que
-> o compose monta (e que está no `.gitignore`).
+O CSV vai para `{UPLOAD_DIR}/relatorios/` — na prática `/data/uploads/relatorios/`, o volume
+**persistente** que já existe nos dois ambientes. **Nada a configurar no deploy.**
+
+```bash
+docker exec gestorhs-backend ls /data/uploads/relatorios/
+```
+
+> Por que não um caminho dentro de `/app`: em produção o Easypanel sobe a imagem pelo
+> **Dockerfile, sem bind mount**, então qualquer coisa em `/app` é efêmera e some no
+> redeploy — junto com a única diagnose do job. A env `RELATORIOS_DIR` existe para
+> sobrescrever o destino, mas não precisa ser preenchida.
 
 Como o job é idempotente, basta corrigir a causa e esperar a próxima execução — ela
 reprocessa a janela inteira.
