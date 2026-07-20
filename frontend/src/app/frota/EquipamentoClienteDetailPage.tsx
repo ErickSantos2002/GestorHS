@@ -8,9 +8,10 @@ import { Spinner } from '../../components/ui/Spinner'
 import { Table, TH, TD } from '../../components/ui/Table'
 import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
-import { isAdmin, podeAbrirOS, podeGerenciarCadastros } from '../../auth/roles'
+import { isAdmin, podeAbrirOS, podeGerenciarCadastros, podeGerarCertificadoVenda } from '../../auth/roles'
 import { AbrirOSModal } from '../ordens/AbrirOSModal'
 import { TransferirModal } from './TransferirModal'
+import { CertificadoVendaModal } from './CertificadoVendaModal'
 import { ordensApi, formatData, osAtiva, TIPO_SERVICO, type OrdemListItem } from '../ordens/api'
 import { equipamentosClienteApi, STATUS_CALIBRACAO, type EquipamentoCliente, type EquipamentoClientePayload, type Historico, type StatusCalibracao, type EquipCertItem, type Transferencia } from './api'
 import { equipamentosApi, type Equipamento } from '../cadastros/api'
@@ -64,6 +65,7 @@ export function EquipamentoClienteDetailPage({ embutido = false }: { embutido?: 
   const [ordens, setOrdens] = useState<OrdemListItem[]>([])
   const [certs, setCerts] = useState<EquipCertItem[]>([])
   const [transferindo, setTransferindo] = useState(false)
+  const [gerandoVenda, setGerandoVenda] = useState(false)
   const [transferencias, setTransferencias] = useState<Transferencia[]>([])
   const [recarga, setRecarga] = useState(0)
   const [erroDownload, setErroDownload] = useState('')
@@ -125,10 +127,14 @@ export function EquipamentoClienteDetailPage({ embutido = false }: { embutido?: 
     }
   }
 
-  async function baixarPdf(os: number, tipo: 'C' | 'M') {
+  async function baixarPdf(c: EquipCertItem) {
     setErroDownload('')
     try {
-      await ordensApi.baixarCertificadoPdf(os, tipo)
+      if (c.origem === 'venda') {
+        await equipamentosClienteApi.baixarCertificadoVendaPdf(Number(aparelhoId))
+      } else {
+        await ordensApi.baixarCertificadoPdf(c.os!, c.tipo)
+      }
     } catch {
       setErroDownload('Falha ao baixar PDF')
     }
@@ -360,18 +366,31 @@ export function EquipamentoClienteDetailPage({ embutido = false }: { embutido?: 
 
       {editando && (
         <div className="rounded-2xl bg-background-surface border border-border p-5 space-y-4">
-          <h2 className="text-sm font-semibold text-slate-100">Certificados</h2>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold text-slate-100">Certificados</h2>
+            {podeGerarCertificadoVenda(user) && (
+              <button
+                type="button"
+                onClick={() => setGerandoVenda(true)}
+                className="text-xs font-semibold text-primary hover:underline"
+              >
+                {certs.some((c) => c.origem === 'venda') ? 'Regerar certificado de venda' : 'Gerar certificado de venda'}
+              </button>
+            )}
+          </div>
           {erroDownload && <p className="text-sm text-danger">{erroDownload}</p>}
           {certs.length === 0 ? (
             <p className="text-sm text-slate-500">Nenhum certificado gerado.</p>
           ) : (
             <Table head={<><TH>OS</TH><TH>Tipo</TH><TH>Gerado em</TH><TH>PDF</TH></>}>
               {certs.map((c) => (
-                <tr key={`${c.os}-${c.tipo}`} className="hover:bg-background-elevated transition-colors">
-                  <TD><Link to={`/app/ordens/${c.os}`} className="font-semibold text-primary hover:underline">#{c.os}</Link></TD>
+                <tr key={c.origem === 'venda' ? 'venda' : `${c.os}-${c.tipo}`} className="hover:bg-background-elevated transition-colors">
+                  <TD>{c.origem === 'venda'
+                    ? <span className="text-slate-400">— Venda</span>
+                    : <Link to={`/app/ordens/${c.os}`} className="font-semibold text-primary hover:underline">#{c.os}</Link>}</TD>
                   <TD>{c.tipo === 'C' ? 'Calibração' : 'Manutenção'}</TD>
                   <TD>{formatData(c.data_geracao)}</TD>
-                  <TD><button type="button" onClick={() => void baixarPdf(c.os, c.tipo)} className="text-xs font-semibold text-primary hover:underline">Baixar PDF</button></TD>
+                  <TD><button type="button" onClick={() => void baixarPdf(c)} className="text-xs font-semibold text-primary hover:underline">Baixar PDF</button></TD>
                 </tr>
               ))}
             </Table>
@@ -381,6 +400,13 @@ export function EquipamentoClienteDetailPage({ embutido = false }: { embutido?: 
 
       {abrindoOS && obj && (
         <AbrirOSModal equipamentoClienteId={obj.id} osAtual={obj.os_atual} onClose={() => setAbrindoOS(false)} />
+      )}
+      {gerandoVenda && obj && (
+        <CertificadoVendaModal
+          aparelhoId={obj.id}
+          onClose={() => setGerandoVenda(false)}
+          onGerado={() => { setGerandoVenda(false); setRecarga((n) => n + 1) }}
+        />
       )}
       {transferindo && obj && (
         <TransferirModal
