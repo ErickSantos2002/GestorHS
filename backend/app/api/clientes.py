@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.models.database import get_db
 from app.models import Usuario, Cliente
-from app.api.deps import get_current_usuario, require_funcao
+from app.api.deps import get_current_usuario, require_funcao, GESTOR_CADASTRO
 from app.api.cadastros_common import excluir_protegido
 from app.schemas.clientes import ClienteListOut, ClientesPage, ClienteOut, ClienteCreate, ClienteUpdate
 
@@ -45,7 +45,7 @@ def obter(cliente_id: int, db: Session = Depends(get_db), _: Usuario = Depends(g
 
 
 @router.post("", response_model=ClienteOut, status_code=status.HTTP_201_CREATED)
-def criar(dados: ClienteCreate, db: Session = Depends(get_db), _: Usuario = Depends(require_funcao(ADMIN))):
+def criar(dados: ClienteCreate, db: Session = Depends(get_db), _: Usuario = Depends(require_funcao(*GESTOR_CADASTRO))):
     obj = Cliente(**dados.model_dump())
     db.add(obj)
     db.commit()
@@ -54,7 +54,7 @@ def criar(dados: ClienteCreate, db: Session = Depends(get_db), _: Usuario = Depe
 
 
 @router.patch("/{cliente_id}", response_model=ClienteOut)
-def atualizar(cliente_id: int, dados: ClienteUpdate, db: Session = Depends(get_db), _: Usuario = Depends(require_funcao(ADMIN))):
+def atualizar(cliente_id: int, dados: ClienteUpdate, db: Session = Depends(get_db), _: Usuario = Depends(require_funcao(*GESTOR_CADASTRO))):
     obj = db.query(Cliente).filter(Cliente.id == cliente_id).first()
     if obj is None:
         raise HTTPException(status_code=404, detail="não encontrado")

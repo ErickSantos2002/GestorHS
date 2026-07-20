@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
-import { isAdmin } from '../../auth/roles'
+import { isAdmin, podeGerenciarCadastros } from '../../auth/roles'
 import { clientesApi, type Cliente, type ClientePayload } from './api'
 import { gruposApi, type Grupo } from '../cadastros/api'
 import { ClienteFormFields } from './ClienteFormFields'
@@ -13,7 +13,7 @@ import { useCliente } from './ClienteLayout'
 export function ClienteDadosTab() {
   const { cliente, recarregar } = useCliente()
   const { user } = useAuth()
-  const podeEditar = isAdmin(user)
+  const podeEditar = podeGerenciarCadastros(user)
   const [grupos, setGrupos] = useState<Grupo[]>([])
   const [form, setForm] = useState<ClientePayload>(() => paraForm(cliente))
   const [erro, setErro] = useState('')
@@ -44,7 +44,9 @@ export function ClienteDadosTab() {
         </DetailMain>
         <DetailAside>
           <FuncionariosSection clienteId={cliente.id} podeEditar={podeEditar} />
-          {podeEditar && <UsuariosPortalSection clienteId={cliente.id} />}
+          {/* Usuarios do portal criam CREDENCIAL de acesso do cliente — continua so Admin,
+              mesmo com o Laboratorio podendo editar o cadastro. */}
+          {isAdmin(user) && <UsuariosPortalSection clienteId={cliente.id} />}
         </DetailAside>
       </DetailGrid>
     </>

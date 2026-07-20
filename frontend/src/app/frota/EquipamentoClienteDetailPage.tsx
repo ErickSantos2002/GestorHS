@@ -8,7 +8,7 @@ import { Spinner } from '../../components/ui/Spinner'
 import { Table, TH, TD } from '../../components/ui/Table'
 import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
-import { isAdmin, podeAbrirOS } from '../../auth/roles'
+import { isAdmin, podeAbrirOS, podeGerenciarCadastros } from '../../auth/roles'
 import { AbrirOSModal } from '../ordens/AbrirOSModal'
 import { TransferirModal } from './TransferirModal'
 import { ordensApi, formatData, osAtiva, TIPO_SERVICO, type OrdemListItem } from '../ordens/api'
@@ -48,7 +48,7 @@ export function EquipamentoClienteDetailPage({ embutido = false }: { embutido?: 
   const { user } = useAuth()
   const aparelhoId = embutido ? params.aparelho : params.id
   const editando = aparelhoId !== undefined
-  const podeEditar = isAdmin(user)
+  const podeEditar = podeGerenciarCadastros(user)
   const clienteParam = searchParams.get('cliente')
   const clienteId = embutido ? Number(params.id) : (clienteParam ? Number(clienteParam) : 0)
   const voltarBase = embutido ? `/app/clientes/${clienteId}/equipamentos` : '/app/equipamentos'
@@ -225,7 +225,7 @@ export function EquipamentoClienteDetailPage({ embutido = false }: { embutido?: 
               ? <Button onClick={() => navigate(`/app/ordens/${osEmAndamento.id}`)}>Ver OS #{osEmAndamento.id}</Button>
               : <Button onClick={() => setAbrindoOS(true)}>Abrir OS</Button>
           )}
-          {editando && isAdmin(user) && (
+          {editando && podeGerenciarCadastros(user) && (
             <Button
               variant="secondary"
               onClick={() => setTransferindo(true)}
@@ -235,7 +235,7 @@ export function EquipamentoClienteDetailPage({ embutido = false }: { embutido?: 
               Transferir
             </Button>
           )}
-          {editando && podeEditar && <Button variant="danger" onClick={excluir}>Excluir</Button>}
+          {editando && isAdmin(user) && <Button variant="danger" onClick={excluir}>Excluir</Button>}
           <Button variant="secondary" onClick={() => navigate(voltarBase)}>Voltar</Button>
         </div>
       </div>

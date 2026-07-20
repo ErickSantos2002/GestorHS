@@ -62,3 +62,11 @@ def require_funcao(*descricoes: str):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acesso negado para sua função")
         return usuario
     return _checagem
+
+
+ADMIN = "Administrador"
+
+# Quem pode CADASTRAR, ALTERAR e TRANSFERIR clientes e aparelhos da frota.
+# Fonte unica: usada pelos routers de clientes e de equipamentos_cliente.
+# EXCLUIR continua so com Administrador — e a unica acao destrutiva de verdade.
+GESTOR_CADASTRO = (ADMIN, "Laboratório")

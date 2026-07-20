@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Button } from '../../components/ui/Button'
 import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
-import { isAdmin } from '../../auth/roles'
+import { podeGerenciarCadastros } from '../../auth/roles'
 import { clientesApi, type ClientePayload } from './api'
 import { gruposApi, type Grupo } from '../cadastros/api'
 import { ClienteFormFields } from './ClienteFormFields'
@@ -19,7 +19,7 @@ const VAZIO: ClientePayload = {
 export function ClienteDetailPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const podeEditar = isAdmin(user)
+  const podeEditar = podeGerenciarCadastros(user)
 
   const [form, setForm] = useState<ClientePayload>(VAZIO)
   const [grupos, setGrupos] = useState<Grupo[]>([])

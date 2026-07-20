@@ -6,7 +6,7 @@ import { Badge } from '../../components/ui/Badge'
 import { Spinner } from '../../components/ui/Spinner'
 import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
-import { isAdmin } from '../../auth/roles'
+import { podeGerenciarCadastros } from '../../auth/roles'
 import { equipamentosClienteApi, STATUS_CALIBRACAO, type FrotaItem } from '../frota/api'
 
 export function ClienteEquipamentosTab() {
@@ -37,7 +37,7 @@ export function ClienteEquipamentosTab() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-slate-100">Equipamentos do cliente</h2>
-        {isAdmin(user) && <Button onClick={() => navigate('novo')}>Novo aparelho</Button>}
+        {podeGerenciarCadastros(user) && <Button onClick={() => navigate('novo')}>Novo aparelho</Button>}
       </div>
 
       {erro && <div className="rounded-lg bg-danger/10 border border-danger/20 px-3 py-2.5 text-sm text-danger">{erro}</div>}

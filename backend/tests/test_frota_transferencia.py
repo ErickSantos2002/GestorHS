@@ -68,11 +68,29 @@ def test_transferir_mesmo_cliente_400(client, usuario_admin, os_base):
     assert r.status_code == 400
 
 
-def test_transferir_exige_admin_403(client, usuario_lab, os_base, db_session):
+def test_transferir_liberado_para_laboratorio(client, usuario_lab, os_base, db_session):
+    """O Laboratorio passou a poder transferir (20/07/2026): e' quem tem o aparelho
+    na mao. EXCLUIR continua so com Administrador — ver o teste abaixo."""
     destino = _cliente(db_session, "Destino")
     h = _headers(client, "lab@hs.com", "senha123")
     r = client.post(f"/equipamentos-cliente/{os_base['equipamento_cliente']}/transferir",
                     json={"cliente": destino}, headers=h)
+    assert r.status_code == 200
+
+
+def test_transferir_barra_funcao_sem_permissao_403(client, usuario_financeiro, os_base, db_session):
+    """Liberar o Laboratorio nao pode virar liberar geral."""
+    destino = _cliente(db_session, "Destino")
+    h = _headers(client, "fin@hs.com", "senha123")
+    r = client.post(f"/equipamentos-cliente/{os_base['equipamento_cliente']}/transferir",
+                    json={"cliente": destino}, headers=h)
+    assert r.status_code == 403
+
+
+def test_excluir_aparelho_continua_so_admin_403(client, usuario_lab, os_base):
+    """A acao destrutiva NAO foi liberada junto com cadastrar/alterar/transferir."""
+    h = _headers(client, "lab@hs.com", "senha123")
+    r = client.delete(f"/equipamentos-cliente/{os_base['equipamento_cliente']}", headers=h)
     assert r.status_code == 403
 
 

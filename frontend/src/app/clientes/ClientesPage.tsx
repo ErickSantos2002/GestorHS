@@ -7,7 +7,7 @@ import { Spinner } from '../../components/ui/Spinner'
 import { Input } from '../../components/ui/Input'
 import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
-import { isAdmin } from '../../auth/roles'
+import { podeGerenciarCadastros } from '../../auth/roles'
 import { clientesApi, type ClienteListItem } from './api'
 import { PageContainer } from '../../components/ui/Page'
 
@@ -58,7 +58,7 @@ export function ClientesPage() {
     <PageContainer>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-extrabold text-slate-100">Clientes</h1>
-        {isAdmin(user) && <Button onClick={() => navigate('/app/clientes/novo')}>Novo cliente</Button>}
+        {podeGerenciarCadastros(user) && <Button onClick={() => navigate('/app/clientes/novo')}>Novo cliente</Button>}
       </div>
 
       <form onSubmit={onBuscar} className="flex gap-2 max-w-md">

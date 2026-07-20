@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.models.database import get_db
 from app.models import Usuario, EquipamentoCliente, HistoricoEquipamento, Ordem, OSCertificado, Cliente, TransferenciaEquipamento
-from app.api.deps import get_current_usuario, require_funcao
+from app.api.deps import get_current_usuario, require_funcao, GESTOR_CADASTRO
 from app.api.cadastros_common import excluir_protegido
 from app.api.ordens_acoes import agora
 from app.core import os_workflow as wf
@@ -132,7 +132,7 @@ def certificados_do_aparelho(item_id: int, db: Session = Depends(get_db), _: Usu
 
 
 @router.post("", response_model=EquipamentoClienteOut, status_code=http_status.HTTP_201_CREATED)
-def criar(dados: EquipamentoClienteCreate, db: Session = Depends(get_db), _: Usuario = Depends(require_funcao(ADMIN))):
+def criar(dados: EquipamentoClienteCreate, db: Session = Depends(get_db), _: Usuario = Depends(require_funcao(*GESTOR_CADASTRO))):
     obj = EquipamentoCliente(**dados.model_dump())
     db.add(obj)
     db.commit()
@@ -142,7 +142,7 @@ def criar(dados: EquipamentoClienteCreate, db: Session = Depends(get_db), _: Usu
 
 
 @router.patch("/{item_id}", response_model=EquipamentoClienteOut)
-def atualizar(item_id: int, dados: EquipamentoClienteUpdate, db: Session = Depends(get_db), _: Usuario = Depends(require_funcao(ADMIN))):
+def atualizar(item_id: int, dados: EquipamentoClienteUpdate, db: Session = Depends(get_db), _: Usuario = Depends(require_funcao(*GESTOR_CADASTRO))):
     obj = db.query(EquipamentoCliente).filter(EquipamentoCliente.id == item_id).first()
     if obj is None:
         raise HTTPException(status_code=404, detail="não encontrado")
@@ -164,7 +164,7 @@ def excluir(item_id: int, db: Session = Depends(get_db), _: Usuario = Depends(re
 
 @router.post("/{item_id}/transferir", response_model=EquipamentoClienteOut)
 def transferir(item_id: int, dados: TransferirIn, db: Session = Depends(get_db),
-               usuario: Usuario = Depends(require_funcao(ADMIN))):
+               usuario: Usuario = Depends(require_funcao(*GESTOR_CADASTRO))):
     obj = db.query(EquipamentoCliente).filter(EquipamentoCliente.id == item_id).first()
     if obj is None:
         raise HTTPException(status_code=404, detail="não encontrado")
