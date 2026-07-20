@@ -11,12 +11,12 @@ SOURCE = "gestorhs"
 # Fase da OS (GestorHS) → id da lista no quadro "Serviço" do TaskHS (contrato v2).
 # Ids fixos de produção; a lista tem que existir no TaskHS (senão o upsert dá 404).
 FASE_PARA_LIST_ID: dict[int, int] = {
-    4: 21,   # 🚚 Expedição (Abrindo caixa)
-    5: 22,   # 🔬 Laboratório Calibração
-    6: 27,   # 🔬 LIBERADOS DO LABORATÓRIO
-    10: 30,  # 💰 Financeiro
-    7: 34,   # 🚚 Expedição (Preparando para Envio)
-    8: 35,   # 📮 Correios
+    4: 196,  # 🚚 Expedição (Abrindo caixa)
+    5: 197,  # 🔬 Laboratório Calibração
+    6: 202,  # 🔬 LIBERADOS DO LABORATÓRIO
+    10: 205,  # 💰 Financeiro
+    7: 209,  # 🚚 Expedição (Preparando para Envio)
+    8: 210,  # 📮 Correios
 }
 
 TIPO_SERVICO_LABEL: dict[str, str] = {"C": "Calibração", "M": "Manutenção", "A": "Ambas"}

@@ -27,7 +27,7 @@ def test_sincronizar_envia_so_fases_4_a_8(db_session, os_base, fases_seed, monke
     assert enviadas == 3
     assert total == 3
     assert sorted(f for f, _ in enviados) == [4, 8, 10]
-    assert {lid for _, lid in enviados} == {21, 35, 30}
+    assert {lid for _, lid in enviados} == {196, 210, 205}
 
 
 def test_sincronizar_desligada_levanta(db_session, monkeypatch):
