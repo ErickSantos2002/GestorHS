@@ -22,6 +22,7 @@ from app.models.certificado_imagem import CertificadoImagem
 from app.models.os_certificado import OSCertificado
 from app.models.transferencia_equipamento import TransferenciaEquipamento
 from app.models.certificado_avulso import CertificadoAvulso
+from app.models.certificado_venda import CertificadoVenda
 from app.models.certificado_geral import CertificadoGeral
 from app.models.instalacao_modulo import InstalacaoModulo
 
@@ -31,6 +32,6 @@ __all__ = [
     "EquipamentoCliente", "HistoricoEquipamento",
     "Fase", "LogOS", "Ordem", "TipoCalibragem", "Solicitacao", "Foto",
     "Caixa", "CertificadoModelo", "CertificadoImagem", "OSCertificado",
-    "TransferenciaEquipamento", "CertificadoAvulso", "CertificadoGeral",
+    "TransferenciaEquipamento", "CertificadoAvulso", "CertificadoVenda", "CertificadoGeral",
     "InstalacaoModulo",
 ]
