@@ -33,11 +33,13 @@ from app.integrations.hsgrowth_client import enviar_card_sync, integracao_ativa
 from app.models import EquipamentoCliente
 from app.models.database import SessionLocal
 
-# backend/app/scripts/enviar_atrasados_growthhs.py -> raiz do repo GestorHS.
-# O script roda a partir de `backend/`; resolver o CSV padrao contra o CWD
-# colocaria em `backend/docs/` (nao existe) em vez do `docs/` real da raiz —
-# mesma licao de `importar_elo_modulos.py`.
-_RAIZ_REPO = Path(__file__).resolve().parents[3]
+# backend/app/scripts/<arquivo>.py -> `backend/`, que e' o diretorio montado no
+# container (./backend -> /app). Resolver a raiz do REPO (parents[3]) quebra dentro
+# do container: la parents[3] e' `/`, entao o CSV ia parar em `/docs/` — sistema de
+# arquivos efemero, invisivel no host e perdido quando o container e' recriado.
+# Descoberto em 20/07/2026 rodando o job em dry-run de verdade. `parents[2]` da o
+# mesmo lugar nos dois mundos: `backend/` no host, `/app` (= ./backend) no container.
+_DIR_RELATORIOS = Path(__file__).resolve().parents[2] / "relatorios"
 
 
 def buscar_atrasados(db: Session) -> list[dict]:
@@ -192,7 +194,7 @@ def main() -> None:
         return
 
     caminho_pendencias = args.pendencias or str(
-        _RAIZ_REPO / "docs" / f"pendencias-atrasados-growthhs-{date.today().isoformat()}.csv"
+        _DIR_RELATORIOS / f"pendencias-atrasados-growthhs-{date.today().isoformat()}.csv"
     )
     # Cria o diretorio de saida ANTES de qualquer envio: um caminho invalido
     # precisa falhar rapido, nao depois de ja ter criado cards em producao
