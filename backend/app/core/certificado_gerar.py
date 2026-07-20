@@ -206,6 +206,52 @@ def montar_contexto_avulso(db: Session, valores: dict) -> dict[str, str]:
     )
 
 
+def montar_contexto_venda(db: Session, ec, valores: dict) -> dict[str, str]:
+    """Contexto do certificado de VENDA: sem OS, mas com o aparelho ja cadastrado.
+
+    Cliente e aparelho saem do cadastro; `valores` (o que o laboratorio digitou no
+    modal) sobrepoe o que for informado, permitindo corrigir na hora sem alterar o
+    cadastro. `modelo`/`marca` vem sempre do catalogo — sao atributo do aparelho.
+
+    Delega ao mesmo `_montar_contexto` da OS e do avulso: e o que garante que o
+    conjunto de chaves seja identico e nenhum token vaze como [token] no PDF.
+    """
+    cli = ec.cliente_rel
+    modelo, marca = modelo_marca(db, ec.equipamento)
+
+    def _v(chave, padrao=""):
+        valor = valores.get(chave)
+        return valor if valor not in (None, "") else padrao
+
+    # Nao ha "data de recebimento" numa venda: usa a data de compra do cadastro,
+    # caindo em hoje quando o cadastro nao tem.
+    dataentr = _fmt(ec.datacompra) if ec.datacompra else _fmt(date.today())
+
+    return _montar_contexto(
+        nomecli=_v("nomecli", (cli.nome if cli else "") or ""),
+        cnpj=_v("cnpj", ((cli.cgc or cli.cpf) if cli else "") or ""),
+        endcli=_v("endcli", _endereco(cli)),
+        modelo=modelo,
+        marca=marca,
+        serie=_v("serie", ec.serie or ""),
+        patrimonio=_v("patrimonio", ec.patrimonio or ""),
+        datacompra=_fmt(valores.get("datacompra")) or _fmt(ec.datacompra),
+        os_num="XXXX",                       # sem OS — convencao ja usada no avulso
+        calibcert=_v("calib_cert"),
+        proxcalibragem=_fmt(valores.get("prox_calibragem")),
+        tipocalibragem="",                   # nao se aplica a uma venda
+        datacali=_fmt(valores.get("data_calibracao")),
+        dataentr=dataentr,
+        temp=_v("calib_temp"),
+        pressao=_v("calib_pressao"),
+        t1=_v("calib_teste1"),
+        t2=_v("calib_teste2"),
+        t3=_v("calib_teste3"),
+        media=_v("calib_teste_media"),
+        situ=_v("calib_situacao"),
+    )
+
+
 def preencher(html: str, contexto: dict[str, str]) -> str:
     # O template é HTML confiável (editado só por admin/laboratório), mas os
     # VALORES vêm de dados (cliente, série, etc.) e são escapados para evitar
