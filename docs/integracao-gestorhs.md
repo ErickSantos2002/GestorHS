@@ -25,7 +25,7 @@ documento vai parecer familiar de propósito — mesma estrutura, mesmo tom. Mas
 > descrição, nem lista, nem cliente.
 >
 > Consequência prática: **o GestorHS deve chamar este endpoint UMA vez, no gatilho**
-> (abertura da OS; calibração cruzando o limiar de 50 dias) — **não a cada atualização
+> (saída do laboratório; calibração cruzando o limiar de 50 dias) — **não a cada atualização
 > da OS**, como faz com o TaskHS. Chamar de novo é inofensivo (é idempotente), mas é
 > desperdício de request: não faz nada além de devolver o card que já existe.
 
@@ -402,9 +402,9 @@ para o TaskHS em `app/api/espelhamento.py` e é usado em `app/api/ordens.py` (fu
 - **Depois do commit** da OS (nunca antes — não quer criar card para uma OS que acabou
   não sendo persistida).
 - Via **`BackgroundTasks`** (o mesmo parâmetro que a rota já recebe para o TaskHS) —
-  não bloqueia a resposta HTTP da abertura da OS.
+  não bloqueia a resposta HTTP do avanço da OS.
 - **Best-effort**: se a chamada falhar (rede, `5xx`, hsgrowth fora do ar), **logar e
-  seguir** — nunca travar ou reverter a abertura da OS por causa disso. Siga o mesmo
+  seguir** — nunca travar ou reverter o avanço da OS por causa disso. Siga o mesmo
   molde de `taskhs_client.enviar_card`:
   ```python
   def enviar_card_hsgrowth(payload: dict) -> None:
@@ -417,7 +417,8 @@ para o TaskHS em `app/api/espelhamento.py` e é usado em `app/api/ordens.py` (fu
               "falha ao criar card no hsgrowth (external_id=%s)", payload.get("external_id")
           )
   ```
-- Diferente do TaskHS: aqui só existe **um** gatilho por OS (a abertura). Não plugar em
+- Diferente do TaskHS: aqui só existe **um** gatilho por OS (a saída do laboratório,
+  5→6, dentro de `avancar` — ver nota acima). Não plugar em nenhuma outra transição de
   `avancar` nem em `cancelar` — reenviar não faz nada mesmo (seção 6), então chamar de
   novo nesses pontos seria só overhead de rede sem efeito nenhum no hsgrowth.
 
@@ -549,7 +550,7 @@ da primeira.
    desenvolvimento antes de ligar no fluxo real — confirme `201` na primeira chamada e
    `200`/`created: false` ao repetir a mesma chamada.
 6. **Ligar no fluxo real:**
-   - Plugar a chamada de `gestorhs.os` na abertura da OS (seção 7.1).
+   - Plugar a chamada de `gestorhs.os` na **saída do laboratório** (transição 5→6), não na abertura (seção 7.1).
    - Montar e agendar o job diário de `gestorhs.calibracao` (seção 7.2) — lembrando
      que isto exige infraestrutura de agendamento que ainda não existe no GestorHS.
 

@@ -22,15 +22,15 @@ import os
 import sys
 from datetime import date
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Optional
 
 from sqlalchemy.orm import Session
 
+from app.api.growthhs_cards import buscar_elo
 from app.core.config import settings
 from app.core.growthhs_atrasados import agrupar_por_cliente, montar_card_atrasados
 from app.integrations.hsgrowth_client import enviar_card_sync, integracao_ativa
-from app.models import EquipamentoCliente, InstalacaoModulo
+from app.models import EquipamentoCliente
 from app.models.database import SessionLocal
 
 # backend/app/scripts/enviar_atrasados_growthhs.py -> raiz do repo GestorHS.
@@ -70,26 +70,7 @@ def buscar_atrasados(db: Session) -> list[dict]:
 
     linhas = []
     for ec in ecs:
-        elo = None
-        if ec.equipamento == settings.EQUIPAMENTO_MODULO_ID:
-            instalacao = (
-                db.query(InstalacaoModulo)
-                .filter(InstalacaoModulo.modulo == ec.id, InstalacaoModulo.saiu_em.is_(None))
-                .first()
-            )
-            if instalacao is not None:
-                phoebus_ec = db.get(EquipamentoCliente, instalacao.phoebus)
-                if phoebus_ec is not None:
-                    # Ponte OBRIGATORIA: montar_device(elo=...) espera `.serie`
-                    # e `.descricao`, mas a linha ORM real de EquipamentoCliente
-                    # expoe a descricao do catalogo como `.equipamento_descricao`
-                    # (property via join), NAO `.descricao`. Passar o ORM puro
-                    # quebraria com AttributeError bem no caso interessante
-                    # (modulo COM elo).
-                    elo = SimpleNamespace(
-                        serie=phoebus_ec.serie,
-                        descricao=phoebus_ec.equipamento_descricao,
-                    )
+        elo = buscar_elo(db, ec)
 
         linhas.append({
             "cliente_id": ec.cliente,

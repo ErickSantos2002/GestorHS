@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.20.0',
+    data: '20/07/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'Quando o laboratório conclui uma OS, o sistema agora cria automaticamente um card no funil de Serviços do GrowthHS, com os dados do cliente, o aparelho e o resultado da calibração — para o comercial dar seguimento sem ninguém precisar avisar. Se a integração estiver fora do ar, a OS avança normalmente.' },
+    ],
+  },
+  {
     versao: '1.19.0',
     data: '18/07/2026',
     itens: [
