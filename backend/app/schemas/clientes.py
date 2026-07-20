@@ -1,6 +1,46 @@
-from pydantic import BaseModel, Field
+import re
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from typing import Optional
 from datetime import date
+
+# Colunas de largura FIXA em `clientes`. Um caractere a mais (um espaco colado
+# junto no paste, por exemplo) estoura o INSERT e derruba a request com 500.
+_SO_DIGITOS = {"cgc": 14, "cpf": 11, "cep": 8}
+_TAMANHO_MAXIMO = {"estado": 2}
+
+
+class _ClienteSaneado(BaseModel):
+    """Limpa o que o usuario digita antes de encostar no banco.
+
+    `str_strip_whitespace` mata o espaco sobrando em TODOS os campos de texto —
+    era o que quebrava o cadastro, e o mesmo espaco em `email` passava batido e
+    ia sujar o contato do cliente.
+    """
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    # check_fields=False: os campos sao declarados nas subclasses, nao aqui
+    @field_validator("cgc", "cpf", "cep", mode="after", check_fields=False)
+    @classmethod
+    def _apenas_digitos(cls, v: Optional[str], info) -> Optional[str]:
+        if v is None:
+            return None
+        digitos = re.sub(r"\D", "", v)
+        if not digitos:
+            return None
+        limite = _SO_DIGITOS[info.field_name]
+        if len(digitos) > limite:
+            raise ValueError(f"deve ter no maximo {limite} digitos")
+        return digitos
+
+    @field_validator("estado", mode="after", check_fields=False)
+    @classmethod
+    def _dentro_do_limite(cls, v: Optional[str], info) -> Optional[str]:
+        if v is None or v == "":
+            return None
+        limite = _TAMANHO_MAXIMO[info.field_name]
+        if len(v) > limite:
+            raise ValueError(f"deve ter no maximo {limite} caracteres")
+        return v
 
 
 class ClienteListOut(BaseModel):
@@ -47,7 +87,7 @@ class ClienteOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class ClienteCreate(BaseModel):
+class ClienteCreate(_ClienteSaneado):
     nome: str = Field(min_length=1)
     grupo: Optional[int] = None
     cgc: Optional[str] = None
@@ -72,7 +112,7 @@ class ClienteCreate(BaseModel):
     ativo: bool = True
 
 
-class ClienteUpdate(BaseModel):
+class ClienteUpdate(_ClienteSaneado):
     nome: Optional[str] = Field(default=None, min_length=1)
     grupo: Optional[int] = None
     cgc: Optional[str] = None
