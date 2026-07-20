@@ -32,5 +32,3 @@ Thumbs.db
 docs/*.xlsx
 docs/*.csv
 
-# Relatorios de pendencia gerados pelos scripts de integracao (CSV por execucao)
-backend/relatorios/

@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, funcoes, usuarios, setores, marcas, grupos, categorias, equipamentos, clientes, funcionarios, equipamentos_cliente, fases, ordens, tipos_calibragem, alertas, portal, solicitacoes, usuarios_cliente, dashboard, fotos, certificados, caixas, certificados_modelo, certificados_os, publico, notas_fiscais, certificados_avulsos, certificados_gerais
+from app.api import auth, funcoes, usuarios, setores, marcas, grupos, categorias, equipamentos, clientes, funcionarios, equipamentos_cliente, fases, ordens, tipos_calibragem, alertas, portal, solicitacoes, usuarios_cliente, dashboard, fotos, certificados, caixas, certificados_modelo, certificados_os, publico, notas_fiscais, certificados_avulsos, certificados_gerais, certificados_venda
 from app.core.config import settings
 
 app = FastAPI(title="GestorHS API")
@@ -24,6 +24,9 @@ app.include_router(categorias.router)
 app.include_router(equipamentos.router)
 app.include_router(clientes.router)
 app.include_router(funcionarios.router)
+# Antes do router de frota: os dois usam o prefixo /equipamentos-cliente, e as rotas
+# especificas do certificado de venda precisam casar antes das genericas da frota.
+app.include_router(certificados_venda.router)
 app.include_router(equipamentos_cliente.router)
 app.include_router(fases.router)
 app.include_router(ordens.router)
