@@ -1,5 +1,6 @@
 """Motor de preenchimento do certificado: monta o contexto a partir da OS e
 substitui os campos [token] no HTML do modelo."""
+import re
 from datetime import date, datetime, timezone
 from html import escape as _html_escape
 
@@ -49,6 +50,24 @@ def _fmt(d) -> str:
     return str(d)
 
 
+def _fmt_doc(valor) -> str:
+    """CNPJ/CPF com mascara. O que nao tiver 14/11 digitos sai como veio."""
+    bruto = str(valor or "").strip()
+    d = re.sub(r"\D", "", bruto)
+    if len(d) == 14:
+        return f"{d[:2]}.{d[2:5]}.{d[5:8]}/{d[8:12]}-{d[12:]}"
+    if len(d) == 11:
+        return f"{d[:3]}.{d[3:6]}.{d[6:9]}-{d[9:]}"
+    return bruto
+
+
+def _fmt_cep(valor) -> str:
+    """CEP com mascara. O que nao tiver 8 digitos sai como veio."""
+    bruto = str(valor or "").strip()
+    d = re.sub(r"\D", "", bruto)
+    return f"{d[:5]}-{d[5:]}" if len(d) == 8 else bruto
+
+
 def _endereco(cli) -> str:
     if cli is None:
         return ""
@@ -60,6 +79,9 @@ def _endereco(cli) -> str:
     cidade = " - ".join(p for p in [getattr(cli, "municipio", None), getattr(cli, "estado", None)] if p)
     if cidade:
         partes.append(cidade)
+    cep = _fmt_cep(getattr(cli, "cep", None))
+    if cep:
+        partes.append(f"CEP {cep}")
     return ", ".join(p for p in partes if p)
 
 
@@ -83,7 +105,7 @@ def _montar_contexto(
     hoje = _fmt(date.today())
     return {
         "nomecli": nomecli,
-        "cnpj": cnpj,
+        "cnpj": _fmt_doc(cnpj),
         "endcli": endcli,
         "modelo": modelo,
         "marca": marca,
@@ -171,6 +193,8 @@ def montar_contexto(db: Session, ordem) -> dict[str, str]:
     for chave, valor in (ordem.cert_overrides or {}).items():
         if valor:
             ctx[chave] = valor
+    # o override do CNPJ e digitado a mao — mascara aqui tambem, senao sai cru no PDF
+    ctx["cnpj"] = _fmt_doc(ctx["cnpj"])
     return ctx
 
 

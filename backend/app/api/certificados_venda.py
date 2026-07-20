@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_usuario, require_funcao
 from app.api.ordens_acoes import espelhar_calibracao_valores
-from app.core.certificado_gerar import modelo_marca, montar_contexto_venda, preencher, _endereco
+from app.core.certificado_gerar import modelo_marca, montar_contexto_venda, preencher, _endereco, _fmt_doc
 from app.core.certificado_pdf import html_para_pdf
 from app.models import CertificadoModelo, CertificadoVenda, EquipamentoCliente, Usuario
 from app.models.database import get_db
@@ -38,7 +38,7 @@ def campos(item_id: int, db: Session = Depends(get_db), _: Usuario = Depends(get
     cv = _venda_de(db, item_id)
     return CertificadoVendaCamposOut(
         nomecli=(cli.nome if cli else "") or "",
-        cnpj=((cli.cgc or cli.cpf) if cli else "") or "",
+        cnpj=_fmt_doc(((cli.cgc or cli.cpf) if cli else "") or ""),
         endcli=_endereco(cli),
         modelo=modelo,
         marca=marca,

@@ -60,7 +60,7 @@ def test_montar_contexto(db_session):
     db_session.add(o); db_session.commit(); db_session.refresh(o)
     ctx = montar_contexto(db_session, o)
     assert ctx["nomecli"] == "ACME LTDA"
-    assert ctx["cnpj"] == "11222333000144"
+    assert ctx["cnpj"] == "11.222.333/0001-44"
     assert ctx["modelo"] == "Mark X"
     assert ctx["marca"] == "Alcovisor"
     assert ctx["serie"] == "SER-9"

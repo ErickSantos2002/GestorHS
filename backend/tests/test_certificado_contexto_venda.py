@@ -41,7 +41,7 @@ def test_contexto_venda_puxa_cliente_e_aparelho_do_cadastro(db_session):
     ec = _aparelho(db_session)
     ctx = montar_contexto_venda(db_session, ec, _valores())
     assert ctx["nomecli"] == "ACME Ltda"
-    assert ctx["cnpj"] == "11222333000144"
+    assert ctx["cnpj"] == "11.222.333/0001-44"
     assert "Rua X" in ctx["endcli"] and "Recife" in ctx["endcli"]
     assert ctx["modelo"] == "Mark X"
     assert ctx["marca"] == "Alcoscan"
