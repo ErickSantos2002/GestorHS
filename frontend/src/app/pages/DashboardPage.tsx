@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { StatCard } from '../../components/ui/StatCard'
 import { Spinner } from '../../components/ui/Spinner'
@@ -48,7 +48,7 @@ export function DashboardPage() {
               <StatCard
                 label="Aparelhos vencidos"
                 value={dados.aparelhos_vencidos}
-                icon={<IconFrota className="w-6 h-6 text-danger" />}
+                icon={<IconFrota className="w-8 h-8 text-danger" />}
                 color="bg-danger/15"
               />
             </button>
@@ -56,7 +56,7 @@ export function DashboardPage() {
               <StatCard
                 label="Vencendo (90 dias)"
                 value={dados.aparelhos_vencendo}
-                icon={<IconFrota className="w-6 h-6 text-warning" />}
+                icon={<IconFrota className="w-8 h-8 text-warning" />}
                 color="bg-warning/15"
               />
             </button>
@@ -64,7 +64,7 @@ export function DashboardPage() {
               <StatCard
                 label="Solicitações pendentes"
                 value={dados.solicitacoes_pendentes}
-                icon={<IconSolicitacoes className="w-6 h-6 text-primary" />}
+                icon={<IconSolicitacoes className="w-8 h-8 text-primary" />}
                 color="bg-primary/15"
               />
             </button>
@@ -72,7 +72,7 @@ export function DashboardPage() {
               <StatCard
                 label="Clientes a cobrar"
                 value={dados.clientes_a_cobrar}
-                icon={<IconCobranca className="w-6 h-6 text-primary" />}
+                icon={<IconCobranca className="w-8 h-8 text-primary" />}
                 color="bg-primary/15"
               />
             </button>
@@ -80,16 +80,20 @@ export function DashboardPage() {
 
           <div>
             <h2 className="text-sm font-bold text-slate-300 mb-3">OS ativas por fase</h2>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {/* Uma coluna por fase: o board tem 5 fases ativas, mas o grid acompanha o total real. */}
+            <div
+              className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-[repeat(var(--fases),minmax(0,1fr))]"
+              style={{ '--fases': dados.os_por_fase.length } as CSSProperties}
+            >
               {dados.os_por_fase.map((f) => (
                 <button
                   key={f.fase}
                   onClick={() => navigate('/app/ordens')}
-                  className="flex items-center gap-3 rounded-xl bg-background-surface border border-border px-4 py-3 text-left hover:bg-background-elevated transition-colors"
+                  className="flex items-center gap-3 rounded-2xl bg-background-surface border border-border px-5 py-5 text-left hover:bg-background-elevated transition-colors"
                 >
-                  <span className="w-3 h-3 rounded-full shrink-0" style={{ background: f.cor ? `#${f.cor}` : '#6b7280' }} />
-                  <span className="flex-1 text-sm text-slate-300 truncate">{f.descricao}</span>
-                  <span className="text-lg font-extrabold text-slate-100">{f.total}</span>
+                  <span className="w-3.5 h-3.5 rounded-full shrink-0" style={{ background: f.cor ? `#${f.cor}` : '#6b7280' }} />
+                  <span className="flex-1 text-base text-slate-300 truncate">{f.descricao}</span>
+                  <span className="text-2xl font-extrabold text-slate-100">{f.total}</span>
                 </button>
               ))}
             </div>
