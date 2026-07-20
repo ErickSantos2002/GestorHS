@@ -1,3 +1,4 @@
+import sys
 from datetime import date, timedelta
 
 import pytest
@@ -160,3 +161,55 @@ def test_limite_corta_a_rodada(db_session, cliente, equipamentos, monkeypatch):
     r = processar(db_session, dias=50, enviar=True, limite=2)
     assert r["candidatos"] == 2
     assert r["criados"] == 2
+
+
+# ---------------------------------------------------------------------------
+# main() — a COSTURA entre o argparse e o processar()
+#
+# `test_limite_corta_a_rodada` chama processar() direto e sempre passou, mas o
+# main() esquecia de repassar `limite=args.limite`: quem rodasse `--limite 5`
+# para um teste controlado enviaria a rodada INTEIRA (409 cards em 20/07/2026),
+# irreversivelmente. Os testes daqui exercitam main() de ponta a ponta.
+# ---------------------------------------------------------------------------
+
+def _rodar_main(monkeypatch, tmp_path, argv, db_session):
+    import app.scripts.enviar_vencendo_growthhs as mod
+
+    recebido = {}
+    real_processar = mod.processar
+
+    def espiao(db, **kw):
+        recebido.update(kw)
+        return real_processar(db_session, **kw)
+
+    monkeypatch.setattr(mod, "processar", espiao)
+    monkeypatch.setattr(mod, "SessionLocal", lambda: db_session)
+    monkeypatch.setattr(db_session, "close", lambda: None)
+    monkeypatch.setattr(mod, "integracao_ativa", lambda: True)
+    monkeypatch.setattr(mod, "enviar_card_sync", lambda card: {"created": True})
+    monkeypatch.setattr(sys, "argv", ["enviar_vencendo_growthhs",
+                                      "--pendencias", str(tmp_path / "p.csv"), *argv])
+    mod.main()
+    return recebido
+
+
+def test_main_repassa_o_limite(db_session, cliente, equipamentos, monkeypatch, tmp_path):
+    for d in (10, 11, 12):
+        _ec(db_session, cliente.id, dias=d)
+    recebido = _rodar_main(monkeypatch, tmp_path, ["--dry-run", "--limite", "2"], db_session)
+    assert recebido["limite"] == 2
+
+
+def test_main_repassa_dias_e_dry_run(db_session, cliente, equipamentos, monkeypatch, tmp_path):
+    _ec(db_session, cliente.id, dias=10)
+    recebido = _rodar_main(monkeypatch, tmp_path, ["--dry-run", "--dias", "7"], db_session)
+    assert recebido["dias"] == 7
+    assert recebido["enviar"] is False
+
+
+def test_main_envia_por_padrao_sem_dry_run(db_session, cliente, equipamentos, monkeypatch, tmp_path):
+    """O default deste script e' ENVIAR — o inverso do de atrasados, de proposito."""
+    _ec(db_session, cliente.id, dias=10)
+    recebido = _rodar_main(monkeypatch, tmp_path, [], db_session)
+    assert recebido["enviar"] is True
+    assert recebido["limite"] is None

@@ -182,10 +182,20 @@ def main() -> None:
     # Cria o diretorio ANTES de qualquer envio: um caminho invalido precisa falhar
     # rapido, nao depois de ja ter criado cards em producao.
     os.makedirs(os.path.dirname(caminho_pendencias) or ".", exist_ok=True)
+    # Nao basta criar o diretorio: se ele ja existe mas pertence a outro usuario
+    # (o container roda como root, entao `relatorios/` nasce root), o makedirs passa
+    # e a falha so aparece no open() la embaixo — DEPOIS de os cards ja terem sido
+    # enviados. Abrir agora, em modo append, transforma isso em falha imediata.
+    try:
+        open(caminho_pendencias, "a", encoding="utf-8").close()
+    except OSError as exc:
+        print(f"ERRO: nao consigo gravar o relatorio em {caminho_pendencias}: {exc}\n"
+              f"Use --pendencias com um caminho gravavel. Nada foi enviado.")
+        raise SystemExit(1)
 
     db = SessionLocal()
     try:
-        r = processar(db, dias=args.dias, enviar=enviar)
+        r = processar(db, dias=args.dias, enviar=enviar, limite=args.limite)
     finally:
         db.close()
 
