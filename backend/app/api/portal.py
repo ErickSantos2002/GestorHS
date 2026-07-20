@@ -1,13 +1,14 @@
 from datetime import date, timedelta
 
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, Response
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.models.database import get_db
-from app.models import UsuarioCliente, Cliente, EquipamentoCliente, Ordem, Solicitacao
+from app.models import UsuarioCliente, Cliente, EquipamentoCliente, Ordem, Solicitacao, CertificadoVenda
 from app.api.deps import get_current_cliente
 from app.api.certificados import servir_certificado
+from app.core.certificado_pdf import html_para_pdf
 from app.api.ordens_acoes import agora
 from app.core import os_workflow as wf
 from app.schemas.portal import (
@@ -96,6 +97,14 @@ def certificados(
     )
     total = base.count()
     linhas = base.order_by(EquipamentoCliente.ult_calibragem.desc()).offset(offset).limit(limit).all()
+    # Aparelho vendido nao tem os_atual, entao o `pdf` (que vem da OS) sai nulo. A flag
+    # `venda` diz ao portal que ha PDF disponivel pela rota do certificado de venda.
+    ids_com_venda = {
+        cv.equipamento_cliente
+        for cv in db.query(CertificadoVenda).filter(
+            CertificadoVenda.equipamento_cliente.in_([ec.id for ec, _ in linhas])
+        ).all()
+    } if linhas else set()
     items = [
         PortalCertItem(
             equipamento_cliente=ec.id,
@@ -106,6 +115,7 @@ def certificados(
             prox_calibragem=ec.prox_calibragem,
             pdf=pdf,
             os=ec.os_atual,
+            venda=ec.os_atual is None and ec.id in ids_com_venda,
         )
         for ec, pdf in linhas
     ]
@@ -170,3 +180,33 @@ def baixar_certificado_portal(ordem_id: int, cli: UsuarioCliente = Depends(get_c
     if o is None:
         raise HTTPException(status_code=404, detail="certificado não encontrado")
     return servir_certificado(o)
+
+
+@router.get("/certificado-venda/{item_id}")
+def baixar_certificado_venda_portal(item_id: int,
+                                    cli: UsuarioCliente = Depends(get_current_cliente),
+                                    db: Session = Depends(get_db)):
+    """Certificado de venda do aparelho (sem OS).
+
+    Tenant validado pelo TOKEN (`cli.cliente`), nunca pelo id da URL: um id de outro
+    cliente responde 404, nao o PDF.
+    """
+    ec = db.query(EquipamentoCliente).filter(
+        EquipamentoCliente.id == item_id,
+        EquipamentoCliente.cliente == cli.cliente,
+    ).first()
+    if ec is None:
+        raise HTTPException(status_code=404, detail="certificado não encontrado")
+    cv = db.query(CertificadoVenda).filter(
+        CertificadoVenda.equipamento_cliente == item_id).first()
+    if cv is None or not cv.html:
+        raise HTTPException(status_code=404, detail="certificado não encontrado")
+    try:
+        pdf = html_para_pdf(cv.html)
+    except Exception:
+        raise HTTPException(status_code=500, detail="falha ao gerar PDF")
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="certificado-venda-{item_id}.pdf"'},
+    )
