@@ -16,10 +16,18 @@ import { ordensApi, formatData, osAtiva, TIPO_SERVICO, type OrdemListItem } from
 import { equipamentosClienteApi, STATUS_CALIBRACAO, type EquipamentoCliente, type EquipamentoClientePayload, type Historico, type StatusCalibracao, type EquipCertItem, type Transferencia } from './api'
 import { equipamentosApi, type Equipamento } from '../cadastros/api'
 import { PageContainer, DetailGrid, DetailMain, DetailAside } from '../../components/ui/Page'
+import { hojeISO, daquiAAnos } from '../../lib/datas'
 
 const VAZIO: EquipamentoClientePayload = {
   cliente: 0, equipamento: 0, modulo: 0, serie: null, patrimonio: null,
   datacompra: null, ult_calibragem: null, prox_calibragem: null, ativo: true, status: 'A',
+}
+
+/** Aparelho novo ja nasce com as datas do caso comum: cadastrado no dia da
+ *  compra/calibragem, com validade de um ano. Sao so valores iniciais — o
+ *  usuario sobrescreve quando o aparelho for antigo. */
+function datasPadrao(): Pick<EquipamentoClientePayload, 'datacompra' | 'ult_calibragem' | 'prox_calibragem'> {
+  return { datacompra: hojeISO(), ult_calibragem: hojeISO(), prox_calibragem: daquiAAnos(1) }
 }
 
 function Secao({ titulo, children }: { titulo: string; children: ReactNode }) {
@@ -54,7 +62,10 @@ export function EquipamentoClienteDetailPage({ embutido = false }: { embutido?: 
   const clienteId = embutido ? Number(params.id) : (clienteParam ? Number(clienteParam) : 0)
   const voltarBase = embutido ? `/app/clientes/${clienteId}/equipamentos` : '/app/equipamentos'
 
-  const [form, setForm] = useState<EquipamentoClientePayload>({ ...VAZIO, cliente: clienteId })
+  const [form, setForm] = useState<EquipamentoClientePayload>(
+    // no modo edicao o efeito abaixo sobrescreve tudo com o que veio do servidor
+    { ...VAZIO, cliente: clienteId, ...(editando ? {} : datasPadrao()) },
+  )
   const [obj, setObj] = useState<EquipamentoCliente | null>(null)
   const [catalogo, setCatalogo] = useState<Equipamento[]>([])
   const [historico, setHistorico] = useState<Historico[]>([])
