@@ -43,6 +43,29 @@ def test_elo_none_quando_modulo_sem_instalacao(db_session, os_base):
     assert buscar_elo(db_session, mod) is None
 
 
+def test_elo_none_quando_phoebus_da_instalacao_foi_apagado(db_session, os_base):
+    """Instalacao aberta apontando pra um Phoebus que nao existe mais
+    (equipamento_cliente apagado). Comportamento correto e' devolver None —
+    o modulo cai no proprio serial, como se nunca tivesse tido elo.
+
+    O FK normalmente protege esse estado (nao da pra apagar um
+    equipamento_cliente referenciado por uma instalacao aberta), entao pra
+    forcar o dado aqui desligamos a checagem so' durante o DELETE."""
+    from sqlalchemy import text
+    from app.api.growthhs_cards import buscar_elo
+    from app.core.config import settings
+    pho = _equip(db_session, os_base, "WATFR01-DEL")
+    mod = _equip(db_session, os_base, "F009999", equipamento=settings.EQUIPAMENTO_MODULO_ID)
+    _instalar(db_session, mod.id, pho.id)
+
+    db_session.execute(text("PRAGMA foreign_keys=OFF"))
+    db_session.execute(text("DELETE FROM equipamentos_cliente WHERE id = :id"), {"id": pho.id})
+    db_session.commit()
+    db_session.execute(text("PRAGMA foreign_keys=ON"))
+
+    assert buscar_elo(db_session, mod) is None
+
+
 def test_elo_traz_o_phoebus_com_a_ponte_de_atributos(db_session, os_base):
     """A ponte e obrigatoria: montar_device espera .descricao, o ORM expoe
     .equipamento_descricao. Sem ela, quebra com AttributeError."""

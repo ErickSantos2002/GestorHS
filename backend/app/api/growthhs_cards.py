@@ -49,14 +49,25 @@ def agendar_card_os(db, background_tasks, ordem) -> None:
     """
     if not hsgrowth_client.integracao_ativa():
         return
+    ec = ordem.equipamento_rel
+    if ec is None:
+        # Dado benigno (OS sem equipamento vinculado) — nao e' excecao, nao
+        # precisa de stack trace no log; so no-op mesmo, nao tem card pra montar.
+        logger.warning("OS sem equipamento vinculado, card do GrowthHS nao agendado (os=%s)", ordem.id)
+        return
     try:
-        ec = ordem.equipamento_rel
         elo = buscar_elo(db, ec)
         device = montar_device(ec, ordem.equipamento_descricao, elo=elo)
         card = montar_card_os(
             ordem, ordem.cliente_rel, device, settings.HSGROWTH_BOARD_SERVICOS, date.today(),
         )
     except Exception:
+        # A OS ja' foi commitada e avancada de fase antes deste gatilho rodar
+        # (ver `avancar`); se a excecao veio de uma query aqui dentro (ex.: erro
+        # de banco em `buscar_elo`), a sessao fica suja e a proxima query do
+        # chamador (`_anotar_modelos_faltantes`) estouraria com
+        # `PendingRollbackError` -> 500 pra uma OS que ja avancou de verdade.
+        db.rollback()
         logger.exception("falha ao montar card de OS para o GrowthHS (os=%s)", ordem.id)
         return
     background_tasks.add_task(hsgrowth_client.enviar_card, card)

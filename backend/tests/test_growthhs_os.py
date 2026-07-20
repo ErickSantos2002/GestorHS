@@ -55,9 +55,12 @@ def test_source_external_id_board_id():
 # ---------------------------------------------------------------------------
 
 def test_titulo_com_os_cliente_equipamento_serie():
+    # Sem elo, `device` espelha os mesmos dados do proprio equipamento da ordem
+    # (e' assim que `montar_device` monta sem elo — ver `growthhs_payload.py`).
     ordem = _ordem(id=42, equipamento_descricao="HS PASS", equipamento_serie="SN-999")
     cliente = _cliente(nome="ACME Ltda")
-    card = montar_card_os(ordem, cliente, _device(), board_id=1, hoje=date(2026, 7, 20))
+    device = _device(model="HS PASS", serial_number="SN-999")
+    card = montar_card_os(ordem, cliente, device, board_id=1, hoje=date(2026, 7, 20))
     assert card["title"] == "OS #42 · ACME Ltda · HS PASS SN-999"
 
 
@@ -70,12 +73,36 @@ def test_titulo_truncado_em_500_quando_nome_cliente_gigante():
 
 
 def test_titulo_fallback_sem_equipamento_descricao_e_serie():
-    # Quando ambos equipamento_descricao e equipamento_serie estão ausentes,
-    # o título deve ser "OS #{id} · {cliente}" sem separadores duplos ou finais
+    # Quando ambos equipamento_descricao e equipamento_serie estão ausentes E o
+    # device tambem nao traz nada (nem model nem serial_number), o título deve
+    # ser "OS #{id} · {cliente}" sem separadores duplos ou finais
     ordem = _ordem(id=42, equipamento_descricao=None, equipamento_serie=None)
     cliente = _cliente(nome="ACME Ltda")
-    card = montar_card_os(ordem, cliente, _device(), board_id=1, hoje=date(2026, 7, 20))
+    device = _device(model=None, serial_number=None)
+    card = montar_card_os(ordem, cliente, device, board_id=1, hoje=date(2026, 7, 20))
     assert card["title"] == "OS #42 · ACME Ltda"
+
+
+def test_titulo_com_elo_usa_o_aparelho_phoebus_nao_o_numero_do_modulo():
+    """Fix 1: o card nao pode se contradizer — titulo com o modulo, devices com o
+    Phoebus. Modulo COM elo: o titulo tem que levar o aparelho que o cliente
+    reconhece (Phoebus), nao o numero de serie do modulo."""
+    ordem = _ordem(id=1, equipamento_descricao="Modulo de Calibracao", equipamento_serie="F005065")
+    cliente = _cliente(nome="ACME Ltda")
+    device = _device(serial_number="WATFR01-00340", model="Phoebus", alcohol_module="F005065")
+    card = montar_card_os(ordem, cliente, device, board_id=1, hoje=date(2026, 7, 20))
+    assert card["title"] == "OS #1 · ACME Ltda · Phoebus WATFR01-00340"
+    assert "F005065" not in card["title"]
+
+
+def test_titulo_sem_elo_usa_o_proprio_equipamento():
+    """Modulo SEM elo (ou equipamento comum): comportamento existente preservado —
+    o titulo leva o proprio equipamento da ordem, que e' o que `device` traz."""
+    ordem = _ordem(id=2, equipamento_descricao="HS PASS - IBLOW", equipamento_serie="SN-123")
+    cliente = _cliente(nome="ACME Ltda")
+    device = _device(serial_number="SN-123", model="HS PASS - IBLOW", alcohol_module=None)
+    card = montar_card_os(ordem, cliente, device, board_id=1, hoje=date(2026, 7, 20))
+    assert card["title"] == "OS #2 · ACME Ltda · HS PASS - IBLOW SN-123"
 
 
 # ---------------------------------------------------------------------------

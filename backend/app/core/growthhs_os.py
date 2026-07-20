@@ -47,10 +47,21 @@ def _resolve_tipo_servico_label(valor):
     return TIPO_SERVICO_LABEL.get(valor, valor)
 
 
-def _titulo(ordem, cliente) -> str:
+def _titulo(ordem, cliente, device: dict) -> str:
+    """O titulo leva o aparelho que o cliente RECONHECE.
+
+    Quando o item da OS eh um modulo com elo, `device` ja veio resolvido pelo
+    chamador (`montar_device`) para o Phoebus hospedeiro — usar o proprio
+    equipamento da ordem aqui reintroduziria o numero do modulo, que eh
+    exatamente o que a regra do elo existe pra evitar (ver
+    `app/core/growthhs_payload.py::montar_device`). Sem elo, `device` espelha
+    os mesmos dados de `ordem`, entao o fallback abaixo so entra em jogo
+    quando `device` vier vazio/incompleto.
+    """
+    device = device or {}
     nome = _texto(getattr(cliente, "nome", None)) or ""
-    equipamento = _texto(getattr(ordem, "equipamento_descricao", None)) or ""
-    serie = _texto(getattr(ordem, "equipamento_serie", None)) or ""
+    equipamento = _texto(device.get("model")) or _texto(getattr(ordem, "equipamento_descricao", None)) or ""
+    serie = _texto(device.get("serial_number")) or _texto(getattr(ordem, "equipamento_serie", None)) or ""
     aparelho = " ".join(p for p in (equipamento, serie) if p)
     partes = [f"OS #{ordem.id}", nome, aparelho]
     titulo = " · ".join(p for p in partes if p)
@@ -84,7 +95,7 @@ def montar_card_os(ordem, cliente, device: dict, board_id: int, hoje: date) -> d
         "source": SOURCE_OS,
         "external_id": str(ordem.id),
         "board_id": board_id,
-        "title": _titulo(ordem, cliente),
+        "title": _titulo(ordem, cliente, device),
         "description": _descricao(ordem),
         # datetime COMPLETO, nao data pura: `due_date` e' `Optional[datetime]` no
         # schema do GrowthHS e o Pydantic v2 recusa "YYYY-MM-DD" com

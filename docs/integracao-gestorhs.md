@@ -417,7 +417,8 @@ para o TaskHS em `app/api/espelhamento.py` e é usado em `app/api/ordens.py` (fu
               "falha ao criar card no hsgrowth (external_id=%s)", payload.get("external_id")
           )
   ```
-- Diferente do TaskHS: aqui só existe **um** gatilho por OS (a abertura). Não plugar em
+- Diferente do TaskHS: aqui só existe **um** gatilho por OS (a saída do laboratório,
+  5→6, dentro de `avancar` — ver nota acima). Não plugar em nenhuma outra transição de
   `avancar` nem em `cancelar` — reenviar não faz nada mesmo (seção 6), então chamar de
   novo nesses pontos seria só overhead de rede sem efeito nenhum no hsgrowth.
 
