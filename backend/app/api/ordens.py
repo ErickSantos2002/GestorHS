@@ -15,6 +15,7 @@ from app.core.garantia import garantias as _calc_garantias
 from app.core.certificado_gerar import tipos_para, tipos_sem_modelo
 from app.core.os_workflow import FASE_FINALIZADA
 from app.api.espelhamento import agendar_espelhamento as _agendar_espelhamento
+from app.api.growthhs_cards import agendar_card_os
 from app.schemas.ordens import OrdemListOut, OrdemPage, QuadroColuna, OrdemOut, LogOut, OrdemAbrirIn, AvancarIn, CancelarIn
 
 router = APIRouter(prefix="/ordens", tags=["ordens"])
@@ -236,6 +237,8 @@ def avancar(ordem_id: int, dados: AvancarIn, background_tasks: BackgroundTasks,
     db.commit()
     db.refresh(ordem)
     _agendar_espelhamento(db, background_tasks, ordem, list_id=taskhs.list_id_da_fase(ordem.fase), arquivado=False)
+    if origem == wf.FASE_LABORATORIO:
+        agendar_card_os(db, background_tasks, ordem)
     _anotar_modelos_faltantes(db, ordem)
     return ordem
 
