@@ -59,3 +59,34 @@ def test_ordens_aparelho_inexistente_404(client, usuario_admin):
     h = _headers(client, "admin@hs.com", "senha123")
     assert client.get("/equipamentos-cliente/99999/ordens", headers=h).status_code == 404
     assert client.get("/equipamentos-cliente/99999/certificados", headers=h).status_code == 404
+
+
+def test_certificados_do_aparelho_inclui_o_de_venda(client, usuario_admin, db_session):
+    from app.models import CertificadoVenda
+    ec_id, _outro, o1, _o2 = _aparelho_com_os(db_session)
+    db_session.add(CertificadoVenda(equipamento_cliente=ec_id, html="<p>v</p>",
+                                    calib_cert="V-001"))
+    db_session.commit()
+    h = _headers(client, "admin@hs.com", "senha123")
+    r = client.get(f"/equipamentos-cliente/{ec_id}/certificados", headers=h)
+    assert r.status_code == 200
+    body = r.json()
+    assert len(body) == 2
+    de_os = [c for c in body if c["origem"] == "os"]
+    de_venda = [c for c in body if c["origem"] == "venda"]
+    assert len(de_os) == 1 and de_os[0]["os"] == o1
+    assert len(de_venda) == 1
+    assert de_venda[0]["os"] is None
+    assert de_venda[0]["tipo"] == "C"
+    assert body[-1]["origem"] == "venda"        # venda vem por ultimo
+
+
+def test_certificado_de_venda_nao_vaza_para_outro_aparelho(client, usuario_admin, db_session):
+    from app.models import CertificadoVenda
+    ec_id, outro, _o1, _o2 = _aparelho_com_os(db_session)
+    db_session.add(CertificadoVenda(equipamento_cliente=ec_id, html="<p>v</p>"))
+    db_session.commit()
+    h = _headers(client, "admin@hs.com", "senha123")
+    r = client.get(f"/equipamentos-cliente/{outro}/certificados", headers=h)
+    assert r.status_code == 200
+    assert r.json() == []
