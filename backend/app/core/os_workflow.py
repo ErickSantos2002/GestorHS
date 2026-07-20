@@ -1,6 +1,7 @@
 """Grafo de transições da Ordem de Serviço (linear). Puro, sem I/O."""
 
 FASE_RECEBIDO = 4
+FASE_LABORATORIO = 5
 FASE_FINANCEIRO = 10
 FASE_FINALIZADA = 8
 FASE_CANCELADA = 9
