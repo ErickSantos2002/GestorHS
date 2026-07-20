@@ -20,12 +20,7 @@ import {
 import { ApiError } from '../../lib/api'
 import { ordensApi, CHECKLIST_ACESSORIOS, CONDICOES_CHEGADA, type TipoServico } from './api'
 import { caixasApi, type CaixaListItem } from '../caixas/api'
-
-function hojeISO(): string {
-  const d = new Date()
-  const off = d.getTimezoneOffset()
-  return new Date(d.getTime() - off * 60000).toISOString().slice(0, 10)
-}
+import { hojeISO } from '../../lib/datas'
 
 // Rótulo de seção com ícone sutil
 function SectionLabel({ icon, children }: { icon: ReactNode; children: ReactNode }) {

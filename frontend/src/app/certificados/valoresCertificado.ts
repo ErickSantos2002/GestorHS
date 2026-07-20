@@ -23,9 +23,10 @@ export interface ValoresCertificado {
   media: string
 }
 
-export function hojeISO(): string {
-  return new Date().toISOString().slice(0, 10)
-}
+import { hojeISO } from '../../lib/datas'
+
+// reexportado: os modais de certificado ja importavam hojeISO daqui
+export { hojeISO }
 
 export function valoresIniciais(): ValoresCertificado {
   return {

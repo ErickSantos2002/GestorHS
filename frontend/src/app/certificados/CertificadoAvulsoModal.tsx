@@ -6,10 +6,7 @@ import { Spinner } from '../../components/ui/Spinner'
 import { ApiError } from '../../lib/api'
 import { mediaTestes } from '../../lib/calibragem'
 import { certificadosApi, type ModeloItem, type AvulsoPayload } from './api'
-
-function hojeISO(): string {
-  return new Date().toISOString().slice(0, 10)
-}
+import { hojeISO } from '../../lib/datas'
 
 export function CertificadoAvulsoModal({ onClose, onGerado }: {
   onClose: () => void

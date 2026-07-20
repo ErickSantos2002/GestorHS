@@ -3,12 +3,9 @@ import { Modal } from '../../components/ui/Modal'
 import { Input } from '../../components/ui/Input'
 import { ApiError } from '../../lib/api'
 import { ordensApi, type OrdemDetalhe, type AvancarPayload } from './api'
+import { daquiAAnos } from '../../lib/datas'
 
-function maisUmAno(): string {
-  const d = new Date()
-  d.setFullYear(d.getFullYear() + 1)
-  return d.toISOString().slice(0, 10)
-}
+const maisUmAno = () => daquiAAnos(1)
 
 export function AvancarModal({ os, rotulo, pedeCodRetorno, pedeProxCalibragem, onClose, onConcluido }: {
   os: OrdemDetalhe
