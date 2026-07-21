@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.22.0',
+    data: '21/07/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'Nova página "Logs de Integração" (só Administrador): mostra tudo que o sistema envia para o GrowthHS e o TaskHS — o que subiu com sucesso, o que deu erro e o que foi pulado (inclusive quando a integração está desligada). Dá para filtrar por integração, status e OS, e reenviar um card que falhou direto pela linha. No topo, um aviso mostra se cada integração está ativa ou desligada.' },
+    ],
+  },
+  {
     versao: '1.21.0',
     data: '20/07/2026',
     itens: [
