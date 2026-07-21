@@ -57,7 +57,7 @@ def test_url_e_header(monkeypatch):
 
     class RespFake:
         status_code = 201
-        def raise_for_status(self): pass
+        text = "ok"
         def json(self): return {"id": 9, "created": True}
 
     def post_fake(url, json=None, headers=None, timeout=None):
