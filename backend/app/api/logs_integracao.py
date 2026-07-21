@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status as http_status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
@@ -6,7 +6,7 @@ from app.models.database import get_db
 from app.models import Usuario, LogIntegracao
 from app.api.deps import require_funcao
 from app.integrations import taskhs_client, hsgrowth_client
-from app.schemas.logs_integracao import LogsPage, LogIntegracaoOut, EstadoIntegracoes
+from app.schemas.logs_integracao import LogsPage, LogIntegracaoOut, EstadoIntegracoes, ReenvioOut
 
 router = APIRouter(prefix="/logs-integracao", tags=["integracao"])
 ADMIN = "Administrador"
@@ -45,3 +45,20 @@ def listar(
     )
     return LogsPage(items=[LogIntegracaoOut.model_validate(i) for i in items],
                     total=total, estado=estado)
+
+
+@router.post("/{log_id}/reenviar", response_model=ReenvioOut)
+def reenviar(log_id: int, db: Session = Depends(get_db),
+             _: Usuario = Depends(require_funcao(ADMIN))):
+    row = db.query(LogIntegracao).filter(LogIntegracao.id == log_id).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="log nao encontrado")
+    if not row.payload:
+        raise HTTPException(status_code=http_status.HTTP_409_CONFLICT,
+                            detail="linha sem payload, nao e reenviavel")
+    cliente = taskhs_client if row.integracao == "taskhs" else hsgrowth_client
+    try:
+        cliente.enviar_card_sync(row.payload)  # loga a nova linha de resultado
+        return ReenvioOut(ok=True, mensagem="reenviado")
+    except Exception as e:
+        return ReenvioOut(ok=False, mensagem=str(e)[:500])
