@@ -11,6 +11,7 @@ from app.core.config import settings
 from app.core.growthhs_os import montar_card_os
 from app.core.growthhs_payload import montar_device
 from app.integrations import hsgrowth_client
+from app.integrations.log_integracao import registrar_log_integracao
 from app.models import EquipamentoCliente, InstalacaoModulo
 
 logger = logging.getLogger(__name__)
@@ -54,6 +55,8 @@ def agendar_card_os(db, background_tasks, ordem) -> None:
         # Dado benigno (OS sem equipamento vinculado) — nao e' excecao, nao
         # precisa de stack trace no log; so no-op mesmo, nao tem card pra montar.
         logger.warning("OS sem equipamento vinculado, card do GrowthHS nao agendado (os=%s)", ordem.id)
+        registrar_log_integracao(integracao="growthhs", status="pulado",
+                                 motivo="sem_equipamento", referencia_os=ordem.id)
         return
     try:
         elo = buscar_elo(db, ec)

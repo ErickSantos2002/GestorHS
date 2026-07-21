@@ -12,15 +12,18 @@ from app.core.security import hash_senha
 @pytest.fixture(autouse=True)
 def _writer_nao_toca_prod(monkeypatch):
     """O writer de logs de integracao abre SessionLocal proprio, que aponta para o
-    banco REAL (via .env). Nos testes, neutralizamos esse caminho para nunca conectar
-    em producao — o writer engole a excecao (best-effort). Testes que querem verificar
-    o writer injetam db=db_session explicitamente, sem passar por aqui."""
+    banco REAL (via .env). Nos testes, redirecionamos esse SessionLocal para um SQLite
+    in-memory descartavel: as escritas do writer sucedem em silencio, sem tocar
+    producao e sem virar log de erro. Testes que querem verificar o conteudo do log
+    injetam db=db_session explicitamente."""
     import app.integrations.log_integracao as li
+    from app.models.database import Base
 
-    def _bloqueado():
-        raise RuntimeError("SessionLocal do writer desativado nos testes")
-
-    monkeypatch.setattr(li, "SessionLocal", _bloqueado)
+    eng = create_engine("sqlite://", connect_args={"check_same_thread": False},
+                        poolclass=StaticPool)
+    Base.metadata.create_all(bind=eng)
+    monkeypatch.setattr(li, "SessionLocal",
+                        sessionmaker(autocommit=False, autoflush=False, bind=eng))
 
 
 @pytest.fixture()
