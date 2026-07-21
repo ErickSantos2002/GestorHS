@@ -4,7 +4,7 @@ import { Table, TH, TD } from '../../components/ui/Table'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { Spinner } from '../../components/ui/Spinner'
-import { Input } from '../../components/ui/Input'
+import { SearchBar } from '../../components/ui/SearchBar'
 import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
 import { podeGerenciarCadastros } from '../../auth/roles'
@@ -61,10 +61,12 @@ export function ClientesPage() {
         {podeGerenciarCadastros(user) && <Button onClick={() => navigate('/app/clientes/novo')}>Novo cliente</Button>}
       </div>
 
-      <form onSubmit={onBuscar} className="flex gap-2 max-w-md">
-        <Input id="busca" placeholder="Buscar por nome, CNPJ, CPF ou município" value={termo} onChange={(e) => setTermo(e.target.value)} />
-        <Button type="submit" variant="secondary">Buscar</Button>
-      </form>
+      <SearchBar
+        value={termo}
+        onChange={setTermo}
+        onSubmit={onBuscar}
+        placeholder="Buscar por nome, CNPJ, CPF ou município"
+      />
 
       {erro && <div className="rounded-lg bg-danger/10 border border-danger/20 px-3 py-2.5 text-sm text-danger">{erro}</div>}
 

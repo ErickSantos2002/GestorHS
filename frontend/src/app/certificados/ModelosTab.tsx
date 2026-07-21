@@ -3,6 +3,7 @@ import { certificadosApi, CAMPOS_CERTIFICADO, type ModeloItem } from './api'
 import { Spinner } from '../../components/ui/Spinner'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
+import { SearchBar } from '../../components/ui/SearchBar'
 import { Badge } from '../../components/ui/Badge'
 import { useAuth } from '../../auth/AuthContext'
 import { isAdmin } from '../../auth/roles'
@@ -101,10 +102,13 @@ export function ModelosTab() {
 
   return (
     <div className="space-y-4">
-      <form onSubmit={(e) => { e.preventDefault(); setBusca(q.trim()) }} className="flex gap-2 items-end">
-        <Input id="busca-modelo" label="Buscar modelo" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ex.: Mark X" />
-        <Button type="submit" variant="secondary">Buscar</Button>
-      </form>
+      <SearchBar
+        id="busca-modelo"
+        value={q}
+        onChange={setQ}
+        onSubmit={(e) => { e.preventDefault(); setBusca(q.trim()) }}
+        placeholder="Buscar modelo — ex.: Mark X"
+      />
       {itens === null ? <div className="py-10 flex justify-center"><Spinner className="w-7 h-7" /></div> : (
         <div className="rounded-xl border border-border divide-y divide-border overflow-hidden">
           {itens.map((m) => (

@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/Spinner'
 import { Modal } from '../../components/ui/Modal'
 import { Input } from '../../components/ui/Input'
+import { SearchBar } from '../../components/ui/SearchBar'
 import { Toggle } from '../../components/ui/Toggle'
 import { useAuth } from '../../auth/AuthContext'
 import { podeAbrirOS } from '../../auth/roles'
@@ -80,22 +81,19 @@ export function CaixasPage() {
         )}
       </div>
 
-      <div className="flex flex-wrap gap-2 items-end">
-        <form onSubmit={onBuscar} className="flex gap-2 items-end">
-          <Input
-            id="filtro-busca"
-            label="Busca"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Nº ou descrição"
-          />
-          <Button type="submit" variant="secondary">Buscar</Button>
-        </form>
-        <div className="flex items-center gap-2 text-sm text-slate-400 pb-1.5 select-none">
-          <Toggle checked={incluirConcluidas} onChange={(v) => { setOffset(0); setIncluirConcluidas(v) }} label="Mostrar concluídas" />
-          <span>Mostrar concluídas</span>
-        </div>
-      </div>
+      <SearchBar
+        id="filtro-busca"
+        value={q}
+        onChange={setQ}
+        onSubmit={onBuscar}
+        placeholder="Nº ou descrição"
+        abaixo={
+          <label className="flex items-center gap-2 text-sm text-slate-400 select-none cursor-pointer">
+            <Toggle checked={incluirConcluidas} onChange={(v) => { setOffset(0); setIncluirConcluidas(v) }} label="Mostrar concluídas" />
+            <span>Mostrar concluídas</span>
+          </label>
+        }
+      />
 
       {erro && (
         <div className="rounded-lg bg-danger/10 border border-danger/20 px-3 py-2.5 text-sm text-danger">{erro}</div>

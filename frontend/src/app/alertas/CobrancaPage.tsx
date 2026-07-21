@@ -4,7 +4,7 @@ import { Table, TH, TD } from '../../components/ui/Table'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { Spinner } from '../../components/ui/Spinner'
-import { Input } from '../../components/ui/Input'
+import { SearchBar } from '../../components/ui/SearchBar'
 import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
 import { podeRegistrarContato } from '../../auth/roles'
@@ -72,16 +72,18 @@ export function CobrancaPage() {
     <PageContainer>
       <h1 className="text-2xl font-extrabold text-slate-100">Cobrança</h1>
 
-      <div className="flex flex-wrap gap-3 items-end">
-        <form onSubmit={onBuscar} className="flex gap-2 items-end flex-1 min-w-60">
-          <div className="flex-1"><Input id="busca" label="Buscar cliente" value={termo} onChange={(e) => setTermo(e.target.value)} /></div>
-          <Button type="submit" variant="secondary">Buscar</Button>
-        </form>
-        <label className="flex items-center gap-2 text-sm text-slate-300">
-          <input type="checkbox" checked={ocultar} onChange={(e) => { setOffset(0); setOcultar(e.target.checked) }} className="accent-primary" />
-          Ocultar contatados (30 dias)
-        </label>
-      </div>
+      <SearchBar
+        value={termo}
+        onChange={setTermo}
+        onSubmit={onBuscar}
+        placeholder="Buscar cliente"
+        abaixo={
+          <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+            <input type="checkbox" checked={ocultar} onChange={(e) => { setOffset(0); setOcultar(e.target.checked) }} className="accent-primary" />
+            Ocultar contatados (30 dias)
+          </label>
+        }
+      />
 
       {erro && <div className="rounded-lg bg-danger/10 border border-danger/20 px-3 py-2.5 text-sm text-danger">{erro}</div>}
 
