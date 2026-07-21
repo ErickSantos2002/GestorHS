@@ -9,6 +9,20 @@ from app.models import Funcao, Usuario, UsuarioCliente, Cliente  # registra as t
 from app.core.security import hash_senha
 
 
+@pytest.fixture(autouse=True)
+def _writer_nao_toca_prod(monkeypatch):
+    """O writer de logs de integracao abre SessionLocal proprio, que aponta para o
+    banco REAL (via .env). Nos testes, neutralizamos esse caminho para nunca conectar
+    em producao — o writer engole a excecao (best-effort). Testes que querem verificar
+    o writer injetam db=db_session explicitamente, sem passar por aqui."""
+    import app.integrations.log_integracao as li
+
+    def _bloqueado():
+        raise RuntimeError("SessionLocal do writer desativado nos testes")
+
+    monkeypatch.setattr(li, "SessionLocal", _bloqueado)
+
+
 @pytest.fixture()
 def db_session():
     engine = create_engine(
