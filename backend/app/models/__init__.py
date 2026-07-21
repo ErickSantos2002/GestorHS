@@ -25,6 +25,7 @@ from app.models.certificado_avulso import CertificadoAvulso
 from app.models.certificado_venda import CertificadoVenda
 from app.models.certificado_geral import CertificadoGeral
 from app.models.instalacao_modulo import InstalacaoModulo
+from app.models.log_integracao import LogIntegracao
 
 __all__ = [
     "Funcao", "Usuario", "UsuarioCliente", "Setor", "Categoria",
@@ -33,5 +34,5 @@ __all__ = [
     "Fase", "LogOS", "Ordem", "TipoCalibragem", "Solicitacao", "Foto",
     "Caixa", "CertificadoModelo", "CertificadoImagem", "OSCertificado",
     "TransferenciaEquipamento", "CertificadoAvulso", "CertificadoVenda", "CertificadoGeral",
-    "InstalacaoModulo",
+    "InstalacaoModulo", "LogIntegracao",
 ]
