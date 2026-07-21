@@ -35,4 +35,24 @@ describe('Sidebar (gating por função)', () => {
     )
     expect(screen.getByText('Usuários')).toBeInTheDocument()
   })
+
+  it('esconde "Logs de Integração" para não-admin', () => {
+    mockUser = { funcao: 'Expedição' }
+    render(
+      <MemoryRouter>
+        <Sidebar collapsed={false} />
+      </MemoryRouter>,
+    )
+    expect(screen.queryByText('Logs de Integração')).toBeNull()
+  })
+
+  it('mostra "Logs de Integração" para Administrador', () => {
+    mockUser = { funcao: 'Administrador' }
+    render(
+      <MemoryRouter>
+        <Sidebar collapsed={false} />
+      </MemoryRouter>,
+    )
+    expect(screen.getByText('Logs de Integração')).toBeInTheDocument()
+  })
 })

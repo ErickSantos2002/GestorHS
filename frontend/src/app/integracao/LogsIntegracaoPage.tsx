@@ -35,6 +35,7 @@ export function LogsIntegracaoPage() {
     }
   }, [integracao, status])
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void carregar() }, [carregar])
 
   async function reenviar(log: LogIntegracao) {

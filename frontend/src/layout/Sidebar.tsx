@@ -26,6 +26,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Caixas', icon: <IconCaixas />, to: '/app/caixas' },
   { label: 'Cobrança', icon: <IconCobranca />, to: '/app/cobranca' },
   { label: 'Solicitações', icon: <IconSolicitacoes />, to: '/app/solicitacoes' },
+  { label: 'Logs de Integração', icon: <IconSolicitacoes />, to: '/app/integracao', adminOnly: true },
 ]
 
 export function Sidebar({ collapsed }: { collapsed: boolean }) {
