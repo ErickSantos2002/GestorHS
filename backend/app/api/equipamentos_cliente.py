@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status as http_status, Query
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from sqlalchemy.orm import Session
 
 from app.models.database import get_db
@@ -20,6 +20,25 @@ from app.schemas.ordens import OrdemListOut
 
 router = APIRouter(prefix="/equipamentos-cliente", tags=["frota"])
 ADMIN = "Administrador"
+
+
+def _normaliza_serie(valor: str | None) -> str | None:
+    """Tira espaços das pontas; string vazia vira None (série é opcional)."""
+    valor = (valor or "").strip()
+    return valor or None
+
+
+def _serie_em_uso(db: Session, serie: str | None, excluir_id: int | None = None) -> bool:
+    """Série é única no sistema inteiro (comparação sem espaços e sem caixa).
+    Série vazia/nula não conflita. `excluir_id` ignora o próprio registro na edição."""
+    if serie is None:
+        return False
+    query = db.query(EquipamentoCliente).filter(
+        func.lower(func.trim(EquipamentoCliente.serie)) == serie.lower()
+    )
+    if excluir_id is not None:
+        query = query.filter(EquipamentoCliente.id != excluir_id)
+    return query.first() is not None
 
 
 def _anotar_elo(db: Session, obj) -> None:
@@ -142,7 +161,11 @@ def certificados_do_aparelho(item_id: int, db: Session = Depends(get_db), _: Usu
 
 @router.post("", response_model=EquipamentoClienteOut, status_code=http_status.HTTP_201_CREATED)
 def criar(dados: EquipamentoClienteCreate, db: Session = Depends(get_db), _: Usuario = Depends(require_funcao(*GESTOR_CADASTRO))):
-    obj = EquipamentoCliente(**dados.model_dump())
+    campos = dados.model_dump()
+    campos["serie"] = _normaliza_serie(campos.get("serie"))
+    if _serie_em_uso(db, campos["serie"]):
+        raise HTTPException(status_code=409, detail="já existe um equipamento com este número de série")
+    obj = EquipamentoCliente(**campos)
     db.add(obj)
     db.commit()
     db.refresh(obj)
@@ -155,7 +178,13 @@ def atualizar(item_id: int, dados: EquipamentoClienteUpdate, db: Session = Depen
     obj = db.query(EquipamentoCliente).filter(EquipamentoCliente.id == item_id).first()
     if obj is None:
         raise HTTPException(status_code=404, detail="não encontrado")
-    for chave, valor in dados.model_dump(exclude_unset=True).items():
+    campos = dados.model_dump(exclude_unset=True)
+    if "serie" in campos:
+        campos["serie"] = _normaliza_serie(campos["serie"])
+        # só valida quando a série muda: não trava a edição de duplicados legados
+        if campos["serie"] != _normaliza_serie(obj.serie) and _serie_em_uso(db, campos["serie"], excluir_id=obj.id):
+            raise HTTPException(status_code=409, detail="já existe um equipamento com este número de série")
+    for chave, valor in campos.items():
         setattr(obj, chave, valor)
     db.commit()
     db.refresh(obj)
