@@ -68,3 +68,9 @@ def test_avancar_caixa_lab_libera_com_todos_terminais(client_lab, caixa_lab_todo
 def test_avancar_caixa_finalizar_exige_cod_retorno(client_exp, caixa_preparando):
     r = client_exp.post(f"/caixas/{caixa_preparando}/avancar", json={})
     assert r.status_code == 422
+
+
+def test_cancelar_caixa_cancela_todas(client_exp, caixa_recebido):
+    r = client_exp.post(f"/caixas/{caixa_recebido}/cancelar", json={"motivo": "cliente desistiu"})
+    assert r.status_code == 200
+    assert all(o["fase"] == 9 for o in r.json()["ordens"])

@@ -190,3 +190,27 @@ def avancar_caixa(
     if origem == wf.FASE_LABORATORIO:
         agendar_card_caixa(db, background_tasks, cx)
     return cx
+
+
+@router.post("/{caixa_id}/cancelar", response_model=CaixaDetalhe)
+def cancelar_caixa(
+    caixa_id: int,
+    dados: CaixaCancelarIn,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(get_current_usuario),
+):
+    cx = _get_caixa(db, caixa_id)
+    if cx.fase is None:
+        raise HTTPException(status_code=409, detail="caixa sem fase ativa")
+    exige_funcao_da_fase(db, usuario, cx.fase)
+    origem = cx.fase
+    for o in _ordens_ativas(cx):
+        o.fase = wf.FASE_CANCELADA
+        o.situacao = "C"
+        registrar_log(db, o, usuario, f"Caixa #{cx.id} cancelada: {dados.motivo}")
+    cx.fase = None
+    db.commit()
+    db.refresh(cx)
+    agendar_espelhamento_caixa(db, background_tasks, cx, origem=origem, arquivado=True)
+    return cx
