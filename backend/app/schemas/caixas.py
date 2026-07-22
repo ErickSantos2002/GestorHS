@@ -27,6 +27,9 @@ class CaixaOut(BaseModel):
     id: int
     data: date | None = None
     obs: str | None = None
+    fase: int | None = None
+    fase_descricao: str | None = None
+    fase_cor: str | None = None
     total_os: int = 0
     clientes: list[str] = []
 

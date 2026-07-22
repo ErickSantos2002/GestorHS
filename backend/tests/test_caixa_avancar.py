@@ -43,3 +43,28 @@ def test_abrir_os_com_caixa_de_outro_cliente_falha(client_exp, caixa_com_os_clie
     })
     assert r.status_code == 409
     assert "cliente" in r.json()["detail"].lower()
+
+
+def test_avancar_caixa_recebido_para_lab(client_exp, caixa_recebido):
+    r = client_exp.post(f"/caixas/{caixa_recebido}/avancar", json={})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["fase"] == 5
+    assert all(o["fase"] == 5 for o in body["ordens"])  # fan-out
+
+
+def test_avancar_caixa_lab_travado_com_pendente(client_lab, caixa_lab_um_pendente):
+    r = client_lab.post(f"/caixas/{caixa_lab_um_pendente}/avancar", json={})
+    assert r.status_code == 409
+    assert "faltam" in r.json()["detail"].lower()
+
+
+def test_avancar_caixa_lab_libera_com_todos_terminais(client_lab, caixa_lab_todos_terminais):
+    r = client_lab.post(f"/caixas/{caixa_lab_todos_terminais}/avancar", json={})
+    assert r.status_code == 200
+    assert r.json()["fase"] == 6
+
+
+def test_avancar_caixa_finalizar_exige_cod_retorno(client_exp, caixa_preparando):
+    r = client_exp.post(f"/caixas/{caixa_preparando}/avancar", json={})
+    assert r.status_code == 422

@@ -262,6 +262,68 @@ def os_cliente_b(db_session):
 
 
 @pytest.fixture()
+def caixa_recebido(db_session, fases_seed):
+    """Caixa em fase 4 (Recebido) com uma OS ativa em fase 4. Devolve o id da caixa."""
+    from app.models import Cliente, Caixa, Ordem
+    cli = Cliente(nome="Cliente Recebido")
+    cx = Caixa(obs="Caixa recebido", fase=4)
+    db_session.add_all([cli, cx])
+    db_session.flush()
+    o = Ordem(cliente=cli.id, fase=4, situacao="E", caixa=cx.id)
+    db_session.add(o)
+    db_session.commit()
+    db_session.refresh(cx)
+    return cx.id
+
+
+@pytest.fixture()
+def caixa_lab_um_pendente(db_session, fases_seed):
+    """Caixa em fase 5 (Laboratório) com >=2 OS ativas, uma ainda 'pendente'."""
+    from app.models import Cliente, Caixa, Ordem
+    cli = Cliente(nome="Cliente Lab Pendente")
+    cx = Caixa(obs="Caixa lab pendente", fase=5)
+    db_session.add_all([cli, cx])
+    db_session.flush()
+    o1 = Ordem(cliente=cli.id, fase=5, situacao="E", caixa=cx.id, desfecho_lab="concluido")
+    o2 = Ordem(cliente=cli.id, fase=5, situacao="E", caixa=cx.id, desfecho_lab="pendente")
+    db_session.add_all([o1, o2])
+    db_session.commit()
+    db_session.refresh(cx)
+    return cx.id
+
+
+@pytest.fixture()
+def caixa_lab_todos_terminais(db_session, fases_seed):
+    """Caixa em fase 5 (Laboratório) com todas as OS em desfecho terminal."""
+    from app.models import Cliente, Caixa, Ordem
+    cli = Cliente(nome="Cliente Lab Terminal")
+    cx = Caixa(obs="Caixa lab terminal", fase=5)
+    db_session.add_all([cli, cx])
+    db_session.flush()
+    o1 = Ordem(cliente=cli.id, fase=5, situacao="E", caixa=cx.id, desfecho_lab="concluido")
+    o2 = Ordem(cliente=cli.id, fase=5, situacao="E", caixa=cx.id, desfecho_lab="sem_conserto")
+    db_session.add_all([o1, o2])
+    db_session.commit()
+    db_session.refresh(cx)
+    return cx.id
+
+
+@pytest.fixture()
+def caixa_preparando(db_session, fases_seed):
+    """Caixa em fase 7 (Preparando Retorno) com uma OS ativa. Devolve o id da caixa."""
+    from app.models import Cliente, Caixa, Ordem
+    cli = Cliente(nome="Cliente Preparando")
+    cx = Caixa(obs="Caixa preparando", fase=7)
+    db_session.add_all([cli, cx])
+    db_session.flush()
+    o = Ordem(cliente=cli.id, fase=7, situacao="E", caixa=cx.id)
+    db_session.add(o)
+    db_session.commit()
+    db_session.refresh(cx)
+    return cx.id
+
+
+@pytest.fixture()
 def upload_tmp(tmp_path):
     from app.core.config import settings
     anterior = settings.UPLOAD_DIR
