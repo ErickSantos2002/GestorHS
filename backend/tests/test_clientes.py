@@ -3,9 +3,15 @@ def _headers(client, email, senha):
     return {"Authorization": f"Bearer {tok['access_token']}"}
 
 
-def test_clientes_read_interno_write_admin(client, usuario_admin, usuario_comum):
-    assert client.get("/clientes", headers=_headers(client, "comum@hs.com", "senha123")).status_code == 200
-    assert client.post("/clientes", json={"nome": "X"}, headers=_headers(client, "comum@hs.com", "senha123")).status_code == 403
+def test_clientes_leitura_e_cadastro_por_funcao(client, usuario_admin, usuario_comum, usuario_financeiro):
+    # Expedicao (usuario_comum) le e agora TAMBEM cadastra clientes
+    exp = _headers(client, "comum@hs.com", "senha123")
+    assert client.get("/clientes", headers=exp).status_code == 200
+    assert client.post("/clientes", json={"nome": "X"}, headers=exp).status_code == 201
+    # uma funcao sem cadastro (Financeiro) le mas nao cadastra
+    fin = _headers(client, "fin@hs.com", "senha123")
+    assert client.get("/clientes", headers=fin).status_code == 200
+    assert client.post("/clientes", json={"nome": "Y"}, headers=fin).status_code == 403
 
 
 def test_cliente_crud(client, usuario_admin):

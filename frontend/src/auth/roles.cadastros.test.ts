@@ -4,13 +4,14 @@ import { isAdmin, podeGerenciarCadastros } from './roles'
 const u = (funcao: string | null) => ({ funcao }) as never
 
 describe('podeGerenciarCadastros (cliente e aparelho)', () => {
-  it('libera Administrador e Laboratorio', () => {
+  it('libera Administrador, Laboratorio e Expedicao', () => {
     expect(podeGerenciarCadastros(u('Administrador'))).toBe(true)
     expect(podeGerenciarCadastros(u('Laboratório'))).toBe(true)
+    expect(podeGerenciarCadastros(u('Expedição'))).toBe(true)
   })
 
   it('bloqueia as demais funcoes e usuario sem sessao', () => {
-    for (const f of ['Expedição', 'Comercial Pós-Vendas', 'Financeiro', 'Suporte', 'Qualidade']) {
+    for (const f of ['Comercial Pós-Vendas', 'Financeiro', 'Suporte', 'Qualidade']) {
       expect(podeGerenciarCadastros(u(f))).toBe(false)
     }
     expect(podeGerenciarCadastros(null)).toBe(false)

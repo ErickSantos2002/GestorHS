@@ -68,5 +68,6 @@ ADMIN = "Administrador"
 
 # Quem pode CADASTRAR, ALTERAR e TRANSFERIR clientes e aparelhos da frota.
 # Fonte unica: usada pelos routers de clientes e de equipamentos_cliente.
+# Expedicao entra porque da entrada de modulos novos no estoque (cadastro de aparelhos).
 # EXCLUIR continua so com Administrador — e a unica acao destrutiva de verdade.
-GESTOR_CADASTRO = (ADMIN, "Laboratório")
+GESTOR_CADASTRO = (ADMIN, "Laboratório", "Expedição")

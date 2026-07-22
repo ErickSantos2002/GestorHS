@@ -41,9 +41,11 @@ export function podeGerarCertificadoVenda(user: User | null): boolean {
   return isAdmin(user) || user?.funcao === FUNCAO_LABORATORIO
 }
 
-// Cadastro de clientes e aparelhos: Administrador e Laboratório podem criar,
-// alterar e transferir. EXCLUIR continua exclusivo do Administrador — por isso
-// os botões de excluir seguem usando isAdmin(), não este helper.
+// Cadastro de clientes e aparelhos: Administrador, Laboratório e Expedição podem
+// criar, alterar e transferir (Expedição dá entrada de módulos novos no estoque).
+// EXCLUIR continua exclusivo do Administrador — por isso os botões de excluir
+// seguem usando isAdmin(), não este helper.
+// Espelha GESTOR_CADASTRO em backend/app/api/deps.py — mudou lá, mude aqui.
 export function podeGerenciarCadastros(user: User | null): boolean {
-  return isAdmin(user) || user?.funcao === FUNCAO_LABORATORIO
+  return isAdmin(user) || user?.funcao === FUNCAO_LABORATORIO || user?.funcao === FUNCAO_EXPEDICAO
 }

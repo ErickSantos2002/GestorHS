@@ -12,12 +12,19 @@ def _base(db_session):
     return c.id, e.id
 
 
-def test_frota_write_exige_admin(client, usuario_admin, usuario_comum, db_session):
+def test_frota_write_expedicao_pode_criar_editar_mas_nao_excluir(client, usuario_admin, usuario_comum, usuario_financeiro, db_session):
     cid, eid = _base(db_session)
-    hc = _headers(client, "comum@hs.com", "senha123")
-    assert client.post("/equipamentos-cliente", json={"cliente": cid, "equipamento": eid}, headers=hc).status_code == 403
-    assert client.patch("/equipamentos-cliente/1", json={"serie": "X"}, headers=hc).status_code == 403
-    assert client.delete("/equipamentos-cliente/1", headers=hc).status_code == 403
+    # Expedicao (usuario_comum) precisa cadastrar aparelhos ao dar entrada de modulos no estoque
+    exp = _headers(client, "comum@hs.com", "senha123")
+    criado = client.post("/equipamentos-cliente", json={"cliente": cid, "equipamento": eid}, headers=exp)
+    assert criado.status_code == 201
+    iid = criado.json()["id"]
+    assert client.patch(f"/equipamentos-cliente/{iid}", json={"serie": "X"}, headers=exp).status_code == 200
+    # excluir continua exclusivo do Administrador
+    assert client.delete(f"/equipamentos-cliente/{iid}", headers=exp).status_code == 403
+    # uma funcao sem cadastro (Financeiro) segue barrada na criacao
+    fin = _headers(client, "fin@hs.com", "senha123")
+    assert client.post("/equipamentos-cliente", json={"cliente": cid, "equipamento": eid}, headers=fin).status_code == 403
 
 
 def test_frota_crud(client, usuario_admin, db_session):
