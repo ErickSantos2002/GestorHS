@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.23.0',
+    data: '22/07/2026',
+    itens: [
+      { tipo: 'melhoria', texto: 'A Expedição agora também cadastra e edita clientes e aparelhos — útil na hora de dar entrada de módulos novos no estoque. Excluir continua restrito ao Administrador.' },
+    ],
+  },
+  {
     versao: '1.22.0',
     data: '21/07/2026',
     itens: [
