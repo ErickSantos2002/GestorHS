@@ -29,6 +29,8 @@ export interface OrdemResumoCaixa {
   fase: number | null
   fase_descricao: string | null
   fase_cor: string | null
+  desfecho_lab: string
+  desfecho_lab_obs: string | null
 }
 
 export interface CaixaListItem {
@@ -37,6 +39,9 @@ export interface CaixaListItem {
   obs: string | null
   total_os: number
   clientes: string[]
+  fase: number | null
+  fase_descricao: string | null
+  fase_cor: string | null
 }
 
 export interface CaixaPage { items: CaixaListItem[]; total: number }
@@ -46,6 +51,24 @@ export interface CaixaDetalhe extends CaixaListItem {
 }
 
 export interface CaixasParams { q?: string; incluir_concluidas?: boolean; offset?: number; limit?: number }
+
+export interface CaixaQuadroItem {
+  id: number
+  cliente_nome: string | null
+  total_os: number
+  prontos: number
+  pendentes: number
+}
+
+export interface QuadroCaixaColuna {
+  fase: number
+  descricao: string
+  cor: string
+  total: number
+  caixas: CaixaQuadroItem[]
+}
+
+export interface CaixaAvancarPayload { obs?: string | null; cod_retorno?: string | null }
 
 export const caixasApi = {
   listar: (params: CaixasParams = {}): Promise<CaixaPage> => {
@@ -67,4 +90,16 @@ export const caixasApi = {
     apiJson<CaixaDetalhe>(`/caixas/${id}/ordens`, { method: 'POST', body: JSON.stringify({ ordem_id }) }),
   desvincularOrdem: (id: number, ordem_id: number): Promise<void> =>
     apiVoid(`/caixas/${id}/ordens/${ordem_id}`, { method: 'DELETE' }),
+  quadro: (params: { cliente?: number } = {}): Promise<QuadroCaixaColuna[]> => {
+    const sp = new URLSearchParams()
+    if (params.cliente != null) sp.set('cliente', String(params.cliente))
+    const qs = sp.toString()
+    return apiJson<QuadroCaixaColuna[]>(`/caixas/quadro${qs ? `?${qs}` : ''}`)
+  },
+  avancar: (id: number, payload: CaixaAvancarPayload): Promise<CaixaDetalhe> =>
+    apiJson<CaixaDetalhe>(`/caixas/${id}/avancar`, { method: 'POST', body: JSON.stringify(payload) }),
+  cancelar: (id: number, payload: { motivo: string }): Promise<CaixaDetalhe> =>
+    apiJson<CaixaDetalhe>(`/caixas/${id}/cancelar`, { method: 'POST', body: JSON.stringify(payload) }),
+  desfechoLab: (osId: number, payload: { desfecho: 'concluido' | 'sem_conserto'; obs: string | null }): Promise<unknown> =>
+    apiJson(`/ordens/${osId}/desfecho-lab`, { method: 'POST', body: JSON.stringify(payload) }),
 }
