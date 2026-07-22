@@ -47,3 +47,19 @@ class CaixaPage(BaseModel):
 
 class VincularOrdemIn(BaseModel):
     ordem_id: int
+
+
+class CaixaQuadroItem(BaseModel):
+    id: int
+    cliente_nome: str | None = None
+    total_os: int
+    prontos: int
+    pendentes: int
+
+
+class QuadroCaixaColuna(BaseModel):
+    fase: int
+    descricao: str
+    cor: str
+    total: int
+    caixas: list[CaixaQuadroItem]

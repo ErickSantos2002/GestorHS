@@ -234,3 +234,11 @@ def test_nf_caixa_replica_em_todas(client_fin, caixa_financeiro, upload_tmp):
             baixadas += 1
     # prova que a NF foi fisicamente replicada no subdir de cada OS, nao so o numero no banco
     assert baixadas == 2
+
+
+def test_quadro_caixas_agrupa_por_fase(client_lab, caixa_lab_um_pendente):
+    r = client_lab.get("/caixas/quadro")
+    cols = {c["fase"]: c for c in r.json()}
+    assert 5 in cols
+    cx = cols[5]["caixas"][0]
+    assert cx["total_os"] >= 1 and cx["pendentes"] >= 1

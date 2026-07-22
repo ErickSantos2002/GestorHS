@@ -5,12 +5,13 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.models.database import get_db
-from app.models import Usuario, Caixa, Ordem
+from app.models import Usuario, Caixa, Ordem, Fase
 from app.core import os_workflow as wf
 from app.api.deps import get_current_usuario, require_funcao
 from app.api.cadastros_common import excluir_protegido
 from app.schemas.caixas import (
     CaixaCreate, CaixaUpdate, CaixaOut, CaixaDetalhe, CaixaPage, VincularOrdemIn,
+    CaixaQuadroItem, QuadroCaixaColuna,
 )
 from app.schemas.caixa_acoes import CaixaAvancarIn, CaixaCancelarIn
 from app.api.ordens_acoes import registrar_log, exige_funcao_da_fase, agora, espelhar_calibracao
@@ -68,6 +69,31 @@ def listar(
     total = query.count()
     items = query.order_by(Caixa.id.desc()).offset(offset).limit(limit).all()
     return CaixaPage(items=[CaixaOut.model_validate(c) for c in items], total=total)
+
+
+@router.get("/quadro", response_model=list[QuadroCaixaColuna])
+def quadro_caixas(cliente: int | None = None, db: Session = Depends(get_db),
+                  _: Usuario = Depends(get_current_usuario)):
+    fases_ids = list(wf.ATIVAS)
+    fases = {f.id: f for f in db.query(Fase).filter(Fase.id.in_(fases_ids)).all()}
+    colunas = []
+    for fid in fases_ids:
+        q = db.query(Caixa).filter(Caixa.fase == fid)
+        caixas = q.order_by(Caixa.id.desc()).all()
+        itens = []
+        for cx in caixas:
+            ativas = [o for o in cx.ordens if wf.eh_ativa(o.fase)]
+            if cliente is not None and not any(o.cliente == cliente for o in ativas):
+                continue
+            prontos = sum(1 for o in ativas if o.desfecho_lab in wf.DESFECHOS_TERMINAIS)
+            itens.append(CaixaQuadroItem(
+                id=cx.id, cliente_nome=next((o.cliente_nome for o in ativas), None),
+                total_os=len(ativas), prontos=prontos, pendentes=len(ativas) - prontos))
+        f = fases.get(fid)
+        colunas.append(QuadroCaixaColuna(
+            fase=fid, descricao=f.descricao if f else str(fid),
+            cor=f.cor if f else "888", total=len(itens), caixas=itens))
+    return colunas
 
 
 @router.get("/{caixa_id}", response_model=CaixaDetalhe)
