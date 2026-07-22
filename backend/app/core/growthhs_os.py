@@ -111,3 +111,24 @@ def montar_card_os(ordem, cliente, device: dict, board_id: int, hoje: date) -> d
             "tipo_servico": _resolve_tipo_servico_label(getattr(ordem, "tipo_servico", None)),
         },
     }
+
+
+def montar_card_caixa(caixa, cliente, devices: list[dict], board_id: int, hoje: date) -> dict:
+    """Monta o corpo completo do POST em `/api/v1/integration/service-cards` para
+    o card de uma CAIXA liberada do laboratório (múltiplos aparelhos em `devices[]`).
+    """
+    n = len(devices)
+    titulo = " · ".join([f"CX {caixa.id}", _texto(getattr(cliente, "nome", None)) or "",
+                         f"{n} aparelho" + ("s" if n != 1 else "")]).strip(" ·")
+    return {
+        "source": SOURCE_OS,
+        "external_id": str(caixa.id),
+        "board_id": board_id,
+        "title": titulo[:LIMITE_TITLE],
+        "description": f"{n} aparelho(s) liberado(s) do laboratório",
+        "due_date": f"{(hoje + timedelta(days=DIAS_PRAZO)).isoformat()}T00:00:00",
+        "client": montar_cliente(cliente),
+        "contact": montar_contato(cliente),
+        "devices": devices,
+        "business_info": {"origem": "caixa liberada do laboratorio", "caixa_id": caixa.id},
+    }
