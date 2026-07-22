@@ -197,3 +197,65 @@ def montar_payload(ordem, *, list_id: int, arquivado: bool, obs: dict) -> dict:
         "priority": "medium",
         "archived": arquivado,
     }
+
+
+# --- Caixa (agregado de N ordens) ---------------------------------------
+
+
+def montar_titulo_caixa(caixa, ordens) -> str:
+    cliente = next((o.cliente_nome for o in ordens if o.cliente_nome), None)
+    n = len(ordens)
+    partes = [f"CX {caixa.id}"]
+    if cliente:
+        partes.append(cliente)
+    partes.append(f"{n} aparelho" + ("s" if n != 1 else ""))
+    return " · ".join(partes)
+
+
+def _linha_aparelho_lab(ordem, certificados: list[dict]) -> str:
+    ident = ordem.equipamento_serie or ordem.equipamento_descricao or f"OS #{ordem.id}"
+    if ordem.desfecho_lab == "sem_conserto":
+        motivo = getattr(ordem, "desfecho_lab_obs", None) or "sem detalhe"
+        return f"{ident}: sem conserto — {motivo}"
+    partes = [ident + ":", ordem.calib_situacao or "calibrado"]
+    if ordem.calib_cert:
+        partes.append(f"cert {ordem.calib_cert}")
+    for c in certificados:
+        if c.get("url"):
+            partes.append(c["url"])
+    return " ".join(partes)
+
+
+def montar_obs_caixa(caixa, ordens, *, certificados_por_os: dict, nota_fiscal_url=None) -> dict:
+    cliente_os = next((o for o in ordens if o.cliente_nome), ordens[0] if ordens else None)
+    cabecalho = "\n".join(_cabecalho(cliente_os)) if cliente_os else None
+    aparelhos = _bloco([
+        _juntar([o.equipamento_descricao, o.equipamento_serie], sep=" / ") or f"OS #{o.id}"
+        for o in ordens
+    ])
+    obs1 = "\n".join([x for x in (cabecalho, aparelhos) if x]) or None
+    obs2 = _bloco([_linha_aparelho_lab(o, certificados_por_os.get(o.id, [])) for o in ordens]) or None
+    # obs3..obs6 (nível lote) reusam a lógica de uma OS representativa
+    rep = ordens[0] if ordens else None
+    return {
+        "obs1": obs1,
+        "obs2": obs2,
+        "obs3": _sec_posvendas(rep) if rep else None,
+        "obs4": _sec_financeiro(rep, nota_fiscal_url) if rep else None,
+        "obs5": _sec_preparando(rep) if rep else None,
+        "obs6": _sec_finalizada(rep) if rep else None,
+    }
+
+
+def montar_payload_caixa(caixa, ordens, *, list_id: int, arquivado: bool, obs: dict) -> dict:
+    prox = next((o.prox_calibragem for o in ordens if o.prox_calibragem), None)
+    return {
+        "source": SOURCE,
+        "external_id": str(caixa.id),
+        "list_id": list_id,
+        "title": montar_titulo_caixa(caixa, ordens),
+        **{f"obs{i}": obs.get(f"obs{i}") for i in range(1, 7)},
+        "due_date": prox.date().isoformat() if prox else None,
+        "priority": "medium",
+        "archived": arquivado,
+    }
