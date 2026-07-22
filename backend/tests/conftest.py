@@ -309,6 +309,30 @@ def caixa_lab_todos_terminais(db_session, fases_seed):
 
 
 @pytest.fixture()
+def client_fin(client, usuario_financeiro, fases_seed):
+    """Client autenticado como usuário de função Financeiro (headers já embutidos)."""
+    tok = client.post("/auth/login", json={"email": "fin@hs.com", "senha": "senha123"}).json()
+    client.headers["Authorization"] = f"Bearer {tok['access_token']}"
+    return client
+
+
+@pytest.fixture()
+def caixa_financeiro(db_session, fases_seed):
+    """Caixa em fase 10 (Financeiro) com 2 OS ativas. Devolve o id da caixa."""
+    from app.models import Cliente, Caixa, Ordem
+    cli = Cliente(nome="Cliente Financeiro")
+    cx = Caixa(obs="Caixa financeiro", fase=10)
+    db_session.add_all([cli, cx])
+    db_session.flush()
+    o1 = Ordem(cliente=cli.id, fase=10, situacao="E", caixa=cx.id)
+    o2 = Ordem(cliente=cli.id, fase=10, situacao="E", caixa=cx.id)
+    db_session.add_all([o1, o2])
+    db_session.commit()
+    db_session.refresh(cx)
+    return cx.id
+
+
+@pytest.fixture()
 def caixa_preparando(db_session, fases_seed):
     """Caixa em fase 7 (Preparando Retorno) com uma OS ativa. Devolve o id da caixa."""
     from app.models import Cliente, Caixa, Ordem

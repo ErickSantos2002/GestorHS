@@ -74,3 +74,21 @@ def test_cancelar_caixa_cancela_todas(client_exp, caixa_recebido):
     r = client_exp.post(f"/caixas/{caixa_recebido}/cancelar", json={"motivo": "cliente desistiu"})
     assert r.status_code == 200
     assert all(o["fase"] == 9 for o in r.json()["ordens"])
+
+
+def test_nf_caixa_replica_em_todas(client_fin, caixa_financeiro, upload_tmp):
+    arquivo = ("nf.pdf", b"%PDF-1.4 fake", "application/pdf")
+    r = client_fin.post(f"/caixas/{caixa_financeiro}/nota-fiscal",
+                        data={"numero": "12345"}, files={"arquivo": arquivo})
+    assert r.status_code == 200
+    ordens = r.json()["ordens"]
+    assert len(ordens) == 2
+    baixadas = 0
+    for o in ordens:
+        det = client_fin.get(f"/ordens/{o['id']}").json()
+        assert det["nota_fiscal_numero"] == "12345"
+        resp_download = client_fin.get(f"/ordens/{o['id']}/nota-fiscal")
+        if resp_download.status_code == 200:
+            baixadas += 1
+    # prova que a NF foi fisicamente replicada no subdir de cada OS, nao so o numero no banco
+    assert baixadas == 2
