@@ -16,7 +16,10 @@ from app.core.certificado_gerar import tipos_para, tipos_sem_modelo
 from app.core.os_workflow import FASE_FINALIZADA
 from app.api.espelhamento import agendar_espelhamento as _agendar_espelhamento
 from app.api.growthhs_cards import agendar_card_os
-from app.schemas.ordens import OrdemListOut, OrdemPage, QuadroColuna, OrdemOut, LogOut, OrdemAbrirIn, AvancarIn, CancelarIn
+from app.schemas.ordens import (
+    OrdemListOut, OrdemPage, QuadroColuna, OrdemOut, LogOut, OrdemAbrirIn, AvancarIn,
+    CancelarIn, DesfechoLabIn,
+)
 
 router = APIRouter(prefix="/ordens", tags=["ordens"])
 
@@ -240,6 +243,35 @@ def avancar(ordem_id: int, dados: AvancarIn, background_tasks: BackgroundTasks,
     if origem == wf.FASE_LABORATORIO:
         agendar_card_os(db, background_tasks, ordem)
     _anotar_modelos_faltantes(db, ordem)
+    return ordem
+
+
+@router.post("/{ordem_id}/desfecho-lab", response_model=OrdemOut)
+def marcar_desfecho_lab(ordem_id: int, dados: DesfechoLabIn, db: Session = Depends(get_db),
+                        usuario: Usuario = Depends(get_current_usuario)):
+    ordem = db.query(Ordem).filter(Ordem.id == ordem_id).first()
+    if ordem is None:
+        raise HTTPException(status_code=404, detail="OS não encontrada")
+    if ordem.fase != wf.FASE_LABORATORIO:
+        raise HTTPException(status_code=409, detail="desfecho só no laboratório")
+    exige_funcao_da_fase(db, usuario, ordem.fase)
+    if dados.desfecho == wf.DESFECHO_CONCLUIDO:
+        tem_cert = db.query(OSCertificado).filter(OSCertificado.os == ordem.id).first() is not None
+        if not tem_cert:
+            raise HTTPException(status_code=409, detail="gere o certificado antes de concluir")
+        espelhar_calibracao(db, ordem)
+        ordem.desfecho_lab = wf.DESFECHO_CONCLUIDO
+        ordem.desfecho_lab_obs = None
+        texto = "Laboratório concluído (aparelho)"
+    else:  # sem_conserto
+        if not (dados.obs and dados.obs.strip()):
+            raise HTTPException(status_code=400, detail="justificativa obrigatória para sem conserto")
+        ordem.desfecho_lab = wf.DESFECHO_SEM_CONSERTO
+        ordem.desfecho_lab_obs = dados.obs.strip()
+        texto = f"Sem conserto: {ordem.desfecho_lab_obs}"
+    registrar_log(db, ordem, usuario, texto)
+    db.commit()
+    db.refresh(ordem)
     return ordem
 
 

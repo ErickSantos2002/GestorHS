@@ -200,6 +200,31 @@ def caixa_base(db_session):
 
 
 @pytest.fixture()
+def client_lab(client, usuario_lab, fases_seed):
+    """Client autenticado como usuário de função Laboratório (headers já embutidos)."""
+    tok = client.post("/auth/login", json={"email": "lab@hs.com", "senha": "senha123"}).json()
+    client.headers["Authorization"] = f"Bearer {tok['access_token']}"
+    return client
+
+
+@pytest.fixture()
+def os_no_lab(db_session, os_base, caixa_base):
+    """OS em fase 5 (Laboratório), vinculada a uma caixa. Devolve o id da OS."""
+    from app.models import Ordem
+    o = Ordem(
+        cliente=os_base["cliente"],
+        equipamento_cliente=os_base["equipamento_cliente"],
+        fase=5,
+        situacao="E",
+        caixa=caixa_base,
+    )
+    db_session.add(o)
+    db_session.commit()
+    db_session.refresh(o)
+    return o.id
+
+
+@pytest.fixture()
 def upload_tmp(tmp_path):
     from app.core.config import settings
     anterior = settings.UPLOAD_DIR
