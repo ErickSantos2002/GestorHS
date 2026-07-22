@@ -8,7 +8,8 @@ import { SearchBar } from '../../components/ui/SearchBar'
 import { Select } from '../../components/ui/Select'
 import { cn } from '../../lib/utils'
 import { ApiError } from '../../lib/api'
-import { ordensApi, TIPO_SERVICO, FASES_FILTRO, formatData, type OrdemListItem, type QuadroColuna } from './api'
+import { ordensApi, TIPO_SERVICO, FASES_FILTRO, formatData, type OrdemListItem } from './api'
+import { caixasApi, type QuadroCaixaColuna } from '../caixas/api'
 import { PageContainer } from '../../components/ui/Page'
 
 const LIMITE = 25
@@ -26,7 +27,6 @@ export function OrdensPage() {
   const clienteParam = searchParams.get('cliente')
   const clienteId = clienteParam ? Number(clienteParam) : undefined
   const [vista, setVista] = useState<Vista>('quadro')
-  const [faseInicialLista, setFaseInicialLista] = useState('')
 
   return (
     <PageContainer>
@@ -36,7 +36,7 @@ export function OrdensPage() {
           {(['quadro', 'lista'] as Vista[]).map((v) => (
             <button
               key={v}
-              onClick={() => { if (v === 'lista') setFaseInicialLista(''); setVista(v) }}
+              onClick={() => setVista(v)}
               className={cn(
                 'text-xs px-3 py-1.5 rounded-full font-medium transition-all',
                 vista === v ? 'bg-primary/15 text-primary' : 'text-slate-500 hover:text-slate-300 hover:bg-background-elevated',
@@ -56,20 +56,16 @@ export function OrdensPage() {
       )}
 
       {vista === 'quadro' ? (
-        <Quadro
-          clienteId={clienteId}
-          onAbrir={(id) => navigate(`/app/ordens/${id}`)}
-          onVerTodas={(fase) => { setFaseInicialLista(String(fase)); setVista('lista') }}
-        />
+        <Quadro clienteId={clienteId} onAbrir={(id) => navigate(`/app/caixas/${id}`)} />
       ) : (
-        <Lista clienteId={clienteId} faseInicial={faseInicialLista} onAbrir={(id) => navigate(`/app/ordens/${id}`)} />
+        <Lista clienteId={clienteId} onAbrir={(id) => navigate(`/app/ordens/${id}`)} />
       )}
     </PageContainer>
   )
 }
 
-function Quadro({ clienteId, onAbrir, onVerTodas }: { clienteId?: number; onAbrir: (id: number) => void; onVerTodas: (fase: number) => void }) {
-  const [colunas, setColunas] = useState<QuadroColuna[] | null>(null)
+function Quadro({ clienteId, onAbrir }: { clienteId?: number; onAbrir: (id: number) => void }) {
+  const [colunas, setColunas] = useState<QuadroCaixaColuna[] | null>(null)
   const [erro, setErro] = useState('')
 
   useEffect(() => {
@@ -77,7 +73,7 @@ function Quadro({ clienteId, onAbrir, onVerTodas }: { clienteId?: number; onAbri
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setColunas(null)
     setErro('')
-    ordensApi
+    caixasApi
       .quadro({ cliente: clienteId })
       .then((c) => {
         if (ativo) setColunas(c)
@@ -108,40 +104,30 @@ function Quadro({ clienteId, onAbrir, onVerTodas }: { clienteId?: number; onAbri
               <span className="text-xs text-slate-500">{col.total}</span>
             </div>
             <div className="p-3 space-y-2 max-h-[70vh] overflow-y-auto">
-              {col.ordens.length === 0 ? (
+              {col.caixas.length === 0 ? (
                 <p className="text-xs text-slate-600 px-1">—</p>
               ) : (
-                col.ordens.map((o) => (
+                col.caixas.map((cx) => (
                   <button
-                    key={o.id}
-                    onClick={() => onAbrir(o.id)}
+                    key={cx.id}
+                    onClick={() => onAbrir(cx.id)}
                     className="w-full text-left rounded-xl bg-background-elevated border border-border p-3 hover:border-primary/40 transition-colors"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-semibold text-slate-100">
-                        {o.caixa && <span className="text-slate-500 font-medium">CX {o.caixa} · </span>}
-                        OS #{o.id}
-                      </span>
-                      {tipoBadge(o.tipo_servico)}
+                      <span className="text-sm font-semibold text-slate-100">CX {cx.id}</span>
+                      {col.fase === 5 && (
+                        <span className={cn('text-xs px-2 py-0.5 rounded-full',
+                          cx.pendentes === 0 ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400')}>
+                          {cx.prontos}/{cx.total_os} prontos
+                        </span>
+                      )}
                     </div>
-                    <p className="text-xs text-slate-300 mt-1 truncate">{o.cliente_nome ?? '—'}</p>
-                    <p className="text-xs text-slate-500 truncate">
-                      {o.equipamento_descricao ?? '—'}
-                      {o.equipamento_serie ? ` · ${o.equipamento_serie}` : ''}
-                    </p>
-                    <p className="text-[11px] text-slate-600 mt-1">chegou {formatData(o.data_chegada)}</p>
+                    <p className="text-xs text-slate-300 mt-1 truncate">{cx.cliente_nome ?? '—'}</p>
+                    <p className="text-xs text-slate-500">{cx.total_os} aparelho{cx.total_os !== 1 ? 's' : ''}</p>
                   </button>
                 ))
               )}
             </div>
-            {col.total > col.ordens.length && (
-              <button
-                onClick={() => onVerTodas(col.fase)}
-                className="w-full text-center px-4 py-2.5 text-xs font-semibold text-primary hover:bg-primary/5 border-t border-border transition-colors"
-              >
-                Ver todas ({col.total}) →
-              </button>
-            )}
           </div>
         ))}
       </div>
