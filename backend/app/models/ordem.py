@@ -12,6 +12,8 @@ class Ordem(Base):
     fase = Column(Integer, ForeignKey("fases.id"), nullable=True)
     tipo_calibragem = Column(Integer, nullable=True)
     caixa = Column(Integer, ForeignKey("caixas.id"), nullable=True)
+    desfecho_lab = Column(String(20), nullable=False, default="pendente")
+    desfecho_lab_obs = Column(Text, nullable=True)
     checklist = Column(String(50), nullable=True)
     # datas do ciclo
     data_solicitacao = Column(DateTime(timezone=True), nullable=True)
