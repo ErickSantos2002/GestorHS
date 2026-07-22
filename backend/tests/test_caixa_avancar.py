@@ -1,3 +1,14 @@
+def test_avancar_e_cancelar_per_os_devolvem_409(client_lab, os_no_lab):
+    """A OS nao anda mais sozinha: os endpoints per-OS `/ordens/{id}/avancar` e
+    `/ordens/{id}/cancelar` sao deprecados em favor de `/caixas/{id}/avancar` e
+    `/caixas/{id}/cancelar` — quem chamar o caminho antigo recebe 409."""
+    r_avancar = client_lab.post(f"/ordens/{os_no_lab}/avancar", json={})
+    assert r_avancar.status_code == 409
+
+    r_cancelar = client_lab.post(f"/ordens/{os_no_lab}/cancelar", json={"motivo": "teste"})
+    assert r_cancelar.status_code == 409
+
+
 def test_marcar_sem_conserto_exige_obs(client_lab, os_no_lab):
     r = client_lab.post(f"/ordens/{os_no_lab}/desfecho-lab",
                         json={"desfecho": "sem_conserto", "obs": ""})

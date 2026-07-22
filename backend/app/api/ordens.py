@@ -15,7 +15,6 @@ from app.core.garantia import garantias as _calc_garantias
 from app.core.certificado_gerar import tipos_para, tipos_sem_modelo
 from app.core.os_workflow import FASE_FINALIZADA
 from app.api.espelhamento import agendar_espelhamento as _agendar_espelhamento
-from app.api.growthhs_cards import agendar_card_os
 from app.schemas.ordens import (
     OrdemListOut, OrdemPage, QuadroColuna, OrdemOut, LogOut, OrdemAbrirIn, AvancarIn,
     CancelarIn, DesfechoLabIn,
@@ -202,51 +201,7 @@ def avancar(ordem_id: int, dados: AvancarIn, background_tasks: BackgroundTasks,
     ordem = db.query(Ordem).filter(Ordem.id == ordem_id).first()
     if ordem is None:
         raise HTTPException(status_code=404, detail="OS não encontrada")
-    if not wf.eh_ativa(ordem.fase):
-        raise HTTPException(status_code=409, detail="OS já encerrada")
-    exige_funcao_da_fase(db, usuario, ordem.fase)
-    destino = wf.proxima_fase(ordem.fase)
-    origem = ordem.fase
-
-    if origem == 5:                       # Laboratório -> Pós-Vendas
-        tem_cert = db.query(OSCertificado).filter(OSCertificado.os == ordem.id).first() is not None
-        if not tem_cert:
-            raise HTTPException(status_code=409, detail="gere o certificado antes de concluir o laboratório")
-        if dados.prox_calibragem is not None:
-            ordem.prox_calibragem = dados.prox_calibragem
-        espelhar_calibracao(db, ordem)
-        texto = "Laboratório concluído"
-    elif origem == 6:                     # Pós-Vendas -> Financeiro
-        ordem.aceite = True
-        ordem.data_aceite = agora()
-        texto = "Aceite registrado"
-    elif origem == 10:                    # Financeiro -> Preparando Retorno
-        if not ordem.nota_fiscal:
-            raise HTTPException(status_code=409, detail="anexe a nota fiscal antes de confirmar o pagamento")
-        ordem.pago = True
-        ordem.data_pagamento = agora()
-        texto = "Pagamento confirmado"
-    elif origem == 7:                     # Preparando Retorno -> Finalizada
-        if not (dados.cod_retorno and dados.cod_retorno.strip()):
-            raise HTTPException(status_code=422, detail="cod_retorno é obrigatório para finalizar")
-        ordem.cod_retorno = dados.cod_retorno.strip()
-        ordem.data_retorno = agora()
-        ordem.situacao = "F"
-        texto = f"Postado para retorno — Finalizada (rastreio: {ordem.cod_retorno})"
-    else:                                 # 4 -> 5 (Recebido -> Laboratório)
-        texto = "Encaminhado ao laboratório"
-
-    if dados.obs:
-        texto = f"{texto} — {dados.obs}"
-    ordem.fase = destino
-    registrar_log(db, ordem, usuario, texto)
-    db.commit()
-    db.refresh(ordem)
-    _agendar_espelhamento(db, background_tasks, ordem, list_id=taskhs.list_id_da_fase(ordem.fase), arquivado=False)
-    if origem == wf.FASE_LABORATORIO:
-        agendar_card_os(db, background_tasks, ordem)
-    _anotar_modelos_faltantes(db, ordem)
-    return ordem
+    raise HTTPException(status_code=409, detail="a OS anda pela caixa; use /caixas/{id}/avancar")
 
 
 @router.post("/{ordem_id}/desfecho-lab", response_model=OrdemOut)
@@ -284,15 +239,4 @@ def cancelar(ordem_id: int, dados: CancelarIn, background_tasks: BackgroundTasks
     ordem = db.query(Ordem).filter(Ordem.id == ordem_id).first()
     if ordem is None:
         raise HTTPException(status_code=404, detail="OS não encontrada")
-    if not wf.eh_ativa(ordem.fase):
-        raise HTTPException(status_code=409, detail="OS já encerrada")
-    exige_funcao_da_fase(db, usuario, ordem.fase)
-    origem = ordem.fase
-    ordem.fase = wf.FASE_CANCELADA
-    ordem.situacao = "C"
-    registrar_log(db, ordem, usuario, f"OS cancelada: {dados.motivo}")
-    db.commit()
-    db.refresh(ordem)
-    _agendar_espelhamento(db, background_tasks, ordem, list_id=taskhs.list_id_da_fase(origem), arquivado=True)
-    _anotar_modelos_faltantes(db, ordem)
-    return ordem
+    raise HTTPException(status_code=409, detail="a OS anda pela caixa; use /caixas/{id}/avancar")

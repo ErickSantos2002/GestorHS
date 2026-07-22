@@ -20,6 +20,8 @@ class OrdemResumoCaixa(BaseModel):
     fase: int | None = None
     fase_descricao: str | None = None
     fase_cor: str | None = None
+    desfecho_lab: str = "pendente"
+    desfecho_lab_obs: str | None = None
 
 
 class CaixaOut(BaseModel):
