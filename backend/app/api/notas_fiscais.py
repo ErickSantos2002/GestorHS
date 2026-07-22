@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.models.database import get_db
 from app.models import Usuario, Ordem, Caixa
 from app.api.deps import get_current_usuario, require_funcao
-from app.api.espelhamento import agendar_espelhamento as _agendar_espelhamento
+from app.api.espelhamento import agendar_espelhamento as _agendar_espelhamento, agendar_espelhamento_caixa
 from app.core import nota_fiscal, storage, taskhs, os_workflow as wf
 from app.schemas.caixas import CaixaDetalhe
 
@@ -118,7 +118,5 @@ def enviar_nota_fiscal_caixa(
         o.nota_fiscal_numero = num
     db.commit()
     db.refresh(cx)
-    for o in ativas:
-        db.refresh(o)
-        _agendar_espelhamento(db, background_tasks, o, list_id=taskhs.list_id_da_fase(o.fase), arquivado=False)
+    agendar_espelhamento_caixa(db, background_tasks, cx)
     return cx
