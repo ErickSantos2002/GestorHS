@@ -225,6 +225,43 @@ def os_no_lab(db_session, os_base, caixa_base):
 
 
 @pytest.fixture()
+def client_exp(client, usuario_comum, fases_seed):
+    """Client autenticado como usuário de função Expedição (headers já embutidos)."""
+    tok = client.post("/auth/login", json={"email": "comum@hs.com", "senha": "senha123"}).json()
+    client.headers["Authorization"] = f"Bearer {tok['access_token']}"
+    return client
+
+
+@pytest.fixture()
+def caixa_com_os_cliente_a(db_session):
+    """Caixa com uma OS do cliente A já vinculada. Devolve o id da caixa."""
+    from app.models import Cliente, Caixa, Ordem
+    cli = Cliente(nome="Cliente A")
+    cx = Caixa(obs="Caixa cliente A")
+    db_session.add_all([cli, cx])
+    db_session.flush()
+    o = Ordem(cliente=cli.id, fase=4, situacao="E", caixa=cx.id)
+    db_session.add(o)
+    db_session.commit()
+    db_session.refresh(cx)
+    return cx.id
+
+
+@pytest.fixture()
+def os_cliente_b(db_session):
+    """OS de um cliente B (diferente do cliente A), sem caixa. Devolve o id da OS."""
+    from app.models import Cliente, Ordem
+    cli = Cliente(nome="Cliente B")
+    db_session.add(cli)
+    db_session.flush()
+    o = Ordem(cliente=cli.id, fase=4, situacao="E")
+    db_session.add(o)
+    db_session.commit()
+    db_session.refresh(o)
+    return o.id
+
+
+@pytest.fixture()
 def upload_tmp(tmp_path):
     from app.core.config import settings
     anterior = settings.UPLOAD_DIR

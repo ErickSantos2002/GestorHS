@@ -26,6 +26,19 @@ def _get_caixa(db: Session, caixa_id: int) -> Caixa:
     return cx
 
 
+def _cliente_da_caixa(cx: Caixa) -> int | None:
+    """O cliente das OS ativas da caixa (todas iguais por invariante), ou None se vazia."""
+    for o in cx.ordens:
+        return o.cliente
+    return None
+
+
+def _exige_mesmo_cliente(cx: Caixa, cliente_id: int) -> None:
+    atual = _cliente_da_caixa(cx)
+    if atual is not None and atual != cliente_id:
+        raise HTTPException(status_code=409, detail="OS de cliente diferente do da caixa")
+
+
 @router.get("", response_model=CaixaPage)
 def listar(
     q: str | None = None,
@@ -97,7 +110,8 @@ def vincular_ordem(
     ordem = db.query(Ordem).filter(Ordem.id == dados.ordem_id).first()
     if ordem is None:
         raise HTTPException(status_code=404, detail="OS não encontrada")
-    ordem.caixa = cx.id  # vincula/move (sem checar cliente)
+    _exige_mesmo_cliente(cx, ordem.cliente)
+    ordem.caixa = cx.id  # vincula/move (mesmo cliente garantido acima)
     registrar_log(db, ordem, usuario, f"OS vinculada à caixa #{cx.id}")
     db.commit()
     db.refresh(cx)

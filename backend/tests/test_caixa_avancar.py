@@ -26,3 +26,20 @@ def test_marcar_concluido_ok(client_lab, os_no_lab, db_session):
     assert r.status_code == 200
     assert r.json()["desfecho_lab"] == "concluido"
     assert r.json()["desfecho_lab_obs"] is None
+
+
+def test_vincular_ordem_de_outro_cliente_falha(client_exp, caixa_com_os_cliente_a, os_cliente_b):
+    r = client_exp.post(f"/caixas/{caixa_com_os_cliente_a}/ordens",
+                        json={"ordem_id": os_cliente_b})
+    assert r.status_code == 409
+    assert "cliente" in r.json()["detail"].lower()
+
+
+def test_abrir_os_com_caixa_de_outro_cliente_falha(client_exp, caixa_com_os_cliente_a, os_base):
+    r = client_exp.post("/ordens", json={
+        "equipamento_cliente": os_base["equipamento_cliente"],
+        "tipo_servico": "C",
+        "caixa": caixa_com_os_cliente_a,
+    })
+    assert r.status_code == 409
+    assert "cliente" in r.json()["detail"].lower()

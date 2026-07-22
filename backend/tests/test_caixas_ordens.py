@@ -22,16 +22,17 @@ def test_vincular_ordem(client, usuario_comum, fases_seed, db_session):
     assert [o["id"] for o in det["ordens"]] == [oid]
 
 
-def test_vincular_aceita_clientes_diferentes(client, usuario_comum, fases_seed, db_session):
+def test_vincular_rejeita_clientes_diferentes(client, usuario_comum, fases_seed, db_session):
     h = _headers(client, "comum@hs.com", "senha123")
     cid = client.post("/caixas", json={}, headers=h).json()["id"]
     o1 = _ordem_solta(db_session, "Cliente A")
     o2 = _ordem_solta(db_session, "Cliente B")
     client.post(f"/caixas/{cid}/ordens", json={"ordem_id": o1}, headers=h)
-    client.post(f"/caixas/{cid}/ordens", json={"ordem_id": o2}, headers=h)
+    r = client.post(f"/caixas/{cid}/ordens", json={"ordem_id": o2}, headers=h)
+    assert r.status_code == 409
     det = client.get(f"/caixas/{cid}", headers=h).json()
-    assert det["total_os"] == 2
-    assert sorted(det["clientes"]) == ["Cliente A", "Cliente B"]
+    assert det["total_os"] == 1
+    assert det["clientes"] == ["Cliente A"]
 
 
 def test_mover_ordem_entre_caixas(client, usuario_comum, fases_seed, db_session):
