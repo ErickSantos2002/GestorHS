@@ -11,10 +11,9 @@ import { apiJson, ApiError } from '../../lib/api'
 import { cn } from '../../lib/utils'
 import { caixasApi, formatData, type CaixaDetalhe } from './api'
 import { AbrirOSModal } from '../ordens/AbrirOSModal'
-import { FecharOrdensModal } from './FecharOrdensModal'
 import { AvancarCaixaModal } from './AvancarCaixaModal'
 import { SemConsertoModal } from './SemConsertoModal'
-import { ordensApi, podeFecharOS, fecharOrdens, TRANSICOES, faseAtiva } from '../ordens/api'
+import { TRANSICOES, faseAtiva } from '../ordens/api'
 import { PageContainer, DetailGrid, DetailMain, DetailAside } from '../../components/ui/Page'
 
 // Shape retornado por /equipamentos-cliente?q=...&limit=
@@ -49,10 +48,6 @@ export function CaixaDetailPage() {
   // Erro de ações sobre OS (remover/etc.)
   const [erroAcao, setErroAcao] = useState('')
 
-  // Seleção para fechar OS em lote
-  const [selecionadas, setSelecionadas] = useState<Set<number>>(new Set())
-  const [fecharAberto, setFecharAberto] = useState(false)
-
   // Avançar caixa
   const [avancarCaixaAberto, setAvancarCaixaAberto] = useState(false)
   const [avancandoCaixa, setAvancandoCaixa] = useState(false)
@@ -83,7 +78,6 @@ export function CaixaDetailPage() {
   function carregar() {
     setCarregando(true)
     setErro('')
-    setSelecionadas(new Set())
     caixasApi.obter(caixaId)
       .then((c) => {
         setCaixa(c)
@@ -124,28 +118,6 @@ export function CaixaDetailPage() {
     } catch (err) {
       setErroAcao(err instanceof ApiError ? err.message : 'Falha ao remover OS da caixa')
     }
-  }
-
-  const elegiveis = caixa ? caixa.ordens.filter((o) => podeFecharOS(o.fase)) : []
-  function toggle(id: number) {
-    setSelecionadas((s) => {
-      const n = new Set(s)
-      if (n.has(id)) n.delete(id); else n.add(id)
-      return n
-    })
-  }
-  function toggleTodas() {
-    setSelecionadas((s) => s.size === elegiveis.length ? new Set() : new Set(elegiveis.map((o) => o.id)))
-  }
-  async function confirmarFechar(cod: string, obsFechar: string | null) {
-    const ids = [...selecionadas]
-    const { sucessos, falhas } = await fecharOrdens(ids, cod, obsFechar, ordensApi.avancar)
-    setFecharAberto(false)
-    setSelecionadas(new Set())
-    setErroAcao(falhas.length
-      ? `${sucessos.length} OS fechada(s); ${falhas.length} falhou/falharam: ${falhas.map((f) => `#${f.id} (${f.motivo})`).join(', ')}`
-      : '')
-    carregar()
   }
 
   async function avancarCaixaDireto() {
@@ -328,13 +300,6 @@ export function CaixaDetailPage() {
           {podeEscrever && (
             <div className="flex gap-2 flex-wrap">
               <Button onClick={abrirPicker}>Abrir OS</Button>
-              <Button
-                variant="secondary"
-                disabled={selecionadas.size === 0}
-                onClick={() => setFecharAberto(true)}
-              >
-                Fechar OS selecionadas ({selecionadas.size})
-              </Button>
             </div>
           )}
 
@@ -348,18 +313,6 @@ export function CaixaDetailPage() {
             ) : (
               <Table head={
                 <>
-                  {podeEscrever && (
-                    <TH>
-                      <input
-                        type="checkbox"
-                        aria-label="Selecionar todas as OS em Preparando Retorno"
-                        className="accent-primary"
-                        checked={elegiveis.length > 0 && selecionadas.size === elegiveis.length}
-                        onChange={toggleTodas}
-                        disabled={elegiveis.length === 0}
-                      />
-                    </TH>
-                  )}
                   <TH>OS</TH>
                   <TH>Cliente</TH>
                   <TH>Equipamento</TH>
@@ -369,20 +322,6 @@ export function CaixaDetailPage() {
               }>
                 {caixa.ordens.map((o) => (
                   <tr key={o.id} className="hover:bg-background-elevated transition-colors">
-                    {podeEscrever && (
-                      <TD>
-                        {podeFecharOS(o.fase) && (
-                          <input
-                            type="checkbox"
-                            data-os={o.id}
-                            aria-label={`Selecionar OS #${o.id}`}
-                            className="accent-primary"
-                            checked={selecionadas.has(o.id)}
-                            onChange={() => toggle(o.id)}
-                          />
-                        )}
-                      </TD>
-                    )}
                     <TD>
                       <Link to={`/app/ordens/${o.id}`} className="font-semibold text-primary hover:underline">
                         #{o.id}
@@ -482,15 +421,6 @@ export function CaixaDetailPage() {
           </section>
         </DetailAside>
       </DetailGrid>
-
-      {/* Modal: Fechar OS selecionadas */}
-      {fecharAberto && (
-        <FecharOrdensModal
-          quantidade={selecionadas.size}
-          onClose={() => setFecharAberto(false)}
-          onConfirmar={confirmarFechar}
-        />
-      )}
 
       {/* Modal: Avançar caixa (fases que pedem código de retorno, ex.: fase 7) */}
       {avancarCaixaAberto && transicaoCaixa && (

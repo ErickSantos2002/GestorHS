@@ -1,17 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 
 vi.mock('../../auth/AuthContext', () => ({ useAuth: () => ({ user: { funcao: 'Administrador' } }) }))
 
-const { obter, avancar, desvincularOrdem } = vi.hoisted(() => ({ obter: vi.fn(), avancar: vi.fn(), desvincularOrdem: vi.fn() }))
+const { obter, desvincularOrdem } = vi.hoisted(() => ({ obter: vi.fn(), desvincularOrdem: vi.fn() }))
 vi.mock('./api', async (orig) => {
   const real = await orig<typeof import('./api')>()
   return { ...real, caixasApi: { ...real.caixasApi, obter, desvincularOrdem } }
-})
-vi.mock('../ordens/api', async (orig) => {
-  const real = await orig<typeof import('../ordens/api')>()
-  return { ...real, ordensApi: { ...real.ordensApi, avancar } }
 })
 
 import { CaixaDetailPage } from './CaixaDetailPage'
@@ -32,10 +28,10 @@ function tela() {
   )
 }
 
-describe('CaixaDetailPage — fechar OS por seleção', () => {
+describe('CaixaDetailPage', () => {
   beforeEach(() => {
-    obter.mockReset(); avancar.mockReset(); desvincularOrdem.mockReset()
-    obter.mockResolvedValue({ ...CAIXA }); avancar.mockResolvedValue({}); desvincularOrdem.mockResolvedValue({})
+    obter.mockReset(); desvincularOrdem.mockReset()
+    obter.mockResolvedValue({ ...CAIXA }); desvincularOrdem.mockResolvedValue({})
   })
 
   it('removeu o botão "Vincular OS existente"', async () => {
@@ -44,43 +40,17 @@ describe('CaixaDetailPage — fechar OS por seleção', () => {
     expect(screen.queryByText('Vincular OS existente')).toBeNull()
   })
 
-  it('só a OS em Preparando Retorno tem checkbox; fechar chama avancar com o código', async () => {
+  it('removeu o fechar OS em lote (a caixa avança como um todo)', async () => {
     tela()
     await screen.findByText('Caixa #3')
-    const checks = screen.getAllByRole('checkbox')
-    // 1 no cabeçalho (marcar todas) + 1 na linha elegível (OS #10). A OS #11 (fase 5) não tem.
-    const daLinha = checks.filter((c) => (c as HTMLInputElement).dataset.os === '10')
-    expect(daLinha).toHaveLength(1)
-    fireEvent.click(daLinha[0])
-
-    fireEvent.click(screen.getByText(/Fechar OS selecionadas \(1\)/))
-    fireEvent.change(screen.getByLabelText('Código de retorno'), { target: { value: 'BR777' } })
-    fireEvent.click(screen.getByRole('button', { name: /Confirmar/ }))
-
-    await waitFor(() => expect(avancar).toHaveBeenCalledWith(10, { cod_retorno: 'BR777', obs: null }))
-    expect(avancar).toHaveBeenCalledTimes(1)
-  })
-
-  it('recarregar a caixa (sem fechar) limpa a seleção', async () => {
-    tela()
-    await screen.findByText('Caixa #3')
-    const checks = screen.getAllByRole('checkbox')
-    const daLinha = checks.filter((c) => (c as HTMLInputElement).dataset.os === '10')
-    fireEvent.click(daLinha[0])
-    await screen.findByText(/Fechar OS selecionadas \(1\)/)
-
-    // Aciona um reload por outro caminho (remover a OS #11), sem fechar nada.
-    const botoesRemover = screen.getAllByRole('button', { name: 'Remover' })
-    fireEvent.click(botoesRemover[1])
-
-    await waitFor(() => expect(desvincularOrdem).toHaveBeenCalledWith(3, 11))
-    await waitFor(() => expect(screen.getByText(/Fechar OS selecionadas \(0\)/)).toBeInTheDocument())
+    expect(screen.queryAllByRole('checkbox')).toHaveLength(0)
+    expect(screen.queryByText(/Fechar OS selecionadas/)).toBeNull()
   })
 })
 
 describe('CaixaDetailPage — avançar/cancelar caixa e sem conserto', () => {
   beforeEach(() => {
-    obter.mockReset(); avancar.mockReset(); desvincularOrdem.mockReset()
+    obter.mockReset(); desvincularOrdem.mockReset()
   })
 
   it('bloqueia avancar caixa com aparelho pendente no lab', async () => {
