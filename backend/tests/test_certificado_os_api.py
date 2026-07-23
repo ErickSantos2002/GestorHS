@@ -198,3 +198,41 @@ def test_gerar_grava_overrides_sem_alterar_cliente(client, usuario_admin, db_ses
 def test_certificado_campos_404(client, usuario_admin):
     h = _headers(client, "admin@hs.com", "senha123")
     assert client.get("/ordens/99999/certificado-campos", headers=h).status_code == 404
+
+
+def test_gerar_certificado_conclui_lab(client, usuario_admin, db_session):
+    h = _headers(client, "admin@hs.com", "senha123")
+    oid = _os_com_modelo(client, db_session, h, tipos=("C",), tipo_servico="C")
+    r = client.post(f"/ordens/{oid}/gerar-certificado", headers=h)
+    assert r.status_code == 200
+    from app.models import Ordem, EquipamentoCliente
+    o = db_session.get(Ordem, oid); db_session.refresh(o)
+    assert o.desfecho_lab == "concluido"          # OS pronta para a caixa avançar
+    ec = db_session.get(EquipamentoCliente, o.equipamento_cliente)
+    assert ec.calib_cert == "C-1"                 # espelhado na frota
+
+
+def test_gerar_nao_reabre_sem_conserto(client, usuario_admin, db_session):
+    h = _headers(client, "admin@hs.com", "senha123")
+    oid = _os_com_modelo(client, db_session, h, tipos=("C",), tipo_servico="C")
+    from app.models import Ordem
+    o = db_session.get(Ordem, oid); o.desfecho_lab = "sem_conserto"
+    db_session.commit()
+    r = client.post(f"/ordens/{oid}/gerar-certificado", headers=h)
+    assert r.status_code == 200
+    db_session.refresh(o)
+    assert o.desfecho_lab == "sem_conserto"       # guarda `== pendente` não sobrescreve
+
+
+def test_gerar_fora_do_lab_nao_conclui(client, usuario_admin, db_session):
+    h = _headers(client, "admin@hs.com", "senha123")
+    oid = _os_com_modelo(client, db_session, h, tipos=("C",), tipo_servico="C")
+    from app.models import Ordem, Fase
+    if db_session.query(Fase).filter(Fase.id == 8).first() is None:
+        db_session.add(Fase(id=8, descricao="Finalizada", cor="10b981")); db_session.flush()
+    o = db_session.get(Ordem, oid); o.fase = 8   # já passou do laboratório
+    db_session.commit()
+    r = client.post(f"/ordens/{oid}/gerar-certificado", headers=h)
+    assert r.status_code == 200
+    db_session.refresh(o)
+    assert o.desfecho_lab == "pendente"           # guarda de fase bloqueia

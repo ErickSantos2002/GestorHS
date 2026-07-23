@@ -6,7 +6,8 @@ from sqlalchemy.orm import Session
 from app.models.database import get_db
 from app.models import Usuario, Ordem, OSCertificado
 from app.api.deps import get_current_usuario, require_funcao
-from app.api.ordens_acoes import agora
+from app.api.ordens_acoes import agora, concluir_laboratorio, registrar_log
+from app.core import os_workflow as wf
 from app.core.certificado_gerar import gerar_certificados, tipos_para, tipos_sem_modelo, montar_contexto
 from app.core.certificado_pdf import html_para_pdf
 from app.schemas.ordens import GerarCertificadoIn, CertificadoCamposOut
@@ -57,7 +58,7 @@ _LABEL_TIPO = {"C": "Calibração", "M": "Manutenção"}
 
 
 @router.post("/ordens/{ordem_id}/gerar-certificado", response_model=list[OSCertificadoOut])
-def gerar(ordem_id: int, dados: GerarCertificadoIn | None = None, db: Session = Depends(get_db), _: Usuario = Depends(_gerar)):
+def gerar(ordem_id: int, dados: GerarCertificadoIn | None = None, db: Session = Depends(get_db), usuario: Usuario = Depends(_gerar)):
     ordem = _os_ou_404(db, ordem_id)
     # Sem modelo cadastrado para o aparelho não há o que preencher: recusa com mensagem
     # clara em vez de gerar nada e responder 200 (falha silenciosa).
@@ -84,6 +85,9 @@ def gerar(ordem_id: int, dados: GerarCertificadoIn | None = None, db: Session = 
         ordem.cert_overrides = overrides or None
         db.flush()
     gerados = gerar_certificados(db, ordem, tipos_para(ordem))
+    if ordem.fase == wf.FASE_LABORATORIO and ordem.desfecho_lab == wf.DESFECHO_PENDENTE:
+        concluir_laboratorio(db, ordem)
+        registrar_log(db, ordem, usuario, "Laboratório concluído — certificado gerado")
     db.commit()
     for g in gerados:
         db.refresh(g)
