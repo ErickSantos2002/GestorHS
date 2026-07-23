@@ -57,10 +57,10 @@ def upgrade() -> None:
         sa.Column("cliente_override", sa.JSON(), nullable=True),
         sa.Column("observacoes", sa.Text(), nullable=True),
         sa.Column("assinatura", sa.String(length=255), nullable=True),
-        sa.Column("deleted_at", sa.DateTime(), nullable=True),
+        sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("is_deleted", sa.Boolean(), nullable=False, server_default=sa.false()),
-        sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(), nullable=False, server_default=sa.func.now()),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
     )
     op.create_index("ix_propostas_numero", "propostas", ["numero"], unique=True)
     op.create_table(
@@ -92,7 +92,7 @@ def upgrade() -> None:
         sa.Column("snapshot", sa.JSON(), nullable=True),
         sa.Column("pdf_path", sa.String(length=500), nullable=True),
         sa.Column("alterado_por", sa.String(length=255), nullable=True),
-        sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.func.now()),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
     )
 
 
