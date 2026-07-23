@@ -6,13 +6,14 @@ import { Modal } from '../../components/ui/Modal'
 import { Input } from '../../components/ui/Input'
 import { Table, TH, TD } from '../../components/ui/Table'
 import { useAuth } from '../../auth/AuthContext'
-import { podeAbrirOS } from '../../auth/roles'
+import { podeAbrirOS, podeAvancarCaixa, podeMarcarSemConserto, podeAnexarNotaFiscal } from '../../auth/roles'
 import { apiJson, ApiError } from '../../lib/api'
 import { cn } from '../../lib/utils'
 import { caixasApi, formatData, type CaixaDetalhe } from './api'
 import { AbrirOSModal } from '../ordens/AbrirOSModal'
 import { AvancarCaixaModal } from './AvancarCaixaModal'
 import { SemConsertoModal } from './SemConsertoModal'
+import { NotaFiscalCaixaModal } from './NotaFiscalCaixaModal'
 import { TRANSICOES, faseAtiva } from '../ordens/api'
 import { PageContainer, DetailGrid, DetailMain, DetailAside } from '../../components/ui/Page'
 
@@ -35,6 +36,8 @@ export function CaixaDetailPage() {
   const caixaId = Number(id)
   const { user } = useAuth()
   const podeEscrever = podeAbrirOS(user)
+  const podeSemConserto = podeMarcarSemConserto(user)
+  const podeAnexarNF = podeAnexarNotaFiscal(user)
 
   const [caixa, setCaixa] = useState<CaixaDetalhe | null>(null)
   const [carregando, setCarregando] = useState(true)
@@ -60,6 +63,9 @@ export function CaixaDetailPage() {
 
   // Sem conserto (por OS, fase 5)
   const [semConsertoOsId, setSemConsertoOsId] = useState<number | null>(null)
+
+  // Anexar nota fiscal da caixa (fase 10 — Financeiro)
+  const [notaFiscalAberta, setNotaFiscalAberta] = useState(false)
 
   // Modal: Mover OS para outra caixa
   const [moverOsId, setMoverOsId] = useState<number | null>(null)
@@ -241,6 +247,9 @@ export function CaixaDetailPage() {
   const prontosLab = ordensAtivasLab.filter((o) => o.desfecho_lab === 'concluido' || o.desfecho_lab === 'sem_conserto').length
   const pendentesLab = ordensAtivasLab.filter((o) => o.desfecho_lab === 'pendente').length
   const transicaoCaixa = caixa.fase != null ? TRANSICOES[caixa.fase] : undefined
+  // Quem move a caixa é a função responsável pela fase ATUAL dela (Admin sempre pode) —
+  // espelha exige_funcao_da_fase no backend, não podeAbrirOS (Expedição/Admin).
+  const podeAvancar = podeAvancarCaixa(user, caixa.fase)
 
   return (
     <PageContainer>
@@ -264,7 +273,7 @@ export function CaixaDetailPage() {
               )}
             </p>
           </div>
-          {podeEscrever && caixa.fase != null && (
+          {podeAvancar && caixa.fase != null && (
             <div className="flex gap-2 flex-wrap">
               <Button
                 onClick={clicarAvancarCaixa}
@@ -297,9 +306,14 @@ export function CaixaDetailPage() {
       <DetailGrid>
         <DetailMain>
           {/* Ações do lote */}
-          {podeEscrever && (
+          {(podeEscrever || (caixa.fase === 10 && podeAnexarNF)) && (
             <div className="flex gap-2 flex-wrap">
-              <Button onClick={abrirPicker}>Abrir OS</Button>
+              {podeEscrever && <Button onClick={abrirPicker}>Abrir OS</Button>}
+              {caixa.fase === 10 && podeAnexarNF && (
+                <Button variant="secondary" onClick={() => setNotaFiscalAberta(true)}>
+                  Anexar nota fiscal
+                </Button>
+              )}
             </div>
           )}
 
@@ -317,7 +331,7 @@ export function CaixaDetailPage() {
                   <TH>Cliente</TH>
                   <TH>Equipamento</TH>
                   <TH>Fase</TH>
-                  {podeEscrever && <TH>Ações</TH>}
+                  {(podeEscrever || podeSemConserto) && <TH>Ações</TH>}
                 </>
               }>
                 {caixa.ordens.map((o) => (
@@ -344,10 +358,10 @@ export function CaixaDetailPage() {
                         </span>
                       ) : '—'}
                     </TD>
-                    {podeEscrever && (
+                    {(podeEscrever || podeSemConserto) && (
                       <TD>
                         <div className="flex gap-2">
-                          {caixa.fase === 5 && o.desfecho_lab === 'pendente' && (
+                          {caixa.fase === 5 && o.desfecho_lab === 'pendente' && podeSemConserto && (
                             <Button
                               variant="secondary"
                               onClick={() => setSemConsertoOsId(o.id)}
@@ -355,22 +369,26 @@ export function CaixaDetailPage() {
                               Sem conserto
                             </Button>
                           )}
-                          <Button
-                            variant="ghost"
-                            onClick={() => {
-                              setCaixaDestino('')
-                              setErroMover('')
-                              setMoverOsId(o.id)
-                            }}
-                          >
-                            Mover
-                          </Button>
-                          <Button
-                            variant="danger"
-                            onClick={() => removerOrdem(o.id)}
-                          >
-                            Remover
-                          </Button>
+                          {podeEscrever && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                onClick={() => {
+                                  setCaixaDestino('')
+                                  setErroMover('')
+                                  setMoverOsId(o.id)
+                                }}
+                              >
+                                Mover
+                              </Button>
+                              <Button
+                                variant="danger"
+                                onClick={() => removerOrdem(o.id)}
+                              >
+                                Remover
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </TD>
                     )}
@@ -473,6 +491,18 @@ export function CaixaDetailPage() {
           onClose={() => setSemConsertoOsId(null)}
           onConcluido={() => {
             setSemConsertoOsId(null)
+            carregar()
+          }}
+        />
+      )}
+
+      {/* Modal: Anexar nota fiscal da caixa (fase 10 — Financeiro) */}
+      {notaFiscalAberta && (
+        <NotaFiscalCaixaModal
+          caixaId={caixaId}
+          onClose={() => setNotaFiscalAberta(false)}
+          onEnviado={() => {
+            setNotaFiscalAberta(false)
             carregar()
           }}
         />

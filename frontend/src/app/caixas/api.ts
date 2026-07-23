@@ -102,4 +102,24 @@ export const caixasApi = {
     apiJson<CaixaDetalhe>(`/caixas/${id}/cancelar`, { method: 'POST', body: JSON.stringify(payload) }),
   desfechoLab: (osId: number, payload: { desfecho: 'concluido' | 'sem_conserto'; obs: string | null }): Promise<unknown> =>
     apiJson(`/ordens/${osId}/desfecho-lab`, { method: 'POST', body: JSON.stringify(payload) }),
+  // Anexa a mesma nota fiscal para todas as OS ativas da caixa (evita anexar aparelho-por-aparelho).
+  // Mirror de ordensApi.enviarNotaFiscal em ../ordens/api.ts — mas o campo do arquivo é `arquivo`
+  // (não `file`), espelhando o Form do backend em app/api/notas_fiscais.py.
+  enviarNotaFiscalCaixa: async (id: number, arquivo: File, numero: string): Promise<CaixaDetalhe> => {
+    const fd = new FormData()
+    fd.append('arquivo', arquivo)
+    fd.append('numero', numero)
+    const res = await apiFetch(`/caixas/${id}/nota-fiscal`, { method: 'POST', body: fd })
+    if (!res.ok) {
+      let detail = res.statusText
+      try {
+        const body = (await res.json()) as { detail?: string }
+        if (body.detail) detail = body.detail
+      } catch {
+        // sem corpo JSON
+      }
+      throw new ApiError(res.status, detail)
+    }
+    return (await res.json()) as CaixaDetalhe
+  },
 }

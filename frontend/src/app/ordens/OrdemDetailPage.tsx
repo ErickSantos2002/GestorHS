@@ -9,10 +9,9 @@ import {
 } from '../../components/ui/icons'
 import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
-import { isAdmin, podeAbrirOS, podeAnexarNotaFiscal } from '../../auth/roles'
+import { isAdmin, podeAbrirOS } from '../../auth/roles'
 import { ordensApi, fotosApi, TIPO_SERVICO, FLUXO_FASES, posicaoFase, posLaboratorio, formatData, garantiaBadge, garantiasAtivas, type OrdemDetalhe, type GarantiaItem, type LogOS, type Foto, type OSCertificado } from './api'
 import { GerarCertificadoModal } from './GerarCertificadoModal'
-import { NotaFiscalModal } from './NotaFiscalModal'
 import { FotoImg } from './FotoImg'
 import { FotoLightbox } from './FotoLightbox'
 import { PageContainer, DetailGrid, DetailMain, DetailAside } from '../../components/ui/Page'
@@ -101,7 +100,7 @@ export function OrdemDetailPage() {
   const [logs, setLogs] = useState<LogOS[]>([])
   const [erro, setErro] = useState('')
   const [carregando, setCarregando] = useState(true)
-  const [acao, setAcao] = useState<'gerar' | 'nota-fiscal' | null>(null)
+  const [acao, setAcao] = useState<'gerar' | null>(null)
   const [fotos, setFotos] = useState<Foto[]>([])
   const [certs, setCerts] = useState<OSCertificado[]>([])
   const [erroFoto, setErroFoto] = useState('')
@@ -170,15 +169,9 @@ export function OrdemDetailPage() {
   const modelosFaltantesLabel = faltantes.map((t) => (t === 'C' ? 'Calibração' : 'Manutenção')).join(' e ')
   // A secao aparece do Financeiro em diante — use posicaoFase, NUNCA comparacao numerica (id 10 > 7/8).
   const mostraNotaFiscal = posicaoFase(os.fase) >= posicaoFase(10)
-  const podeAnexarNF = podeAnexarNotaFiscal(user)
 
   function aoGerarCert(cs: OSCertificado[]) {
     setCerts(cs)
-    setAcao(null)
-    void ordensApi.obter(osId).then(setOs).catch(() => {})
-  }
-
-  function aoAnexarNF() {
     setAcao(null)
     void ordensApi.obter(osId).then(setOs).catch(() => {})
   }
@@ -446,16 +439,12 @@ export function OrdemDetailPage() {
         )}
       </Secao>
 
-      {/* Nota fiscal */}
+      {/* Nota fiscal — só exibição/download; o anexo é feito no nível da caixa
+          (CaixaDetailPage), de uma vez para todas as OS ativas, não mais por OS aqui. */}
       {mostraNotaFiscal && (
         <Secao
           icon={<IconCertificado className="w-4 h-4" />}
           titulo="Nota fiscal"
-          acao={podeAnexarNF ? (
-            <Button variant={os.nota_fiscal ? 'secondary' : 'primary'} onClick={() => setAcao('nota-fiscal')}>
-              {os.nota_fiscal ? 'Substituir' : 'Anexar nota fiscal'}
-            </Button>
-          ) : undefined}
         >
           {os.nota_fiscal ? (
             <div className="flex items-center justify-between gap-3">
@@ -469,7 +458,8 @@ export function OrdemDetailPage() {
             </div>
           ) : (
             <p className="text-sm text-slate-500">
-              Nenhuma nota fiscal anexada. É obrigatória para o Financeiro confirmar o pagamento.
+              Nenhuma nota fiscal anexada ainda — é anexada na tela da caixa (fase Financeiro), para
+              todas as OS de uma vez.
             </p>
           )}
           {erroNF && <p className="text-sm text-danger">{erroNF}</p>}
@@ -501,9 +491,6 @@ export function OrdemDetailPage() {
       </DetailGrid>
 
       {acao === 'gerar' && <GerarCertificadoModal os={os} onClose={() => setAcao(null)} onGerado={aoGerarCert} />}
-      {acao === 'nota-fiscal' && (
-        <NotaFiscalModal ordemId={os.id} onClose={() => setAcao(null)} onEnviado={aoAnexarNF} />
-      )}
 
       {lightboxIdx !== null && fotos[lightboxIdx] && (
         <FotoLightbox fotos={fotos} indiceInicial={lightboxIdx} onClose={() => setLightboxIdx(null)} />
