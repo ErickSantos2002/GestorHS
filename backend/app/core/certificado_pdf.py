@@ -62,12 +62,13 @@ def _filtrar_requisicao(route) -> None:
         route.continue_()
 
 
-def html_para_pdf(html_cert: str) -> bytes:
-    """Renderiza o certificado em PDF A4 com Chromium headless.
+def renderizar_pdf(documento_html: str, *, scale: float = 1.0, margin_mm: int = 0) -> bytes:
+    """Renderiza um documento HTML COMPLETO (já com <html>/<head>/<body>, sem
+    embrulhar) em PDF A4 com Chromium headless via Playwright. Reusável por
+    qualquer gerador de PDF do sistema (certificado, proposta, ...).
     Levanta exceção se o navegador falhar (o endpoint converte em 500)."""
     from playwright.sync_api import sync_playwright
 
-    documento = montar_documento(html_cert)
     # --no-sandbox: o container roda como root; mitigação principal (SSRF) é o
     # filtro de rede abaixo. Rodar como usuário sem privilégio é follow-up de infra.
     with sync_playwright() as p:
@@ -75,15 +76,22 @@ def html_para_pdf(html_cert: str) -> bytes:
         try:
             page = browser.new_page()
             page.route("**/*", _filtrar_requisicao)  # bloqueia rede interna (SSRF)
-            page.set_content(documento, wait_until="networkidle")
-            # scale 0.8 + margem 8mm: reproduz a densidade do certificado legado
-            # (cada metade, separada por [pulapagina], cabe em 1 página A4 → 2 no total).
+            page.set_content(documento_html, wait_until="networkidle")
+            margin = f"{margin_mm}mm"
             pdf = page.pdf(
                 format="A4",
                 print_background=True,
-                scale=0.8,
-                margin={"top": "8mm", "bottom": "8mm", "left": "8mm", "right": "8mm"},
+                scale=scale,
+                margin={"top": margin, "bottom": margin, "left": margin, "right": margin},
             )
         finally:
             browser.close()
     return pdf
+
+
+def html_para_pdf(html_cert: str) -> bytes:
+    """Renderiza o certificado em PDF A4 com Chromium headless.
+    Levanta exceção se o navegador falhar (o endpoint converte em 500)."""
+    # scale 0.8 + margem 8mm: reproduz a densidade do certificado legado
+    # (cada metade, separada por [pulapagina], cabe em 1 página A4 → 2 no total).
+    return renderizar_pdf(montar_documento(html_cert), scale=0.8, margin_mm=8)
