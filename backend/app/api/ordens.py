@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.models.database import get_db
 from app.models import Usuario, Ordem, Cliente, Fase, LogOS, EquipamentoCliente, Caixa, OSCertificado
 from app.api.deps import get_current_usuario, require_funcao
-from app.api.ordens_acoes import agora, registrar_log, exige_funcao_da_fase, espelhar_calibracao
+from app.api.ordens_acoes import agora, registrar_log, exige_funcao_da_fase, concluir_laboratorio
 from app.core import os_workflow as wf
 from app.core import recebimento as rec
 from app.core.garantia import garantias as _calc_garantias
@@ -219,9 +219,7 @@ def marcar_desfecho_lab(ordem_id: int, dados: DesfechoLabIn, db: Session = Depen
         tem_cert = db.query(OSCertificado).filter(OSCertificado.os == ordem.id).first() is not None
         if not tem_cert:
             raise HTTPException(status_code=409, detail="gere o certificado antes de concluir")
-        espelhar_calibracao(db, ordem)
-        ordem.desfecho_lab = wf.DESFECHO_CONCLUIDO
-        ordem.desfecho_lab_obs = None
+        concluir_laboratorio(db, ordem)
         texto = "Laboratório concluído (aparelho)"
     else:  # sem_conserto
         if not (dados.obs and dados.obs.strip()):

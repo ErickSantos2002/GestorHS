@@ -4,6 +4,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.models import Ordem, Fase, LogOS, Usuario
+from app.core import os_workflow as wf
 
 ADMIN = "Administrador"
 
@@ -62,3 +63,13 @@ def espelhar_calibracao(db: Session, ordem) -> None:
         ult=ordem.data_calibracao.date() if ordem.data_calibracao is not None else None,
         prox=ordem.prox_calibragem.date() if ordem.prox_calibragem is not None else None,
     )
+
+
+def concluir_laboratorio(db: Session, ordem) -> None:
+    """Conclui o laboratório de uma OS: espelha os resultados na frota e marca o
+    desfecho. NÃO registra log — cada chamador loga com o próprio texto.
+    Idempotente na prática: `espelhar_calibracao` só sobrescreve campos do
+    equipamento_cliente, sem inserir histórico."""
+    espelhar_calibracao(db, ordem)
+    ordem.desfecho_lab = wf.DESFECHO_CONCLUIDO
+    ordem.desfecho_lab_obs = None
