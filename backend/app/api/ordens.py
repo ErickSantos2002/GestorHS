@@ -10,11 +10,10 @@ from app.api.deps import get_current_usuario, require_funcao
 from app.api.ordens_acoes import agora, registrar_log, exige_funcao_da_fase, espelhar_calibracao
 from app.core import os_workflow as wf
 from app.core import recebimento as rec
-from app.core import taskhs
 from app.core.garantia import garantias as _calc_garantias
 from app.core.certificado_gerar import tipos_para, tipos_sem_modelo
 from app.core.os_workflow import FASE_FINALIZADA
-from app.api.espelhamento import agendar_espelhamento as _agendar_espelhamento
+from app.api.espelhamento import agendar_espelhamento_caixa
 from app.schemas.ordens import (
     OrdemListOut, OrdemPage, QuadroColuna, OrdemOut, LogOut, OrdemAbrirIn, AvancarIn,
     CancelarIn, DesfechoLabIn,
@@ -169,10 +168,11 @@ def abrir(dados: OrdemAbrirIn, background_tasks: BackgroundTasks, db: Session = 
         )
     else:
         data_chegada = agora()
+    fase_inicial = cx.fase if cx.fase is not None else wf.FASE_RECEBIDO
     ordem = Ordem(
         cliente=ec.cliente,
         equipamento_cliente=ec.id,
-        fase=wf.FASE_RECEBIDO,
+        fase=fase_inicial,
         tipo_servico=dados.tipo_servico,
         condicao_chegada=dados.condicao_chegada,
         checklist=checklist_csv,
@@ -187,10 +187,12 @@ def abrir(dados: OrdemAbrirIn, background_tasks: BackgroundTasks, db: Session = 
     db.add(ordem)
     db.flush()
     ec.os_atual = ordem.id
+    cx.fase = fase_inicial
     registrar_log(db, ordem, usuario, "OS aberta — Recebido")
     db.commit()
     db.refresh(ordem)
-    _agendar_espelhamento(db, background_tasks, ordem, list_id=taskhs.list_id_da_fase(ordem.fase), arquivado=False)
+    db.refresh(cx)
+    agendar_espelhamento_caixa(db, background_tasks, cx)
     _anotar_modelos_faltantes(db, ordem)
     return ordem
 

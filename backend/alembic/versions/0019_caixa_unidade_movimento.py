@@ -36,6 +36,21 @@ def upgrade() -> None:
         menor = min(ativas, key=lambda f: ORDEM_FASES[f])
         conn.execute(sa.text("UPDATE caixas SET fase = :f WHERE id = :c"),
                      {"f": menor, "c": caixa_id})
+        # Reconcilia as OS ativas da caixa para a fase da caixa (invariante:
+        # toda OS ativa deve estar na mesma fase da sua caixa). OS terminais
+        # (8/9) nao sao tocadas.
+        conn.execute(sa.text(
+            "UPDATE ordens SET fase = :menor WHERE caixa = :c AND fase IN (4, 5, 6, 10, 7)"
+        ), {"menor": menor, "c": caixa_id})
+        # Aviso nao-bloqueante: caixa com OS ativas de mais de um cliente
+        # (nao altera nada, so informa para conferencia manual).
+        clientes = {
+            cli for (cli,) in conn.execute(sa.text(
+                "SELECT DISTINCT cliente FROM ordens WHERE caixa = :c AND fase IN (4, 5, 6, 10, 7)"
+            ), {"c": caixa_id}).fetchall()
+        }
+        if len(clientes) > 1:
+            print(f"[0019][AVISO] caixa {caixa_id} tem OS ativas de multiplos clientes: {sorted(clientes)}")
 
     # 2) desfecho_lab: OS ativas cuja fase ja passou do laboratorio -> concluido.
     #    As demais ficam no default 'pendente'. Conservador (operador reconfirma).

@@ -208,7 +208,10 @@ def avancar_caixa(
             o.data_retorno = agora()
             o.situacao = "F"
         o.fase = destino
-        registrar_log(db, o, usuario, f"Caixa #{cx.id}: {origem} -> {destino}")
+        texto = f"Caixa #{cx.id}: {origem} -> {destino}"
+        if dados.obs and dados.obs.strip():
+            texto = f"{texto} - {dados.obs.strip()}"
+        registrar_log(db, o, usuario, texto)
     cx.fase = destino
     db.commit()
     db.refresh(cx)

@@ -242,3 +242,56 @@ def test_quadro_caixas_agrupa_por_fase(client_lab, caixa_lab_um_pendente):
     assert 5 in cols
     cx = cols[5]["caixas"][0]
     assert cx["total_os"] >= 1 and cx["pendentes"] >= 1
+
+
+def test_abrir_inicia_fase_da_caixa_e_espelha_por_caixa(client_exp, os_base, db_session, monkeypatch):
+    """Fim-a-fim: uma caixa nova nasce com fase=None; `abrir` precisa inicializar
+    `caixa.fase` (senao ela nunca avanca — 409 "caixa sem fase ativa" — e nunca
+    aparece no quadro por fase) e agendar o espelhamento POR CAIXA (nao por OS,
+    que duplicaria o card no TaskHS). Isso e o cenario que os bugs Critico 1 e
+    Importante 2 do review pegariam: sem o fix, `det["fase"]` ficaria None e
+    `chamadas_os` teria 2 entradas em vez de 0."""
+    import app.api.ordens as ordens_mod
+    from app.models import Equipamento, EquipamentoCliente
+
+    chamadas_caixa: list[int] = []
+    chamadas_os: list[object] = []
+    monkeypatch.setattr(
+        ordens_mod, "agendar_espelhamento_caixa",
+        lambda db, bt, cx, **kw: chamadas_caixa.append(cx.id),
+    )
+    if hasattr(ordens_mod, "_agendar_espelhamento"):
+        monkeypatch.setattr(
+            ordens_mod, "_agendar_espelhamento",
+            lambda *a, **kw: chamadas_os.append(a),
+        )
+
+    cx_id = client_exp.post("/caixas", json={"obs": "lote e2e"}).json()["id"]
+
+    # segundo aparelho do MESMO cliente, pra ter 2 OS na mesma caixa
+    eq2 = Equipamento(descricao="Bafômetro 2")
+    db_session.add(eq2)
+    db_session.flush()
+    ec2 = EquipamentoCliente(
+        cliente=os_base["cliente"], equipamento=eq2.id, serie="SER-2", patrimonio="PAT-2",
+    )
+    db_session.add(ec2)
+    db_session.commit()
+    db_session.refresh(ec2)
+
+    r1 = client_exp.post("/ordens", json={
+        "equipamento_cliente": os_base["equipamento_cliente"], "tipo_servico": "C", "caixa": cx_id,
+    })
+    r2 = client_exp.post("/ordens", json={
+        "equipamento_cliente": ec2.id, "tipo_servico": "C", "caixa": cx_id,
+    })
+    assert r1.status_code == 201
+    assert r2.status_code == 201
+    assert r1.json()["fase"] == 4
+    assert r2.json()["fase"] == 4
+
+    det = client_exp.get(f"/caixas/{cx_id}").json()
+    assert det["fase"] == 4  # caixa nova inicializada em Recebido, nao mais None
+
+    assert chamadas_caixa == [cx_id, cx_id]  # 1 espelhamento por caixa, por OS aberta
+    assert chamadas_os == []  # nenhum espelhamento por-OS (evita card duplicado)
