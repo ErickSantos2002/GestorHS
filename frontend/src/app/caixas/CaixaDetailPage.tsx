@@ -8,10 +8,13 @@ import { Table, TH, TD } from '../../components/ui/Table'
 import { useAuth } from '../../auth/AuthContext'
 import { podeAbrirOS } from '../../auth/roles'
 import { apiJson, ApiError } from '../../lib/api'
+import { cn } from '../../lib/utils'
 import { caixasApi, formatData, type CaixaDetalhe } from './api'
 import { AbrirOSModal } from '../ordens/AbrirOSModal'
 import { FecharOrdensModal } from './FecharOrdensModal'
-import { ordensApi, podeFecharOS, fecharOrdens } from '../ordens/api'
+import { AvancarCaixaModal } from './AvancarCaixaModal'
+import { SemConsertoModal } from './SemConsertoModal'
+import { ordensApi, podeFecharOS, fecharOrdens, TRANSICOES, faseAtiva } from '../ordens/api'
 import { PageContainer, DetailGrid, DetailMain, DetailAside } from '../../components/ui/Page'
 
 // Shape retornado por /equipamentos-cliente?q=...&limit=
@@ -49,6 +52,19 @@ export function CaixaDetailPage() {
   // Seleção para fechar OS em lote
   const [selecionadas, setSelecionadas] = useState<Set<number>>(new Set())
   const [fecharAberto, setFecharAberto] = useState(false)
+
+  // Avançar caixa
+  const [avancarCaixaAberto, setAvancarCaixaAberto] = useState(false)
+  const [avancandoCaixa, setAvancandoCaixa] = useState(false)
+
+  // Cancelar caixa
+  const [cancelarCaixaAberto, setCancelarCaixaAberto] = useState(false)
+  const [motivoCancelar, setMotivoCancelar] = useState('')
+  const [erroCancelar, setErroCancelar] = useState('')
+  const [cancelandoCaixa, setCancelandoCaixa] = useState(false)
+
+  // Sem conserto (por OS, fase 5)
+  const [semConsertoOsId, setSemConsertoOsId] = useState<number | null>(null)
 
   // Modal: Mover OS para outra caixa
   const [moverOsId, setMoverOsId] = useState<number | null>(null)
@@ -132,6 +148,48 @@ export function CaixaDetailPage() {
     carregar()
   }
 
+  async function avancarCaixaDireto() {
+    setAvancandoCaixa(true)
+    setErroAcao('')
+    try {
+      await caixasApi.avancar(caixaId, { obs: null, cod_retorno: null })
+      carregar()
+    } catch (err) {
+      setErroAcao(err instanceof ApiError ? err.message : 'Falha ao avançar caixa')
+    } finally {
+      setAvancandoCaixa(false)
+    }
+  }
+
+  function clicarAvancarCaixa() {
+    if (!caixa || caixa.fase == null) return
+    if (TRANSICOES[caixa.fase]?.pedeCodRetorno) {
+      setAvancarCaixaAberto(true)
+    } else {
+      avancarCaixaDireto()
+    }
+  }
+
+  async function confirmarCancelarCaixa(e: FormEvent) {
+    e.preventDefault()
+    if (!motivoCancelar.trim()) {
+      setErroCancelar('Motivo é obrigatório.')
+      return
+    }
+    setCancelandoCaixa(true)
+    setErroCancelar('')
+    try {
+      await caixasApi.cancelar(caixaId, { motivo: motivoCancelar.trim() })
+      setCancelarCaixaAberto(false)
+      setMotivoCancelar('')
+      carregar()
+    } catch (err) {
+      setErroCancelar(err instanceof ApiError ? err.message : 'Falha ao cancelar caixa')
+    } finally {
+      setCancelandoCaixa(false)
+    }
+  }
+
   async function confirmarMover(e: FormEvent) {
     e.preventDefault()
     const destino = Number(caixaDestino)
@@ -205,6 +263,13 @@ export function CaixaDetailPage() {
 
   const clientesUnicos = new Set(caixa.ordens.map((o) => o.cliente_nome).filter(Boolean)).size
 
+  // Progresso do laboratório (só faz sentido com a caixa em fase 5) — OS ativas apenas,
+  // as terminais/canceladas não contam como pendência.
+  const ordensAtivasLab = caixa.fase === 5 ? caixa.ordens.filter((o) => faseAtiva(o.fase)) : []
+  const prontosLab = ordensAtivasLab.filter((o) => o.desfecho_lab === 'concluido' || o.desfecho_lab === 'sem_conserto').length
+  const pendentesLab = ordensAtivasLab.filter((o) => o.desfecho_lab === 'pendente').length
+  const transicaoCaixa = caixa.fase != null ? TRANSICOES[caixa.fase] : undefined
+
   return (
     <PageContainer>
       {/* Cabeçalho */}
@@ -215,10 +280,40 @@ export function CaixaDetailPage() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-extrabold text-slate-100">Caixa #{caixa.id}</h1>
-            <p className="text-sm text-slate-500 mt-1">
-              {formatData(caixa.data)} · {caixa.total_os} OS · {clientesUnicos} cliente{clientesUnicos !== 1 ? 's' : ''}
+            <p className="text-sm text-slate-500 mt-1 flex flex-wrap items-center gap-2">
+              <span>
+                {formatData(caixa.data)} · {caixa.total_os} OS · {clientesUnicos} cliente{clientesUnicos !== 1 ? 's' : ''}
+              </span>
+              {caixa.fase === 5 && (
+                <span className={cn('text-xs px-2 py-0.5 rounded-full',
+                  pendentesLab === 0 ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400')}>
+                  {prontosLab}/{ordensAtivasLab.length} prontos
+                </span>
+              )}
             </p>
           </div>
+          {podeEscrever && caixa.fase != null && (
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                onClick={clicarAvancarCaixa}
+                disabled={pendentesLab > 0 || avancandoCaixa}
+              >
+                {avancandoCaixa
+                  ? 'Avançando…'
+                  : `Avançar caixa${transicaoCaixa ? ` — ${transicaoCaixa.rotulo}` : ''}`}
+              </Button>
+              <Button
+                variant="danger"
+                onClick={() => {
+                  setMotivoCancelar('')
+                  setErroCancelar('')
+                  setCancelarCaixaAberto(true)
+                }}
+              >
+                Cancelar caixa
+              </Button>
+            </div>
+          )}
         </div>
         {erroAcao && (
           <div className="mt-3 rounded-lg bg-danger/10 border border-danger/20 px-3 py-2.5 text-sm text-danger">
@@ -313,6 +408,14 @@ export function CaixaDetailPage() {
                     {podeEscrever && (
                       <TD>
                         <div className="flex gap-2">
+                          {caixa.fase === 5 && o.desfecho_lab === 'pendente' && (
+                            <Button
+                              variant="secondary"
+                              onClick={() => setSemConsertoOsId(o.id)}
+                            >
+                              Sem conserto
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             onClick={() => {
@@ -386,6 +489,62 @@ export function CaixaDetailPage() {
           quantidade={selecionadas.size}
           onClose={() => setFecharAberto(false)}
           onConfirmar={confirmarFechar}
+        />
+      )}
+
+      {/* Modal: Avançar caixa (fases que pedem código de retorno, ex.: fase 7) */}
+      {avancarCaixaAberto && transicaoCaixa && (
+        <AvancarCaixaModal
+          id={caixaId}
+          rotulo={transicaoCaixa.rotulo}
+          onClose={() => setAvancarCaixaAberto(false)}
+          onConcluido={() => {
+            setAvancarCaixaAberto(false)
+            carregar()
+          }}
+        />
+      )}
+
+      {/* Modal: Cancelar caixa */}
+      {cancelarCaixaAberto && (
+        <Modal
+          open
+          onClose={() => setCancelarCaixaAberto(false)}
+          title={`Cancelar caixa #${caixa.id}`}
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setCancelarCaixaAberto(false)}>Voltar</Button>
+              <Button variant="danger" type="submit" form="form-cancelar-caixa" disabled={cancelandoCaixa}>
+                {cancelandoCaixa ? 'Cancelando…' : 'Cancelar caixa'}
+              </Button>
+            </>
+          }
+        >
+          <form id="form-cancelar-caixa" onSubmit={confirmarCancelarCaixa} className="space-y-4">
+            <div>
+              <label htmlFor="motivo-cancelar-caixa" className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">Motivo</label>
+              <textarea
+                id="motivo-cancelar-caixa"
+                value={motivoCancelar}
+                onChange={(e) => setMotivoCancelar(e.target.value)}
+                rows={3}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background-elevated text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+            {erroCancelar && <p className="text-sm text-danger">{erroCancelar}</p>}
+          </form>
+        </Modal>
+      )}
+
+      {/* Modal: Sem conserto (por OS, fase 5) */}
+      {semConsertoOsId !== null && (
+        <SemConsertoModal
+          osId={semConsertoOsId}
+          onClose={() => setSemConsertoOsId(null)}
+          onConcluido={() => {
+            setSemConsertoOsId(null)
+            carregar()
+          }}
         />
       )}
 

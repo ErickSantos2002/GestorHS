@@ -77,3 +77,20 @@ describe('CaixaDetailPage — fechar OS por seleção', () => {
     await waitFor(() => expect(screen.getByText(/Fechar OS selecionadas \(0\)/)).toBeInTheDocument())
   })
 })
+
+describe('CaixaDetailPage — avançar/cancelar caixa e sem conserto', () => {
+  beforeEach(() => {
+    obter.mockReset(); avancar.mockReset(); desvincularOrdem.mockReset()
+  })
+
+  it('bloqueia avancar caixa com aparelho pendente no lab', async () => {
+    obter.mockResolvedValue({
+      id: 7, fase: 5, ordens: [
+        { id: 1, desfecho_lab: 'concluido', fase: 5 },
+        { id: 2, desfecho_lab: 'pendente', fase: 5 }],
+    })
+    render(<MemoryRouter initialEntries={['/app/caixas/7']}><Routes><Route path="/app/caixas/:id" element={<CaixaDetailPage />} /></Routes></MemoryRouter>)
+    const btn = await screen.findByRole('button', { name: /avançar caixa/i })
+    expect(btn).toBeDisabled()
+  })
+})
