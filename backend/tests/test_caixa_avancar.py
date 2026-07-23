@@ -244,6 +244,38 @@ def test_quadro_caixas_agrupa_por_fase(client_lab, caixa_lab_um_pendente):
     assert cx["total_os"] >= 1 and cx["pendentes"] >= 1
 
 
+def test_gerar_certificado_destrava_caixa(client_lab, db_session):
+    """Caixa em Laboratório com 1 OS pendente: gerar o certificado marca a OS como
+    concluida e libera o avanco 5->6, sem passar pelo endpoint de desfecho."""
+    from app.models import (Cliente, Caixa, Equipamento, EquipamentoCliente,
+                            Ordem, CertificadoModelo)
+    cat = Equipamento(descricao="Mark X"); db_session.add(cat); db_session.flush()
+    cli = Cliente(nome="ACME"); db_session.add(cli); db_session.flush()
+    ec = EquipamentoCliente(cliente=cli.id, equipamento=cat.id, serie="S1")
+    cx = Caixa(obs="lote e2e", fase=5)
+    db_session.add_all([ec, cx]); db_session.flush()
+    o = Ordem(cliente=cli.id, equipamento_cliente=ec.id, fase=5, situacao="E",
+              tipo_servico="C", caixa=cx.id, desfecho_lab="pendente")
+    db_session.add(o)
+    db_session.add(CertificadoModelo(equipamento=cat.id, tipo="C", texto="<p>[serie]</p>"))
+    db_session.commit()
+
+    # trava antes: 0/1 prontos, avanco barrado
+    trava = client_lab.post(f"/caixas/{cx.id}/avancar", json={})
+    assert trava.status_code == 409
+
+    r = client_lab.post(f"/ordens/{o.id}/gerar-certificado")
+    assert r.status_code == 200
+
+    cols = {c["fase"]: c for c in client_lab.get("/caixas/quadro").json()}
+    cx_item = next(c for c in cols[5]["caixas"] if c["id"] == cx.id)
+    assert cx_item["prontos"] == 1 and cx_item["pendentes"] == 0
+
+    ok = client_lab.post(f"/caixas/{cx.id}/avancar", json={})
+    assert ok.status_code == 200
+    assert ok.json()["fase"] == 6
+
+
 def test_abrir_inicia_fase_da_caixa_e_espelha_por_caixa(client_exp, os_base, db_session, monkeypatch):
     """Fim-a-fim: uma caixa nova nasce com fase=None; `abrir` precisa inicializar
     `caixa.fase` (senao ela nunca avanca — 409 "caixa sem fase ativa" — e nunca
