@@ -317,6 +317,14 @@ def client_fin(client, usuario_financeiro, fases_seed):
 
 
 @pytest.fixture()
+def client_comercial(client, usuario_comercial):
+    """Client autenticado como usuário de função Comercial Pós-Vendas (headers já embutidos)."""
+    tok = client.post("/auth/login", json={"email": "comercial@hs.com", "senha": "senha123"}).json()
+    client.headers["Authorization"] = f"Bearer {tok['access_token']}"
+    return client
+
+
+@pytest.fixture()
 def caixa_financeiro(db_session, fases_seed):
     """Caixa em fase 10 (Financeiro) com 2 OS ativas. Devolve o id da caixa."""
     from app.models import Cliente, Caixa, Ordem
