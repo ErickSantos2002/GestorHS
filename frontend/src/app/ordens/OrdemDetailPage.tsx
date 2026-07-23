@@ -9,13 +9,9 @@ import {
 } from '../../components/ui/icons'
 import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
-import { isAdmin, podeAbrirOS, podeAnexarNotaFiscal } from '../../auth/roles'
-import { fasesApi, type Fase } from '../cadastros/api'
-import { ordensApi, fotosApi, TIPO_SERVICO, TRANSICOES, FLUXO_FASES, posicaoFase, faseAtiva, posLaboratorio, formatData, garantiaBadge, garantiasAtivas, type OrdemDetalhe, type GarantiaItem, type LogOS, type Foto, type OSCertificado } from './api'
-import { AvancarModal } from './AvancarModal'
+import { isAdmin, podeAbrirOS } from '../../auth/roles'
+import { ordensApi, fotosApi, TIPO_SERVICO, FLUXO_FASES, posicaoFase, posLaboratorio, formatData, garantiaBadge, garantiasAtivas, type OrdemDetalhe, type GarantiaItem, type LogOS, type Foto, type OSCertificado } from './api'
 import { GerarCertificadoModal } from './GerarCertificadoModal'
-import { CancelarModal } from './CancelarModal'
-import { NotaFiscalModal } from './NotaFiscalModal'
 import { FotoImg } from './FotoImg'
 import { FotoLightbox } from './FotoLightbox'
 import { PageContainer, DetailGrid, DetailMain, DetailAside } from '../../components/ui/Page'
@@ -102,10 +98,9 @@ export function OrdemDetailPage() {
   const osId = Number(id)
   const [os, setOs] = useState<OrdemDetalhe | null>(null)
   const [logs, setLogs] = useState<LogOS[]>([])
-  const [fases, setFases] = useState<Fase[]>([])
   const [erro, setErro] = useState('')
   const [carregando, setCarregando] = useState(true)
-  const [acao, setAcao] = useState<'avancar' | 'cancelar' | 'gerar' | 'nota-fiscal' | null>(null)
+  const [acao, setAcao] = useState<'gerar' | null>(null)
   const [fotos, setFotos] = useState<Foto[]>([])
   const [certs, setCerts] = useState<OSCertificado[]>([])
   const [erroFoto, setErroFoto] = useState('')
@@ -118,12 +113,11 @@ export function OrdemDetailPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCarregando(true)
     setErro('')
-    Promise.all([ordensApi.obter(osId), ordensApi.logs(osId), fasesApi.listar()])
-      .then(([o, l, fs]) => {
+    Promise.all([ordensApi.obter(osId), ordensApi.logs(osId)])
+      .then(([o, l]) => {
         if (!ativo) return
         setOs(o)
         setLogs(l)
-        setFases(fs)
       })
       .catch((e) => {
         if (!ativo) return
@@ -152,12 +146,6 @@ export function OrdemDetailPage() {
     return () => { ativo = false }
   }, [osId])
 
-  function aoConcluir(novaOS: OrdemDetalhe) {
-    setOs(novaOS)
-    setAcao(null)
-    void ordensApi.logs(osId).then(setLogs).catch(() => {})
-  }
-
   if (carregando) return <div className="flex justify-center py-16"><Spinner className="w-8 h-8" /></div>
   if (erro || !os)
     return (
@@ -169,11 +157,6 @@ export function OrdemDetailPage() {
 
   const tipo = os.tipo_servico && os.tipo_servico in TIPO_SERVICO ? TIPO_SERVICO[os.tipo_servico as keyof typeof TIPO_SERVICO].label : '—'
   const temCalib = os.calib_cert || os.calib_temp || os.calib_pressao || os.calib_teste_media || os.calib_situacao
-  const faseAtual = fases.find((f) => f.id === os.fase)
-  const responsavelNome = faseAtual?.funcao_nome ?? null
-  const podeAgir = isAdmin(user) || (!!responsavelNome && user?.funcao === responsavelNome)
-  const ativa = faseAtiva(os.fase)
-  const transicao = os.fase != null ? TRANSICOES[os.fase] : undefined
   const podeFotos = podeAbrirOS(user)
   const podeGerarCert = isAdmin(user) || user?.funcao === 'Laboratório'
   // Gerar/regerar: do laboratório em diante (calibração já ocorre/ocorreu, inclusive no
@@ -186,15 +169,9 @@ export function OrdemDetailPage() {
   const modelosFaltantesLabel = faltantes.map((t) => (t === 'C' ? 'Calibração' : 'Manutenção')).join(' e ')
   // A secao aparece do Financeiro em diante — use posicaoFase, NUNCA comparacao numerica (id 10 > 7/8).
   const mostraNotaFiscal = posicaoFase(os.fase) >= posicaoFase(10)
-  const podeAnexarNF = podeAnexarNotaFiscal(user)
 
   function aoGerarCert(cs: OSCertificado[]) {
     setCerts(cs)
-    setAcao(null)
-    void ordensApi.obter(osId).then(setOs).catch(() => {})
-  }
-
-  function aoAnexarNF() {
     setAcao(null)
     void ordensApi.obter(osId).then(setOs).catch(() => {})
   }
@@ -286,8 +263,6 @@ export function OrdemDetailPage() {
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            {ativa && podeAgir && transicao && <Button onClick={() => setAcao('avancar')}>{transicao.rotulo}</Button>}
-            {ativa && podeAgir && <Button variant="danger" onClick={() => setAcao('cancelar')}>Cancelar OS</Button>}
             <Button variant="secondary" onClick={() => navigate('/app/ordens')}>Voltar</Button>
           </div>
         </div>
@@ -464,16 +439,12 @@ export function OrdemDetailPage() {
         )}
       </Secao>
 
-      {/* Nota fiscal */}
+      {/* Nota fiscal — só exibição/download; o anexo é feito no nível da caixa
+          (CaixaDetailPage), de uma vez para todas as OS ativas, não mais por OS aqui. */}
       {mostraNotaFiscal && (
         <Secao
           icon={<IconCertificado className="w-4 h-4" />}
           titulo="Nota fiscal"
-          acao={podeAnexarNF ? (
-            <Button variant={os.nota_fiscal ? 'secondary' : 'primary'} onClick={() => setAcao('nota-fiscal')}>
-              {os.nota_fiscal ? 'Substituir' : 'Anexar nota fiscal'}
-            </Button>
-          ) : undefined}
         >
           {os.nota_fiscal ? (
             <div className="flex items-center justify-between gap-3">
@@ -487,7 +458,8 @@ export function OrdemDetailPage() {
             </div>
           ) : (
             <p className="text-sm text-slate-500">
-              Nenhuma nota fiscal anexada. É obrigatória para o Financeiro confirmar o pagamento.
+              Nenhuma nota fiscal anexada ainda — é anexada na tela da caixa (fase Financeiro), para
+              todas as OS de uma vez.
             </p>
           )}
           {erroNF && <p className="text-sm text-danger">{erroNF}</p>}
@@ -518,14 +490,7 @@ export function OrdemDetailPage() {
         </DetailAside>
       </DetailGrid>
 
-      {acao === 'avancar' && transicao && (
-        <AvancarModal os={os} rotulo={transicao.rotulo} pedeCodRetorno={transicao.pedeCodRetorno} pedeProxCalibragem={transicao.pedeProxCalibragem} onClose={() => setAcao(null)} onConcluido={aoConcluir} />
-      )}
       {acao === 'gerar' && <GerarCertificadoModal os={os} onClose={() => setAcao(null)} onGerado={aoGerarCert} />}
-      {acao === 'cancelar' && <CancelarModal os={os} onClose={() => setAcao(null)} onConcluido={aoConcluir} />}
-      {acao === 'nota-fiscal' && (
-        <NotaFiscalModal ordemId={os.id} onClose={() => setAcao(null)} onEnviado={aoAnexarNF} />
-      )}
 
       {lightboxIdx !== null && fotos[lightboxIdx] && (
         <FotoLightbox fotos={fotos} indiceInicial={lightboxIdx} onClose={() => setLightboxIdx(null)} />

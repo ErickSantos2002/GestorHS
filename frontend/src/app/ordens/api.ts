@@ -266,33 +266,6 @@ export const TRANSICOES: Record<number, { rotulo: string; pedeCodRetorno?: boole
   7: { rotulo: 'Fechar OS', pedeCodRetorno: true },
 }
 
-/** Uma OS pode ser fechada direto da caixa quando está em Preparando Retorno —
- *  semanticamente, a fase cuja transição pede código de retorno (única: fase 7). */
-export function podeFecharOS(fase: number | null): boolean {
-  return fase != null && TRANSICOES[fase]?.pedeCodRetorno === true
-}
-
-/** Fecha várias OS aplicando o MESMO código de retorno. Laço sequencial, tolerante a
- *  falha parcial: um erro por OS é capturado e reportado, sem impedir as demais. */
-export async function fecharOrdens(
-  ids: number[],
-  cod_retorno: string,
-  obs: string | null,
-  avancar: (id: number, payload: AvancarPayload) => Promise<unknown>,
-): Promise<{ sucessos: number[]; falhas: { id: number; motivo: string }[] }> {
-  const sucessos: number[] = []
-  const falhas: { id: number; motivo: string }[] = []
-  for (const id of ids) {
-    try {
-      await avancar(id, { cod_retorno, obs })
-      sucessos.push(id)
-    } catch (e) {
-      falhas.push({ id, motivo: e instanceof ApiError ? e.message : 'Falha ao fechar' })
-    }
-  }
-  return { sucessos, falhas }
-}
-
 export interface Foto {
   id: number
   os: number

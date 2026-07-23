@@ -200,6 +200,234 @@ def caixa_base(db_session):
 
 
 @pytest.fixture()
+def client_lab(client, usuario_lab, fases_seed):
+    """Client autenticado como usuário de função Laboratório (headers já embutidos)."""
+    tok = client.post("/auth/login", json={"email": "lab@hs.com", "senha": "senha123"}).json()
+    client.headers["Authorization"] = f"Bearer {tok['access_token']}"
+    return client
+
+
+@pytest.fixture()
+def os_no_lab(db_session, os_base, caixa_base):
+    """OS em fase 5 (Laboratório), vinculada a uma caixa. Devolve o id da OS."""
+    from app.models import Ordem
+    o = Ordem(
+        cliente=os_base["cliente"],
+        equipamento_cliente=os_base["equipamento_cliente"],
+        fase=5,
+        situacao="E",
+        caixa=caixa_base,
+    )
+    db_session.add(o)
+    db_session.commit()
+    db_session.refresh(o)
+    return o.id
+
+
+@pytest.fixture()
+def client_exp(client, usuario_comum, fases_seed):
+    """Client autenticado como usuário de função Expedição (headers já embutidos)."""
+    tok = client.post("/auth/login", json={"email": "comum@hs.com", "senha": "senha123"}).json()
+    client.headers["Authorization"] = f"Bearer {tok['access_token']}"
+    return client
+
+
+@pytest.fixture()
+def caixa_com_os_cliente_a(db_session):
+    """Caixa com uma OS do cliente A já vinculada. Devolve o id da caixa."""
+    from app.models import Cliente, Caixa, Ordem
+    cli = Cliente(nome="Cliente A")
+    cx = Caixa(obs="Caixa cliente A")
+    db_session.add_all([cli, cx])
+    db_session.flush()
+    o = Ordem(cliente=cli.id, fase=4, situacao="E", caixa=cx.id)
+    db_session.add(o)
+    db_session.commit()
+    db_session.refresh(cx)
+    return cx.id
+
+
+@pytest.fixture()
+def os_cliente_b(db_session):
+    """OS de um cliente B (diferente do cliente A), sem caixa. Devolve o id da OS."""
+    from app.models import Cliente, Ordem
+    cli = Cliente(nome="Cliente B")
+    db_session.add(cli)
+    db_session.flush()
+    o = Ordem(cliente=cli.id, fase=4, situacao="E")
+    db_session.add(o)
+    db_session.commit()
+    db_session.refresh(o)
+    return o.id
+
+
+@pytest.fixture()
+def caixa_recebido(db_session, fases_seed):
+    """Caixa em fase 4 (Recebido) com uma OS ativa em fase 4. Devolve o id da caixa."""
+    from app.models import Cliente, Caixa, Ordem
+    cli = Cliente(nome="Cliente Recebido")
+    cx = Caixa(obs="Caixa recebido", fase=4)
+    db_session.add_all([cli, cx])
+    db_session.flush()
+    o = Ordem(cliente=cli.id, fase=4, situacao="E", caixa=cx.id)
+    db_session.add(o)
+    db_session.commit()
+    db_session.refresh(cx)
+    return cx.id
+
+
+@pytest.fixture()
+def caixa_lab_um_pendente(db_session, fases_seed):
+    """Caixa em fase 5 (Laboratório) com >=2 OS ativas, uma ainda 'pendente'."""
+    from app.models import Cliente, Caixa, Ordem
+    cli = Cliente(nome="Cliente Lab Pendente")
+    cx = Caixa(obs="Caixa lab pendente", fase=5)
+    db_session.add_all([cli, cx])
+    db_session.flush()
+    o1 = Ordem(cliente=cli.id, fase=5, situacao="E", caixa=cx.id, desfecho_lab="concluido")
+    o2 = Ordem(cliente=cli.id, fase=5, situacao="E", caixa=cx.id, desfecho_lab="pendente")
+    db_session.add_all([o1, o2])
+    db_session.commit()
+    db_session.refresh(cx)
+    return cx.id
+
+
+@pytest.fixture()
+def caixa_lab_todos_terminais(db_session, fases_seed):
+    """Caixa em fase 5 (Laboratório) com todas as OS em desfecho terminal."""
+    from app.models import Cliente, Caixa, Ordem
+    cli = Cliente(nome="Cliente Lab Terminal")
+    cx = Caixa(obs="Caixa lab terminal", fase=5)
+    db_session.add_all([cli, cx])
+    db_session.flush()
+    o1 = Ordem(cliente=cli.id, fase=5, situacao="E", caixa=cx.id, desfecho_lab="concluido")
+    o2 = Ordem(cliente=cli.id, fase=5, situacao="E", caixa=cx.id, desfecho_lab="sem_conserto")
+    db_session.add_all([o1, o2])
+    db_session.commit()
+    db_session.refresh(cx)
+    return cx.id
+
+
+@pytest.fixture()
+def client_fin(client, usuario_financeiro, fases_seed):
+    """Client autenticado como usuário de função Financeiro (headers já embutidos)."""
+    tok = client.post("/auth/login", json={"email": "fin@hs.com", "senha": "senha123"}).json()
+    client.headers["Authorization"] = f"Bearer {tok['access_token']}"
+    return client
+
+
+@pytest.fixture()
+def caixa_financeiro(db_session, fases_seed):
+    """Caixa em fase 10 (Financeiro) com 2 OS ativas. Devolve o id da caixa."""
+    from app.models import Cliente, Caixa, Ordem
+    cli = Cliente(nome="Cliente Financeiro")
+    cx = Caixa(obs="Caixa financeiro", fase=10)
+    db_session.add_all([cli, cx])
+    db_session.flush()
+    o1 = Ordem(cliente=cli.id, fase=10, situacao="E", caixa=cx.id)
+    o2 = Ordem(cliente=cli.id, fase=10, situacao="E", caixa=cx.id)
+    db_session.add_all([o1, o2])
+    db_session.commit()
+    db_session.refresh(cx)
+    return cx.id
+
+
+@pytest.fixture()
+def caixa_preparando(db_session, fases_seed):
+    """Caixa em fase 7 (Preparando Retorno) com uma OS ativa. Devolve o id da caixa."""
+    from app.models import Cliente, Caixa, Ordem
+    cli = Cliente(nome="Cliente Preparando")
+    cx = Caixa(obs="Caixa preparando", fase=7)
+    db_session.add_all([cli, cx])
+    db_session.flush()
+    o = Ordem(cliente=cli.id, fase=7, situacao="E", caixa=cx.id)
+    db_session.add(o)
+    db_session.commit()
+    db_session.refresh(cx)
+    return cx.id
+
+
+@pytest.fixture()
+def client_com(client, usuario_comercial, fases_seed):
+    """Client autenticado como usuário de função Comercial Pós-Vendas (headers já embutidos)."""
+    tok = client.post("/auth/login", json={"email": "comercial@hs.com", "senha": "senha123"}).json()
+    client.headers["Authorization"] = f"Bearer {tok['access_token']}"
+    return client
+
+
+@pytest.fixture()
+def caixa_posvendas(db_session, fases_seed):
+    """Caixa em fase 6 (Pós-Vendas) com 2 OS ativas, aceite ainda não dado."""
+    from app.models import Cliente, Caixa, Ordem
+    cli = Cliente(nome="Cliente Pós-Vendas")
+    cx = Caixa(obs="Caixa pós-vendas", fase=6)
+    db_session.add_all([cli, cx])
+    db_session.flush()
+    o1 = Ordem(cliente=cli.id, fase=6, situacao="E", caixa=cx.id)
+    o2 = Ordem(cliente=cli.id, fase=6, situacao="E", caixa=cx.id)
+    db_session.add_all([o1, o2])
+    db_session.commit()
+    db_session.refresh(cx)
+    return cx.id
+
+
+@pytest.fixture()
+def caixa_financeiro_com_nf(db_session, fases_seed):
+    """Caixa em fase 10 (Financeiro) com 2 OS ativas, cada uma já com nota_fiscal
+    setada diretamente (simula upload prévio) — libera o pagamento sem 409."""
+    from app.models import Cliente, Caixa, Ordem
+    cli = Cliente(nome="Cliente Financeiro NF")
+    cx = Caixa(obs="Caixa financeiro com nf", fase=10)
+    db_session.add_all([cli, cx])
+    db_session.flush()
+    o1 = Ordem(cliente=cli.id, fase=10, situacao="E", caixa=cx.id,
+               nota_fiscal="nf.pdf", nota_fiscal_numero="123")
+    o2 = Ordem(cliente=cli.id, fase=10, situacao="E", caixa=cx.id,
+               nota_fiscal="nf.pdf", nota_fiscal_numero="123")
+    db_session.add_all([o1, o2])
+    db_session.commit()
+    db_session.refresh(cx)
+    return cx.id
+
+
+@pytest.fixture()
+def caixa_lab_com_calibracao(db_session, fases_seed):
+    """Caixa em fase 5 com uma OS 'concluido' (valores de calibração setados e
+    vinculada a um EquipamentoCliente de verdade) e uma OS 'sem_conserto' (também
+    vinculada a um EquipamentoCliente, para provar que essa NÃO é espelhada).
+    Devolve o id da caixa e os ids dos dois EquipamentoCliente."""
+    from datetime import datetime, timezone
+    from app.models import Cliente, Equipamento, EquipamentoCliente, Caixa, Ordem
+    cli = Cliente(nome="Cliente Lab Calibração")
+    eq = Equipamento(descricao="Bafômetro")
+    cx = Caixa(obs="Caixa lab calibração", fase=5)
+    db_session.add_all([cli, eq, cx])
+    db_session.flush()
+    ec_ok = EquipamentoCliente(cliente=cli.id, equipamento=eq.id, serie="OK-1")
+    ec_sc = EquipamentoCliente(cliente=cli.id, equipamento=eq.id, serie="SC-1")
+    db_session.add_all([ec_ok, ec_sc])
+    db_session.flush()
+    o1 = Ordem(
+        cliente=cli.id, fase=5, situacao="E", caixa=cx.id,
+        desfecho_lab="concluido", equipamento_cliente=ec_ok.id,
+        calib_situacao="Aprovado", calib_cert="C-1", calib_temp="25",
+        calib_pressao="1013", calib_teste1="0.10", calib_teste2="0.11",
+        calib_teste3="0.12", calib_teste_media="0.11",
+        data_calibracao=datetime(2026, 7, 1, tzinfo=timezone.utc),
+        prox_calibragem=datetime(2027, 1, 1, tzinfo=timezone.utc),
+    )
+    o2 = Ordem(
+        cliente=cli.id, fase=5, situacao="E", caixa=cx.id,
+        desfecho_lab="sem_conserto", desfecho_lab_obs="carcaça trincada",
+        equipamento_cliente=ec_sc.id, calib_situacao="Reprovado",
+    )
+    db_session.add_all([o1, o2])
+    db_session.commit()
+    db_session.refresh(cx)
+    return {"caixa": cx.id, "ec_ok": ec_ok.id, "ec_sc": ec_sc.id}
+
+
+@pytest.fixture()
 def upload_tmp(tmp_path):
     from app.core.config import settings
     anterior = settings.UPLOAD_DIR

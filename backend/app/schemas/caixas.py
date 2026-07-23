@@ -20,6 +20,8 @@ class OrdemResumoCaixa(BaseModel):
     fase: int | None = None
     fase_descricao: str | None = None
     fase_cor: str | None = None
+    desfecho_lab: str = "pendente"
+    desfecho_lab_obs: str | None = None
 
 
 class CaixaOut(BaseModel):
@@ -27,6 +29,9 @@ class CaixaOut(BaseModel):
     id: int
     data: date | None = None
     obs: str | None = None
+    fase: int | None = None
+    fase_descricao: str | None = None
+    fase_cor: str | None = None
     total_os: int = 0
     clientes: list[str] = []
 
@@ -42,3 +47,19 @@ class CaixaPage(BaseModel):
 
 class VincularOrdemIn(BaseModel):
     ordem_id: int
+
+
+class CaixaQuadroItem(BaseModel):
+    id: int
+    cliente_nome: str | None = None
+    total_os: int
+    prontos: int
+    pendentes: int
+
+
+class QuadroCaixaColuna(BaseModel):
+    fase: int
+    descricao: str
+    cor: str
+    total: int
+    caixas: list[CaixaQuadroItem]

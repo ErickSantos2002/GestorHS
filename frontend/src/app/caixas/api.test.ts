@@ -45,4 +45,29 @@ describe('caixasApi', () => {
     await caixasApi.excluir(3)
     expect(apiFetch).toHaveBeenCalledWith('/caixas/3', expect.objectContaining({ method: 'DELETE' }))
   })
+
+  it('quadro busca /caixas/quadro sem query quando sem cliente', async () => {
+    await caixasApi.quadro()
+    expect(apiJson).toHaveBeenCalledWith('/caixas/quadro')
+  })
+
+  it('quadro monta query com cliente', async () => {
+    await caixasApi.quadro({ cliente: 5 })
+    expect(apiJson).toHaveBeenCalledWith('/caixas/quadro?cliente=5')
+  })
+
+  it('avancar posta em /caixas/:id/avancar', async () => {
+    await caixasApi.avancar(7, { cod_retorno: null, obs: null })
+    expect(apiJson).toHaveBeenCalledWith('/caixas/7/avancar', { method: 'POST', body: JSON.stringify({ cod_retorno: null, obs: null }) })
+  })
+
+  it('cancelar posta motivo em /caixas/:id/cancelar', async () => {
+    await caixasApi.cancelar(7, { motivo: 'erro' })
+    expect(apiJson).toHaveBeenCalledWith('/caixas/7/cancelar', { method: 'POST', body: JSON.stringify({ motivo: 'erro' }) })
+  })
+
+  it('desfechoLab posta em /ordens/:id/desfecho-lab', async () => {
+    await caixasApi.desfechoLab(9, { desfecho: 'concluido', obs: null })
+    expect(apiJson).toHaveBeenCalledWith('/ordens/9/desfecho-lab', { method: 'POST', body: JSON.stringify({ desfecho: 'concluido', obs: null }) })
+  })
 })

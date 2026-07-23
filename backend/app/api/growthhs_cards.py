@@ -8,7 +8,7 @@ from datetime import date
 from types import SimpleNamespace
 
 from app.core.config import settings
-from app.core.growthhs_os import montar_card_os
+from app.core.growthhs_os import montar_card_caixa, montar_card_os
 from app.core.growthhs_payload import montar_device
 from app.integrations import hsgrowth_client
 from app.integrations.log_integracao import registrar_log_integracao
@@ -72,5 +72,32 @@ def agendar_card_os(db, background_tasks, ordem) -> None:
         # `PendingRollbackError` -> 500 pra uma OS que ja avancou de verdade.
         db.rollback()
         logger.exception("falha ao montar card de OS para o GrowthHS (os=%s)", ordem.id)
+        return
+    background_tasks.add_task(hsgrowth_client.enviar_card, card)
+
+
+def agendar_card_caixa(db, background_tasks, caixa) -> None:
+    """Agenda o card de CAIXA liberada do laboratorio no board Servicos do GrowthHS.
+
+    Espelho de `agendar_card_os`, mas com um device por OS da caixa (equipamentos
+    sem vinculo sao pulados individualmente, sem no-op da caixa inteira). No-op
+    se a integracao estiver desligada ou nenhuma OS da caixa tiver equipamento.
+    """
+    if not hsgrowth_client.integracao_ativa():
+        return
+    ordens = [o for o in caixa.ordens if o.equipamento_rel is not None]
+    if not ordens:
+        return
+    try:
+        devices = []
+        for o in ordens:
+            ec = o.equipamento_rel
+            elo = buscar_elo(db, ec)
+            devices.append(montar_device(ec, o.equipamento_descricao, elo=elo))
+        cliente = ordens[0].cliente_rel
+        card = montar_card_caixa(caixa, cliente, devices, settings.HSGROWTH_BOARD_SERVICOS, date.today())
+    except Exception:
+        db.rollback()
+        logger.exception("falha ao montar card de caixa para o GrowthHS (caixa=%s)", caixa.id)
         return
     background_tasks.add_task(hsgrowth_client.enviar_card, card)

@@ -68,6 +68,8 @@ class OrdemOut(BaseModel):
     cod_retorno: str | None = None
     obs: str | None = None
     caixa: int | None = None
+    desfecho_lab: str | None = None
+    desfecho_lab_obs: str | None = None
     data_chegada: datetime | None = None
     data_calibracao: datetime | None = None
     data_retorno: datetime | None = None
@@ -111,6 +113,11 @@ class AvancarIn(BaseModel):
     obs: str | None = None
     cod_retorno: str | None = None
     prox_calibragem: datetime | None = None
+
+
+class DesfechoLabIn(BaseModel):
+    desfecho: Literal["concluido", "sem_conserto"]
+    obs: str | None = None
 
 
 class GerarCertificadoIn(BaseModel):

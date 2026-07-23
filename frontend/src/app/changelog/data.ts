@@ -23,6 +23,15 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.24.0',
+    data: '23/07/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'A Caixa agora é a unidade que anda pelas fases: ela só avança de uma fase para a próxima quando todos os aparelhos dela concluem o laboratório — a OS individual não anda mais sozinha.' },
+      { tipo: 'melhoria', texto: 'Um aparelho sem conserto pode ser marcado como tal para não travar o avanço do resto do lote no laboratório.' },
+      { tipo: 'melhoria', texto: 'TaskHS e GrowthHS agora recebem 1 card por caixa (1 contato, 1 nota fiscal, 1 proposta) em vez de 1 por OS.' },
+    ],
+  },
+  {
     versao: '1.23.0',
     data: '22/07/2026',
     itens: [

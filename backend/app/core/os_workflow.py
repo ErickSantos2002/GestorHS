@@ -25,3 +25,28 @@ def eh_ativa(fase: int) -> bool:
 def posicao(fase: int) -> int:
     """Posição lógica da fase na sequência (fora do mapa -> fim)."""
     return ORDEM_FASES.get(fase, 99)
+
+
+DESFECHO_PENDENTE = "pendente"
+DESFECHO_CONCLUIDO = "concluido"
+DESFECHO_SEM_CONSERTO = "sem_conserto"
+DESFECHOS_TERMINAIS = (DESFECHO_CONCLUIDO, DESFECHO_SEM_CONSERTO)
+
+
+def desfechos_pendentes(desfechos: list[str]) -> int:
+    """Quantos aparelhos ainda estao 'pendente' no laboratorio."""
+    return sum(1 for d in desfechos if d not in DESFECHOS_TERMINAIS)
+
+
+def pode_avancar_caixa(fase_atual: int, desfechos: list[str]) -> tuple[bool, str | None]:
+    """Regras de avanco da CAIXA. So a saida do laboratorio checa desfecho por aparelho.
+
+    Retorna (True, None) se pode avancar; (False, motivo) se travado.
+    """
+    if proxima_fase(fase_atual) is None:
+        return False, "caixa em fase terminal"
+    if fase_atual == FASE_LABORATORIO:
+        faltam = desfechos_pendentes(desfechos)
+        if faltam > 0:
+            return False, f"faltam {faltam} aparelho(s) sem desfecho no laboratorio"
+    return True, None

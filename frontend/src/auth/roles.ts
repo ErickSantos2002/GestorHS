@@ -49,3 +49,23 @@ export function podeGerarCertificadoVenda(user: User | null): boolean {
 export function podeGerenciarCadastros(user: User | null): boolean {
   return isAdmin(user) || user?.funcao === FUNCAO_LABORATORIO || user?.funcao === FUNCAO_EXPEDICAO
 }
+
+// Função responsável por avançar/cancelar a caixa em cada fase — espelha
+// exige_funcao_da_fase em backend/app/api/caixas.py (via FASE_FUNCAO), que compara
+// usuario.funcao com o funcao_responsavel da fase. Mudou lá, mude aqui.
+export const FUNCAO_RESPONSAVEL_POR_FASE: Record<number, string> = {
+  4: FUNCAO_EXPEDICAO,
+  5: FUNCAO_LABORATORIO,
+  6: FUNCAO_COMERCIAL,
+  10: FUNCAO_FINANCEIRO,
+  7: FUNCAO_EXPEDICAO,
+}
+
+// Admin sempre passa — espelha o early-return de exige_funcao_da_fase para Administrador.
+export function podeAvancarCaixa(user: User | null, fase: number | null): boolean {
+  return isAdmin(user) || (fase != null && user?.funcao === FUNCAO_RESPONSAVEL_POR_FASE[fase])
+}
+
+export function podeMarcarSemConserto(user: User | null): boolean {
+  return isAdmin(user) || user?.funcao === FUNCAO_LABORATORIO
+}
