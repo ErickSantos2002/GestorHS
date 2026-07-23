@@ -255,16 +255,12 @@ def test_abrir_inicia_fase_da_caixa_e_espelha_por_caixa(client_exp, os_base, db_
     from app.models import Equipamento, EquipamentoCliente
 
     chamadas_caixa: list[int] = []
-    chamadas_os: list[object] = []
+    # Per-OS mirror path (_agendar_espelhamento) foi removido de abrir,
+    # entao so ha espelhamento por caixa.
     monkeypatch.setattr(
         ordens_mod, "agendar_espelhamento_caixa",
         lambda db, bt, cx, **kw: chamadas_caixa.append(cx.id),
     )
-    if hasattr(ordens_mod, "_agendar_espelhamento"):
-        monkeypatch.setattr(
-            ordens_mod, "_agendar_espelhamento",
-            lambda *a, **kw: chamadas_os.append(a),
-        )
 
     cx_id = client_exp.post("/caixas", json={"obs": "lote e2e"}).json()["id"]
 
@@ -294,4 +290,3 @@ def test_abrir_inicia_fase_da_caixa_e_espelha_por_caixa(client_exp, os_base, db_
     assert det["fase"] == 4  # caixa nova inicializada em Recebido, nao mais None
 
     assert chamadas_caixa == [cx_id, cx_id]  # 1 espelhamento por caixa, por OS aberta
-    assert chamadas_os == []  # nenhum espelhamento por-OS (evita card duplicado)

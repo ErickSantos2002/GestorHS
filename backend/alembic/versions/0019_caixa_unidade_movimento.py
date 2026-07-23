@@ -21,6 +21,17 @@ def upgrade() -> None:
     op.add_column("ordens", sa.Column("desfecho_lab_obs", sa.Text(), nullable=True))
 
     conn = op.get_bind()
+    # IMPORTANTE: desfecho_lab backfill DEVE rodar ANTES da reconciliacao de fase
+    # para que seja mapeado nas FASES ORIGINAIS antes de serem downgrade.
+    # 0) desfecho_lab: OS ativas cuja fase ja passou do laboratorio -> concluido.
+    #    As demais ficam no default 'pendente'. Conservador (operador reconfirma).
+    ja_passou = [str(f) for f, pos in ORDEM_FASES.items() if pos > POS_LAB and f != 8]
+    if ja_passou:
+        conn.execute(sa.text(
+            f"UPDATE ordens SET desfecho_lab = 'concluido' "
+            f"WHERE fase IN ({','.join(ja_passou)})"
+        ))
+
     # 1) caixa.fase = a menor fase (por posicao logica) entre as OS ativas da caixa;
     #    caixas so com OS terminais ou vazias ficam com fase NULL (nao andam mais).
     caixas = conn.execute(sa.text(
@@ -51,15 +62,6 @@ def upgrade() -> None:
         }
         if len(clientes) > 1:
             print(f"[0019][AVISO] caixa {caixa_id} tem OS ativas de multiplos clientes: {sorted(clientes)}")
-
-    # 2) desfecho_lab: OS ativas cuja fase ja passou do laboratorio -> concluido.
-    #    As demais ficam no default 'pendente'. Conservador (operador reconfirma).
-    ja_passou = [str(f) for f, pos in ORDEM_FASES.items() if pos > POS_LAB and f != 8]
-    if ja_passou:
-        conn.execute(sa.text(
-            f"UPDATE ordens SET desfecho_lab = 'concluido' "
-            f"WHERE fase IN ({','.join(ja_passou)})"
-        ))
 
 
 def downgrade() -> None:
