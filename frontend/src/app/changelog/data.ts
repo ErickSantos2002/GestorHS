@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.24.1',
+    data: '23/07/2026',
+    itens: [
+      { tipo: 'melhoria', texto: 'Gerar o certificado de calibração ou manutenção agora conclui o laboratório do aparelho automaticamente e já libera o avanço da caixa — não é mais preciso um passo separado para marcar o aparelho como concluído.' },
+    ],
+  },
+  {
     versao: '1.24.0',
     data: '23/07/2026',
     itens: [
