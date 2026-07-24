@@ -32,22 +32,6 @@ export function HistoricoModal({ propostaId, propostaNumero, onClose }: {
     return () => { vivo = false }
   }, [propostaId])
 
-  async function verPdf(versaoId: number) {
-    setErro('')
-    setOcupada(versaoId)
-    try {
-      const blob = await propostasApi.baixarVersaoPdf(propostaId, versaoId)
-      const url = URL.createObjectURL(blob)
-      window.open(url, '_blank', 'noopener')
-      // O object URL fica vivo enquanto a aba precisar dele; revoga tarde para não cortar o load.
-      setTimeout(() => URL.revokeObjectURL(url), 60_000)
-    } catch (e) {
-      setErro(e instanceof ApiError ? e.message : 'Falha ao abrir PDF')
-    } finally {
-      setOcupada(null)
-    }
-  }
-
   async function baixarPdf(versaoId: number, numeroVersao: number) {
     setErro('')
     setOcupada(versaoId)
@@ -108,17 +92,9 @@ export function HistoricoModal({ propostaId, propostaNumero, onClose }: {
                       variant="secondary"
                       className="px-2.5 py-1 text-xs"
                       disabled={!v.has_pdf || ocupada === v.id}
-                      onClick={() => verPdf(v.id)}
-                    >
-                      Ver PDF
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      className="px-2.5 py-1 text-xs"
-                      disabled={!v.has_pdf || ocupada === v.id}
                       onClick={() => baixarPdf(v.id, v.numero_versao)}
                     >
-                      Baixar
+                      PDF
                     </Button>
                   </div>
                 </div>

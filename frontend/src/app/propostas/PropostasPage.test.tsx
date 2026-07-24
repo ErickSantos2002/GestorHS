@@ -52,7 +52,7 @@ describe('PropostasPage', () => {
     expect(screen.getByText('Cliente Teste')).toBeInTheDocument()
     expect(screen.getByText('11.111.111/0001-11')).toBeInTheDocument()
     expect(screen.getByText('R$ 1.250,50')).toBeInTheDocument()
-    expect(screen.getByText('Ver PDF')).toBeInTheDocument()
+    expect(screen.getByText('PDF')).toBeInTheDocument()
     expect(screen.getByText('Editar')).toBeInTheDocument()
     expect(screen.getByText('Histórico')).toBeInTheDocument()
     expect(screen.getByText('Excluir')).toBeInTheDocument()

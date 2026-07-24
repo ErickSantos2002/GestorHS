@@ -52,21 +52,6 @@ export function PropostasPage() {
     setRecarga((n) => n + 1)
   }
 
-  async function verPdf(id: number) {
-    setErro('')
-    setBusyId(id)
-    try {
-      const blob = await propostasApi.baixarPdf(id)
-      const url = URL.createObjectURL(blob)
-      window.open(url, '_blank', 'noopener')
-      setTimeout(() => URL.revokeObjectURL(url), 60_000)
-    } catch (e) {
-      setErro(e instanceof ApiError ? e.message : 'Falha ao abrir PDF')
-    } finally {
-      setBusyId(null)
-    }
-  }
-
   async function baixarPdf(p: Proposta) {
     setErro('')
     setBusyId(p.id)
@@ -166,8 +151,7 @@ export function PropostasPage() {
                 <TD>R$ {formatarMoeda(p.total)}</TD>
                 <TD>
                   <div className="flex flex-wrap gap-1.5">
-                    <Button variant="ghost" className="px-2 py-1 text-xs" disabled={busyId === p.id} onClick={() => verPdf(p.id)}>Ver PDF</Button>
-                    <Button variant="ghost" className="px-2 py-1 text-xs" disabled={busyId === p.id} onClick={() => baixarPdf(p)}>Baixar</Button>
+                    <Button variant="ghost" className="px-2 py-1 text-xs" disabled={busyId === p.id} onClick={() => baixarPdf(p)}>PDF</Button>
                     <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => setHistorico({ id: p.id, numero: p.numero })}>Histórico</Button>
                     {podeEscrever && (
                       <>
