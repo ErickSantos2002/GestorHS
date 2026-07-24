@@ -1,12 +1,16 @@
 import { type ReactNode } from 'react'
 import { IconX } from './icons'
 
-type ModalSize = 'md' | 'lg' | 'xl'
+type ModalSize = 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl'
 
 const SIZES: Record<ModalSize, string> = {
   md: 'max-w-md',
   lg: 'max-w-lg',
   xl: 'max-w-xl',
+  '2xl': 'max-w-2xl',
+  '3xl': 'max-w-3xl',
+  '4xl': 'max-w-4xl',
+  '5xl': 'max-w-5xl',
 }
 
 interface ModalProps {

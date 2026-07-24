@@ -403,7 +403,7 @@ export function PropostaModal({ propostaId, onClose, onSalvo }: {
       open
       onClose={onClose}
       title={editando ? `Editar Proposta${numero != null ? ` #${numero}` : ''}` : 'Nova Proposta'}
-      size="xl"
+      size="5xl"
       footer={
         <>
           <Button variant="secondary" type="button" onClick={onClose} disabled={salvando}>Cancelar</Button>
