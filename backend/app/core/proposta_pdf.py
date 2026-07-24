@@ -135,7 +135,7 @@ _CSS = """
 
 body {
     font-family: Arial, Helvetica, sans-serif;
-    font-size: 10.5px;
+    font-size: 14px;
     color: #222;
     margin: 0;
     padding: 0;
@@ -171,13 +171,13 @@ body {
 }
 
 .header-company .company-name {
-    font-size: 10.5px;
+    font-size: 14px;
     font-weight: bold;
     margin-bottom: 2px;
 }
 
 .header-company .company-line {
-    font-size: 9.5px;
+    font-size: 13px;
     color: #333;
     line-height: 1.45;
 }
@@ -185,14 +185,14 @@ body {
 /* ── Título ── */
 .titulo {
     text-align: center;
-    font-size: 16px;
+    font-size: 21px;
     font-weight: bold;
     margin: 10px 0 14px 0;
 }
 
 /* ── Linha Para / Aos cuidados de ── */
 .para-linha {
-    font-size: 10.5px;
+    font-size: 14px;
     margin: 0 0 10px 0;
 }
 
@@ -202,7 +202,7 @@ body {
 }
 
 .secao-titulo {
-    font-size: 12px;
+    font-size: 16px;
     font-weight: bold;
     border-bottom: 1px solid #333;
     padding-bottom: 3px;
@@ -216,7 +216,7 @@ body {
     border: 1px solid #999;
     padding: 8px 10px;
     margin-top: 4px;
-    font-size: 10px;
+    font-size: 13.5px;
     line-height: 1.6;
 }
 
@@ -227,7 +227,7 @@ table.endereco-tbl {
     border: 1px solid #999;
     margin-top: 4px;
     table-layout: fixed;      /* largura fixa 50/50 */
-    font-size: 10px;
+    font-size: 13.5px;
     line-height: 1.6;
 }
 table.endereco-tbl td.ec-cell {
@@ -250,20 +250,20 @@ table.itens {
     width: 100%;
     border-collapse: collapse;
     margin-top: 4px;
-    font-size: 10px;
+    font-size: 13.5px;
 }
 
 table.itens th {
     background: #f2f2f2;
     border: 1px solid #ccc;
-    padding: 5px 7px;
+    padding: 6px 8px;
     text-align: left;
     font-weight: bold;
 }
 
 table.itens td {
     border: 1px solid #ccc;
-    padding: 5px 7px;
+    padding: 6px 8px;
     vertical-align: top;
 }
 
@@ -276,7 +276,7 @@ table.itens th.right {
     border: 1px solid #ccc;
     border-top: none;
     padding: 6px 8px;
-    font-size: 10px;
+    font-size: 13.5px;
     color: #333;
     text-align: right;
 }
@@ -286,11 +286,11 @@ table.cond2 {
     width: 100%;
     border-collapse: collapse;
     margin-top: 4px;
-    font-size: 10px;
+    font-size: 13.5px;
 }
 table.cond2 td {
     border: 1px solid #ccc;
-    padding: 5px 8px;
+    padding: 6px 9px;
     vertical-align: top;
 }
 table.cond2 td:first-child {
@@ -303,20 +303,20 @@ table.totais {
     width: 100%;
     border-collapse: collapse;
     margin-top: 4px;
-    font-size: 10px;
+    font-size: 13.5px;
 }
 
 table.totais th {
     background: #f2f2f2;
     border: 1px solid #ccc;
-    padding: 5px 7px;
+    padding: 6px 8px;
     text-align: left;
     font-weight: bold;
 }
 
 table.totais td {
     border: 1px solid #ccc;
-    padding: 5px 7px;
+    padding: 6px 8px;
     vertical-align: top;
 }
 
@@ -327,7 +327,7 @@ table.totais th.right {
 
 /* ── Outros itens (HTML do Quill) ── */
 .outros-itens-conteudo {
-    font-size: 10px;
+    font-size: 13.5px;
     line-height: 1.6;
 }
 
@@ -340,7 +340,7 @@ table.totais th.right {
 /* ── Assinatura ── */
 .assinatura {
     margin-top: 18px;
-    font-size: 10.5px;
+    font-size: 14px;
     line-height: 1.8;
 }
 """
