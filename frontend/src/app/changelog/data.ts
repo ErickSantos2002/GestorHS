@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.25.3',
+    data: '24/07/2026',
+    itens: [
+      { tipo: 'melhoria', texto: 'Na proposta, os aparelhos do cliente agora têm busca (lupa) e a lista rola quando há muitos; cada aparelho mostra a data da próxima calibração e quanto falta para vencer.' },
+    ],
+  },
+  {
     versao: '1.25.2',
     data: '24/07/2026',
     itens: [
