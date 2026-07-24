@@ -51,3 +51,22 @@ def test_montar_html_cliente_override_substitui_display():
     html = proposta_pdf.montar_html(p, cli)
 
     assert "ACME FILIAL SP" in html
+
+
+def test_montar_html_endereco_entrega_texto_livre():
+    from app.core import proposta_pdf
+    from app.models import Cliente, Proposta
+
+    cli = Cliente(nome="ACME", cgc="08857492000148")
+    p = Proposta(
+        id=3,
+        numero=101,
+        endereco_entrega_diferente=True,
+        endereco_entrega={"texto": "Rua Teste 123, Recife-PE"},
+    )
+
+    html = proposta_pdf.montar_html(p, cli)
+
+    assert "Rua Teste 123" in html
+    assert "Recife-PE" in html
+    assert "Endereço de Entrega" in html

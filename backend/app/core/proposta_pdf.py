@@ -455,35 +455,41 @@ def montar_html(proposta, cliente) -> str:
     if proposta.endereco_entrega_diferente and proposta.endereco_entrega:
         de = proposta.endereco_entrega
 
-        def de_get(key):
-            return _esc(str(de.get(key, "") or ""))
+        # Fallback: se existe campo "texto" (endereço em texto livre), usa-o
+        texto_livre = de.get("texto")
+        if texto_livre and str(texto_livre).strip():
+            linhas_entrega = _esc(texto_livre).replace("\n", "<br>")
+        else:
+            # Caso contrário, monta a partir das chaves estruturadas
+            def de_get(key):
+                return _esc(str(de.get(key, "") or ""))
 
-        linha_rua = de_get('rua')
-        if de.get('numero'):
-            linha_rua += f", {de_get('numero')}"
-        if de.get('complemento'):
-            linha_rua += f" {de_get('complemento')}"
+            linha_rua = de_get('rua')
+            if de.get('numero'):
+                linha_rua += f", {de_get('numero')}"
+            if de.get('complemento'):
+                linha_rua += f" {de_get('complemento')}"
 
-        cidade_estado_cep = de_get('municipio')
-        if de.get('estado'):
-            cidade_estado_cep += f"/{de_get('estado')}"
-        if de.get('cep'):
-            cidade_estado_cep += f" — CEP: {de_get('cep')}"
+            cidade_estado_cep = de_get('municipio')
+            if de.get('estado'):
+                cidade_estado_cep += f"/{de_get('estado')}"
+            if de.get('cep'):
+                cidade_estado_cep += f" — CEP: {de_get('cep')}"
 
-        if de_get('destinatario'):
-            linhas_entrega += f"{de_get('destinatario')}<br>"
-        if linha_rua:
-            linhas_entrega += f"{linha_rua}<br>"
-        if de_get('bairro'):
-            linhas_entrega += f"Bairro: {de_get('bairro')}<br>"
-        if cidade_estado_cep:
-            linhas_entrega += f"{cidade_estado_cep}<br>"
-        if de.get('inscricao_estadual'):
-            linhas_entrega += f"Insc. estadual: {de_get('inscricao_estadual')}<br>"
-        if de.get('documento'):
-            linhas_entrega += f"CPF/CNPJ: {de_get('documento')}<br>"
-        if de.get('telefone'):
-            linhas_entrega += f"Fone: {de_get('telefone')}<br>"
+            if de_get('destinatario'):
+                linhas_entrega += f"{de_get('destinatario')}<br>"
+            if linha_rua:
+                linhas_entrega += f"{linha_rua}<br>"
+            if de_get('bairro'):
+                linhas_entrega += f"Bairro: {de_get('bairro')}<br>"
+            if cidade_estado_cep:
+                linhas_entrega += f"{cidade_estado_cep}<br>"
+            if de.get('inscricao_estadual'):
+                linhas_entrega += f"Insc. estadual: {de_get('inscricao_estadual')}<br>"
+            if de.get('documento'):
+                linhas_entrega += f"CPF/CNPJ: {de_get('documento')}<br>"
+            if de.get('telefone'):
+                linhas_entrega += f"Fone: {de_get('telefone')}<br>"
 
     # ── Condições gerais (linhas da tabela label | valor) ──
     def _cg_linha(label, valor):
