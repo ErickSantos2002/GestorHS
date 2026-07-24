@@ -24,6 +24,10 @@ export function podeAtenderSolicitacao(user: User | null): boolean {
   return isAdmin(user) || user?.funcao === FUNCAO_COMERCIAL
 }
 
+export function podeGerenciarPropostas(user: User | null): boolean {
+  return isAdmin(user) || user?.funcao === FUNCAO_COMERCIAL
+}
+
 export function podeAnexarNotaFiscal(user: User | null): boolean {
   return isAdmin(user) || user?.funcao === FUNCAO_FINANCEIRO
 }

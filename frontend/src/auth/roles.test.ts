@@ -4,6 +4,7 @@ import {
   podeAbrirOS,
   podeRegistrarContato,
   podeAtenderSolicitacao,
+  podeGerenciarPropostas,
   podeAvancarCaixa,
   podeMarcarSemConserto,
   FUNCAO_RESPONSAVEL_POR_FASE,
@@ -49,6 +50,15 @@ describe('auth/roles — podeAtenderSolicitacao', () => {
     expect(podeAtenderSolicitacao(u('Comercial Pós-Vendas'))).toBe(true)
     expect(podeAtenderSolicitacao(u('Laboratório'))).toBe(false)
     expect(podeAtenderSolicitacao(null)).toBe(false)
+  })
+})
+
+describe('auth/roles — podeGerenciarPropostas', () => {
+  it('podeGerenciarPropostas: admin e Comercial sim, outros não', () => {
+    expect(podeGerenciarPropostas(u('Administrador'))).toBe(true)
+    expect(podeGerenciarPropostas(u('Comercial Pós-Vendas'))).toBe(true)
+    expect(podeGerenciarPropostas(u('Laboratório'))).toBe(false)
+    expect(podeGerenciarPropostas(null)).toBe(false)
   })
 })
 
