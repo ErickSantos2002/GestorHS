@@ -47,7 +47,7 @@ export interface CrudClient<TOut, TCreate, TUpdate> {
   excluir: (id: number) => Promise<void>
 }
 
-function crudClient<TOut, TCreate, TUpdate>(base: string): CrudClient<TOut, TCreate, TUpdate> {
+export function crudClient<TOut, TCreate, TUpdate>(base: string): CrudClient<TOut, TCreate, TUpdate> {
   return {
     listar: () => apiJson<TOut[]>(base),
     obter: (id) => apiJson<TOut>(`${base}/${id}`),
