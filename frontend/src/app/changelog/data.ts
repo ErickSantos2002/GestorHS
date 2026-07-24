@@ -23,6 +23,15 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.25.0',
+    data: '24/07/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'Nova página de Propostas Técnicas: monte a proposta escolhendo o cliente, os aparelhos da frota (com farol de vencimento) e os itens do catálogo, e gere o PDF.' },
+      { tipo: 'novidade', texto: 'Novos cadastros de Serviços (com SKU) e Produtos para compor as propostas.' },
+      { tipo: 'melhoria', texto: 'Histórico de alterações da proposta: veja quem mudou o quê e quando, com o PDF de cada versão.' },
+    ],
+  },
+  {
     versao: '1.24.1',
     data: '23/07/2026',
     itens: [
