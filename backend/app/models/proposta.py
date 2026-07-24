@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import (Column, Integer, String, Text, Numeric, Date, DateTime,
                         ForeignKey, Boolean, JSON)
 from sqlalchemy.orm import relationship
@@ -31,8 +31,8 @@ class Proposta(Base):
     assinatura = Column(String(255), nullable=True)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
     is_deleted = Column(Boolean, nullable=False, default=False)
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
     cliente_rel = relationship("Cliente", lazy="joined")
     itens = relationship("PropostaItem", back_populates="proposta_rel", cascade="all, delete-orphan", lazy="selectin")

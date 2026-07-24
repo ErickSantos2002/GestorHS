@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, ForeignKey, JSON, DateTime
 from sqlalchemy.orm import relationship
 from app.models.database import Base
@@ -12,5 +12,5 @@ class PropostaVersao(Base):
     snapshot = Column(JSON, nullable=True)
     pdf_path = Column(String(500), nullable=True)
     alterado_por = Column(String(255), nullable=True)
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     proposta_rel = relationship("Proposta", back_populates="versoes")
