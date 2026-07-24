@@ -223,3 +223,157 @@ def test_snapshot_proposta_traz_itens_e_totais(db_session):
     assert snap["total_itens"] == 100.0
     assert snap["total"] == 105.0
     assert snap["itens"][0]["descricao"] == "Calib"
+
+
+# ---------------------------------------------------------------------------
+# API (router) — Task 8
+# ---------------------------------------------------------------------------
+
+def test_api_criar_proposta_sem_auth_e_negado(client):
+    # client_comercial mutaria os headers do mesmo TestClient (mesmo padrao de
+    # client_lab/client_fin/client_exp): combinar as duas fixtures faria o setup
+    # do client_comercial rodar antes do corpo do teste e a chamada "sem auth"
+    # ja sairia com o token — por isso o caso sem auth vira teste proprio.
+    r = client.post("/propostas", json={"itens": []})
+    assert r.status_code in (401, 403)
+
+
+def test_api_criar_proposta_funcao_errada_e_negado(client_exp):
+    r = client_exp.post("/propostas", json={"itens": []})
+    assert r.status_code == 403
+
+
+def test_api_criar_e_listar_proposta(client_comercial, db_session):
+    from app.models import Cliente
+    cli = Cliente(nome="ACME")
+    db_session.add(cli); db_session.commit(); db_session.refresh(cli)
+
+    r = client_comercial.post("/propostas", json={
+        "cliente": cli.id,
+        "itens": [{"descricao": "Calibracao", "quantidade": 2, "preco_un": 395}],
+    })
+    assert r.status_code == 201
+    criada = r.json()
+    assert criada["numero"] == 1
+    assert criada["vendedor"] == "Comercial"
+    assert criada["total"] == 790.0
+    assert criada["cliente_nome"] == "ACME"
+
+    r = client_comercial.get("/propostas")
+    assert r.status_code == 200
+    pagina = r.json()
+    assert pagina["total"] == 1
+    assert pagina["total_pages"] == 1
+    assert pagina["items"][0]["id"] == criada["id"]
+
+    # filtro q por nome do cliente
+    assert client_comercial.get("/propostas", params={"q": "ACME"}).json()["total"] == 1
+    assert client_comercial.get("/propostas", params={"q": "Nao Existe"}).json()["total"] == 0
+    # filtro q pelo numero
+    assert client_comercial.get("/propostas", params={"q": "1"}).json()["total"] == 1
+
+
+def test_api_obter_proposta_inexistente_e_404(client_comercial):
+    r = client_comercial.get("/propostas/9999")
+    assert r.status_code == 404
+
+
+def test_api_atualizar_proposta_versiona_e_lista_versoes(client_comercial, monkeypatch):
+    from app.core import proposta_pdf
+    monkeypatch.setattr(proposta_pdf, "arquivar_pdf_versao", lambda *a, **k: None)
+
+    r = client_comercial.post("/propostas", json={"itens": []})
+    pid = r.json()["id"]
+
+    r = client_comercial.put(f"/propostas/{pid}", json={"desconto": 15})
+    assert r.status_code == 200
+    assert r.json()["desconto"] == 15
+    # vendedor e imutavel: update nao aceita sobrescrever
+    assert r.json()["vendedor"] == "Comercial"
+
+    r = client_comercial.get(f"/propostas/{pid}/versoes")
+    assert r.status_code == 200
+    versoes = r.json()
+    assert len(versoes) == 1
+    assert versoes[0]["numero_versao"] == 1
+    assert versoes[0]["has_pdf"] is False
+
+
+def test_api_duplicar_proposta_gera_numero_novo_e_copia_itens(client_comercial, db_session):
+    from app.models import Cliente
+    cli = Cliente(nome="ACME")
+    db_session.add(cli); db_session.commit(); db_session.refresh(cli)
+
+    r = client_comercial.post("/propostas", json={
+        "cliente": cli.id,
+        "itens": [{"descricao": "Calibracao", "quantidade": 2, "preco_un": 395}],
+    })
+    original = r.json()
+
+    r = client_comercial.post(f"/propostas/{original['id']}/duplicar")
+    assert r.status_code == 201
+    nova = r.json()
+    assert nova["id"] != original["id"]
+    assert nova["numero"] != original["numero"]
+    assert nova["vendedor"] == "Comercial"
+    assert len(nova["itens"]) == 1
+    assert nova["itens"][0]["descricao"] == "Calibracao"
+
+    r = client_comercial.get(f"/propostas/{nova['id']}/versoes")
+    assert r.status_code == 200
+    assert r.json() == []
+
+
+def test_api_delete_soft_delete_some_da_lista(client_comercial):
+    r = client_comercial.post("/propostas", json={"itens": []})
+    pid = r.json()["id"]
+
+    r = client_comercial.delete(f"/propostas/{pid}")
+    assert r.status_code == 204
+
+    r = client_comercial.get("/propostas")
+    ids = [p["id"] for p in r.json()["items"]]
+    assert pid not in ids
+
+    assert client_comercial.get(f"/propostas/{pid}").status_code == 404
+    assert client_comercial.delete(f"/propostas/{pid}").status_code == 404
+
+
+def test_api_pdf_endpoint_inline_e_attachment(client_comercial, monkeypatch):
+    from app.core import proposta_pdf
+    monkeypatch.setattr(proposta_pdf, "gerar_pdf", lambda *a, **k: b"%PDF-1.4 fake")
+
+    r = client_comercial.post("/propostas", json={"itens": []})
+    pid = r.json()["id"]
+
+    r = client_comercial.get(f"/propostas/{pid}/pdf")
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "application/pdf"
+    assert "inline" in r.headers["content-disposition"]
+
+    r = client_comercial.get(f"/propostas/{pid}/pdf", params={"download": 1})
+    assert r.status_code == 200
+    assert "attachment" in r.headers["content-disposition"]
+
+
+def test_api_pdf_endpoint_proposta_inexistente_e_404(client_comercial):
+    assert client_comercial.get("/propostas/9999/pdf").status_code == 404
+
+
+def test_api_versao_pdf_endpoint(client_comercial, monkeypatch):
+    from app.core import proposta_pdf
+    monkeypatch.setattr(proposta_pdf, "arquivar_pdf_versao",
+                         lambda db, proposta, numero_versao: f"propostas/{proposta.id}/v{numero_versao}.pdf")
+    monkeypatch.setattr(proposta_pdf, "ler_pdf_versao", lambda pdf_path: b"%PDF-1.4 fake-versao")
+
+    r = client_comercial.post("/propostas", json={"itens": []})
+    pid = r.json()["id"]
+    client_comercial.put(f"/propostas/{pid}", json={"desconto": 20})
+
+    versao_id = client_comercial.get(f"/propostas/{pid}/versoes").json()[0]["id"]
+
+    r = client_comercial.get(f"/propostas/{pid}/versoes/{versao_id}/pdf")
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "application/pdf"
+
+    assert client_comercial.get(f"/propostas/{pid}/versoes/9999/pdf").status_code == 404
