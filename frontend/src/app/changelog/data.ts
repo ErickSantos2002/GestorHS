@@ -23,6 +23,14 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.25.1',
+    data: '24/07/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'Botão "Liberar do Laboratório": libera um aparelho travado no laboratório quando ainda não há modelo de certificado (ex.: manutenção), sem gerar o certificado, para a caixa poder avançar — com registro no histórico.' },
+      { tipo: 'melhoria', texto: 'Janela de criação de proposta mais larga, com mais espaço para a tabela de itens e a lista de aparelhos.' },
+    ],
+  },
+  {
     versao: '1.25.0',
     data: '24/07/2026',
     itens: [
