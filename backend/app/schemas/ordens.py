@@ -116,7 +116,7 @@ class AvancarIn(BaseModel):
 
 
 class DesfechoLabIn(BaseModel):
-    desfecho: Literal["concluido", "sem_conserto"]
+    desfecho: Literal["concluido", "sem_conserto", "liberado"]
     obs: str | None = None
 
 

@@ -30,7 +30,8 @@ def posicao(fase: int) -> int:
 DESFECHO_PENDENTE = "pendente"
 DESFECHO_CONCLUIDO = "concluido"
 DESFECHO_SEM_CONSERTO = "sem_conserto"
-DESFECHOS_TERMINAIS = (DESFECHO_CONCLUIDO, DESFECHO_SEM_CONSERTO)
+DESFECHO_LIBERADO = "liberado"
+DESFECHOS_TERMINAIS = (DESFECHO_CONCLUIDO, DESFECHO_SEM_CONSERTO, DESFECHO_LIBERADO)
 
 
 def desfechos_pendentes(desfechos: list[str]) -> int:

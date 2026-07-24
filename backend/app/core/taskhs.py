@@ -217,6 +217,9 @@ def _linha_aparelho_lab(ordem, certificados: list[dict]) -> str:
     if ordem.desfecho_lab == "sem_conserto":
         motivo = getattr(ordem, "desfecho_lab_obs", None) or "sem detalhe"
         return f"{ident}: sem conserto — {motivo}"
+    if ordem.desfecho_lab == "liberado":
+        motivo = getattr(ordem, "desfecho_lab_obs", None)
+        return f"{ident}: liberado sem certificado" + (f" — {motivo}" if motivo else "")
     partes = [ident + ":", ordem.calib_situacao or "calibrado"]
     if ordem.calib_cert:
         partes.append(f"cert {ordem.calib_cert}")

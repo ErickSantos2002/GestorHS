@@ -221,12 +221,16 @@ def marcar_desfecho_lab(ordem_id: int, dados: DesfechoLabIn, db: Session = Depen
             raise HTTPException(status_code=409, detail="gere o certificado antes de concluir")
         concluir_laboratorio(db, ordem)
         texto = "Laboratório concluído (aparelho)"
-    else:  # sem_conserto
+    elif dados.desfecho == wf.DESFECHO_SEM_CONSERTO:
         if not (dados.obs and dados.obs.strip()):
             raise HTTPException(status_code=400, detail="justificativa obrigatória para sem conserto")
         ordem.desfecho_lab = wf.DESFECHO_SEM_CONSERTO
         ordem.desfecho_lab_obs = dados.obs.strip()
         texto = f"Sem conserto: {ordem.desfecho_lab_obs}"
+    else:  # liberado — sai do laboratorio sem certificado; justificativa opcional
+        ordem.desfecho_lab = wf.DESFECHO_LIBERADO
+        ordem.desfecho_lab_obs = (dados.obs or "").strip() or None
+        texto = f"Liberado do laboratorio sem certificado: {ordem.desfecho_lab_obs or '(sem motivo)'}"
     registrar_log(db, ordem, usuario, texto)
     db.commit()
     db.refresh(ordem)

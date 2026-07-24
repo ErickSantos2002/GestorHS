@@ -309,6 +309,24 @@ def caixa_lab_todos_terminais(db_session, fases_seed):
 
 
 @pytest.fixture()
+def caixa_lab_com_liberado(db_session, fases_seed):
+    """Caixa em fase 5 (Laboratório) com OS em desfecho 'liberado' misturado com
+    'concluido' e 'sem_conserto' — todos terminais, sem travar o avanco."""
+    from app.models import Cliente, Caixa, Ordem
+    cli = Cliente(nome="Cliente Lab Liberado")
+    cx = Caixa(obs="Caixa lab liberado", fase=5)
+    db_session.add_all([cli, cx])
+    db_session.flush()
+    o1 = Ordem(cliente=cli.id, fase=5, situacao="E", caixa=cx.id, desfecho_lab="liberado")
+    o2 = Ordem(cliente=cli.id, fase=5, situacao="E", caixa=cx.id, desfecho_lab="concluido")
+    o3 = Ordem(cliente=cli.id, fase=5, situacao="E", caixa=cx.id, desfecho_lab="sem_conserto")
+    db_session.add_all([o1, o2, o3])
+    db_session.commit()
+    db_session.refresh(cx)
+    return cx.id
+
+
+@pytest.fixture()
 def client_fin(client, usuario_financeiro, fases_seed):
     """Client autenticado como usuário de função Financeiro (headers já embutidos)."""
     tok = client.post("/auth/login", json={"email": "fin@hs.com", "senha": "senha123"}).json()

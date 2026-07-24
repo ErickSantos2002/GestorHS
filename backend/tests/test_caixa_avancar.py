@@ -28,6 +28,30 @@ def test_marcar_concluido_sem_certificado_falha(client_lab, os_no_lab):
     assert r.status_code == 409
 
 
+def test_marcar_liberado_sem_certificado_ok(client_lab, os_no_lab):
+    """'liberado' sai do laboratorio SEM exigir certificado (diferente de 'concluido')."""
+    r = client_lab.post(f"/ordens/{os_no_lab}/desfecho-lab",
+                        json={"desfecho": "liberado", "obs": None})
+    assert r.status_code == 200
+    assert r.json()["desfecho_lab"] == "liberado"
+
+
+def test_marcar_liberado_sem_obs_e_opcional(client_lab, os_no_lab):
+    r = client_lab.post(f"/ordens/{os_no_lab}/desfecho-lab",
+                        json={"desfecho": "liberado", "obs": ""})
+    assert r.status_code == 200
+    assert r.json()["desfecho_lab"] == "liberado"
+    assert r.json()["desfecho_lab_obs"] is None
+
+
+def test_marcar_liberado_com_obs_grava_justificativa(client_lab, os_no_lab):
+    r = client_lab.post(f"/ordens/{os_no_lab}/desfecho-lab",
+                        json={"desfecho": "liberado", "obs": "modelo de certificado nao cadastrado"})
+    assert r.status_code == 200
+    assert r.json()["desfecho_lab"] == "liberado"
+    assert r.json()["desfecho_lab_obs"] == "modelo de certificado nao cadastrado"
+
+
 def test_marcar_concluido_ok(client_lab, os_no_lab, db_session):
     from app.models import OSCertificado
     db_session.add(OSCertificado(os=os_no_lab, tipo="C"))
@@ -72,6 +96,14 @@ def test_avancar_caixa_lab_travado_com_pendente(client_lab, caixa_lab_um_pendent
 
 def test_avancar_caixa_lab_libera_com_todos_terminais(client_lab, caixa_lab_todos_terminais):
     r = client_lab.post(f"/caixas/{caixa_lab_todos_terminais}/avancar", json={})
+    assert r.status_code == 200
+    assert r.json()["fase"] == 6
+
+
+def test_avancar_caixa_lab_libera_com_desfecho_liberado(client_lab, caixa_lab_com_liberado):
+    """Caixa no lab com mix de 'liberado'/'concluido'/'sem_conserto' (todos
+    terminais) avanca normalmente — 'liberado' nao trava o gate da caixa."""
+    r = client_lab.post(f"/caixas/{caixa_lab_com_liberado}/avancar", json={})
     assert r.status_code == 200
     assert r.json()["fase"] == 6
 
