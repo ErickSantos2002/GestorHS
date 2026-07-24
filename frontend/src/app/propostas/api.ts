@@ -154,6 +154,19 @@ export const propostasApi = {
     `${apiBase()}/propostas/${id}/pdf${download ? '?download=1' : ''}`,
   versaoPdfUrl: (id: number, versaoId: number, download = false): string =>
     `${apiBase()}/propostas/${id}/versoes/${versaoId}/pdf${download ? '?download=1' : ''}`,
+  // O endpoint de PDF exige JWT — `<a href>` cru dá 401. Buscamos via fetch
+  // autenticado (apiFetch injeta o Bearer) e devolvemos o Blob; quem consome
+  // decide se abre inline (window.open) ou força download (<a download>).
+  baixarPdf: async (id: number): Promise<Blob> => {
+    const res = await apiFetch(`/propostas/${id}/pdf`)
+    if (!res.ok) throw new ApiError(res.status, 'Falha ao carregar PDF')
+    return res.blob()
+  },
+  baixarVersaoPdf: async (id: number, versaoId: number): Promise<Blob> => {
+    const res = await apiFetch(`/propostas/${id}/versoes/${versaoId}/pdf`)
+    if (!res.ok) throw new ApiError(res.status, 'Falha ao carregar PDF')
+    return res.blob()
+  },
 }
 
 export interface EquipamentoClienteFrota {
