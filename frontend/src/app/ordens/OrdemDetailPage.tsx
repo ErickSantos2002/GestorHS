@@ -9,9 +9,10 @@ import {
 } from '../../components/ui/icons'
 import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
-import { isAdmin, podeAbrirOS } from '../../auth/roles'
+import { isAdmin, podeAbrirOS, podeMarcarSemConserto } from '../../auth/roles'
 import { ordensApi, fotosApi, TIPO_SERVICO, FLUXO_FASES, posicaoFase, posLaboratorio, formatData, garantiaBadge, garantiasAtivas, type OrdemDetalhe, type GarantiaItem, type LogOS, type Foto, type OSCertificado } from './api'
 import { GerarCertificadoModal } from './GerarCertificadoModal'
+import { LiberarLabModal } from './LiberarLabModal'
 import { FotoImg } from './FotoImg'
 import { FotoLightbox } from './FotoLightbox'
 import { PageContainer, DetailGrid, DetailMain, DetailAside } from '../../components/ui/Page'
@@ -101,6 +102,7 @@ export function OrdemDetailPage() {
   const [erro, setErro] = useState('')
   const [carregando, setCarregando] = useState(true)
   const [acao, setAcao] = useState<'gerar' | null>(null)
+  const [liberarLabAberto, setLiberarLabAberto] = useState(false)
   const [fotos, setFotos] = useState<Foto[]>([])
   const [certs, setCerts] = useState<OSCertificado[]>([])
   const [erroFoto, setErroFoto] = useState('')
@@ -169,6 +171,14 @@ export function OrdemDetailPage() {
   const modelosFaltantesLabel = faltantes.map((t) => (t === 'C' ? 'Calibração' : 'Manutenção')).join(' e ')
   // A secao aparece do Financeiro em diante — use posicaoFase, NUNCA comparacao numerica (id 10 > 7/8).
   const mostraNotaFiscal = posicaoFase(os.fase) >= posicaoFase(10)
+  // Mesmo gate de "Sem conserto": Laboratório ou Admin, só na fase Laboratório (5) e desfecho ainda pendente.
+  const podeLiberarLab = os.fase === 5 && os.desfecho_lab === 'pendente' && podeMarcarSemConserto(user)
+
+  function aoLiberarLab() {
+    setLiberarLabAberto(false)
+    void ordensApi.obter(osId).then(setOs).catch(() => {})
+    void ordensApi.logs(osId).then(setLogs).catch(() => {})
+  }
 
   function aoGerarCert(cs: OSCertificado[]) {
     setCerts(cs)
@@ -264,6 +274,9 @@ export function OrdemDetailPage() {
           </div>
           <div className="flex gap-2 flex-wrap">
             <Button variant="secondary" onClick={() => navigate('/app/ordens')}>Voltar</Button>
+            {podeLiberarLab && (
+              <Button variant="primary" onClick={() => setLiberarLabAberto(true)}>Liberar do Laboratório</Button>
+            )}
           </div>
         </div>
         <div className="pt-5 border-t border-border">
@@ -421,6 +434,9 @@ export function OrdemDetailPage() {
             </Link>
           </div>
         )}
+        {os.desfecho_lab === 'liberado' && (
+          <p className="text-sm text-slate-400">Liberado sem certificado{os.desfecho_lab_obs ? ` — ${os.desfecho_lab_obs}` : ''}.</p>
+        )}
         {certs.length === 0 ? (
           // A dica só faz sentido se o botão estiver de fato na tela (sem modelo ele some).
           <p className="text-sm text-slate-500">Nenhum certificado gerado.{podeGerarOuRegerar && !semModelo ? ' Clique em "Gerar certificado de calibração".' : ''}</p>
@@ -491,6 +507,10 @@ export function OrdemDetailPage() {
       </DetailGrid>
 
       {acao === 'gerar' && <GerarCertificadoModal os={os} onClose={() => setAcao(null)} onGerado={aoGerarCert} />}
+
+      {liberarLabAberto && (
+        <LiberarLabModal osId={osId} onClose={() => setLiberarLabAberto(false)} onConcluido={aoLiberarLab} />
+      )}
 
       {lightboxIdx !== null && fotos[lightboxIdx] && (
         <FotoLightbox fotos={fotos} indiceInicial={lightboxIdx} onClose={() => setLightboxIdx(null)} />

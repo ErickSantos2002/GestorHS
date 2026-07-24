@@ -100,7 +100,7 @@ export const caixasApi = {
     apiJson<CaixaDetalhe>(`/caixas/${id}/avancar`, { method: 'POST', body: JSON.stringify(payload) }),
   cancelar: (id: number, payload: { motivo: string }): Promise<CaixaDetalhe> =>
     apiJson<CaixaDetalhe>(`/caixas/${id}/cancelar`, { method: 'POST', body: JSON.stringify(payload) }),
-  desfechoLab: (osId: number, payload: { desfecho: 'concluido' | 'sem_conserto'; obs: string | null }): Promise<unknown> =>
+  desfechoLab: (osId: number, payload: { desfecho: 'concluido' | 'sem_conserto' | 'liberado'; obs: string | null }): Promise<unknown> =>
     apiJson(`/ordens/${osId}/desfecho-lab`, { method: 'POST', body: JSON.stringify(payload) }),
   // Anexa a mesma nota fiscal para todas as OS ativas da caixa (evita anexar aparelho-por-aparelho).
   // Mirror de ordensApi.enviarNotaFiscal em ../ordens/api.ts — mas o campo do arquivo é `arquivo`

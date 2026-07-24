@@ -175,6 +175,9 @@ export interface OrdemDetalhe extends OrdemListItem {
   nota_fiscal_numero: string | null
   /** Tipos ("C"/"M") sem modelo de certificado cadastrado para o aparelho. Vazio = pode gerar. */
   certificado_modelos_faltantes: string[]
+  /** Desfecho do laboratorio: 'pendente' | 'concluido' | 'sem_conserto' | 'liberado'. */
+  desfecho_lab: string | null
+  desfecho_lab_obs: string | null
   pilhas: number
   bocais: number
   checklist_ids: number[]

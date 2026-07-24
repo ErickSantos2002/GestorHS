@@ -244,7 +244,7 @@ export function CaixaDetailPage() {
   // Progresso do laboratório (só faz sentido com a caixa em fase 5) — OS ativas apenas,
   // as terminais/canceladas não contam como pendência.
   const ordensAtivasLab = caixa.fase === 5 ? caixa.ordens.filter((o) => faseAtiva(o.fase)) : []
-  const prontosLab = ordensAtivasLab.filter((o) => o.desfecho_lab === 'concluido' || o.desfecho_lab === 'sem_conserto').length
+  const prontosLab = ordensAtivasLab.filter((o) => o.desfecho_lab === 'concluido' || o.desfecho_lab === 'sem_conserto' || o.desfecho_lab === 'liberado').length
   const pendentesLab = ordensAtivasLab.filter((o) => o.desfecho_lab === 'pendente').length
   const transicaoCaixa = caixa.fase != null ? TRANSICOES[caixa.fase] : undefined
   // Quem move a caixa é a função responsável pela fase ATUAL dela (Admin sempre pode) —
