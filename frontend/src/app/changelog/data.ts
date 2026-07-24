@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.25.4',
+    data: '24/07/2026',
+    itens: [
+      { tipo: 'correcao', texto: 'O PDF da Proposta Técnica agora sai com a fonte maior, legível sem precisar dar zoom.' },
+    ],
+  },
+  {
     versao: '1.25.3',
     data: '24/07/2026',
     itens: [
