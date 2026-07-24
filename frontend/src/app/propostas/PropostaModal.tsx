@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { Modal } from '../../components/ui/Modal'
 import { Input } from '../../components/ui/Input'
 import { Select } from '../../components/ui/Select'
@@ -118,9 +119,13 @@ export function PropostaModal({ propostaId, onClose, onSalvo }: {
   const [overrideDraft, setOverrideDraft] = useState<Partial<Record<CampoOverride, string>>>({})
 
   // ─── Catálogo (Serviços + Produtos) para busca por linha de item ──────
+  // A própria Descrição é a busca: digitar já filtra o catálogo; não existe
+  // descrição manual — o dropdown escapa do overflow da Modal via portal.
   const [catalogo, setCatalogo] = useState<{ servicos: ItemCatalogo[]; produtos: ItemCatalogo[] } | null>(null)
-  const [buscaItem, setBuscaItem] = useState<string[]>([])
-  const [mostrarBuscaItem, setMostrarBuscaItem] = useState<boolean[]>([])
+  const [linhaAberta, setLinhaAberta] = useState<number | null>(null)
+  const [posDropdown, setPosDropdown] = useState<{ top: number; left: number; width: number } | null>(null)
+  const descricaoRefs = useRef<Record<number, HTMLInputElement | null>>({})
+  const dropdownRef = useRef<HTMLDivElement | null>(null)
 
   function setField<K extends keyof PropostaCreate>(key: K, value: PropostaCreate[K]) {
     setForm((f) => ({ ...f, [key]: value }))
@@ -253,12 +258,25 @@ export function PropostaModal({ propostaId, onClose, onSalvo }: {
     }
   }, [aparelhosSelecionados, frota])
 
-  // ─── Sincroniza arrays de busca por linha de item ─────────────────────
+  // ─── Fecha o dropdown do catálogo ao clicar fora ou apertar Esc ───────
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setBuscaItem((cur) => { const n = [...cur]; while (n.length < itens.length) n.push(''); return n.slice(0, itens.length) })
-    setMostrarBuscaItem((cur) => { const n = [...cur]; while (n.length < itens.length) n.push(false); return n.slice(0, itens.length) })
-  }, [itens.length])
+    if (linhaAberta === null) return
+    function aoClicarFora(e: MouseEvent) {
+      const alvo = e.target as Node
+      const dentroDropdown = dropdownRef.current?.contains(alvo)
+      const dentroInput = linhaAberta !== null && descricaoRefs.current[linhaAberta]?.contains(alvo)
+      if (!dentroDropdown && !dentroInput) setLinhaAberta(null)
+    }
+    function aoTeclar(e: KeyboardEvent) {
+      if (e.key === 'Escape') setLinhaAberta(null)
+    }
+    document.addEventListener('mousedown', aoClicarFora)
+    document.addEventListener('keydown', aoTeclar)
+    return () => {
+      document.removeEventListener('mousedown', aoClicarFora)
+      document.removeEventListener('keydown', aoTeclar)
+    }
+  }, [linhaAberta])
 
   // ─── Cliente handlers ──────────────────────────────────────────────────
   function selecionarCliente(c: ClienteListItem) {
@@ -340,6 +358,7 @@ export function PropostaModal({ propostaId, onClose, onSalvo }: {
 
   function removerItem(idx: number) {
     setItens((cur) => cur.filter((_, i) => i !== idx))
+    setLinhaAberta(null)
   }
 
   function atualizarItem<K extends keyof PropostaItemCreate>(idx: number, campo: K, valor: PropostaItemCreate[K]) {
@@ -347,18 +366,26 @@ export function PropostaModal({ propostaId, onClose, onSalvo }: {
   }
 
   function resultadosParaLinha(idx: number): ItemCatalogo[] {
-    const q = (buscaItem[idx] ?? '').trim().toLowerCase()
+    const q = (itens[idx]?.descricao ?? '').trim().toLowerCase()
     if (!q || !catalogo) return []
     const todos = [...catalogo.servicos, ...catalogo.produtos]
     return todos.filter((t) => t.nome.toLowerCase().includes(q) || (t.sku ?? '').toLowerCase().includes(q)).slice(0, 20)
+  }
+
+  function abrirBuscaCatalogo(idx: number) {
+    setLinhaAberta(idx)
+    const el = descricaoRefs.current[idx]
+    if (el) {
+      const r = el.getBoundingClientRect()
+      setPosDropdown({ top: r.bottom + 4, left: r.left, width: r.width })
+    }
   }
 
   function selecionarItemCatalogo(idx: number, item: ItemCatalogo) {
     atualizarItem(idx, 'descricao', item.nome)
     atualizarItem(idx, 'sku', item.sku ?? '')
     atualizarItem(idx, 'preco_un', item.preco)
-    setBuscaItem((cur) => { const n = [...cur]; n[idx] = ''; return n })
-    setMostrarBuscaItem((cur) => { const n = [...cur]; n[idx] = false; return n })
+    setLinhaAberta(null)
   }
 
   // ─── Totais ────────────────────────────────────────────────────────────
@@ -595,46 +622,18 @@ export function PropostaModal({ propostaId, onClose, onSalvo }: {
                   <tbody className="divide-y divide-border">
                     {itens.map((item, idx) => {
                       const totalLinha = (Number(item.quantidade) || 0) * (Number(item.preco_un) || 0)
-                      const resultados = resultadosParaLinha(idx)
                       return (
                         <tr key={idx}>
                           <td className="px-2 py-2 relative">
                             <input
+                              ref={(el) => { descricaoRefs.current[idx] = el }}
                               type="text"
                               value={item.descricao}
-                              onChange={(e) => atualizarItem(idx, 'descricao', e.target.value)}
-                              onFocus={() => setMostrarBuscaItem((cur) => { const n = [...cur]; n[idx] = true; return n })}
-                              placeholder="Descrição do item"
+                              onChange={(e) => { atualizarItem(idx, 'descricao', e.target.value); abrirBuscaCatalogo(idx) }}
+                              onFocus={() => abrirBuscaCatalogo(idx)}
+                              placeholder="Digite para buscar no catálogo…"
                               className="w-full rounded border border-border bg-background-elevated px-2 py-1.5 text-sm text-slate-100"
                             />
-                            {mostrarBuscaItem[idx] && (
-                              <div className="absolute left-0 top-full z-30 mt-1 w-72 rounded-lg border border-border bg-background-surface shadow-xl">
-                                <input
-                                  autoFocus
-                                  value={buscaItem[idx] ?? ''}
-                                  onChange={(e) => setBuscaItem((cur) => { const n = [...cur]; n[idx] = e.target.value; return n })}
-                                  placeholder="Buscar no catálogo (serviços/produtos)…"
-                                  className="w-full rounded-t-lg border-b border-border bg-transparent px-2 py-1.5 text-sm text-slate-100 focus:outline-none"
-                                />
-                                <div className="max-h-40 overflow-y-auto">
-                                  {resultados.length === 0 ? (
-                                    <p className="px-3 py-2 text-xs text-slate-500">Nenhum resultado</p>
-                                  ) : resultados.map((r, i) => (
-                                    <button key={i} type="button" onClick={() => selecionarItemCatalogo(idx, r)} className="w-full px-3 py-2 text-left text-sm hover:bg-background-elevated">
-                                      <span className="block font-medium text-slate-200">{r.nome}</span>
-                                      <span className="block text-xs text-slate-500">{r.sku ? `SKU ${r.sku} · ` : ''}R$ {formatarMoeda(r.preco)}</span>
-                                    </button>
-                                  ))}
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => setMostrarBuscaItem((cur) => { const n = [...cur]; n[idx] = false; return n })}
-                                  className="w-full border-t border-border py-1 text-xs text-slate-500 hover:text-slate-300"
-                                >
-                                  Fechar
-                                </button>
-                              </div>
-                            )}
                           </td>
                           <td className="px-2 py-2">
                             <input type="text" value={item.sku ?? ''} onChange={(e) => atualizarItem(idx, 'sku', e.target.value)} className="w-full rounded border border-border bg-background-elevated px-2 py-1.5 text-sm text-slate-100" />
@@ -660,6 +659,35 @@ export function PropostaModal({ propostaId, onClose, onSalvo }: {
               </div>
             )}
             <Button type="button" variant="ghost" onClick={adicionarItem}><IconPlus className="w-3.5 h-3.5" /> Adicionar item</Button>
+            {linhaAberta !== null && posDropdown && createPortal(
+              <div
+                ref={dropdownRef}
+                style={{ position: 'fixed', top: posDropdown.top, left: posDropdown.left, width: Math.max(posDropdown.width, 352) }}
+                className="z-50 max-h-80 overflow-y-auto rounded-lg border border-border bg-background-surface shadow-xl"
+              >
+                {resultadosParaLinha(linhaAberta).length === 0 ? (
+                  <p className="px-3 py-2.5 text-sm text-slate-500">
+                    {(itens[linhaAberta]?.descricao ?? '').trim() ? 'Nenhum resultado no catálogo' : 'Digite para buscar no catálogo'}
+                  </p>
+                ) : (
+                  <ul className="divide-y divide-border">
+                    {resultadosParaLinha(linhaAberta).map((r, i) => (
+                      <li key={i}>
+                        <button
+                          type="button"
+                          onClick={() => selecionarItemCatalogo(linhaAberta, r)}
+                          className="block w-full px-3 py-2.5 text-left text-sm hover:bg-background-elevated"
+                        >
+                          <span className="block font-medium text-slate-200">{r.nome}</span>
+                          <span className="block text-xs text-slate-500">{r.sku ? `SKU ${r.sku} · ` : ''}R$ {formatarMoeda(r.preco)}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>,
+              document.body,
+            )}
           </Secao>
 
           {/* ── Outros itens ou serviços (bloco técnico) ── */}

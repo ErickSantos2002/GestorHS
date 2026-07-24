@@ -124,4 +124,26 @@ describe('PropostaModal', () => {
     fireEvent.change(screen.getByLabelText('Desconto (R$)'), { target: { value: '20' } })
     expect(screen.getByTestId('total-proposta').textContent).toContain('230,00')
   })
+
+  it('digitar na descricao filtra o catalogo e selecionar um resultado preenche a linha', async () => {
+    servicosListar.mockResolvedValue([{ id: 1, nome: 'Calibração Padrão', sku: 'SRV-1', preco: 150 }])
+    produtosListar.mockResolvedValue([{ id: 2, nome: 'Bocal Descartável', sku: 'PRD-9', preco: 3.5 }])
+    render(<PropostaModal onClose={vi.fn()} />)
+    await waitFor(() => expect(servicosListar).toHaveBeenCalled())
+
+    fireEvent.click(screen.getByText('Adicionar item'))
+    const descricaoInput = screen.getByPlaceholderText('Digite para buscar no catálogo…')
+
+    fireEvent.change(descricaoInput, { target: { value: 'calibra' } })
+    const resultado = await screen.findByText('Calibração Padrão')
+    expect(screen.queryByText('Bocal Descartável')).not.toBeInTheDocument()
+
+    fireEvent.click(resultado)
+
+    await waitFor(() => expect((descricaoInput as HTMLInputElement).value).toBe('Calibração Padrão'))
+    const tabela = screen.getByTestId('tabela-itens')
+    expect(within(tabela).getByDisplayValue('SRV-1')).toBeInTheDocument()
+    expect(within(tabela).getByDisplayValue('150')).toBeInTheDocument()
+    expect(screen.queryByText('Nenhum resultado no catálogo')).not.toBeInTheDocument()
+  })
 })
