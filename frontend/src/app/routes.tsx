@@ -19,6 +19,9 @@ import { CaixasPage } from './caixas/CaixasPage'
 import { CaixaDetailPage } from './caixas/CaixaDetailPage'
 import { CertificadosPage } from './certificados/CertificadosPage'
 import { LogsIntegracaoPage } from './integracao/LogsIntegracaoPage'
+import { PropostasPage } from './propostas/PropostasPage'
+import { CatalogoServicosPage } from './catalogo/CatalogoServicosPage'
+import { CatalogoProdutosPage } from './catalogo/CatalogoProdutosPage'
 function ComLayout() {
   return (
     <MainLayout>
@@ -52,6 +55,9 @@ export default function AppRoutes() {
         <Route path="caixas/:id" element={<CaixaDetailPage />} />
         <Route path="cobranca" element={<CobrancaPage />} />
         <Route path="solicitacoes" element={<SolicitacoesPage />} />
+        <Route path="propostas" element={<PropostasPage />} />
+        <Route path="catalogo/servicos" element={<CatalogoServicosPage />} />
+        <Route path="catalogo/produtos" element={<CatalogoProdutosPage />} />
         <Route path="integracao" element={<LogsIntegracaoPage />} />
         <Route path="conta" element={<MinhaContaPage />} />
         <Route path="*" element={<Navigate to="/app" replace />} />
