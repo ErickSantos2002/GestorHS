@@ -1,9 +1,9 @@
 import { type ReactNode, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { cn } from '../lib/utils'
-import { useAuth } from '../auth/AuthContext'
-import { isAdmin } from '../auth/roles'
-import { IconDashboard, IconUsers, IconCadastros, IconClientes, IconFrota, IconOrdens, IconCobranca, IconSolicitacoes, IconCaixas, IconCertificado } from '../components/ui/icons'
+import { useAuth, type User } from '../auth/AuthContext'
+import { isAdmin, podeGerenciarPropostas } from '../auth/roles'
+import { IconDashboard, IconUsers, IconCadastros, IconClientes, IconFrota, IconOrdens, IconCobranca, IconSolicitacoes, IconCaixas, IconCertificado, IconNote, IconWrench, IconTag } from '../components/ui/icons'
 import { VERSAO_ATUAL } from '../app/changelog/data'
 import { ChangelogModal } from '../app/changelog/ChangelogModal'
 import logo from '../assets/logo.png'
@@ -13,6 +13,7 @@ interface NavItem {
   icon: ReactNode
   to: string
   adminOnly?: boolean
+  visivel?: (user: User | null) => boolean
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -26,6 +27,9 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Caixas', icon: <IconCaixas />, to: '/app/caixas' },
   { label: 'Cobrança', icon: <IconCobranca />, to: '/app/cobranca' },
   { label: 'Solicitações', icon: <IconSolicitacoes />, to: '/app/solicitacoes' },
+  { label: 'Propostas', icon: <IconNote />, to: '/app/propostas', visivel: podeGerenciarPropostas },
+  { label: 'Serviços', icon: <IconWrench />, to: '/app/catalogo/servicos', visivel: podeGerenciarPropostas },
+  { label: 'Produtos', icon: <IconTag />, to: '/app/catalogo/produtos', visivel: podeGerenciarPropostas },
   { label: 'Logs de Integração', icon: <IconSolicitacoes />, to: '/app/integracao', adminOnly: true },
 ]
 
@@ -33,7 +37,9 @@ export function Sidebar({ collapsed }: { collapsed: boolean }) {
   const location = useLocation()
   const { user } = useAuth()
   const [changelogAberto, setChangelogAberto] = useState(false)
-  const itens = NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin(user))
+  const itens = NAV_ITEMS.filter(
+    (item) => (!item.adminOnly || isAdmin(user)) && (!item.visivel || item.visivel(user)),
+  )
 
   return (
     <aside
