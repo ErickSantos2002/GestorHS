@@ -12,6 +12,7 @@ import { RichText } from '../../components/ui/RichText'
 import { useAuth } from '../../auth/AuthContext'
 import { ApiError } from '../../lib/api'
 import { hojeISO } from '../../lib/datas'
+import { descreverVencimento } from './aparelhosFrota'
 import { clientesApi, type Cliente, type ClienteListItem } from '../clientes/api'
 import { STATUS_CALIBRACAO, type StatusCalibracao } from '../frota/api'
 import {
@@ -113,6 +114,7 @@ export function PropostaModal({ propostaId, onClose, onSalvo }: {
   const [frota, setFrota] = useState<EquipamentoClienteFrota[] | null>(null)
   const [carregandoFrota, setCarregandoFrota] = useState(false)
   const [aparelhosSelecionados, setAparelhosSelecionados] = useState<number[]>([])
+  const [buscaAparelho, setBuscaAparelho] = useState('')
 
   // ─── Override cliente/pessoa (só nesta proposta) ──────────────────────
   const [mostrarOverride, setMostrarOverride] = useState(false)
@@ -222,7 +224,10 @@ export function PropostaModal({ propostaId, onClose, onSalvo }: {
   useEffect(() => {
     const trocouDeCliente = clienteAnteriorRef.current !== null && clienteAnteriorRef.current !== form.cliente
     clienteAnteriorRef.current = form.cliente
-    if (trocouDeCliente) setAparelhosSelecionados([])
+    if (trocouDeCliente) {
+      setAparelhosSelecionados([])
+      setBuscaAparelho('')
+    }
 
     if (form.cliente == null) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -559,29 +564,52 @@ export function PropostaModal({ propostaId, onClose, onSalvo }: {
               ) : !frota || frota.length === 0 ? (
                 <p className="text-sm text-slate-500">Nenhum aparelho cadastrado para este cliente.</p>
               ) : (
-                <ul className="space-y-2">
-                  {frota.map((a) => {
-                    const s = STATUS_CALIBRACAO[a.status_calibracao as StatusCalibracao] ?? STATUS_CALIBRACAO.sem_data
+                <>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"><IconSearch className="w-4 h-4" /></span>
+                    <input
+                      value={buscaAparelho}
+                      onChange={(e) => setBuscaAparelho(e.target.value)}
+                      placeholder="Buscar aparelho por descrição ou série"
+                      className={`pl-9 ${inputClass}`}
+                    />
+                  </div>
+                  {(() => {
+                    const q = buscaAparelho.trim().toLowerCase()
+                    const frotaFiltrada = q
+                      ? frota.filter((a) => (a.equipamento_descricao ?? '').toLowerCase().includes(q) || (a.serie ?? '').toLowerCase().includes(q))
+                      : frota
+                    if (frotaFiltrada.length === 0) {
+                      return <p className="mt-2 text-sm text-slate-500">Nenhum aparelho encontrado para “{buscaAparelho}”.</p>
+                    }
                     return (
-                      <li key={a.id} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background-elevated px-3 py-2.5">
-                        <label className="flex items-center gap-3 min-w-0 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            aria-label={a.equipamento_descricao ?? `Aparelho #${a.id}`}
-                            checked={aparelhosSelecionados.includes(a.id)}
-                            onChange={() => toggleAparelho(a.id)}
-                            className="h-4 w-4 rounded border-border text-primary focus:ring-primary/50 shrink-0"
-                          />
-                          <span className="min-w-0">
-                            <span className="block truncate font-medium text-slate-200">{a.equipamento_descricao ?? '—'}</span>
-                            <span className="block text-xs text-slate-500">{a.serie || a.patrimonio || '—'}</span>
-                          </span>
-                        </label>
-                        <Badge tone={s.tone}>{s.label}</Badge>
-                      </li>
+                      <ul className="mt-2 max-h-96 space-y-2 overflow-y-auto pr-1">
+                        {frotaFiltrada.map((a) => {
+                          const s = STATUS_CALIBRACAO[a.status_calibracao as StatusCalibracao] ?? STATUS_CALIBRACAO.sem_data
+                          return (
+                            <li key={a.id} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background-elevated px-3 py-2.5">
+                              <label className="flex items-center gap-3 min-w-0 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  aria-label={a.equipamento_descricao ?? `Aparelho #${a.id}`}
+                                  checked={aparelhosSelecionados.includes(a.id)}
+                                  onChange={() => toggleAparelho(a.id)}
+                                  className="h-4 w-4 rounded border-border text-primary focus:ring-primary/50 shrink-0"
+                                />
+                                <span className="min-w-0">
+                                  <span className="block truncate font-medium text-slate-200">{a.equipamento_descricao ?? '—'}</span>
+                                  <span className="block text-xs text-slate-500">{a.serie || a.patrimonio || '—'}</span>
+                                  <span className="block text-xs text-slate-400">{descreverVencimento(a.prox_calibragem)}</span>
+                                </span>
+                              </label>
+                              <Badge tone={s.tone}>{s.label}</Badge>
+                            </li>
+                          )
+                        })}
+                      </ul>
                     )
-                  })}
-                </ul>
+                  })()}
+                </>
               )}
             </Secao>
           )}

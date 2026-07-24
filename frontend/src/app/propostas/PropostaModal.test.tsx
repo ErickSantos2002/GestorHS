@@ -47,6 +47,7 @@ vi.mock('./api', async (orig) => {
 })
 
 import { PropostaModal } from './PropostaModal'
+import { descreverVencimento } from './aparelhosFrota'
 
 const CLIENTE = { id: 5, nome: 'Cliente Teste', cgc: '11.111.111/0001-11', cpf: null, municipio: 'Recife', estado: 'PE', ativo: true }
 const CLIENTE_COMPLETO = {
@@ -145,5 +146,47 @@ describe('PropostaModal', () => {
     expect(within(tabela).getByDisplayValue('SRV-1')).toBeInTheDocument()
     expect(within(tabela).getByDisplayValue('150')).toBeInTheDocument()
     expect(screen.queryByText('Nenhum resultado no catálogo')).not.toBeInTheDocument()
+  })
+
+  it('busca de aparelhos filtra a lista da frota sem desmarcar selecionados', async () => {
+    render(<PropostaModal onClose={vi.fn()} />)
+    await selecionarCliente()
+    await screen.findByLabelText('Phoebus 3000')
+
+    fireEvent.click(screen.getByLabelText('Bafômetro X'))
+
+    fireEvent.change(screen.getByPlaceholderText('Buscar aparelho por descrição ou série'), { target: { value: 'phoebus' } })
+    expect(screen.queryByLabelText('Bafômetro X')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Phoebus 3000')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Criar Proposta'))
+    await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
+    const payload = propostasCriar.mock.calls[0][0]
+    expect(payload.aparelhos).toEqual([{ equipamento_cliente: 42 }])
+  })
+})
+
+describe('descreverVencimento', () => {
+  const hoje = new Date(2026, 6, 24) // 24/07/2026 (mes 0-indexado)
+
+  it('sem data retorna aviso de sem data', () => {
+    expect(descreverVencimento(null, hoje)).toContain('Sem data')
+  })
+
+  it('data futura distante mostra meses restantes', () => {
+    const texto = descreverVencimento('2026-11-24', hoje)
+    expect(texto).toContain('faltam')
+    expect(texto).toContain('meses')
+  })
+
+  it('data futura proxima (menos de 2 meses) mostra dias restantes', () => {
+    const texto = descreverVencimento('2026-08-05', hoje)
+    expect(texto).toContain('faltam')
+    expect(texto).toContain('dias')
+  })
+
+  it('data passada mostra que ja venceu', () => {
+    const texto = descreverVencimento('2026-01-10', hoje)
+    expect(texto).toMatch(/Venceu|vencido/)
   })
 })
