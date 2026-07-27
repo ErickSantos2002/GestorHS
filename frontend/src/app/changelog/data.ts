@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.26.0',
+    data: '24/07/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'Uma caixa agora pode ter aparelhos de mais de um cliente do mesmo grupo. Ao encaminhar do Recebido para o Laboratório, a expedição escolhe o cliente principal (quando há mais de um), que passa a ser usado nas propostas, cards e nota fiscal.' },
+    ],
+  },
+  {
     versao: '1.25.4',
     data: '24/07/2026',
     itens: [
