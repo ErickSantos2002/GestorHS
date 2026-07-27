@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 
 let mockUser = { funcao: 'Administrador' }
@@ -7,10 +7,10 @@ vi.mock('../../auth/AuthContext', () => ({
   useAuth: () => ({ user: mockUser })
 }))
 
-const { obter, desvincularOrdem } = vi.hoisted(() => ({ obter: vi.fn(), desvincularOrdem: vi.fn() }))
+const { obter, desvincularOrdem, avancar } = vi.hoisted(() => ({ obter: vi.fn(), desvincularOrdem: vi.fn(), avancar: vi.fn() }))
 vi.mock('./api', async (orig) => {
   const real = await orig<typeof import('./api')>()
-  return { ...real, caixasApi: { ...real.caixasApi, obter, desvincularOrdem } }
+  return { ...real, caixasApi: { ...real.caixasApi, obter, desvincularOrdem, avancar } }
 })
 
 import { CaixaDetailPage } from './CaixaDetailPage'
@@ -269,5 +269,39 @@ describe('CaixaDetailPage — gating por funcao (role-based)', () => {
     )
     await screen.findByText('Caixa #5')
     expect(screen.queryByRole('button', { name: 'Sem conserto' })).toBeNull()
+  })
+})
+
+describe('CaixaDetailPage — cliente principal ao avancar Recebido multi-cliente', () => {
+  beforeEach(() => {
+    mockUser = { funcao: 'Administrador' }
+    obter.mockReset(); desvincularOrdem.mockReset(); avancar.mockReset()
+  })
+
+  it('pede cliente principal ao avancar caixa recebido multi-cliente', async () => {
+    obter.mockResolvedValue({
+      id: 7, fase: 4, ordens: [
+        { id: 1, cliente: 10, cliente_nome: 'A', fase: 4, desfecho_lab: 'pendente' },
+        { id: 2, cliente: 20, cliente_nome: 'B', fase: 4, desfecho_lab: 'pendente' }],
+    })
+    render(<MemoryRouter initialEntries={['/app/caixas/7']}><Routes><Route path="/app/caixas/:id" element={<CaixaDetailPage />} /></Routes></MemoryRouter>)
+    const btn = await screen.findByRole('button', { name: /avançar caixa/i })
+    fireEvent.click(btn)
+    expect(await screen.findByText(/cliente principal/i)).toBeInTheDocument()
+    expect(avancar).not.toHaveBeenCalled()
+  })
+
+  it('avanca direto (sem seletor) quando ha so 1 cliente na caixa recebido', async () => {
+    obter.mockResolvedValue({
+      id: 8, fase: 4, ordens: [
+        { id: 1, cliente: 10, cliente_nome: 'A', fase: 4, desfecho_lab: 'pendente' },
+        { id: 2, cliente: 10, cliente_nome: 'A', fase: 4, desfecho_lab: 'pendente' }],
+    })
+    avancar.mockResolvedValue({ id: 8, fase: 5, ordens: [] })
+    render(<MemoryRouter initialEntries={['/app/caixas/8']}><Routes><Route path="/app/caixas/:id" element={<CaixaDetailPage />} /></Routes></MemoryRouter>)
+    const btn = await screen.findByRole('button', { name: /avançar caixa/i })
+    fireEvent.click(btn)
+    expect(screen.queryByText(/cliente principal/i)).toBeNull()
+    expect(avancar).toHaveBeenCalledWith(8, { obs: null, cod_retorno: null })
   })
 })
