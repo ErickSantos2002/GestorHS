@@ -70,4 +70,9 @@ describe('caixasApi', () => {
     await caixasApi.desfechoLab(9, { desfecho: 'concluido', obs: null })
     expect(apiJson).toHaveBeenCalledWith('/ordens/9/desfecho-lab', { method: 'POST', body: JSON.stringify({ desfecho: 'concluido', obs: null }) })
   })
+
+  it('avancar envia cliente_principal', async () => {
+    await caixasApi.avancar(7, { cliente_principal: 3, obs: null, cod_retorno: null })
+    expect(apiJson).toHaveBeenCalledWith('/caixas/7/avancar', { method: 'POST', body: JSON.stringify({ cliente_principal: 3, obs: null, cod_retorno: null }) })
+  })
 })
