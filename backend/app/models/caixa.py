@@ -10,9 +10,11 @@ class Caixa(Base):
     data = Column(Date, nullable=True)
     obs = Column(String(1000), nullable=True)
     fase = Column(Integer, ForeignKey("fases.id"), nullable=True)
+    cliente_principal = Column(Integer, ForeignKey("clientes.id"), nullable=True)
 
     ordens = relationship("Ordem", back_populates="caixa_rel", lazy="selectin")
     fase_rel = relationship("Fase", lazy="joined")
+    cliente_principal_rel = relationship("Cliente", lazy="joined", foreign_keys=[cliente_principal])
 
     @property
     def total_os(self) -> int:
@@ -30,3 +32,7 @@ class Caixa(Base):
     @property
     def fase_cor(self):
         return self.fase_rel.cor if self.fase_rel else None
+
+    @property
+    def cliente_principal_nome(self):
+        return self.cliente_principal_rel.nome if self.cliente_principal_rel else None
