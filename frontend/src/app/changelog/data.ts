@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.27.0',
+    data: '27/07/2026',
+    itens: [
+      { tipo: 'melhoria', texto: 'Os avisos de calibração vencendo enviados ao GrowthHS agora chegam agrupados: um card por cliente com todos os aparelhos que vencem naquele mês, no lugar de um card separado por aparelho. A verificação passou a ser mensal (todo dia 1) e cobre o mês corrente e o seguinte, então o comercial enxerga sempre dois meses à frente e cobra tudo de uma vez.' },
+    ],
+  },
+  {
     versao: '1.26.0',
     data: '24/07/2026',
     itens: [

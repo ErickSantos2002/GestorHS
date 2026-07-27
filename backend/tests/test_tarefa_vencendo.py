@@ -1,4 +1,5 @@
 import asyncio
+from datetime import date
 
 import pytest
 
@@ -52,7 +53,7 @@ def test_roda_o_job_no_horario(monkeypatch):
     dormiu, rodou = [], []
     monkeypatch.setattr(vencendo, "_rodar_job", lambda: rodou.append(True))
 
-    asyncio.run(vencendo.loop_diario(ciclos=1, dormir=_dormir_na_hora(dormiu)))
+    asyncio.run(vencendo.loop_mensal(ciclos=1, dormir=_dormir_na_hora(dormiu)))
 
     assert len(dormiu) == 1 and dormiu[0] > 0     # esperou ate o horario
     assert rodou == [True]
@@ -70,7 +71,7 @@ def test_falha_no_job_nao_mata_o_loop(monkeypatch):
 
     monkeypatch.setattr(vencendo, "_rodar_job", as_vezes_falha)
 
-    asyncio.run(vencendo.loop_diario(ciclos=2, dormir=_dormir_na_hora([])))
+    asyncio.run(vencendo.loop_mensal(ciclos=2, dormir=_dormir_na_hora([])))
 
     assert len(rodadas) == 2                       # seguiu depois da falha
 
@@ -90,7 +91,7 @@ def test_cancelamento_encerra_limpo():
     asyncio.run(cenario())
 
 
-def test_rodar_job_usa_a_janela_configurada(monkeypatch):
+def test_rodar_job_usa_o_mes_corrente_e_o_seguinte(monkeypatch):
     """O worker precisa chamar o MESMO processar() do script — nada de uma segunda
     copia da regra de selecao (o projeto ja se queimou com logica duplicada)."""
     chamadas = {}
@@ -102,13 +103,16 @@ def test_rodar_job_usa_a_janela_configurada(monkeypatch):
     monkeypatch.setattr(vencendo, "SessionLocal", lambda: FakeSession())
     monkeypatch.setattr(vencendo, "processar",
                         lambda db, **kw: chamadas.update(kw) or
-                        {"candidatos": 3, "criados": 3, "existentes": 0, "falhas": 0,
-                         "pendencias": []})
-    monkeypatch.setattr(settings, "JOB_VENCENDO_DIAS", 50)
+                        {"clientes": 2, "aparelhos": 5, "criados": 2, "existentes": 0,
+                         "falhas": 0, "pendencias": [], "excluidos": []})
 
     vencendo._rodar_job()
 
-    assert chamadas["dias"] == 50
+    hoje = date.today()
+    corrente = hoje.replace(day=1)
+    seguinte = (corrente.replace(year=corrente.year + 1, month=1)
+                if corrente.month == 12 else corrente.replace(month=corrente.month + 1))
+    assert chamadas["competencias"] == [corrente, seguinte]
     assert chamadas["enviar"] is True
     assert chamadas["fechou"] is True
 
