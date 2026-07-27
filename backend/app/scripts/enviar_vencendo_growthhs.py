@@ -1,25 +1,28 @@
-"""Job DIARIO: cria um card no board Cobranca do GrowthHS para cada aparelho cuja
-calibracao vence nos proximos N dias (padrao 50).
+"""Job MENSAL: cria um card no board Cobranca do GrowthHS para cada CLIENTE com
+aparelhos cuja calibracao vence na competencia — um card por cliente por mes.
 
-Uso: python -m app.scripts.enviar_vencendo_growthhs [--dias 50] [--dry-run]
-     [--limite N] [--pendencias CAMINHO.csv]
+Uso: python -m app.scripts.enviar_vencendo_growthhs [--competencia YYYY-MM ...]
+     [--dry-run] [--limite N] [--pendencias CAMINHO.csv]
 
-Agendado por cron (ver docs/operacao-growthhs-cron.md).
+Roda sozinho dentro da API todo dia 1 as 8h (ver app/tarefas/vencendo.py e
+docs/operacao-growthhs-job-mensal.md). Sem --competencia, cobre o mes corrente e o
+seguinte.
 
-PADRAO E' ENVIAR — ao contrario de `enviar_atrasados_growthhs`, que exige
-`--enviar`. Nao e' inconsistencia: a chave daquele script leva a data da carga, entao
-repetir cria duplicata irrecuperavel; a chave DESTE e' `{ec_id}:{prox_calibragem}`,
-que nao muda com o dia da execucao — rodar de novo devolve `created: false` e nao
-cria nada. Alem disso e' um job de cron: um default que nao envia viraria um
-agendamento no-op silencioso, o pior modo de falha possivel aqui.
+PADRAO E' ENVIAR — ao contrario de `enviar_atrasados_growthhs`, que exige `--enviar`.
+Nao e' inconsistencia: a chave daquele script leva a data da carga, entao repetir cria
+duplicata irrecuperavel; a chave DESTE e' `{cliente_id}:{YYYY-MM}`, que nao muda com o
+dia da execucao — rodar de novo devolve `created: false` e nao cria nada. Alem disso e'
+um job agendado: um default que nao envia viraria um agendamento no-op silencioso, o
+pior modo de falha possivel aqui.
 
-O job e' BURRO e SEM ESTADO: roda todo dia sobre a janela inteira e nao precisa
-lembrar o que ja mandou, porque a criacao e' idempotente.
+O job e' BURRO e SEM ESTADO: roda todo mes sobre as duas competencias inteiras e nao
+precisa lembrar o que ja mandou, porque a criacao e' idempotente. E' isso que faz a
+primeira rodada subir 60 dias e as seguintes so o mes novo da ponta.
 """
 import argparse
 import csv
 import os
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
@@ -276,20 +279,34 @@ def _escrever_csv_relatorio(caminho: str, linhas: list[dict]) -> None:
             writer.writerow(linha)
 
 
+def _competencia(texto: str) -> date:
+    """Converte `YYYY-MM` num `date` no dia 1. Erro de digitacao morre aqui, no
+    argparse — nao pode virar uma rodada vazia silenciosa."""
+    try:
+        return datetime.strptime(texto, "%Y-%m").date()
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            f"competencia invalida: {texto!r} (use YYYY-MM, ex.: 2026-08)")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Job diario: cards de calibracao vencendo no board Cobranca do GrowthHS."
+        description="Job mensal: cards de calibracao vencendo, um por cliente, "
+                    "no board Cobranca do GrowthHS."
     )
-    parser.add_argument("--dias", type=int, default=DIAS_PADRAO,
-                        help=f"Tamanho da janela em dias (padrao {DIAS_PADRAO})")
+    parser.add_argument("--competencia", type=_competencia, action="append", default=None,
+                        metavar="YYYY-MM",
+                        help="Mes de vencimento a cobrir; repetivel. "
+                             "Padrao: mes corrente + mes seguinte.")
     parser.add_argument("--dry-run", action="store_true",
                         help="Simula: monta tudo e imprime o resumo, sem NENHUM request.")
     parser.add_argument("--limite", type=int, default=None,
-                        help="Processa so os N primeiros aparelhos — para um teste controlado")
-    parser.add_argument("--pendencias", default=None, help="Caminho do CSV de falhas")
+                        help="Processa so os N primeiros CLIENTES — para um teste controlado")
+    parser.add_argument("--pendencias", default=None, help="Caminho do CSV do relatorio")
     args = parser.parse_args()
 
     enviar = not args.dry_run
+    competencias = args.competencia or competencias_padrao(date.today())
 
     if enviar and not integracao_ativa():
         print("ERRO: integracao com o GrowthHS esta DESLIGADA "
@@ -297,51 +314,52 @@ def main() -> None:
               "Nada foi lido nem enviado.")
         raise SystemExit(1)
 
-    caminho_pendencias = args.pendencias or str(
+    caminho_relatorio = args.pendencias or str(
         _dir_relatorios() / f"pendencias-vencendo-growthhs-{date.today().isoformat()}.csv"
     )
     # Cria o diretorio ANTES de qualquer envio: um caminho invalido precisa falhar
     # rapido, nao depois de ja ter criado cards em producao.
-    os.makedirs(os.path.dirname(caminho_pendencias) or ".", exist_ok=True)
+    os.makedirs(os.path.dirname(caminho_relatorio) or ".", exist_ok=True)
     # Nao basta criar o diretorio: se ele ja existe mas pertence a outro usuario
     # (o container roda como root, entao `relatorios/` nasce root), o makedirs passa
     # e a falha so aparece no open() la embaixo — DEPOIS de os cards ja terem sido
     # enviados. Abrir agora, em modo append, transforma isso em falha imediata.
     try:
-        open(caminho_pendencias, "a", encoding="utf-8").close()
+        open(caminho_relatorio, "a", encoding="utf-8").close()
     except OSError as exc:
-        print(f"ERRO: nao consigo gravar o relatorio em {caminho_pendencias}: {exc}\n"
+        print(f"ERRO: nao consigo gravar o relatorio em {caminho_relatorio}: {exc}\n"
               f"Use --pendencias com um caminho gravavel. Nada foi enviado.")
         raise SystemExit(1)
 
     db = SessionLocal()
     try:
-        r = processar(db, dias=args.dias, enviar=enviar, limite=args.limite)
+        r = processar(db, competencias=competencias, enviar=enviar, limite=args.limite)
     finally:
         db.close()
 
-    _escrever_csv_pendencias(caminho_pendencias, r["pendencias"])
+    _escrever_csv_relatorio(caminho_relatorio, r["pendencias"] + r["excluidos"])
 
-    print(f"Janela: {date.today()} -> {date.today() + timedelta(days=args.dias)} "
-          f"({args.dias} dias)")
-    print(f"Aparelhos na janela: {r['candidatos']}")
+    print(f"Competencias: {', '.join(f'{c:%Y-%m}' for c in competencias)}")
+    print(f"Clientes: {r['clientes']} / Aparelhos: {r['aparelhos']}")
     if enviar:
         print(f"Criados: {r['criados']} / Ja existentes: {r['existentes']} / "
               f"Falhas: {r['falhas']}")
     else:
         print("MODO DRY-RUN — NADA FOI ENVIADO. Rode sem --dry-run para valer.")
-    print(f"Pendencias/falhas gravadas em: {caminho_pendencias}")
+    print(f"Excluidos por OS em andamento: {len(r['excluidos'])}")
+    print(f"Relatorio gravado em: {caminho_relatorio}")
 
     # As falhas vao TAMBEM para o stdout, nao so para o CSV. Em producao a imagem
     # sobe pelo Dockerfile sem bind mount: se RELATORIOS_DIR nao apontar para um
-    # volume persistente, o CSV some no redeploy. O stdout, que o cron redireciona
-    # para o log, e o unico canal que sobrevive sempre — e a falha e a unica
-    # diagnose que este job produz.
+    # volume persistente, o CSV some no redeploy. O stdout, que vai para o log do
+    # servico, e' o unico canal que sobrevive sempre — e a falha e' a unica diagnose
+    # que este job produz.
     for p in r["pendencias"]:
         print(f"  FALHA aparelho={p['equipamento_cliente_id']} cliente={p['cliente_id']} "
               f"serie={p['serie']} vence={p['prox_calibragem']}: {p['motivo']}")
 
-    # Saida !=0 quando houve falha, para o cron conseguir alertar.
+    # Saida !=0 quando houve falha, para conseguir alertar. Excluido por OS NAO e'
+    # falha: e' informacao operacional, o job funcionou como projetado.
     if r["falhas"]:
         raise SystemExit(1)
 

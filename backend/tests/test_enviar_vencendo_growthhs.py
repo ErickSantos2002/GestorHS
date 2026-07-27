@@ -1,3 +1,4 @@
+import sys
 from datetime import date, timedelta
 
 import pytest
@@ -304,3 +305,130 @@ def test_limite_corta_por_cliente(db_session, cliente, outro_cliente, equipament
     assert r["clientes"] == 1
     assert r["aparelhos"] == 2       # o limite corta CLIENTES, nao aparelhos
     assert r["criados"] == 1
+
+
+# ---------------------------------------------------------------------------
+# main() — a COSTURA entre o argparse e o processar()
+#
+# `test_limite_corta_por_cliente` chama processar() direto e sempre passou, mas o
+# main() esquecia de repassar `limite=args.limite`: quem rodasse `--limite 5` para um
+# teste controlado enviaria a rodada INTEIRA (409 cards em 20/07/2026),
+# irreversivelmente. Os testes daqui exercitam main() de ponta a ponta.
+# ---------------------------------------------------------------------------
+
+def _rodar_main(monkeypatch, tmp_path, argv, db_session):
+    import app.scripts.enviar_vencendo_growthhs as mod
+
+    recebido = {}
+    real_processar = mod.processar
+
+    def espiao(db, **kw):
+        recebido.update(kw)
+        return real_processar(db_session, **kw)
+
+    monkeypatch.setattr(mod, "processar", espiao)
+    monkeypatch.setattr(mod, "SessionLocal", lambda: db_session)
+    monkeypatch.setattr(db_session, "close", lambda: None)
+    monkeypatch.setattr(mod, "integracao_ativa", lambda: True)
+    monkeypatch.setattr(mod, "enviar_card_sync", lambda card: {"created": True})
+    monkeypatch.setattr(sys, "argv", ["enviar_vencendo_growthhs",
+                                      "--pendencias", str(tmp_path / "p.csv"), *argv])
+    mod.main()
+    return recebido
+
+
+def test_main_repassa_o_limite(db_session, cliente, equipamentos, monkeypatch, tmp_path):
+    _ec(db_session, cliente.id, vence=_dia(10))
+    recebido = _rodar_main(monkeypatch, tmp_path, ["--dry-run", "--limite", "2"], db_session)
+    assert recebido["limite"] == 2
+
+
+def test_main_repassa_competencias_e_dry_run(db_session, cliente, equipamentos,
+                                             monkeypatch, tmp_path):
+    _ec(db_session, cliente.id, vence=_dia(10))
+    recebido = _rodar_main(
+        monkeypatch, tmp_path,
+        ["--dry-run", "--competencia", "2026-08", "--competencia", "2026-09"], db_session)
+    assert recebido["competencias"] == [date(2026, 8, 1), date(2026, 9, 1)]
+    assert recebido["enviar"] is False
+
+
+def test_main_sem_competencia_usa_mes_corrente_e_seguinte(db_session, cliente,
+                                                          equipamentos, monkeypatch,
+                                                          tmp_path):
+    _ec(db_session, cliente.id, vence=_dia(10))
+    recebido = _rodar_main(monkeypatch, tmp_path, ["--dry-run"], db_session)
+    assert recebido["competencias"] == competencias_padrao(date.today())
+
+
+def test_main_recusa_competencia_malformada(db_session, monkeypatch, tmp_path):
+    """Erro de digitacao tem que morrer no argparse, nao virar uma rodada vazia
+    silenciosa."""
+    import app.scripts.enviar_vencendo_growthhs as mod
+    monkeypatch.setattr(mod, "integracao_ativa", lambda: True)
+    monkeypatch.setattr(sys, "argv", ["enviar_vencendo_growthhs", "--dry-run",
+                                      "--pendencias", str(tmp_path / "p.csv"),
+                                      "--competencia", "agosto"])
+    with pytest.raises(SystemExit) as saida:
+        mod.main()
+    assert saida.value.code == 2      # argparse
+
+
+def test_main_envia_por_padrao_sem_dry_run(db_session, cliente, equipamentos,
+                                           monkeypatch, tmp_path):
+    """O default deste script e' ENVIAR — o inverso do de atrasados, de proposito."""
+    _ec(db_session, cliente.id, vence=_dia(10))
+    recebido = _rodar_main(monkeypatch, tmp_path, [], db_session)
+    assert recebido["enviar"] is True
+    assert recebido["limite"] is None
+
+
+def test_main_imprime_falhas_no_stdout(db_session, cliente, equipamentos,
+                                       monkeypatch, tmp_path, capsys):
+    """Em producao a imagem sobe pelo Dockerfile sem bind mount, entao o CSV pode ser
+    efemero. O stdout vai para o log do servico e e' o unico canal que sobrevive
+    sempre — se as falhas sairem so no CSV, o job fica cego quando algo quebra."""
+    import app.scripts.enviar_vencendo_growthhs as mod
+    ec = _ec(db_session, cliente.id, vence=_dia(10))
+
+    def sempre_falha(card):
+        raise RuntimeError("GrowthHS respondeu 422: campo invalido")
+
+    monkeypatch.setattr(mod, "enviar_card_sync", sempre_falha)
+    monkeypatch.setattr(mod, "SessionLocal", lambda: db_session)
+    monkeypatch.setattr(db_session, "close", lambda: None)
+    monkeypatch.setattr(mod, "integracao_ativa", lambda: True)
+    monkeypatch.setattr(sys, "argv", ["enviar_vencendo_growthhs",
+                                      "--pendencias", str(tmp_path / "p.csv")])
+
+    with pytest.raises(SystemExit) as saida:
+        mod.main()
+
+    assert saida.value.code == 1          # o operador precisa conseguir alertar
+    impresso = capsys.readouterr().out
+    assert f"aparelho={ec.id}" in impresso
+    assert "422" in impresso
+
+
+def test_main_grava_falhas_e_excluidos_no_mesmo_csv(db_session, cliente, equipamentos,
+                                                    monkeypatch, tmp_path):
+    import csv as csv_mod
+
+    import app.scripts.enviar_vencendo_growthhs as mod
+    _ec(db_session, cliente.id, vence=_dia(10), os_atual=10902)
+    _ec(db_session, cliente.id, vence=_dia(11))
+
+    caminho = tmp_path / "p.csv"
+    monkeypatch.setattr(mod, "SessionLocal", lambda: db_session)
+    monkeypatch.setattr(db_session, "close", lambda: None)
+    monkeypatch.setattr(mod, "integracao_ativa", lambda: True)
+    monkeypatch.setattr(mod, "enviar_card_sync", lambda card: {"created": True})
+    monkeypatch.setattr(sys, "argv", ["enviar_vencendo_growthhs",
+                                      "--pendencias", str(caminho),
+                                      "--competencia", f"{MES_QUE_VEM:%Y-%m}"])
+    mod.main()      # sem falha => sem SystemExit
+
+    with open(caminho, encoding="utf-8") as f:
+        linhas = list(csv_mod.DictReader(f))
+    assert [l["tipo"] for l in linhas] == ["excluido"]
+    assert linhas[0]["competencia"] == f"{MES_QUE_VEM:%Y-%m}"
