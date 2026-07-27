@@ -60,38 +60,42 @@ def _dir_relatorios() -> Path:
         return Path(settings.RELATORIOS_DIR)
     return Path(settings.UPLOAD_DIR) / "relatorios"
 
-DIAS_PADRAO = 50
+def _limites_da_competencia(competencia: date) -> tuple[date, date]:
+    """Primeiro e ultimo dia do mes da competencia.
 
-
-def buscar_vencendo(db: Session, dias: int) -> list[dict]:
-    """Uma linha por aparelho com calibracao a vencer na janela `[hoje, hoje+dias]`.
-
-    Cada linha: `{cliente_id, cliente, ec, equipamento_desc, elo}` — mesmo formato da
-    Etapa 1, de proposito, para compartilhar `buscar_elo`.
-
-    NAO inclui vencidos (`prox_calibragem < hoje`): esse backlog e' da Etapa 1.
-    Exclui hospedeiros (Phoebus/EBS), o cliente de estoque interno da HS e aparelhos
-    com OS em andamento (`os_atual` preenchido) — se o cliente ja mandou o aparelho,
-    "entre em contato" e' ruido.
+    O inicio nunca e' anterior a hoje: se alguem rodar a mao no meio do mes, nao faz
+    sentido "avisar" de um aparelho que ja venceu — isso e' backlog da Etapa 1.
+    Na rodada automatica (dia 1) o `max` nao corta nada.
     """
-    hoje = date.today()
-    ecs = (
-        db.query(EquipamentoCliente)
-        .filter(
-            EquipamentoCliente.ativo.is_(True),
-            EquipamentoCliente.prox_calibragem.isnot(None),
-            EquipamentoCliente.prox_calibragem >= hoje,
-            EquipamentoCliente.prox_calibragem <= hoje + timedelta(days=dias),
-            EquipamentoCliente.os_atual.is_(None),
-            EquipamentoCliente.equipamento.notin_(
-                [settings.EQUIPAMENTO_PHOEBUS_ID, settings.EQUIPAMENTO_EBS_ID]
-            ),
-            EquipamentoCliente.cliente != settings.CLIENTE_ESTOQUE_HS_ID,
-        )
-        .order_by(EquipamentoCliente.prox_calibragem, EquipamentoCliente.id)
-        .all()
-    )
+    primeiro = competencia.replace(day=1)
+    # Primeiro dia do mes seguinte menos um dia — nao depende de o mes ter 28/29/30/31.
+    if primeiro.month == 12:
+        proximo = primeiro.replace(year=primeiro.year + 1, month=1)
+    else:
+        proximo = primeiro.replace(month=primeiro.month + 1)
+    return max(date.today(), primeiro), proximo - timedelta(days=1)
 
+
+def _filtros_base(competencia: date):
+    """Os filtros comuns a quem VIRA card e a quem foi EXCLUIDO por OS.
+
+    Uma copia divergente destes filtros faria o relatorio de excluidos mentir — por
+    isso mora num lugar so.
+    """
+    inicio, fim = _limites_da_competencia(competencia)
+    return [
+        EquipamentoCliente.ativo.is_(True),
+        EquipamentoCliente.prox_calibragem.isnot(None),
+        EquipamentoCliente.prox_calibragem >= inicio,
+        EquipamentoCliente.prox_calibragem <= fim,
+        EquipamentoCliente.equipamento.notin_(
+            [settings.EQUIPAMENTO_PHOEBUS_ID, settings.EQUIPAMENTO_EBS_ID]
+        ),
+        EquipamentoCliente.cliente != settings.CLIENTE_ESTOQUE_HS_ID,
+    ]
+
+
+def _linhas(db: Session, ecs) -> list[dict]:
     return [
         {
             "cliente_id": ec.cliente,
@@ -102,6 +106,76 @@ def buscar_vencendo(db: Session, dias: int) -> list[dict]:
         }
         for ec in ecs
     ]
+
+
+def buscar_vencendo(db: Session, competencia: date) -> list[dict]:
+    """Uma linha por aparelho com calibracao vencendo NO MES da competencia.
+
+    Cada linha: `{cliente_id, cliente, ec, equipamento_desc, elo}` — mesmo formato da
+    Etapa 1, de proposito, para compartilhar `buscar_elo`.
+
+    NAO inclui vencidos (`prox_calibragem < hoje`): esse backlog e' da Etapa 1.
+    Exclui hospedeiros (Phoebus/EBS), o cliente de estoque interno da HS e aparelhos
+    com OS em andamento (`os_atual` preenchido) — se o cliente ja mandou o aparelho,
+    "entre em contato" e' ruido.
+    """
+    ecs = (
+        db.query(EquipamentoCliente)
+        .filter(*_filtros_base(competencia), EquipamentoCliente.os_atual.is_(None))
+        .order_by(EquipamentoCliente.cliente,
+                  EquipamentoCliente.prox_calibragem,
+                  EquipamentoCliente.id)
+        .all()
+    )
+    return _linhas(db, ecs)
+
+
+def buscar_excluidos_por_os(db: Session, competencia: date) -> list[dict]:
+    """Quem venceria na competencia mas ficou de fora por ter OS em andamento.
+
+    So alimenta o relatorio — nao vira card. Existe porque a rodada e' uma FOTO UNICA
+    do dia 1: quem estiver em OS naquele instante nao e' avisado naquele mes, e sem
+    isso a omissao seria silenciosa.
+    """
+    ecs = (
+        db.query(EquipamentoCliente)
+        .filter(*_filtros_base(competencia), EquipamentoCliente.os_atual.isnot(None))
+        .order_by(EquipamentoCliente.cliente,
+                  EquipamentoCliente.prox_calibragem,
+                  EquipamentoCliente.id)
+        .all()
+    )
+    return _linhas(db, ecs)
+
+
+def agrupar_por_cliente(linhas: list[dict]) -> list[list[dict]]:
+    """Um grupo por cliente, ordenado por cliente e, dentro do grupo, por vencimento.
+
+    Separado da query de proposito: e' regra pura e da' para testar sem banco.
+    """
+    grupos: dict[int, list[dict]] = {}
+    for linha in linhas:
+        grupos.setdefault(linha["cliente_id"], []).append(linha)
+    return [
+        sorted(grupo, key=lambda l: (l["ec"].prox_calibragem, l["ec"].id))
+        for _, grupo in sorted(grupos.items())
+    ]
+
+
+def competencias_padrao(hoje: date) -> list[date]:
+    """Mes corrente + mes seguinte — a janela de toda rodada.
+
+    Sao dois meses porque o comercial precisa enxergar 2 meses a' frente. Na pratica
+    so o mes de tras ja tem card (volta `created: false`), entao cada rodada cria de
+    fato o mes novo da ponta. Nao ha env para isso: quem precisar de outra janela usa
+    `--competencia` na mao.
+    """
+    corrente = hoje.replace(day=1)
+    if corrente.month == 12:
+        seguinte = corrente.replace(year=corrente.year + 1, month=1)
+    else:
+        seguinte = corrente.replace(month=corrente.month + 1)
+    return [corrente, seguinte]
 
 
 def processar(db: Session, *, dias: int, enviar: bool, limite: Optional[int] = None) -> dict:
