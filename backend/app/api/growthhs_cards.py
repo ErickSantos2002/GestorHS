@@ -40,6 +40,13 @@ def buscar_elo(db, ec):
     return SimpleNamespace(serie=phoebus.serie, descricao=phoebus.equipamento_descricao)
 
 
+def cliente_do_card(caixa):
+    """O cliente que as integracoes usam: o principal, com fallback na 1a OS."""
+    if caixa.cliente_principal_rel is not None:
+        return caixa.cliente_principal_rel
+    return caixa.ordens[0].cliente_rel if caixa.ordens else None
+
+
 def agendar_card_os(db, background_tasks, ordem) -> None:
     """Agenda o card de OS liberada do laboratorio no board Servicos do GrowthHS.
 
@@ -94,7 +101,7 @@ def agendar_card_caixa(db, background_tasks, caixa) -> None:
             ec = o.equipamento_rel
             elo = buscar_elo(db, ec)
             devices.append(montar_device(ec, o.equipamento_descricao, elo=elo))
-        cliente = ordens[0].cliente_rel
+        cliente = cliente_do_card(caixa)
         card = montar_card_caixa(caixa, cliente, devices, settings.HSGROWTH_BOARD_SERVICOS, date.today())
     except Exception:
         db.rollback()

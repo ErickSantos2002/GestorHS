@@ -34,6 +34,9 @@ class CaixaOut(BaseModel):
     fase_cor: str | None = None
     total_os: int = 0
     clientes: list[str] = []
+    cliente_principal: int | None = None
+    cliente_principal_nome: str | None = None
+    outros_clientes: int = 0
 
 
 class CaixaDetalhe(CaixaOut):
@@ -52,6 +55,8 @@ class VincularOrdemIn(BaseModel):
 class CaixaQuadroItem(BaseModel):
     id: int
     cliente_nome: str | None = None
+    cliente_principal_nome: str | None = None
+    outros_clientes: int = 0
     total_os: int
     prontos: int
     pendentes: int

@@ -42,6 +42,9 @@ export interface CaixaListItem {
   fase: number | null
   fase_descricao: string | null
   fase_cor: string | null
+  cliente_principal?: number | null
+  cliente_principal_nome?: string | null
+  outros_clientes?: number
 }
 
 export interface CaixaPage { items: CaixaListItem[]; total: number }
@@ -58,6 +61,8 @@ export interface CaixaQuadroItem {
   total_os: number
   prontos: number
   pendentes: number
+  cliente_principal_nome?: string | null
+  outros_clientes?: number
 }
 
 export interface QuadroCaixaColuna {
@@ -68,7 +73,7 @@ export interface QuadroCaixaColuna {
   caixas: CaixaQuadroItem[]
 }
 
-export interface CaixaAvancarPayload { obs?: string | null; cod_retorno?: string | null }
+export interface CaixaAvancarPayload { obs?: string | null; cod_retorno?: string | null; cliente_principal?: number | null }
 
 export const caixasApi = {
   listar: (params: CaixasParams = {}): Promise<CaixaPage> => {

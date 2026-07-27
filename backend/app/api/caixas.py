@@ -30,19 +30,6 @@ def _get_caixa(db: Session, caixa_id: int) -> Caixa:
     return cx
 
 
-def _cliente_da_caixa(cx: Caixa) -> int | None:
-    """O cliente das OS ativas da caixa (todas iguais por invariante), ou None se vazia."""
-    for o in cx.ordens:
-        return o.cliente
-    return None
-
-
-def _exige_mesmo_cliente(cx: Caixa, cliente_id: int) -> None:
-    atual = _cliente_da_caixa(cx)
-    if atual is not None and atual != cliente_id:
-        raise HTTPException(status_code=409, detail="OS de cliente diferente do da caixa")
-
-
 @router.get("", response_model=CaixaPage)
 def listar(
     q: str | None = None,
@@ -86,9 +73,12 @@ def quadro_caixas(cliente: int | None = None, db: Session = Depends(get_db),
             if cliente is not None and not any(o.cliente == cliente for o in ativas):
                 continue
             prontos = sum(1 for o in ativas if o.desfecho_lab in wf.DESFECHOS_TERMINAIS)
+            principal_nome = cx.cliente_principal_nome or next((o.cliente_nome for o in ativas), None)
+            outros = len({o.cliente for o in ativas if o.cliente != cx.cliente_principal})
             itens.append(CaixaQuadroItem(
-                id=cx.id, cliente_nome=next((o.cliente_nome for o in ativas), None),
-                total_os=len(ativas), prontos=prontos, pendentes=len(ativas) - prontos))
+                id=cx.id, cliente_nome=principal_nome, cliente_principal_nome=principal_nome,
+                total_os=len(ativas), prontos=prontos, pendentes=len(ativas) - prontos,
+                outros_clientes=outros))
         f = fases.get(fid)
         colunas.append(QuadroCaixaColuna(
             fase=fid, descricao=f.descricao if f else str(fid),
@@ -139,8 +129,7 @@ def vincular_ordem(
     ordem = db.query(Ordem).filter(Ordem.id == dados.ordem_id).first()
     if ordem is None:
         raise HTTPException(status_code=404, detail="OS não encontrada")
-    _exige_mesmo_cliente(cx, ordem.cliente)
-    ordem.caixa = cx.id  # vincula/move (mesmo cliente garantido acima)
+    ordem.caixa = cx.id  # vincula/move (multi-cliente permitido; principal define as integracoes)
     registrar_log(db, ordem, usuario, f"OS vinculada à caixa #{cx.id}")
     db.commit()
     db.refresh(cx)
@@ -186,6 +175,18 @@ def avancar_caixa(
     ok, motivo = wf.pode_avancar_caixa(origem, [o.desfecho_lab for o in ativas])
     if not ok:
         raise HTTPException(status_code=409, detail=motivo)
+
+    if origem == wf.FASE_RECEBIDO:
+        clientes_distintos = {o.cliente for o in ativas}
+        if dados.cliente_principal is not None:
+            if dados.cliente_principal not in clientes_distintos:
+                raise HTTPException(status_code=409, detail="cliente principal deve ser um cliente da caixa")
+            cx.cliente_principal = dados.cliente_principal
+        if cx.cliente_principal is None:
+            if len(clientes_distintos) == 1:
+                cx.cliente_principal = next(iter(clientes_distintos))
+            elif len(clientes_distintos) > 1:
+                raise HTTPException(status_code=409, detail="defina o cliente principal antes de avancar")
 
     # efeito por fase, fan-out para cada OS ativa
     if origem == 7:  # Preparando -> Finalizada

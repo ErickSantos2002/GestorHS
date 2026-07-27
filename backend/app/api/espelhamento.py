@@ -40,6 +40,8 @@ def _montar_payload_caixa(db, caixa, *, list_id, arquivado) -> dict:
     from app.models import Ordem, OSCertificado
 
     ordens = [o for o in caixa.ordens if o.fase not in (9,)] or list(caixa.ordens)
+    if caixa.cliente_principal is not None:
+        ordens.sort(key=lambda o: 0 if o.cliente == caixa.cliente_principal else 1)
     certificados_por_os = {}
     for o in ordens:
         certs = db.query(OSCertificado).filter(OSCertificado.os == o.id).all()

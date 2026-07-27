@@ -152,9 +152,6 @@ def abrir(dados: OrdemAbrirIn, background_tasks: BackgroundTasks, db: Session = 
     cx = db.query(Caixa).filter(Caixa.id == dados.caixa).first()
     if cx is None:
         raise HTTPException(status_code=404, detail="caixa não encontrada")
-    outra = db.query(Ordem).filter(Ordem.caixa == cx.id).first()
-    if outra is not None and outra.cliente != ec.cliente:
-        raise HTTPException(status_code=409, detail="caixa é de outro cliente")
     if dados.condicao_chegada is not None and dados.condicao_chegada not in rec.CONDICOES_CHEGADA:
         raise HTTPException(status_code=400, detail="condição de chegada inválida")
     try:

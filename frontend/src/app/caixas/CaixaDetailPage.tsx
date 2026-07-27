@@ -12,6 +12,7 @@ import { cn } from '../../lib/utils'
 import { caixasApi, formatData, type CaixaDetalhe } from './api'
 import { AbrirOSModal } from '../ordens/AbrirOSModal'
 import { AvancarCaixaModal } from './AvancarCaixaModal'
+import { ClientePrincipalModal } from './ClientePrincipalModal'
 import { SemConsertoModal } from './SemConsertoModal'
 import { NotaFiscalCaixaModal } from './NotaFiscalCaixaModal'
 import { TRANSICOES, faseAtiva } from '../ordens/api'
@@ -54,6 +55,9 @@ export function CaixaDetailPage() {
   // Avançar caixa
   const [avancarCaixaAberto, setAvancarCaixaAberto] = useState(false)
   const [avancandoCaixa, setAvancandoCaixa] = useState(false)
+
+  // Cliente principal (Recebido multi-cliente)
+  const [principalAberto, setPrincipalAberto] = useState(false)
 
   // Cancelar caixa
   const [cancelarCaixaAberto, setCancelarCaixaAberto] = useState(false)
@@ -141,10 +145,26 @@ export function CaixaDetailPage() {
 
   function clicarAvancarCaixa() {
     if (!caixa || caixa.fase == null) return
-    if (TRANSICOES[caixa.fase]?.pedeCodRetorno) {
+    if (caixa.fase === 4 && clientesDistintos.length > 1) {
+      setPrincipalAberto(true)
+    } else if (TRANSICOES[caixa.fase]?.pedeCodRetorno) {
       setAvancarCaixaAberto(true)
     } else {
       avancarCaixaDireto()
+    }
+  }
+
+  async function confirmarPrincipal(clienteId: number) {
+    setAvancandoCaixa(true)
+    setErroAcao('')
+    try {
+      await caixasApi.avancar(caixaId, { cliente_principal: clienteId, obs: null, cod_retorno: null })
+      setPrincipalAberto(false)
+      carregar()
+    } catch (err) {
+      setErroAcao(err instanceof ApiError ? err.message : 'Falha ao avançar caixa')
+    } finally {
+      setAvancandoCaixa(false)
     }
   }
 
@@ -241,6 +261,14 @@ export function CaixaDetailPage() {
 
   const clientesUnicos = new Set(caixa.ordens.map((o) => o.cliente_nome).filter(Boolean)).size
 
+  // Clientes distintos das OS ativas — usado para decidir se o avanço do Recebido
+  // precisa perguntar qual cliente é o "principal" (caixa multi-cliente).
+  const clientesDistintos = Array.from(
+    new Map(
+      caixa.ordens.filter((o) => faseAtiva(o.fase)).map((o) => [o.cliente, { id: o.cliente, nome: o.cliente_nome ?? '—' }]),
+    ).values(),
+  )
+
   // Progresso do laboratório (só faz sentido com a caixa em fase 5) — OS ativas apenas,
   // as terminais/canceladas não contam como pendência.
   const ordensAtivasLab = caixa.fase === 5 ? caixa.ordens.filter((o) => faseAtiva(o.fase)) : []
@@ -263,8 +291,14 @@ export function CaixaDetailPage() {
             <h1 className="text-2xl font-extrabold text-slate-100">Caixa #{caixa.id}</h1>
             <p className="text-sm text-slate-500 mt-1 flex flex-wrap items-center gap-2">
               <span>
-                {formatData(caixa.data)} · {caixa.total_os} OS · {clientesUnicos} cliente{clientesUnicos !== 1 ? 's' : ''}
+                {formatData(caixa.data)} · {caixa.total_os} OS ·{' '}
+                {caixa.cliente_principal_nome ?? `${clientesUnicos} cliente${clientesUnicos !== 1 ? 's' : ''}`}
               </span>
+              {caixa.outros_clientes && caixa.outros_clientes > 0 ? (
+                <span className="text-xs text-slate-500">
+                  +{caixa.outros_clientes} outro{caixa.outros_clientes > 1 ? 's' : ''}
+                </span>
+              ) : null}
               {caixa.fase === 5 && (
                 <span className={cn('text-xs px-2 py-0.5 rounded-full',
                   pendentesLab === 0 ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400')}>
@@ -450,6 +484,15 @@ export function CaixaDetailPage() {
             setAvancarCaixaAberto(false)
             carregar()
           }}
+        />
+      )}
+
+      {/* Modal: Cliente principal (avanço do Recebido com múltiplos clientes na caixa) */}
+      {principalAberto && (
+        <ClientePrincipalModal
+          clientes={clientesDistintos}
+          onConfirmar={confirmarPrincipal}
+          onClose={() => setPrincipalAberto(false)}
         />
       )}
 
