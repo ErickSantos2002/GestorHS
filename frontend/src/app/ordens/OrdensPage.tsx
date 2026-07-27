@@ -122,7 +122,14 @@ function Quadro({ clienteId, onAbrir }: { clienteId?: number; onAbrir: (id: numb
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-slate-300 mt-1 truncate">{cx.cliente_nome ?? '—'}</p>
+                    <p className="text-xs text-slate-300 mt-1 truncate flex items-center gap-1.5">
+                      <span className="truncate">{cx.cliente_principal_nome ?? cx.cliente_nome ?? '—'}</span>
+                      {cx.outros_clientes && cx.outros_clientes > 0 ? (
+                        <span className="text-xs text-slate-500 shrink-0">
+                          +{cx.outros_clientes} outro{cx.outros_clientes > 1 ? 's' : ''}
+                        </span>
+                      ) : null}
+                    </p>
                     <p className="text-xs text-slate-500">{cx.total_os} aparelho{cx.total_os !== 1 ? 's' : ''}</p>
                   </button>
                 ))

@@ -51,6 +51,15 @@ describe('quadro de ordens mostra caixas', () => {
     expect(screen.queryByText(/prontos/)).toBeNull()
   })
 
+  it('mostra + N outros no card da caixa multi-cliente', async () => {
+    quadro.mockResolvedValue([
+      { fase: 4, descricao: 'Recebido', cor: 'abc', total: 1,
+        caixas: [{ id: 7, cliente_nome: 'ACME', cliente_principal_nome: 'ACME', total_os: 3, prontos: 0, pendentes: 3, outros_clientes: 1 }] },
+    ])
+    tela()
+    expect(await screen.findByText(/\+1 outro/i)).toBeInTheDocument()
+  })
+
   it('tem coluna Caixa na vista de lista', async () => {
     quadro.mockResolvedValue([])
     listar.mockResolvedValue({ items: [os()], total: 1 })

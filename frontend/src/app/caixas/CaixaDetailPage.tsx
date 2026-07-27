@@ -291,8 +291,14 @@ export function CaixaDetailPage() {
             <h1 className="text-2xl font-extrabold text-slate-100">Caixa #{caixa.id}</h1>
             <p className="text-sm text-slate-500 mt-1 flex flex-wrap items-center gap-2">
               <span>
-                {formatData(caixa.data)} · {caixa.total_os} OS · {clientesUnicos} cliente{clientesUnicos !== 1 ? 's' : ''}
+                {formatData(caixa.data)} · {caixa.total_os} OS ·{' '}
+                {caixa.cliente_principal_nome ?? `${clientesUnicos} cliente${clientesUnicos !== 1 ? 's' : ''}`}
               </span>
+              {caixa.outros_clientes && caixa.outros_clientes > 0 ? (
+                <span className="text-xs text-slate-500">
+                  +{caixa.outros_clientes} outro{caixa.outros_clientes > 1 ? 's' : ''}
+                </span>
+              ) : null}
               {caixa.fase === 5 && (
                 <span className={cn('text-xs px-2 py-0.5 rounded-full',
                   pendentesLab === 0 ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400')}>
