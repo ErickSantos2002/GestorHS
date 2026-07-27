@@ -73,9 +73,12 @@ def quadro_caixas(cliente: int | None = None, db: Session = Depends(get_db),
             if cliente is not None and not any(o.cliente == cliente for o in ativas):
                 continue
             prontos = sum(1 for o in ativas if o.desfecho_lab in wf.DESFECHOS_TERMINAIS)
+            principal_nome = cx.cliente_principal_nome or next((o.cliente_nome for o in ativas), None)
+            outros = len({o.cliente for o in ativas if o.cliente != cx.cliente_principal})
             itens.append(CaixaQuadroItem(
-                id=cx.id, cliente_nome=next((o.cliente_nome for o in ativas), None),
-                total_os=len(ativas), prontos=prontos, pendentes=len(ativas) - prontos))
+                id=cx.id, cliente_nome=principal_nome, cliente_principal_nome=principal_nome,
+                total_os=len(ativas), prontos=prontos, pendentes=len(ativas) - prontos,
+                outros_clientes=outros))
         f = fases.get(fid)
         colunas.append(QuadroCaixaColuna(
             fase=fid, descricao=f.descricao if f else str(fid),

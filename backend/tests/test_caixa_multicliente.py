@@ -44,6 +44,24 @@ def test_avancar_recebido_principal_fora_da_caixa_falha(client_exp, caixa_recebi
     assert r.status_code == 409
 
 
+def test_detalhe_expoe_principal_e_outros(client_exp, caixa_recebido_dois_clientes, cliente_a_id):
+    client_exp.post(f"/caixas/{caixa_recebido_dois_clientes}/avancar", json={"cliente_principal": cliente_a_id})
+    body = client_exp.get(f"/caixas/{caixa_recebido_dois_clientes}").json()
+    assert body["cliente_principal"] == cliente_a_id
+    assert body["cliente_principal_nome"]
+    assert body["outros_clientes"] == 1
+
+
+def test_quadro_expoe_principal_e_outros(client_exp, caixa_recebido_dois_clientes, cliente_a_id):
+    client_exp.post(f"/caixas/{caixa_recebido_dois_clientes}/avancar", json={"cliente_principal": cliente_a_id})
+    colunas = client_exp.get("/caixas/quadro").json()
+    item = next(
+        it for col in colunas for it in col["caixas"] if it["id"] == caixa_recebido_dois_clientes
+    )
+    assert item["cliente_principal_nome"]
+    assert item["outros_clientes"] == 1
+
+
 def test_card_caixa_usa_cliente_principal(monkeypatch, db_session, caixa_multi_com_principal_b):
     # caixa com OS do cliente A (1a) e B, cliente_principal = B
     import app.api.growthhs_cards as gc

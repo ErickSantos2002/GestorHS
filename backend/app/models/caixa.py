@@ -36,3 +36,10 @@ class Caixa(Base):
     @property
     def cliente_principal_nome(self):
         return self.cliente_principal_rel.nome if self.cliente_principal_rel else None
+
+    @property
+    def outros_clientes(self) -> int:
+        ativas = {o.cliente for o in self.ordens if o.cliente is not None}
+        if self.cliente_principal is not None:
+            ativas.discard(self.cliente_principal)
+        return len(ativas)
