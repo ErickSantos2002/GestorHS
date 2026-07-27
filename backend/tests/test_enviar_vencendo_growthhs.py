@@ -9,6 +9,7 @@ from app.scripts.enviar_vencendo_growthhs import (
     buscar_excluidos_por_os,
     buscar_vencendo,
     competencias_padrao,
+    processar,
 )
 
 HOJE = date.today()
@@ -177,3 +178,129 @@ def test_competencias_padrao_sao_o_mes_corrente_e_o_seguinte():
 
 def test_competencias_padrao_viram_o_ano():
     assert competencias_padrao(date(2026, 12, 3)) == [date(2026, 12, 1), date(2027, 1, 1)]
+
+
+# ---------------------------------------------------------------------------
+# processar — best-effort POR CLIENTE
+# ---------------------------------------------------------------------------
+
+def _fake_envio(monkeypatch, resposta):
+    enviados = []
+
+    def enviar(card):
+        enviados.append(card)
+        return resposta(card) if callable(resposta) else resposta
+
+    monkeypatch.setattr("app.scripts.enviar_vencendo_growthhs.enviar_card_sync", enviar)
+    return enviados
+
+
+def test_dry_run_nao_envia_mas_monta(db_session, cliente, equipamentos, monkeypatch):
+    """A montagem acontece SEMPRE — e' assim que o dry-run valida o payload."""
+    _ec(db_session, cliente.id, vence=_dia(10))
+    enviados = _fake_envio(monkeypatch, {"created": True})
+    r = processar(db_session, competencias=[MES_QUE_VEM], enviar=False)
+    assert enviados == []
+    assert r["clientes"] == 1
+    assert r["aparelhos"] == 1
+    assert r["criados"] == 0
+
+
+def test_um_card_por_cliente_com_todos_os_aparelhos(db_session, cliente, outro_cliente,
+                                                    equipamentos, monkeypatch):
+    """O motivo da mudanca: 3 aparelhos do mesmo cliente = 1 card, nao 3."""
+    for dia in (3, 10, 20):
+        _ec(db_session, cliente.id, vence=_dia(dia))
+    _ec(db_session, outro_cliente.id, vence=_dia(9))
+
+    enviados = _fake_envio(monkeypatch, {"created": True})
+    r = processar(db_session, competencias=[MES_QUE_VEM], enviar=True)
+
+    assert len(enviados) == 2
+    assert r["clientes"] == 2 and r["aparelhos"] == 4 and r["criados"] == 2
+    por_chave = {c["external_id"]: c for c in enviados}
+    assert len(por_chave[f"{cliente.id}:{MES_QUE_VEM:%Y-%m}"]["devices"]) == 3
+    assert len(por_chave[f"{outro_cliente.id}:{MES_QUE_VEM:%Y-%m}"]["devices"]) == 1
+
+
+def test_duas_competencias_geram_um_card_por_mes(db_session, cliente, equipamentos,
+                                                 monkeypatch):
+    """A rodada varre mes corrente + seguinte: o mesmo cliente ganha um card por mes,
+    com chaves diferentes."""
+    _ec(db_session, cliente.id, vence=_dia(10))
+    _ec(db_session, cliente.id, vence=MES_SEGUINTE.replace(day=5))
+
+    enviados = _fake_envio(monkeypatch, {"created": True})
+    r = processar(db_session, competencias=[MES_QUE_VEM, MES_SEGUINTE], enviar=True)
+
+    assert r["criados"] == 2
+    assert {c["external_id"] for c in enviados} == {
+        f"{cliente.id}:{MES_QUE_VEM:%Y-%m}",
+        f"{cliente.id}:{MES_SEGUINTE:%Y-%m}",
+    }
+
+
+def test_competencia_ja_varrida_conta_como_existente(db_session, cliente, equipamentos,
+                                                     monkeypatch):
+    """`created: false` e' o mecanismo que faz a 2a rodada em diante subir so o mes
+    novo da ponta — nao pode ser contado como criado nem como falha."""
+    _ec(db_session, cliente.id, vence=_dia(10))
+    _fake_envio(monkeypatch, {"created": False})
+    r = processar(db_session, competencias=[MES_QUE_VEM], enviar=True)
+    assert r["criados"] == 0
+    assert r["existentes"] == 1
+    assert r["falhas"] == 0
+
+
+def test_falha_num_cliente_nao_aborta_os_outros(db_session, cliente, outro_cliente,
+                                                equipamentos, monkeypatch):
+    """Best-effort POR CLIENTE: um 422 num card nao pode derrubar a rodada."""
+    _ec(db_session, cliente.id, vence=_dia(3))
+    _ec(db_session, cliente.id, vence=_dia(4))
+    _ec(db_session, outro_cliente.id, vence=_dia(9))
+
+    def falha_no_primeiro(card):
+        if card["external_id"].startswith(f"{cliente.id}:"):
+            raise RuntimeError("GrowthHS respondeu 422: campo invalido")
+        return {"created": True}
+
+    _fake_envio(monkeypatch, falha_no_primeiro)
+    r = processar(db_session, competencias=[MES_QUE_VEM], enviar=True)
+
+    assert r["criados"] == 1
+    assert r["falhas"] == 1                      # falha conta CLIENTE
+    assert len(r["pendencias"]) == 2             # pendencia lista APARELHO
+    assert all(p["tipo"] == "falha" for p in r["pendencias"])
+    assert all("422" in p["motivo"] for p in r["pendencias"])
+    assert {p["cliente_id"] for p in r["pendencias"]} == {cliente.id}
+
+
+def test_excluidos_por_os_entram_no_relatorio_sem_virar_falha(db_session, cliente,
+                                                              equipamentos, monkeypatch):
+    em_os = _ec(db_session, cliente.id, vence=_dia(10), os_atual=10902)
+    _ec(db_session, cliente.id, vence=_dia(11))
+    _fake_envio(monkeypatch, {"created": True})
+
+    r = processar(db_session, competencias=[MES_QUE_VEM], enviar=True)
+
+    assert r["falhas"] == 0
+    assert len(r["excluidos"]) == 1
+    linha = r["excluidos"][0]
+    assert linha["tipo"] == "excluido"
+    assert linha["equipamento_cliente_id"] == em_os.id
+    assert "10902" in linha["motivo"]
+    assert linha["competencia"] == f"{MES_QUE_VEM:%Y-%m}"
+
+
+def test_limite_corta_por_cliente(db_session, cliente, outro_cliente, equipamentos,
+                                  monkeypatch):
+    _ec(db_session, cliente.id, vence=_dia(3))
+    _ec(db_session, cliente.id, vence=_dia(4))
+    _ec(db_session, outro_cliente.id, vence=_dia(9))
+    _fake_envio(monkeypatch, {"created": True})
+
+    r = processar(db_session, competencias=[MES_QUE_VEM], enviar=True, limite=1)
+
+    assert r["clientes"] == 1
+    assert r["aparelhos"] == 2       # o limite corta CLIENTES, nao aparelhos
+    assert r["criados"] == 1

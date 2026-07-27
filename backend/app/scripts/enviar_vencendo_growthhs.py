@@ -178,75 +178,102 @@ def competencias_padrao(hoje: date) -> list[date]:
     return [corrente, seguinte]
 
 
-def processar(db: Session, *, dias: int, enviar: bool, limite: Optional[int] = None) -> dict:
-    """Busca a janela e manda um card por aparelho.
+CAMPOS_RELATORIO = [
+    "tipo", "competencia", "cliente_id", "equipamento_cliente_id",
+    "serie", "prox_calibragem", "motivo",
+]
 
-    Best-effort POR APARELHO: uma excecao num card e' contada em `falhas`, registrada
-    em `pendencias` e o laco SEGUE para o proximo — nunca aborta a rodada inteira.
+
+def _linha_relatorio(linha: dict, competencia: date, tipo: str, motivo: str) -> dict:
+    ec = linha["ec"]
+    return {
+        "tipo": tipo,
+        "competencia": f"{competencia:%Y-%m}",
+        "cliente_id": linha["cliente_id"],
+        "equipamento_cliente_id": ec.id,
+        "serie": getattr(ec, "serie", "") or "",
+        "prox_calibragem": ec.prox_calibragem.isoformat(),
+        "motivo": motivo,
+    }
+
+
+def processar(db: Session, *, competencias: list[date], enviar: bool,
+              limite: Optional[int] = None) -> dict:
+    """Manda um card por CLIENTE por competencia.
+
+    Best-effort POR CLIENTE: uma excecao num card e' contada em `falhas`, cada
+    aparelho daquele cliente vira uma linha em `pendencias` e o laco SEGUE para o
+    proximo — nunca aborta a rodada inteira.
+
+    `falhas` conta CLIENTES (a unidade de envio); `pendencias` lista APARELHOS, que e'
+    o que o operador precisa para saber quem nao foi comunicado.
     """
-    linhas = buscar_vencendo(db, dias)
-    if limite is not None:
-        linhas = linhas[:limite]
-
-    hoje = date.today()
-    criados = existentes = falhas = 0
+    clientes = aparelhos = criados = existentes = falhas = 0
     pendencias: list[dict] = []
+    excluidos: list[dict] = []
 
-    for linha in linhas:
-        ec = linha["ec"]
-        # Monta SEMPRE, inclusive em dry-run: e' assim que a simulacao cumpre o que
-        # promete — validar que o payload de todo aparelho consegue ser construido.
-        try:
-            card = montar_card_vencendo(linha, hoje, settings.HSGROWTH_BOARD_COBRANCA)
-        except Exception as exc:  # noqa: BLE001 — melhor esforco por aparelho
-            falhas += 1
-            pendencias.append({
-                "equipamento_cliente_id": ec.id,
-                "cliente_id": linha["cliente_id"],
-                "serie": getattr(ec, "serie", "") or "",
-                "prox_calibragem": ec.prox_calibragem.isoformat(),
-                "motivo": f"falha ao montar o card: {exc}",
-            })
-            continue
+    for competencia in competencias:
+        for linha in buscar_excluidos_por_os(db, competencia):
+            excluidos.append(_linha_relatorio(
+                linha, competencia, "excluido",
+                f"OS em andamento (os_atual={linha['ec'].os_atual})",
+            ))
 
-        if not enviar:
-            continue      # dry-run: montou (validou) e para aqui, sem request
+        grupos = agrupar_por_cliente(buscar_vencendo(db, competencia))
+        if limite is not None:
+            grupos = grupos[:limite]
 
-        try:
-            resposta = enviar_card_sync(card)
-        except Exception as exc:  # noqa: BLE001 — segue para o proximo aparelho
-            falhas += 1
-            pendencias.append({
-                "equipamento_cliente_id": ec.id,
-                "cliente_id": linha["cliente_id"],
-                "serie": getattr(ec, "serie", "") or "",
-                "prox_calibragem": ec.prox_calibragem.isoformat(),
-                "motivo": str(exc),
-            })
-            continue
+        for grupo in grupos:
+            clientes += 1
+            aparelhos += len(grupo)
 
-        if resposta.get("created"):
-            criados += 1
-        else:
-            existentes += 1
+            # Monta SEMPRE, inclusive em dry-run: e' assim que a simulacao cumpre o
+            # que promete — validar que o payload de todo cliente consegue ser construido.
+            try:
+                card = montar_card_vencendo(grupo, competencia,
+                                            settings.HSGROWTH_BOARD_COBRANCA)
+            except Exception as exc:  # noqa: BLE001 — melhor esforco por cliente
+                falhas += 1
+                pendencias.extend(
+                    _linha_relatorio(l, competencia, "falha",
+                                     f"falha ao montar o card: {exc}") for l in grupo
+                )
+                continue
+
+            if not enviar:
+                continue      # dry-run: montou (validou) e para aqui, sem request
+
+            try:
+                resposta = enviar_card_sync(card)
+            except Exception as exc:  # noqa: BLE001 — segue para o proximo cliente
+                falhas += 1
+                pendencias.extend(
+                    _linha_relatorio(l, competencia, "falha", str(exc)) for l in grupo
+                )
+                continue
+
+            if resposta.get("created"):
+                criados += 1
+            else:
+                existentes += 1
 
     return {
-        "candidatos": len(linhas),
+        "clientes": clientes,
+        "aparelhos": aparelhos,
         "criados": criados,
         "existentes": existentes,
         "falhas": falhas,
         "pendencias": pendencias,
+        "excluidos": excluidos,
     }
 
 
-def _escrever_csv_pendencias(caminho: str, pendencias: list[dict]) -> None:
+def _escrever_csv_relatorio(caminho: str, linhas: list[dict]) -> None:
     with open(caminho, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=[
-            "equipamento_cliente_id", "cliente_id", "serie", "prox_calibragem", "motivo",
-        ])
+        writer = csv.DictWriter(f, fieldnames=CAMPOS_RELATORIO)
         writer.writeheader()
-        for p in pendencias:
-            writer.writerow(p)
+        for linha in linhas:
+            writer.writerow(linha)
 
 
 def main() -> None:
