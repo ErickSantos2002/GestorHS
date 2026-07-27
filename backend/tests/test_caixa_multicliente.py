@@ -42,3 +42,16 @@ def test_avancar_recebido_multi_com_principal_valido(client_exp, caixa_recebido_
 def test_avancar_recebido_principal_fora_da_caixa_falha(client_exp, caixa_recebido_dois_clientes, cliente_externo_id):
     r = client_exp.post(f"/caixas/{caixa_recebido_dois_clientes}/avancar", json={"cliente_principal": cliente_externo_id})
     assert r.status_code == 409
+
+
+def test_card_caixa_usa_cliente_principal(monkeypatch, db_session, caixa_multi_com_principal_b):
+    # caixa com OS do cliente A (1a) e B, cliente_principal = B
+    import app.api.growthhs_cards as gc
+    enviados = []
+    monkeypatch.setattr(gc.hsgrowth_client, "integracao_ativa", lambda: True)
+    monkeypatch.setattr(gc.hsgrowth_client, "enviar_card", lambda card: enviados.append(card))
+    from fastapi import BackgroundTasks
+    bt = BackgroundTasks()
+    gc.agendar_card_caixa(db_session, bt, caixa_multi_com_principal_b)
+    for t in bt.tasks: t.func(*t.args, **t.kwargs)
+    assert enviados and enviados[0]["client"]["name"] == "CLIENTE B"

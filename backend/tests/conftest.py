@@ -378,6 +378,36 @@ def caixa_recebido_dois_clientes(db_session, fases_seed):
 
 
 @pytest.fixture()
+def caixa_multi_com_principal_b(db_session, fases_seed):
+    """Caixa liberada do lab (fase 6) com 2 OS de clientes distintos — A criado
+    primeiro, B depois — e `cliente_principal` = B. Cada OS tem `equipamento_rel`
+    (via EquipamentoCliente) pra passar pelo gate de `agendar_card_caixa`.
+    Devolve o objeto Caixa (nao o id) — o teste chama `agendar_card_caixa`
+    direto, sem passar por endpoint."""
+    from app.models import Cliente, Caixa, Equipamento, EquipamentoCliente, Ordem
+    cli_a = Cliente(nome="CLIENTE A")
+    cli_b = Cliente(nome="CLIENTE B")
+    eq = Equipamento(descricao="Bafômetro")
+    db_session.add_all([cli_a, cli_b, eq])
+    db_session.flush()
+    ec_a = EquipamentoCliente(cliente=cli_a.id, equipamento=eq.id, serie="SER-A")
+    ec_b = EquipamentoCliente(cliente=cli_b.id, equipamento=eq.id, serie="SER-B")
+    db_session.add_all([ec_a, ec_b])
+    db_session.flush()
+    cx = Caixa(obs="Caixa multi com principal B", fase=6, cliente_principal=cli_b.id)
+    db_session.add(cx)
+    db_session.flush()
+    o1 = Ordem(cliente=cli_a.id, equipamento_cliente=ec_a.id, fase=6, situacao="E",
+               caixa=cx.id, desfecho_lab="concluido")
+    o2 = Ordem(cliente=cli_b.id, equipamento_cliente=ec_b.id, fase=6, situacao="E",
+               caixa=cx.id, desfecho_lab="concluido")
+    db_session.add_all([o1, o2])
+    db_session.commit()
+    db_session.refresh(cx)
+    return cx
+
+
+@pytest.fixture()
 def client_fin(client, usuario_financeiro, fases_seed):
     """Client autenticado como usuário de função Financeiro (headers já embutidos)."""
     tok = client.post("/auth/login", json={"email": "fin@hs.com", "senha": "senha123"}).json()
