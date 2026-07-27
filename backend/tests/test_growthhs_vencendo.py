@@ -138,11 +138,22 @@ def test_business_info():
          _linha(ec_id=77, prox=date(2026, 8, 3))], AGOSTO, board_id=2)
     assert card["business_info"] == {
         "origem": "calibracao vencendo",
+        "acquisition_channel": "Importação (GestorHs)",
         "cliente_id": 512,
         "competencia": "2026-08",
         "qtd_aparelhos": 2,
         "equipamento_cliente_ids": [77, 78],
     }
+
+
+def test_business_info_traz_o_canal_de_aquisicao():
+    """O board de Cobranca do GrowthHS mostra `business_info.acquisition_channel` como
+    "Canal de aquisicao", e o servico de integracao dele NAO preenche esse campo — quem
+    manda e' o GestorHS. A string tem que bater EXATAMENTE com a opcao do select
+    (`Importacao (GestorHs)`, com S minusculo em "GestorHs"); qualquer diferenca vira um
+    valor fora da lista no dropdown."""
+    card = montar_card_vencendo([_linha()], AGOSTO, board_id=2)
+    assert card["business_info"]["acquisition_channel"] == "Importação (GestorHs)"
 
 
 def test_board_id_repassado():

@@ -15,6 +15,15 @@ from app.core.growthhs_payload import montar_cliente, montar_contato, montar_dev
 
 SOURCE_VENCENDO = "gestorhs.calibracao"
 
+# `business_info.acquisition_channel` — o board de Cobranca do GrowthHS exibe isso como
+# "Canal de aquisicao". O servico de integracao de la NAO preenche o campo (so deriva
+# `collection_type` a partir do `source`), entao quem manda e' o GestorHS.
+#
+# A string precisa bater EXATAMENTE com a opcao do select em
+# `ServiceCardDetails.tsx` — repare no S minusculo de "GestorHs". Qualquer diferenca
+# grava um valor fora da lista e o dropdown fica mostrando lixo.
+CANAL_AQUISICAO = "Importação (GestorHs)"
+
 # Nome do mês em PT-BR sem depender de `locale`, que varia com o que está instalado
 # na imagem — em produção a imagem sobe pelo Dockerfile, onde não há garantia de
 # locale pt_BR gerado.
@@ -89,6 +98,7 @@ def montar_card_vencendo(linhas: list[dict], competencia: date, board_id: int) -
         ],
         "business_info": {
             "origem": "calibracao vencendo",
+            "acquisition_channel": CANAL_AQUISICAO,
             "cliente_id": cliente_id,
             "competencia": f"{competencia:%Y-%m}",
             "qtd_aparelhos": quantos,
