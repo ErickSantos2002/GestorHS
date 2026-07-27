@@ -19,3 +19,26 @@ def test_abrir_os_com_caixa_de_outro_cliente_agora_permite(client_exp, caixa_com
         "caixa": caixa_com_os_cliente_a,
     })
     assert r.status_code == 201  # antes era 409
+
+
+def test_avancar_recebido_um_cliente_auto_define_principal(client_exp, caixa_recebido_um_cliente):
+    r = client_exp.post(f"/caixas/{caixa_recebido_um_cliente}/avancar", json={})
+    assert r.status_code == 200
+    assert r.json()["cliente_principal"] is not None
+
+
+def test_avancar_recebido_multi_sem_principal_bloqueia(client_exp, caixa_recebido_dois_clientes):
+    r = client_exp.post(f"/caixas/{caixa_recebido_dois_clientes}/avancar", json={})
+    assert r.status_code == 409
+    assert "principal" in r.json()["detail"].lower()
+
+
+def test_avancar_recebido_multi_com_principal_valido(client_exp, caixa_recebido_dois_clientes, cliente_a_id):
+    r = client_exp.post(f"/caixas/{caixa_recebido_dois_clientes}/avancar", json={"cliente_principal": cliente_a_id})
+    assert r.status_code == 200
+    assert r.json()["cliente_principal"] == cliente_a_id
+
+
+def test_avancar_recebido_principal_fora_da_caixa_falha(client_exp, caixa_recebido_dois_clientes, cliente_externo_id):
+    r = client_exp.post(f"/caixas/{caixa_recebido_dois_clientes}/avancar", json={"cliente_principal": cliente_externo_id})
+    assert r.status_code == 409

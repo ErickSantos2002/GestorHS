@@ -327,6 +327,57 @@ def caixa_lab_com_liberado(db_session, fases_seed):
 
 
 @pytest.fixture()
+def caixa_recebido_um_cliente(db_session, fases_seed):
+    """Caixa em fase 4 (Recebido) com 1 OS ativa de um único cliente. Devolve o id da caixa."""
+    from app.models import Cliente, Caixa, Ordem
+    cli = Cliente(nome="Cliente Recebido Unico")
+    cx = Caixa(obs="Caixa recebido um cliente", fase=4)
+    db_session.add_all([cli, cx])
+    db_session.flush()
+    o = Ordem(cliente=cli.id, fase=4, situacao="E", caixa=cx.id)
+    db_session.add(o)
+    db_session.commit()
+    db_session.refresh(cx)
+    return cx.id
+
+
+@pytest.fixture()
+def cliente_a_id(db_session, caixa_recebido_dois_clientes):
+    """Id de um dos clientes com OS ativa em caixa_recebido_dois_clientes."""
+    from app.models import Ordem
+    ordens = db_session.query(Ordem).filter(Ordem.caixa == caixa_recebido_dois_clientes).all()
+    return ordens[0].cliente
+
+
+@pytest.fixture()
+def cliente_externo_id(db_session):
+    """Cliente sem nenhuma OS na caixa multi-cliente. Devolve o id do cliente."""
+    from app.models import Cliente
+    cli = Cliente(nome="Cliente Externo")
+    db_session.add(cli)
+    db_session.commit()
+    db_session.refresh(cli)
+    return cli.id
+
+
+@pytest.fixture()
+def caixa_recebido_dois_clientes(db_session, fases_seed):
+    """Caixa em fase 4 (Recebido) com 2 OS ativas de clientes distintos. Devolve o id da caixa."""
+    from app.models import Cliente, Caixa, Ordem
+    cli_a = Cliente(nome="Cliente Recebido A")
+    cli_b = Cliente(nome="Cliente Recebido B")
+    cx = Caixa(obs="Caixa recebido dois clientes", fase=4)
+    db_session.add_all([cli_a, cli_b, cx])
+    db_session.flush()
+    o1 = Ordem(cliente=cli_a.id, fase=4, situacao="E", caixa=cx.id)
+    o2 = Ordem(cliente=cli_b.id, fase=4, situacao="E", caixa=cx.id)
+    db_session.add_all([o1, o2])
+    db_session.commit()
+    db_session.refresh(cx)
+    return cx.id
+
+
+@pytest.fixture()
 def client_fin(client, usuario_financeiro, fases_seed):
     """Client autenticado como usuário de função Financeiro (headers já embutidos)."""
     tok = client.post("/auth/login", json={"email": "fin@hs.com", "senha": "senha123"}).json()

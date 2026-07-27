@@ -173,6 +173,18 @@ def avancar_caixa(
     if not ok:
         raise HTTPException(status_code=409, detail=motivo)
 
+    if origem == wf.FASE_RECEBIDO:
+        clientes_distintos = {o.cliente for o in ativas}
+        if dados.cliente_principal is not None:
+            if dados.cliente_principal not in clientes_distintos:
+                raise HTTPException(status_code=409, detail="cliente principal deve ser um cliente da caixa")
+            cx.cliente_principal = dados.cliente_principal
+        if cx.cliente_principal is None:
+            if len(clientes_distintos) == 1:
+                cx.cliente_principal = next(iter(clientes_distintos))
+            elif len(clientes_distintos) > 1:
+                raise HTTPException(status_code=409, detail="defina o cliente principal antes de avancar")
+
     # efeito por fase, fan-out para cada OS ativa
     if origem == 7:  # Preparando -> Finalizada
         if not (dados.cod_retorno and dados.cod_retorno.strip()):

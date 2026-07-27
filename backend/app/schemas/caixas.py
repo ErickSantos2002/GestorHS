@@ -34,6 +34,7 @@ class CaixaOut(BaseModel):
     fase_cor: str | None = None
     total_os: int = 0
     clientes: list[str] = []
+    cliente_principal: int | None = None
 
 
 class CaixaDetalhe(CaixaOut):
