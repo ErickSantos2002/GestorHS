@@ -2,8 +2,12 @@
 Cobranca do GrowthHS — um card por cliente, com todos os aparelhos vencidos
 dele em `devices[]`.
 
-Uso: python -m app.scripts.enviar_atrasados_growthhs [--enviar] [--pendencias CAMINHO.csv]
-     [--limite N]
+Uso: python -m app.scripts.enviar_atrasados_growthhs [--enviar] [--ate YYYY-MM-DD]
+     [--pendencias CAMINHO.csv] [--limite N]
+
+`--ate` move o corte de vencimento (INCLUSIVO; padrao: ontem). Serve para fechar o vao
+com o job mensal de vencendo, que so comeca na competencia do mes seguinte: quem vence
+entre hoje e o virar do mes tem que entrar nesta carga, ou nao e' avisado por ninguem.
 
 SEGURANCA — o padrao e' NAO enviar. Sem `--enviar`, o script monta tudo,
 imprime o resumo e escreve o CSV, mas faz ZERO requests. O envio real exige
@@ -20,7 +24,7 @@ import argparse
 import csv
 import os
 import sys
-from datetime import date
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
@@ -62,25 +66,35 @@ def _dir_relatorios() -> Path:
     return Path(settings.UPLOAD_DIR) / "relatorios"
 
 
-def buscar_atrasados(db: Session) -> list[dict]:
+def buscar_atrasados(db: Session, ate: Optional[date] = None) -> list[dict]:
     """Uma linha por equipamento com calibracao vencida, elegivel para a carga.
 
     Cada linha: `{cliente_id, cliente, ec, equipamento_desc, elo}`.
 
-    Regras (ver Task 4 brief):
-    - `ativo` e `prox_calibragem < hoje`;
+    Regras:
+    - `ativo` e `prox_calibragem <= ate` (corte INCLUSIVO; `ate` padrao = ontem,
+      que e' o `< hoje` de sempre);
+    - exclui aparelhos com OS em andamento (`os_atual` preenchido) — se o cliente
+      ja mandou o aparelho, cobrar por ele e' ruido. Mesma regra do job mensal de
+      vencendo, para os dois caminhos nao se contradizerem;
     - exclui hospedeiros (Phoebus/EBS) e o cliente de estoque interno da HS;
     - quando o equipamento e' um modulo de calibracao com instalacao aberta em
       `instalacoes_modulo`, `elo` traz o Phoebus correspondente (serie +
       descricao do catalogo); senao `elo` e' None.
+
+    O `ate` existe para fechar o vao com o job mensal: ele comeca na competencia do
+    mes seguinte, entao quem vence entre hoje e o virar do mes precisa entrar AQUI,
+    ou nao seria avisado por ninguem.
     """
-    hoje = date.today()
+    if ate is None:
+        ate = date.today() - timedelta(days=1)
     ecs = (
         db.query(EquipamentoCliente)
         .filter(
             EquipamentoCliente.ativo.is_(True),
             EquipamentoCliente.prox_calibragem.isnot(None),
-            EquipamentoCliente.prox_calibragem < hoje,
+            EquipamentoCliente.prox_calibragem <= ate,
+            EquipamentoCliente.os_atual.is_(None),
             EquipamentoCliente.equipamento.notin_(
                 [settings.EQUIPAMENTO_PHOEBUS_ID, settings.EQUIPAMENTO_EBS_ID]
             ),
@@ -109,7 +123,8 @@ def _tem_contato(cliente) -> bool:
     return bool((getattr(cliente, "contato", None) or "").strip())
 
 
-def processar(db: Session, *, enviar: bool, limite: Optional[int] = None) -> dict:
+def processar(db: Session, *, enviar: bool, limite: Optional[int] = None,
+              ate: Optional[date] = None) -> dict:
     """Busca -> agrupa por cliente -> (se `enviar`) manda um card por grupo.
 
     Best-effort POR CLIENTE: uma excecao ao enviar um grupo e' capturada,
@@ -119,7 +134,7 @@ def processar(db: Session, *, enviar: bool, limite: Optional[int] = None) -> dic
     Devolve um resumo pronto para o `main()` imprimir e gravar em CSV:
     `{grupos, criados, existentes, falhas, pendencias, sem_contato, sem_elo}`.
     """
-    linhas = buscar_atrasados(db)
+    linhas = buscar_atrasados(db, ate=ate)
     grupos = agrupar_por_cliente(linhas)
     if limite is not None:
         grupos = grupos[:limite]
@@ -191,6 +206,16 @@ def _escrever_csv_pendencias(caminho: str, pendencias: list[dict]) -> None:
             writer.writerow(p)
 
 
+def _data(texto: str) -> date:
+    """Converte `YYYY-MM-DD`. Erro de digitacao morre aqui, no argparse — um corte
+    errado numa carga irreversivel e' caro demais para passar batido."""
+    try:
+        return datetime.strptime(texto, "%Y-%m-%d").date()
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            f"data invalida: {texto!r} (use YYYY-MM-DD, ex.: 2026-07-31)")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Carga (backfill unico) dos atrasados no board Cobranca do GrowthHS."
@@ -203,6 +228,9 @@ def main() -> None:
     parser.add_argument("--pendencias", default=None, help="Caminho do CSV de pendencias/falhas")
     parser.add_argument("--limite", type=int, default=None,
                          help="Processa so os N primeiros grupos (clientes) — para um teste real controlado")
+    parser.add_argument("--ate", type=_data, default=None, metavar="YYYY-MM-DD",
+                        help="Corte INCLUSIVO do vencimento (padrao: ontem). Use para "
+                             "fechar o vao com o job mensal, que so comeca no dia 1.")
     args = parser.parse_args()
 
     if args.enviar and not integracao_ativa():
@@ -233,7 +261,7 @@ def main() -> None:
 
     db = SessionLocal()
     try:
-        resultado = processar(db, enviar=args.enviar, limite=args.limite)
+        resultado = processar(db, enviar=args.enviar, limite=args.limite, ate=args.ate)
     finally:
         db.close()
 
@@ -242,6 +270,8 @@ def main() -> None:
     grupos = resultado["grupos"]
     total_equipamentos = sum(len(g["itens"]) for g in grupos)
 
+    corte = args.ate or (date.today() - timedelta(days=1))
+    print(f"Corte (vencimento ate, inclusive): {corte:%d/%m/%Y}")
     print(f"Clientes com calibracao atrasada: {len(grupos)}")
     print(f"Equipamentos vencidos: {total_equipamentos}")
     print(f"Clientes sem contato cadastrado: {resultado['sem_contato']}")

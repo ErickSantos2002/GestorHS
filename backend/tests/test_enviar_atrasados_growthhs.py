@@ -29,10 +29,10 @@ def _equipamento(db, id_, descricao):
     return eq
 
 
-def _ec(db, *, cliente_id, equipamento_id, serie, prox_calibragem, ativo=True):
+def _ec(db, *, cliente_id, equipamento_id, serie, prox_calibragem, ativo=True, os_atual=None):
     from app.models import EquipamentoCliente
     ec = EquipamentoCliente(cliente=cliente_id, equipamento=equipamento_id, serie=serie,
-                             prox_calibragem=prox_calibragem, ativo=ativo)
+                             prox_calibragem=prox_calibragem, ativo=ativo, os_atual=os_atual)
     db.add(ec); db.commit(); db.refresh(ec)
     return ec
 
@@ -64,6 +64,71 @@ def test_equipamento_vencido_de_cliente_normal_entra(db_session):
     assert linhas[0]["ec"].serie == "SN-ENTRA"
     assert linhas[0]["cliente_id"] == cli.id
     assert linhas[0]["elo"] is None
+
+
+def test_equipamento_com_os_em_andamento_nao_entra(db_session):
+    """Se o cliente ja mandou o aparelho, cobrar por ele e' ruido — mesma regra do
+    job mensal de vencendo, para os dois caminhos nao se contradizerem."""
+    from app.scripts.enviar_atrasados_growthhs import buscar_atrasados
+    eq = _equipamento(db_session, 100, "HS PASS - IBLOW")
+    cli = _cliente(db_session, 10)
+    _ec(db_session, cliente_id=cli.id, equipamento_id=eq.id, serie="SN-EM-OS",
+        prox_calibragem=ONTEM, os_atual=10902)
+
+    assert buscar_atrasados(db_session) == []
+
+
+def test_ate_inclui_o_proprio_dia_do_corte(db_session):
+    """Corte INCLUSIVO: `--ate 31/07` tem que pegar quem vence em 31/07.
+
+    Sem isso, quem vence entre hoje e o corte cai num vao — fora da carga de
+    atrasados e fora da primeira competencia do job mensal."""
+    from app.scripts.enviar_atrasados_growthhs import buscar_atrasados
+    eq = _equipamento(db_session, 100, "HS PASS - IBLOW")
+    cli = _cliente(db_session, 10)
+    corte = date.today() + timedelta(days=4)
+    _ec(db_session, cliente_id=cli.id, equipamento_id=eq.id, serie="SN-NO-CORTE",
+        prox_calibragem=corte)
+
+    linhas = buscar_atrasados(db_session, ate=corte)
+
+    assert [l["ec"].serie for l in linhas] == ["SN-NO-CORTE"]
+
+
+def test_ate_exclui_quem_vence_depois_do_corte(db_session):
+    from app.scripts.enviar_atrasados_growthhs import buscar_atrasados
+    eq = _equipamento(db_session, 100, "HS PASS - IBLOW")
+    cli = _cliente(db_session, 10)
+    corte = date.today() + timedelta(days=4)
+    _ec(db_session, cliente_id=cli.id, equipamento_id=eq.id, serie="SN-DEPOIS",
+        prox_calibragem=corte + timedelta(days=1))
+
+    assert buscar_atrasados(db_session, ate=corte) == []
+
+
+def test_ate_padrao_e_ontem(db_session):
+    """Sem `--ate`, o comportamento e' o de sempre: so o que ja venceu, hoje fora."""
+    from app.scripts.enviar_atrasados_growthhs import buscar_atrasados
+    eq = _equipamento(db_session, 100, "HS PASS - IBLOW")
+    cli = _cliente(db_session, 10)
+    _ec(db_session, cliente_id=cli.id, equipamento_id=eq.id, serie="SN-ONTEM",
+        prox_calibragem=ONTEM)
+    _ec(db_session, cliente_id=cli.id, equipamento_id=eq.id, serie="SN-HOJE",
+        prox_calibragem=date.today())
+
+    assert [l["ec"].serie for l in buscar_atrasados(db_session)] == ["SN-ONTEM"]
+
+
+def test_processar_repassa_o_ate(db_session):
+    from app.scripts.enviar_atrasados_growthhs import processar
+    eq = _equipamento(db_session, 100, "HS PASS - IBLOW")
+    cli = _cliente(db_session, 10)
+    corte = date.today() + timedelta(days=4)
+    _ec(db_session, cliente_id=cli.id, equipamento_id=eq.id, serie="SN-FUTURO",
+        prox_calibragem=corte)
+
+    assert processar(db_session, enviar=False)["grupos"] == []
+    assert len(processar(db_session, enviar=False, ate=corte)["grupos"]) == 1
 
 
 def test_phoebus_vencido_nao_entra(db_session):
