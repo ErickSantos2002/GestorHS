@@ -43,6 +43,49 @@ def test_desvincular_ressincroniza_principal_para_o_restante(client_exp, db_sess
     assert cx.cliente_principal == cli_b.id
 
 
+def test_vincular_ordem_em_caixa_define_principal(client_exp, db_session, caixa_base, os_cliente_b):
+    from app.models import Caixa, Ordem
+
+    ordem = db_session.get(Ordem, os_cliente_b)
+    cliente_id = ordem.cliente
+
+    r = client_exp.post(f"/caixas/{caixa_base}/ordens", json={"ordem_id": os_cliente_b})
+    assert r.status_code == 200
+
+    cx = db_session.get(Caixa, caixa_base)
+    db_session.refresh(cx)
+    assert cx.cliente_principal == cliente_id
+
+
+def test_vincular_ressincroniza_principal_da_caixa_origem(
+    client_exp, db_session, caixa_recebido_dois_clientes, cliente_a_id
+):
+    from app.models import Caixa, Ordem
+
+    origem = db_session.get(Caixa, caixa_recebido_dois_clientes)
+    origem.cliente_principal = cliente_a_id
+    db_session.commit()
+
+    clientes = [c for (c,) in db_session.query(Ordem.cliente)
+                .filter(Ordem.caixa == caixa_recebido_dois_clientes).all()]
+    cliente_b_id = next(c for c in clientes if c != cliente_a_id)
+
+    ordem_a = db_session.query(Ordem).filter(
+        Ordem.caixa == caixa_recebido_dois_clientes, Ordem.cliente == cliente_a_id
+    ).first()
+
+    destino = Caixa(obs="Caixa destino ressync", fase=4)
+    db_session.add(destino)
+    db_session.commit()
+    db_session.refresh(destino)
+
+    r = client_exp.post(f"/caixas/{destino.id}/ordens", json={"ordem_id": ordem_a.id})
+    assert r.status_code == 200
+
+    db_session.refresh(origem)
+    assert origem.cliente_principal == cliente_b_id
+
+
 def test_sincronizar_principal_nao_altera_principal_valido_com_dois_clientes(
     db_session, caixa_recebido_dois_clientes, cliente_a_id
 ):

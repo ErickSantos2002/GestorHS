@@ -145,9 +145,14 @@ def vincular_ordem(
     ordem = db.query(Ordem).filter(Ordem.id == dados.ordem_id).first()
     if ordem is None:
         raise HTTPException(status_code=404, detail="OS não encontrada")
+    origem_id = ordem.caixa  # captura ANTES de reatribuir, para ressincronizar a caixa de origem
     ordem.caixa = cx.id  # vincula/move (multi-cliente permitido; principal define as integracoes)
     db.flush()
     sincronizar_principal(db, cx)
+    if origem_id is not None and origem_id != cx.id:
+        origem = db.get(Caixa, origem_id)
+        if origem is not None:
+            sincronizar_principal(db, origem)
     registrar_log(db, ordem, usuario, f"OS vinculada à caixa #{cx.id}")
     db.commit()
     db.refresh(cx)
