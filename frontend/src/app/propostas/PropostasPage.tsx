@@ -14,6 +14,7 @@ import { formatarDocumento } from '../../lib/documento'
 import { propostasApi, type Proposta } from './api'
 import { PropostaModal } from './PropostaModal'
 import { HistoricoModal } from './HistoricoModal'
+import { VisualizarPropostaModal } from './VisualizarPropostaModal'
 
 const PAGE = 25
 const formatarMoeda = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -32,6 +33,7 @@ export function PropostasPage() {
   // modal do construtor: undefined = fechado; null = nova; number = editando id
   const [modalId, setModalId] = useState<number | null | undefined>(undefined)
   const [historico, setHistorico] = useState<{ id: number; numero: number } | null>(null)
+  const [visualizar, setVisualizar] = useState<{ id: number; numero: number } | null>(null)
 
   useEffect(() => {
     let vivo = true
@@ -70,23 +72,6 @@ export function PropostasPage() {
       URL.revokeObjectURL(url)
     } catch (e) {
       setErro(e instanceof ApiError ? e.message : 'Falha ao baixar PDF')
-    } finally {
-      setBusyId(null)
-    }
-  }
-
-  async function visualizarPdf(p: Proposta) {
-    const win = window.open('', '_blank')
-    setBusyId(p.id)
-    setErro('')
-    try {
-      const blob = await propostasApi.baixarPdf(p.id)
-      const url = URL.createObjectURL(blob)
-      if (win) win.location.href = url
-      else window.open(url, '_blank')
-    } catch (e) {
-      if (win) win.close()
-      setErro(e instanceof ApiError ? e.message : 'Falha ao abrir o PDF')
     } finally {
       setBusyId(null)
     }
@@ -171,7 +156,7 @@ export function PropostasPage() {
                 <TD>R$ {formatarMoeda(p.total)}</TD>
                 <TD>
                   <IconButtonGroup>
-                    <IconButton label="Visualizar" tone="ver" disabled={busyId === p.id} onClick={() => visualizarPdf(p)}>
+                    <IconButton label="Visualizar" tone="ver" onClick={() => setVisualizar({ id: p.id, numero: p.numero })}>
                       <IconEye className="w-4 h-4" />
                     </IconButton>
                     <IconButton label="Baixar PDF" tone="neutro" disabled={busyId === p.id} onClick={() => baixarPdf(p)}>
@@ -222,6 +207,14 @@ export function PropostasPage() {
           propostaId={historico.id}
           propostaNumero={historico.numero}
           onClose={() => setHistorico(null)}
+        />
+      )}
+
+      {visualizar && (
+        <VisualizarPropostaModal
+          propostaId={visualizar.id}
+          propostaNumero={visualizar.numero}
+          onClose={() => setVisualizar(null)}
         />
       )}
     </PageContainer>

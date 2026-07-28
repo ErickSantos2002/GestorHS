@@ -43,6 +43,13 @@ const PROPOSTA = {
   created_at: null, updated_at: null,
 }
 
+// jsdom não implementa URL.createObjectURL/revokeObjectURL — atribuímos stubs
+// para o arquivo todo (o unmount da modal de Visualizar chama revoke no
+// cleanup do RTL, que roda depois do corpo do teste, então restaurar dentro
+// do `it` seria cedo demais).
+URL.createObjectURL = vi.fn().mockReturnValue('blob:mock')
+URL.revokeObjectURL = vi.fn()
+
 beforeEach(() => {
   vi.clearAllMocks()
   useAuth.mockReturnValue({ user: USUARIO_ADMIN })
@@ -86,23 +93,21 @@ describe('PropostasPage', () => {
     confirmSpy.mockRestore()
   })
 
-  it('Visualizar abre o PDF numa aba nova sem baixar', async () => {
+  it('Visualizar abre a proposta numa modal embutida, sem aba nova', async () => {
     baixarPdf.mockResolvedValue(new Blob(['conteudo']))
-    const winStub = { location: { href: '' } } as unknown as Window
-    const openSpy = vi.spyOn(window, 'open').mockReturnValue(winStub)
-    // jsdom não implementa URL.createObjectURL — não há o que "spyOn" num
-    // método inexistente, então atribuímos um stub diretamente e restauramos.
-    const createObjectURLOriginal = URL.createObjectURL
-    URL.createObjectURL = vi.fn().mockReturnValue('blob:mock-url')
+    const openSpy = vi.spyOn(window, 'open')
 
     render(<PropostasPage />)
     await screen.findByText('#42')
     fireEvent.click(screen.getByRole('button', { name: /visualizar/i }))
 
+    expect(await screen.findByText('Proposta #42')).toBeInTheDocument()
     await waitFor(() => expect(baixarPdf).toHaveBeenCalledWith(10))
-    expect(openSpy).toHaveBeenCalled()
+
+    const frame = await screen.findByTitle('Proposta 42')
+    expect(frame).toHaveAttribute('src', 'blob:mock')
+    expect(openSpy).not.toHaveBeenCalled()
 
     openSpy.mockRestore()
-    URL.createObjectURL = createObjectURLOriginal
   })
 })
