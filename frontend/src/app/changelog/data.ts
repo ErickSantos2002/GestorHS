@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.27.4',
+    data: '28/07/2026',
+    itens: [
+      { tipo: 'melhoria', texto: 'A função Financeiro agora tem acesso completo a Propostas, Serviços e Produtos (ver, criar e editar), igual ao Comercial.' },
+    ],
+  },
+  {
     versao: '1.27.3',
     data: '28/07/2026',
     itens: [
