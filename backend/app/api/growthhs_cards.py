@@ -7,6 +7,7 @@ import logging
 from datetime import date
 from types import SimpleNamespace
 
+from app.core.caixa import principal_valido
 from app.core.config import settings
 from app.core.growthhs_os import montar_card_caixa, montar_card_os
 from app.core.growthhs_payload import montar_device
@@ -41,8 +42,10 @@ def buscar_elo(db, ec):
 
 
 def cliente_do_card(caixa):
-    """O cliente que as integracoes usam: o principal, com fallback na 1a OS."""
-    if caixa.cliente_principal_rel is not None:
+    """O cliente que as integracoes usam: o principal (se ainda na caixa), com
+    fallback na 1a OS — protege contra principal orfao/desatualizado."""
+    clientes = [o.cliente for o in caixa.ordens]
+    if principal_valido(caixa.cliente_principal, clientes) is not None:
         return caixa.cliente_principal_rel
     return caixa.ordens[0].cliente_rel if caixa.ordens else None
 

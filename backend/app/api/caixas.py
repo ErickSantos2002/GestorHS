@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.models.database import get_db
 from app.models import Usuario, Caixa, Ordem, Fase
 from app.core import os_workflow as wf
-from app.core.caixa import contar_outros, principal_valido
+from app.core.caixa import cliente_unico, contar_outros, principal_valido
 from app.api.deps import get_current_usuario, require_funcao
 from app.api.cadastros_common import excluir_protegido
 from app.schemas.caixas import (
@@ -22,6 +22,16 @@ from app.api.growthhs_cards import agendar_card_caixa
 router = APIRouter(prefix="/caixas", tags=["caixas"])
 
 _escrita = require_funcao("Expedição", "Administrador")
+
+
+def sincronizar_principal(db: Session, cx: Caixa) -> None:
+    """Se a caixa tem exatamente 1 cliente ativo, ele vira o principal.
+    0 ou 2+ clientes: nao mexe (2+ e escolha manual no avanco)."""
+    clientes = [c for (c,) in db.query(Ordem.cliente)
+                .filter(Ordem.caixa == cx.id, Ordem.fase.in_(wf.ATIVAS)).all()]
+    unico = cliente_unico(clientes)
+    if unico is not None:
+        cx.cliente_principal = unico
 
 
 def _get_caixa(db: Session, caixa_id: int) -> Caixa:
@@ -136,6 +146,8 @@ def vincular_ordem(
     if ordem is None:
         raise HTTPException(status_code=404, detail="OS não encontrada")
     ordem.caixa = cx.id  # vincula/move (multi-cliente permitido; principal define as integracoes)
+    db.flush()
+    sincronizar_principal(db, cx)
     registrar_log(db, ordem, usuario, f"OS vinculada à caixa #{cx.id}")
     db.commit()
     db.refresh(cx)
@@ -154,6 +166,8 @@ def desvincular_ordem(
     if ordem is None:
         raise HTTPException(status_code=404, detail="OS não está nesta caixa")
     ordem.caixa = None
+    db.flush()
+    sincronizar_principal(db, cx)
     registrar_log(db, ordem, usuario, f"OS removida da caixa #{cx.id}")
     db.commit()
 
