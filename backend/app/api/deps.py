@@ -1,10 +1,13 @@
-from fastapi import Depends, HTTPException, status
+import secrets
+
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError
 from sqlalchemy.orm import Session
 
 from app.models.database import get_db
 from app.models import Usuario, UsuarioCliente
+from app.core.config import settings
 from app.core.security import decodificar_token
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
@@ -50,6 +53,14 @@ def get_current_cliente(token: str = Depends(oauth2_scheme), db: Session = Depen
     if dados.get("cliente") != cli.cliente:
         raise _cred_invalida
     return cli
+
+
+def require_growthhs_inbound(x_api_key: str | None = Header(default=None, alias="X-API-Key")) -> None:
+    configurada = settings.GROWTHHS_INBOUND_API_KEY
+    if not configurada:
+        raise HTTPException(status_code=503, detail="integracao inbound do GrowthHS desligada")
+    if not x_api_key or not secrets.compare_digest(x_api_key, configurada):
+        raise HTTPException(status_code=401, detail="api key invalida")
 
 
 def require_funcao(*descricoes: str):
