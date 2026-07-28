@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     HSGROWTH_API_KEY: str = ""    # header X-API-Key
     HSGROWTH_BOARD_SERVICOS: int = 1
     HSGROWTH_BOARD_COBRANCA: int = 2
+    # Integracao INBOUND do GrowthHS (mover caixa Pos-Vendas -> Financeiro).
+    # Vazio = desligada. Nao expira; revoga trocando o valor. Header X-API-Key.
+    GROWTHHS_INBOUND_API_KEY: str = ""
     # Origens permitidas pelo CORS (front em dev). Sobrescreva via env (JSON ou CSV).
     BACKEND_CORS_ORIGINS: list[str] = [
         "http://localhost:5173",
