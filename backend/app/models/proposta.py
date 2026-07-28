@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import sqlalchemy as sa
 from sqlalchemy import (Column, Integer, String, Text, Numeric, Date, DateTime,
                         ForeignKey, Boolean, JSON)
 from sqlalchemy.orm import relationship
@@ -29,6 +30,9 @@ class Proposta(Base):
     cliente_override = Column(JSON, nullable=True)
     observacoes = Column(Text, nullable=True)
     assinatura = Column(String(255), nullable=True)
+    faturada = Column(Boolean, nullable=False, default=False, server_default=sa.text("false"))
+    faturada_em = Column(DateTime(timezone=True), nullable=True)
+    faturada_por = Column(String(255), nullable=True)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
     is_deleted = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
