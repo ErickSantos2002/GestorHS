@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.28.0',
+    data: '28/07/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'Integração com o GrowthHS: quando o pós-vendas dá ganho no negócio pelo GrowthHS, a caixa é movida automaticamente de Pós-Vendas para Financeiro no GestorHS, com a observação do negócio registrada no histórico.' },
+    ],
+  },
+  {
     versao: '1.27.8',
     data: '28/07/2026',
     itens: [
