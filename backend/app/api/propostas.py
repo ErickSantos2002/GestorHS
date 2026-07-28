@@ -22,7 +22,7 @@ from app.schemas.proposta import (
 router = APIRouter(prefix="/propostas", tags=["propostas"])
 
 # Quem pode criar/alterar/excluir/duplicar propostas.
-_escrever = require_funcao("Comercial Pós-Vendas", "Administrador")
+_escrever = require_funcao("Comercial Pós-Vendas", "Administrador", "Financeiro")
 
 
 def _proposta_ou_404(db: Session, proposta_id: int) -> Proposta:

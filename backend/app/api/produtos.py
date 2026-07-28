@@ -6,7 +6,7 @@ from app.api.deps import get_current_usuario, require_funcao
 from app.schemas.produto import ProdutoOut, ProdutoCreate, ProdutoUpdate
 
 router = APIRouter(prefix="/produtos", tags=["produtos"])
-_escrita = require_funcao("Comercial Pós-Vendas", "Administrador")
+_escrita = require_funcao("Comercial Pós-Vendas", "Administrador", "Financeiro")
 
 
 @router.get("", response_model=list[ProdutoOut])

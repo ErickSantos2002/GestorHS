@@ -60,6 +60,11 @@ describe('auth/roles — podeGerenciarPropostas', () => {
     expect(podeGerenciarPropostas(u('Laboratório'))).toBe(false)
     expect(podeGerenciarPropostas(null)).toBe(false)
   })
+
+  it('Financeiro tambem pode gerenciar propostas', () => {
+    expect(podeGerenciarPropostas(u('Financeiro'))).toBe(true)
+    expect(podeGerenciarPropostas(u('Laboratório'))).toBe(false)
+  })
 })
 
 describe('auth/roles — podeAvancarCaixa', () => {
