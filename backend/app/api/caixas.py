@@ -181,6 +181,42 @@ def _ordens_ativas(cx: Caixa) -> list[Ordem]:
     return [o for o in cx.ordens if wf.eh_ativa(o.fase)]
 
 
+def executar_avanco_caixa(db, cx, *, origem, destino, ativas, usuario, obs, cod_retorno, background_tasks):
+    """Aplica o efeito de avancar a caixa de `origem` para `destino` (fan-out por OS,
+    log, espelhamento). Guards de entrada (funcao, pode_avancar, principal) ficam no chamador."""
+    if origem == 7:  # Preparando -> Finalizada
+        if not (cod_retorno and cod_retorno.strip()):
+            raise HTTPException(status_code=422, detail="cod_retorno é obrigatório para finalizar")
+    for o in ativas:
+        if origem == wf.FASE_LABORATORIO:
+            if o.desfecho_lab == wf.DESFECHO_CONCLUIDO:
+                espelhar_calibracao(db, o)
+        elif origem == 6:      # Pós-Vendas -> Financeiro
+            o.aceite = True
+            o.data_aceite = agora()
+        elif origem == 10:     # Financeiro -> Preparando
+            if not o.nota_fiscal:
+                raise HTTPException(status_code=409, detail="anexe a nota fiscal da caixa antes de confirmar o pagamento")
+            o.pago = True
+            o.data_pagamento = agora()
+        elif origem == 7:      # Preparando -> Finalizada
+            o.cod_retorno = cod_retorno.strip()
+            o.data_retorno = agora()
+            o.situacao = "F"
+        o.fase = destino
+        texto = f"Caixa #{cx.id}: {origem} -> {destino}"
+        if obs and obs.strip():
+            texto = f"{texto} - {obs.strip()}"
+        registrar_log(db, o, usuario, texto)
+    cx.fase = destino
+    db.commit()
+    db.refresh(cx)
+    agendar_espelhamento_caixa(db, background_tasks, cx)
+    if origem == wf.FASE_LABORATORIO:
+        agendar_card_caixa(db, background_tasks, cx)
+    return cx
+
+
 @router.post("/{caixa_id}/avancar", response_model=CaixaDetalhe)
 def avancar_caixa(
     caixa_id: int,
@@ -213,38 +249,9 @@ def avancar_caixa(
             elif len(clientes_distintos) > 1:
                 raise HTTPException(status_code=409, detail="defina o cliente principal antes de avancar")
 
-    # efeito por fase, fan-out para cada OS ativa
-    if origem == 7:  # Preparando -> Finalizada
-        if not (dados.cod_retorno and dados.cod_retorno.strip()):
-            raise HTTPException(status_code=422, detail="cod_retorno é obrigatório para finalizar")
-    for o in ativas:
-        if origem == wf.FASE_LABORATORIO:
-            if o.desfecho_lab == wf.DESFECHO_CONCLUIDO:
-                espelhar_calibracao(db, o)
-        elif origem == 6:      # Pós-Vendas -> Financeiro
-            o.aceite = True
-            o.data_aceite = agora()
-        elif origem == 10:     # Financeiro -> Preparando
-            if not o.nota_fiscal:
-                raise HTTPException(status_code=409, detail="anexe a nota fiscal da caixa antes de confirmar o pagamento")
-            o.pago = True
-            o.data_pagamento = agora()
-        elif origem == 7:      # Preparando -> Finalizada
-            o.cod_retorno = dados.cod_retorno.strip()
-            o.data_retorno = agora()
-            o.situacao = "F"
-        o.fase = destino
-        texto = f"Caixa #{cx.id}: {origem} -> {destino}"
-        if dados.obs and dados.obs.strip():
-            texto = f"{texto} - {dados.obs.strip()}"
-        registrar_log(db, o, usuario, texto)
-    cx.fase = destino
-    db.commit()
-    db.refresh(cx)
-    agendar_espelhamento_caixa(db, background_tasks, cx)
-    if origem == wf.FASE_LABORATORIO:
-        agendar_card_caixa(db, background_tasks, cx)
-    return cx
+    return executar_avanco_caixa(db, cx, origem=origem, destino=destino, ativas=ativas,
+                                 usuario=usuario, obs=dados.obs, cod_retorno=dados.cod_retorno,
+                                 background_tasks=background_tasks)
 
 
 @router.post("/{caixa_id}/cancelar", response_model=CaixaDetalhe)
