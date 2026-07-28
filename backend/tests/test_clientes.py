@@ -43,6 +43,34 @@ def test_clientes_busca_e_paginacao(client, usuario_admin, db_session):
     assert r3["total"] == 30
 
 
+def test_clientes_busca_por_documento_formatado(client, usuario_admin, db_session):
+    from app.models import Cliente
+    db_session.add(Cliente(nome="Doc Cliente", cgc="01899414000167"))
+    db_session.add(Cliente(nome="Outro Cliente", cgc="99988877000166"))
+    db_session.commit()
+    h = _headers(client, "admin@hs.com", "senha123")
+
+    # formatado (com pontuacao) deve encontrar o cliente pelo cgc digitos-apenas
+    r_formatado = client.get("/clientes", headers=h, params={"q": "01.899.414/0001-67"}).json()
+    assert r_formatado["total"] == 1
+    assert r_formatado["items"][0]["nome"] == "Doc Cliente"
+
+    # raw (so digitos) continua funcionando
+    r_raw = client.get("/clientes", headers=h, params={"q": "01899414000167"}).json()
+    assert r_raw["total"] == 1
+    assert r_raw["items"][0]["nome"] == "Doc Cliente"
+
+    # parcial formatado
+    r_parcial = client.get("/clientes", headers=h, params={"q": "01.899"}).json()
+    assert r_parcial["total"] == 1
+    assert r_parcial["items"][0]["nome"] == "Doc Cliente"
+
+    # busca por nome continua funcionando e nao vira match-all
+    r_nome = client.get("/clientes", headers=h, params={"q": "Doc Cliente"}).json()
+    assert r_nome["total"] == 1
+    assert r_nome["items"][0]["nome"] == "Doc Cliente"
+
+
 def test_excluir_cliente_em_uso_409(client, usuario_admin, db_session):
     from app.models import Cliente, Funcionario
     c = Cliente(nome="Com funcionario")

@@ -1,3 +1,5 @@
+import re
+
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -23,14 +25,12 @@ def listar(
     query = db.query(Cliente)
     if q:
         termo = f"%{q}%"
-        query = query.filter(
-            or_(
-                Cliente.nome.ilike(termo),
-                Cliente.cgc.ilike(termo),
-                Cliente.cpf.ilike(termo),
-                Cliente.municipio.ilike(termo),
-            )
-        )
+        filtros = [Cliente.nome.ilike(termo), Cliente.municipio.ilike(termo)]
+        digitos = re.sub(r"\D", "", q)
+        if digitos:
+            termo_doc = f"%{digitos}%"
+            filtros += [Cliente.cgc.ilike(termo_doc), Cliente.cpf.ilike(termo_doc)]
+        query = query.filter(or_(*filtros))
     total = query.count()
     items = query.order_by(Cliente.nome).offset(offset).limit(limit).all()
     return ClientesPage(items=[ClienteListOut.model_validate(c) for c in items], total=total)
