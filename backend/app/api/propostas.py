@@ -60,7 +60,7 @@ def listar(
         termo = f"%{qs}%"
         filtros = [Cliente.nome.ilike(termo)]
         digitos = re.sub(r"\D", "", qs)
-        if digitos:
+        if digitos and (not qs.isdigit() or len(digitos) >= 11):
             termo_doc = f"%{digitos}%"
             filtros += [Cliente.cgc.ilike(termo_doc), Cliente.cpf.ilike(termo_doc)]
         if qs.isdigit():
