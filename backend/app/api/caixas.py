@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.models.database import get_db
 from app.models import Usuario, Caixa, Ordem, Fase
 from app.core import os_workflow as wf
+from app.core.caixa import contar_outros, principal_valido
 from app.api.deps import get_current_usuario, require_funcao
 from app.api.cadastros_common import excluir_protegido
 from app.schemas.caixas import (
@@ -73,8 +74,13 @@ def quadro_caixas(cliente: int | None = None, db: Session = Depends(get_db),
             if cliente is not None and not any(o.cliente == cliente for o in ativas):
                 continue
             prontos = sum(1 for o in ativas if o.desfecho_lab in wf.DESFECHOS_TERMINAIS)
-            principal_nome = cx.cliente_principal_nome or next((o.cliente_nome for o in ativas), None)
-            outros = len({o.cliente for o in ativas if o.cliente != cx.cliente_principal})
+            clientes_ids = [o.cliente for o in ativas]
+            pid = principal_valido(cx.cliente_principal, clientes_ids)
+            if pid is not None:
+                principal_nome = cx.cliente_principal_nome
+            else:
+                principal_nome = next((o.cliente_nome for o in ativas), None)
+            outros = contar_outros(clientes_ids)
             itens.append(CaixaQuadroItem(
                 id=cx.id, cliente_nome=principal_nome, cliente_principal_nome=principal_nome,
                 total_os=len(ativas), prontos=prontos, pendentes=len(ativas) - prontos,

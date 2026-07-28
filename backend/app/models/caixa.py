@@ -39,7 +39,5 @@ class Caixa(Base):
 
     @property
     def outros_clientes(self) -> int:
-        ativas = {o.cliente for o in self.ordens if o.cliente is not None}
-        if self.cliente_principal is not None:
-            ativas.discard(self.cliente_principal)
-        return len(ativas)
+        from app.core.caixa import contar_outros
+        return contar_outros(o.cliente for o in self.ordens)
