@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.29.0',
+    data: '28/07/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'O Financeiro agora pode marcar uma proposta como Faturada direto na lista de Propostas. A proposta faturada ganha um selo; desfazer o faturamento é exclusivo do Administrador.' },
+    ],
+  },
+  {
     versao: '1.28.0',
     data: '28/07/2026',
     itens: [
