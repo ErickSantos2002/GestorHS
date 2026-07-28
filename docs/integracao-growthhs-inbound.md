@@ -111,5 +111,9 @@ Resposta esperada (caixa 42 estava em Pós-Vendas):
   Zerar desliga a integração inteira (toda chamada volta `503`) até uma nova chave ser
   configurada.
 - A comparação da chave usa `secrets.compare_digest` (tempo constante) para evitar
-  vazamento por timing.
-- Toda chamada é logada no GestorHS, sucesso ou erro.
+  vazamento por timing; um header `X-API-Key` malformado (ex.: caractere não-ASCII)
+  é tratado como chave inválida (`401`), nunca derruba a chamada com `500`.
+- Toda chamada gera uma linha de log no GestorHS — aceita ou recusada (`401`, `404`,
+  `409`), com o resultado e o `caixa_id`, nunca o valor da chave. A gravação no
+  **histórico da caixa** (a `observação` do corpo) só acontece quando a chamada é
+  aceita e move a fase (`200 {"movida": true, ...}`).

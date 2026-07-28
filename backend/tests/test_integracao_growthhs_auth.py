@@ -45,3 +45,17 @@ def test_integracao_desligada_retorna_503(client, monkeypatch):
     monkeypatch.setattr(settings, "GROWTHHS_INBOUND_API_KEY", "")
     resp = client.get("/protegido", headers={"X-API-Key": "qualquer-coisa"})
     assert resp.status_code == 503
+
+
+def test_header_nao_ascii_retorna_401_e_nao_500(client, monkeypatch):
+    # Starlette decodifica headers de entrada como latin-1; secrets.compare_digest
+    # lanca TypeError se o header decodificado carregar caracteres nao-ASCII (o
+    # httpx do TestClient so aceita enviar isso como bytes latin-1 explicitos,
+    # ja que um valor str puro seria forcado a ascii antes de sair). Precisa
+    # falhar fechado com 401, nunca vazar como 500.
+    monkeypatch.setattr(settings, "GROWTHHS_INBOUND_API_KEY", "segredo-123")
+    resp = client.get(
+        "/protegido",
+        headers={"X-API-Key": "é-invalid".encode("latin-1")},
+    )
+    assert resp.status_code == 401

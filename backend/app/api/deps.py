@@ -1,3 +1,4 @@
+import logging
 import secrets
 
 from fastapi import Depends, Header, HTTPException, status
@@ -11,6 +12,8 @@ from app.core.config import settings
 from app.core.security import decodificar_token
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+
+logger = logging.getLogger(__name__)
 
 _cred_invalida = HTTPException(
     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -59,7 +62,15 @@ def require_growthhs_inbound(x_api_key: str | None = Header(default=None, alias=
     configurada = settings.GROWTHHS_INBOUND_API_KEY
     if not configurada:
         raise HTTPException(status_code=503, detail="integracao inbound do GrowthHS desligada")
-    if not x_api_key or not secrets.compare_digest(x_api_key, configurada):
+    try:
+        # compare_digest lanca TypeError se algum dos lados tiver caractere
+        # nao-ASCII (Starlette decodifica headers como latin-1) — trata como
+        # chave invalida em vez de deixar vazar como 500.
+        valido = bool(x_api_key) and secrets.compare_digest(x_api_key, configurada)
+    except TypeError:
+        valido = False
+    if not valido:
+        logger.warning("GrowthHS inbound: X-API-Key invalida ou ausente")
         raise HTTPException(status_code=401, detail="api key invalida")
 
 
