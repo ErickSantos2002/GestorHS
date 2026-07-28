@@ -13,6 +13,7 @@ from app.core import recebimento as rec
 from app.core.garantia import garantias as _calc_garantias
 from app.core.certificado_gerar import tipos_para, tipos_sem_modelo
 from app.core.os_workflow import FASE_FINALIZADA
+from app.api.caixas import sincronizar_principal
 from app.api.espelhamento import agendar_espelhamento_caixa
 from app.schemas.ordens import (
     OrdemListOut, OrdemPage, QuadroColuna, OrdemOut, LogOut, OrdemAbrirIn, OrdemEditarIn,
@@ -185,6 +186,7 @@ def abrir(dados: OrdemAbrirIn, background_tasks: BackgroundTasks, db: Session = 
     db.flush()
     ec.os_atual = ordem.id
     cx.fase = fase_inicial
+    sincronizar_principal(db, cx)
     registrar_log(db, ordem, usuario, "OS aberta — Recebido")
     db.commit()
     db.refresh(ordem)

@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.27.2',
+    data: '28/07/2026',
+    itens: [
+      { tipo: 'correcao', texto: 'As caixas com um único aparelho não mostram mais "+1 outro" cliente. O cliente do aparelho passa a ser definido automaticamente como principal da caixa na abertura; a escolha manual do principal continua só para caixas com aparelhos de clientes diferentes.' },
+    ],
+  },
+  {
     versao: '1.27.1',
     data: '28/07/2026',
     itens: [

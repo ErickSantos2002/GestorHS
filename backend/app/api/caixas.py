@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.models.database import get_db
 from app.models import Usuario, Caixa, Ordem, Fase
 from app.core import os_workflow as wf
+from app.core.caixa import cliente_unico, contar_outros, principal_valido
 from app.api.deps import get_current_usuario, require_funcao
 from app.api.cadastros_common import excluir_protegido
 from app.schemas.caixas import (
@@ -21,6 +22,16 @@ from app.api.growthhs_cards import agendar_card_caixa
 router = APIRouter(prefix="/caixas", tags=["caixas"])
 
 _escrita = require_funcao("Expedição", "Administrador")
+
+
+def sincronizar_principal(db: Session, cx: Caixa) -> None:
+    """Se a caixa tem exatamente 1 cliente ativo, ele vira o principal.
+    0 ou 2+ clientes: nao mexe (2+ e escolha manual no avanco)."""
+    clientes = [c for (c,) in db.query(Ordem.cliente)
+                .filter(Ordem.caixa == cx.id, Ordem.fase.in_(wf.ATIVAS)).all()]
+    unico = cliente_unico(clientes)
+    if unico is not None:
+        cx.cliente_principal = unico
 
 
 def _get_caixa(db: Session, caixa_id: int) -> Caixa:
@@ -73,8 +84,13 @@ def quadro_caixas(cliente: int | None = None, db: Session = Depends(get_db),
             if cliente is not None and not any(o.cliente == cliente for o in ativas):
                 continue
             prontos = sum(1 for o in ativas if o.desfecho_lab in wf.DESFECHOS_TERMINAIS)
-            principal_nome = cx.cliente_principal_nome or next((o.cliente_nome for o in ativas), None)
-            outros = len({o.cliente for o in ativas if o.cliente != cx.cliente_principal})
+            clientes_ids = [o.cliente for o in ativas]
+            pid = principal_valido(cx.cliente_principal, clientes_ids)
+            if pid is not None:
+                principal_nome = cx.cliente_principal_nome
+            else:
+                principal_nome = next((o.cliente_nome for o in ativas), None)
+            outros = contar_outros(clientes_ids)
             itens.append(CaixaQuadroItem(
                 id=cx.id, cliente_nome=principal_nome, cliente_principal_nome=principal_nome,
                 total_os=len(ativas), prontos=prontos, pendentes=len(ativas) - prontos,
@@ -129,7 +145,14 @@ def vincular_ordem(
     ordem = db.query(Ordem).filter(Ordem.id == dados.ordem_id).first()
     if ordem is None:
         raise HTTPException(status_code=404, detail="OS não encontrada")
+    origem_id = ordem.caixa  # captura ANTES de reatribuir, para ressincronizar a caixa de origem
     ordem.caixa = cx.id  # vincula/move (multi-cliente permitido; principal define as integracoes)
+    db.flush()
+    sincronizar_principal(db, cx)
+    if origem_id is not None and origem_id != cx.id:
+        origem = db.get(Caixa, origem_id)
+        if origem is not None:
+            sincronizar_principal(db, origem)
     registrar_log(db, ordem, usuario, f"OS vinculada à caixa #{cx.id}")
     db.commit()
     db.refresh(cx)
@@ -148,6 +171,8 @@ def desvincular_ordem(
     if ordem is None:
         raise HTTPException(status_code=404, detail="OS não está nesta caixa")
     ordem.caixa = None
+    db.flush()
+    sincronizar_principal(db, cx)
     registrar_log(db, ordem, usuario, f"OS removida da caixa #{cx.id}")
     db.commit()
 
