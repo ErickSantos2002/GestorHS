@@ -273,6 +273,86 @@ def test_api_criar_e_listar_proposta(client_comercial, db_session):
     assert client_comercial.get("/propostas", params={"q": "1"}).json()["total"] == 1
 
 
+def test_api_listar_proposta_busca_por_documento_formatado(client_comercial, db_session):
+    from app.models import Cliente
+
+    cli = Cliente(nome="ACME Documentada", cgc="01899414000167")
+    db_session.add(cli); db_session.commit(); db_session.refresh(cli)
+
+    outro = Cliente(nome="Sem Relacao", cgc="99988877000166")
+    db_session.add(outro); db_session.commit()
+
+    r = client_comercial.post("/propostas", json={
+        "cliente": cli.id,
+        "itens": [{"descricao": "Calibracao", "quantidade": 1, "preco_un": 100}],
+    })
+    assert r.status_code == 201
+
+    # busca pelo CNPJ formatado (com pontuacao) do cliente da proposta
+    r_doc = client_comercial.get("/propostas", params={"q": "01.899.414/0001-67"})
+    assert r_doc.json()["total"] == 1
+
+    # busca pelo CNPJ raw (so digitos) continua funcionando
+    r_raw = client_comercial.get("/propostas", params={"q": "01899414000167"})
+    assert r_raw.json()["total"] == 1
+
+    # regressao: busca por nome do cliente
+    r_nome = client_comercial.get("/propostas", params={"q": "ACME Documentada"})
+    assert r_nome.json()["total"] == 1
+
+    # regressao: busca pelo numero da proposta
+    r_num = client_comercial.get("/propostas", params={"q": "1"})
+    assert r_num.json()["total"] == 1
+
+    # documento de outro cliente nao deve encontrar essa proposta
+    r_outro = client_comercial.get("/propostas", params={"q": "99.988.877/0001-66"})
+    assert r_outro.json()["total"] == 0
+
+
+def test_api_listar_proposta_numero_curto_nao_dilui_por_documento(client_comercial, db_session):
+    from app.models import Cliente
+
+    cli_um = Cliente(nome="Cliente Um Doc", cgc="01899414000167")
+    # cgc do segundo cliente contem o digito "1" (substring) de proposito, pra
+    # provar que uma busca por numero curto ("1") nao deve casar por documento.
+    cli_dois = Cliente(nome="Cliente Dois Doc", cgc="21988877000166")
+    db_session.add_all([cli_um, cli_dois]); db_session.commit()
+    db_session.refresh(cli_um); db_session.refresh(cli_dois)
+
+    r1 = client_comercial.post("/propostas", json={
+        "cliente": cli_um.id,
+        "itens": [{"descricao": "Calibracao", "quantidade": 1, "preco_un": 100}],
+    })
+    assert r1.status_code == 201
+    assert r1.json()["numero"] == 1
+
+    r2 = client_comercial.post("/propostas", json={
+        "cliente": cli_dois.id,
+        "itens": [{"descricao": "Calibracao", "quantidade": 1, "preco_un": 100}],
+    })
+    assert r2.status_code == 201
+    assert r2.json()["numero"] == 2
+
+    # numero curto ("1") deve casar SO pelo Proposta.numero == 1, sem diluir
+    # via substring do cgc do cliente 2 (que contem "1")
+    r_num = client_comercial.get("/propostas", params={"q": "1"})
+    pagina_num = r_num.json()
+    assert pagina_num["total"] == 1
+    assert pagina_num["items"][0]["numero"] == 1
+
+    # CNPJ formatado (com pontuacao) do cliente da proposta 1 continua encontrando
+    r_formatado = client_comercial.get("/propostas", params={"q": "01.899.414/0001-67"})
+    pagina_formatado = r_formatado.json()
+    assert pagina_formatado["total"] == 1
+    assert pagina_formatado["items"][0]["numero"] == 1
+
+    # CNPJ raw (14 digitos, sem pontuacao) tambem continua encontrando
+    r_raw = client_comercial.get("/propostas", params={"q": "01899414000167"})
+    pagina_raw = r_raw.json()
+    assert pagina_raw["total"] == 1
+    assert pagina_raw["items"][0]["numero"] == 1
+
+
 def test_api_obter_proposta_inexistente_e_404(client_comercial):
     r = client_comercial.get("/propostas/9999")
     assert r.status_code == 404

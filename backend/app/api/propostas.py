@@ -3,6 +3,7 @@ duplicar. Camada fina sobre `core/proposta_servico.py` (numeração, totais,
 versionamento) e `core/proposta_pdf.py` (geração/arquivamento de PDF via
 Playwright) — sem regra de negócio aqui, só orquestração HTTP.
 """
+import re
 from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -55,10 +56,15 @@ def listar(
 ):
     query = db.query(Proposta).filter(Proposta.is_deleted.is_(False))
     if q:
-        termo = f"%{q.strip()}%"
+        qs = q.strip()
+        termo = f"%{qs}%"
         filtros = [Cliente.nome.ilike(termo)]
-        if q.strip().isdigit():
-            filtros.append(Proposta.numero == int(q.strip()))
+        digitos = re.sub(r"\D", "", qs)
+        if digitos and (not qs.isdigit() or len(digitos) >= 11):
+            termo_doc = f"%{digitos}%"
+            filtros += [Cliente.cgc.ilike(termo_doc), Cliente.cpf.ilike(termo_doc)]
+        if qs.isdigit():
+            filtros.append(Proposta.numero == int(qs))
         query = query.outerjoin(Cliente, Proposta.cliente == Cliente.id).filter(or_(*filtros))
 
     total = query.count()
