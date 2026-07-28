@@ -487,7 +487,7 @@ def montar_html(proposta, cliente) -> str:
             if de.get('inscricao_estadual'):
                 linhas_entrega += f"Insc. estadual: {de_get('inscricao_estadual')}<br>"
             if de.get('documento'):
-                linhas_entrega += f"CPF/CNPJ: {de_get('documento')}<br>"
+                linhas_entrega += f"CPF/CNPJ: {_fmt_documento(de.get('documento'))}<br>"
             if de.get('telefone'):
                 linhas_entrega += f"Fone: {de_get('telefone')}<br>"
 
