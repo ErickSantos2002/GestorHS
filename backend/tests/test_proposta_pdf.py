@@ -70,3 +70,26 @@ def test_montar_html_endereco_entrega_texto_livre():
     assert "Rua Teste 123" in html
     assert "Recife-PE" in html
     assert "Endereço de Entrega" in html
+
+
+def test_montar_html_endereco_entrega_documento_formatado():
+    from app.core import proposta_pdf
+    from app.models import Cliente, Proposta
+
+    cli = Cliente(nome="ACME", cgc="08857492000148")
+    p = Proposta(
+        id=4,
+        numero=102,
+        endereco_entrega_diferente=True,
+        endereco_entrega={
+            "rua": "Rua Destino",
+            "municipio": "Recife",
+            "estado": "PE",
+            "documento": "36312056000552",
+        },
+    )
+
+    html = proposta_pdf.montar_html(p, cli)
+
+    assert "36.312.056/0005-52" in html
+    assert "36312056000552" not in html

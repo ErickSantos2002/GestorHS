@@ -1,6 +1,7 @@
 import type { FormEvent, ReactNode } from 'react'
 import { Input } from '../../components/ui/Input'
 import { Select } from '../../components/ui/Select'
+import { mascararCNPJ, mascararCPF, soDigitos } from '../../lib/documento'
 import type { ClientePayload } from './api'
 import type { Grupo } from '../cadastros/api'
 
@@ -49,7 +50,22 @@ export function ClienteFormFields({ form, set, grupos, readOnly: ro, podeEditar,
             Ativo
           </label>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{txt('CNPJ', 'cgc')}{txt('CPF', 'cpf')}</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Input
+            id="c-cgc"
+            label="CNPJ"
+            value={mascararCNPJ(form.cgc ?? '')}
+            onChange={(e) => set('cgc', soDigitos(e.target.value) || null)}
+            disabled={ro}
+          />
+          <Input
+            id="c-cpf"
+            label="CPF"
+            value={mascararCPF(form.cpf ?? '')}
+            onChange={(e) => set('cpf', soDigitos(e.target.value) || null)}
+            disabled={ro}
+          />
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{txt('Inscrição municipal', 'insc_mun')}{txt('Inscrição estadual', 'insc_est')}</div>
       </Secao>
 

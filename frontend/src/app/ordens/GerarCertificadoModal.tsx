@@ -4,6 +4,7 @@ import { Spinner } from '../../components/ui/Spinner'
 import { ApiError } from '../../lib/api'
 import { CamposCertificado } from '../certificados/CamposCertificado'
 import { valoresIniciais, hojeISO, type ValoresCertificado } from '../certificados/valoresCertificado'
+import { soDigitos } from '../../lib/documento'
 import { ordensApi, type OrdemDetalhe, type OSCertificado, type GerarCertificadoPayload } from './api'
 
 export function GerarCertificadoModal({ os, onClose, onGerado }: {
@@ -26,7 +27,7 @@ export function GerarCertificadoModal({ os, onClose, onGerado }: {
       .then((c) => {
         if (!ativo) return
         setV({
-          nomecli: c.nomecli ?? '', cnpj: c.cnpj ?? '', endcli: c.endcli ?? '',
+          nomecli: c.nomecli ?? '', cnpj: soDigitos(c.cnpj ?? ''), endcli: c.endcli ?? '',
           modelo: c.modelo ?? '', marca: c.marca ?? '', serie: c.serie ?? '',
           patrimonio: c.patrimonio ?? '', datacompra: c.datacompra ?? '',
           cert: c.calib_cert ?? '', situacao: c.calib_situacao ?? '',

@@ -7,6 +7,7 @@ import { ApiError } from '../../lib/api'
 import { mediaTestes } from '../../lib/calibragem'
 import { certificadosApi, type ModeloItem, type AvulsoPayload } from './api'
 import { hojeISO } from '../../lib/datas'
+import { formatarDocumento, soDigitos } from '../../lib/documento'
 
 export function CertificadoAvulsoModal({ onClose, onGerado }: {
   onClose: () => void
@@ -124,7 +125,7 @@ export function CertificadoAvulsoModal({ onClose, onGerado }: {
             <p className={secao}>Cliente</p>
             <Input id="nomecli" label="Nome" value={nomecli} onChange={(e) => setNomecli(e.target.value)} />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Input id="cnpj" label="CNPJ/CPF" value={cnpj} onChange={(e) => setCnpj(e.target.value)} />
+              <Input id="cnpj" label="CNPJ/CPF" value={formatarDocumento(cnpj)} onChange={(e) => setCnpj(soDigitos(e.target.value))} />
               <Input id="endcli" label="Endereço" value={endcli} onChange={(e) => setEndcli(e.target.value)} />
             </div>
           </div>

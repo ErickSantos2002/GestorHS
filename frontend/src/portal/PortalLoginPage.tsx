@@ -5,6 +5,7 @@ import { ApiError } from '../lib/api'
 import { Input } from '../components/ui/Input'
 import { Spinner } from '../components/ui/Spinner'
 import { IconAlertCircle } from '../components/ui/icons'
+import { formatarDocumento, soDigitos } from '../lib/documento'
 
 export function PortalLoginPage() {
   const { login, definirSenha, cliente, loading } = usePortalAuth()
@@ -63,7 +64,7 @@ export function PortalLoginPage() {
         <div className="rounded-2xl bg-background-surface border border-border shadow-sm p-6">
           {etapa === 'login' ? (
             <form className="space-y-4" onSubmit={onLogin}>
-              <Input id="documento" label="CNPJ ou CPF" value={documento} onChange={(e) => setDocumento(e.target.value)} autoFocus />
+              <Input id="documento" label="CNPJ ou CPF" value={formatarDocumento(documento)} onChange={(e) => setDocumento(soDigitos(e.target.value))} autoFocus />
               <Input id="login" label="Login" value={usuario} onChange={(e) => setUsuario(e.target.value)} autoComplete="username" />
               <Input id="senha" label="Senha" type="password" value={senha} onChange={(e) => setSenha(e.target.value)} autoComplete="current-password" />
               {erro && (

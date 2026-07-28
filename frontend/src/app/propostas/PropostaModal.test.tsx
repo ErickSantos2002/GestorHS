@@ -49,9 +49,9 @@ vi.mock('./api', async (orig) => {
 import { PropostaModal } from './PropostaModal'
 import { descreverVencimento } from './aparelhosFrota'
 
-const CLIENTE = { id: 5, nome: 'Cliente Teste', cgc: '11.111.111/0001-11', cpf: null, municipio: 'Recife', estado: 'PE', ativo: true }
+const CLIENTE = { id: 5, nome: 'Cliente Teste', cgc: '36312056000552', cpf: null, municipio: 'Recife', estado: 'PE', ativo: true }
 const CLIENTE_COMPLETO = {
-  id: 5, grupo: null, nome: 'Cliente Teste', cgc: '11.111.111/0001-11', cpf: null, endereco: 'Rua X, 10',
+  id: 5, grupo: null, nome: 'Cliente Teste', cgc: '36312056000552', cpf: null, endereco: 'Rua X, 10',
   numero: null, complemento: null, bairro: null, municipio: 'Recife', estado: 'PE', cep: null, contato: null,
   email: 'cliente@teste.com', telefones: '8130001111', celular: null, whatsapp: null, whatsapp1: null, whatsapp2: null,
   insc_mun: null, insc_est: null, datcad: null, obs: null, ativo: true,
@@ -86,7 +86,15 @@ describe('PropostaModal', () => {
   it('marcar um aparelho da frota inclui no payload ao submeter', async () => {
     const onSalvo = vi.fn()
     render(<PropostaModal onClose={vi.fn()} onSalvo={onSalvo} />)
-    await selecionarCliente()
+
+    fireEvent.change(screen.getByPlaceholderText('Buscar cliente por nome, CNPJ ou CPF'), { target: { value: 'Cliente' } })
+    await screen.findByText('Cliente Teste')
+    expect(screen.getByText('36.312.056/0005-52')).toBeInTheDocument()
+    expect(screen.queryByText('36312056000552')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByText('Cliente Teste'))
+    await screen.findByLabelText('Bafômetro X')
+
+    expect(screen.getByText('CNPJ/CPF: 36.312.056/0005-52')).toBeInTheDocument()
 
     fireEvent.click(screen.getByLabelText('Bafômetro X'))
     fireEvent.click(screen.getByText('Criar Proposta'))
@@ -163,6 +171,25 @@ describe('PropostaModal', () => {
     await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
     const payload = propostasCriar.mock.calls[0][0]
     expect(payload.aparelhos).toEqual([{ equipamento_cliente: 42 }])
+  })
+
+  it('override de documento nasce mascarado com o CNPJ do cadastro e guarda so digitos', async () => {
+    render(<PropostaModal onClose={vi.fn()} />)
+    await selecionarCliente()
+
+    fireEvent.click(screen.getByLabelText('Editar dados nesta proposta'))
+    const documentoInput = screen.getByLabelText('CNPJ / Documento') as HTMLInputElement
+    expect(documentoInput.value).toBe('36.312.056/0005-52')
+
+    fireEvent.change(documentoInput, { target: { value: '123.456.789-09' } })
+    expect(documentoInput.value).toBe('123.456.789-09')
+
+    fireEvent.click(screen.getByText('Aplicar'))
+    fireEvent.click(screen.getByText('Criar Proposta'))
+
+    await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
+    const payload = propostasCriar.mock.calls[0][0]
+    expect(payload.cliente_override.documento).toBe('12345678909')
   })
 })
 

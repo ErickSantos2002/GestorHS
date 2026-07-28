@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.27.3',
+    data: '28/07/2026',
+    itens: [
+      { tipo: 'melhoria', texto: 'CNPJ e CPF agora aparecem formatados (36.312.056/0005-52) em todas as telas, e os campos de digitar aplicam a máscara automaticamente — inclusive quando você cola o número já formatado de outro lugar.' },
+    ],
+  },
+  {
     versao: '1.27.2',
     data: '28/07/2026',
     itens: [

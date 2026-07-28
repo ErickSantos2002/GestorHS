@@ -31,7 +31,7 @@ vi.mock('./api', async (orig) => {
 import { PropostasPage } from './PropostasPage'
 
 const PROPOSTA = {
-  id: 10, numero: 42, data: '2026-07-20', cliente_nome: 'Cliente Teste', cliente_documento: '11.111.111/0001-11',
+  id: 10, numero: 42, data: '2026-07-20', cliente_nome: 'Cliente Teste', cliente_documento: '36312056000552',
   total: 1250.5, total_itens: 1250.5, desconto: 0, frete: 0, itens: [], aparelhos: [],
   cliente: 5, contato: null, vendedor: null, intro: null, outros_itens: null, forma_envio: null, forma_frete: null,
   transportador: null, condicao_pagamento: null, validade_dias: null, data_entrega: null, descricao_entrega: null,
@@ -50,7 +50,7 @@ describe('PropostasPage', () => {
     render(<PropostasPage />)
     expect(await screen.findByText('#42')).toBeInTheDocument()
     expect(screen.getByText('Cliente Teste')).toBeInTheDocument()
-    expect(screen.getByText('11.111.111/0001-11')).toBeInTheDocument()
+    expect(screen.getByText('36.312.056/0005-52')).toBeInTheDocument()
     expect(screen.getByText('R$ 1.250,50')).toBeInTheDocument()
     expect(screen.getByText('PDF')).toBeInTheDocument()
     expect(screen.getByText('Editar')).toBeInTheDocument()
