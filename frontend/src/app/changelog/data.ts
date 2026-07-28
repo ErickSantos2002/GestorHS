@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.27.6',
+    data: '28/07/2026',
+    itens: [
+      { tipo: 'melhoria', texto: 'As ações da lista de Propostas agora são ícones, no mesmo padrão das outras telas, e há uma ação para visualizar a proposta em PDF numa nova aba sem precisar baixar.' },
+    ],
+  },
+  {
     versao: '1.27.5',
     data: '28/07/2026',
     itens: [
