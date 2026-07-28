@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.27.7',
+    data: '28/07/2026',
+    itens: [
+      { tipo: 'melhoria', texto: 'A visualização da proposta agora abre em uma janela dentro do sistema (com o PDF na tela), no lugar de abrir uma aba separada do navegador.' },
+    ],
+  },
+  {
     versao: '1.27.6',
     data: '28/07/2026',
     itens: [
