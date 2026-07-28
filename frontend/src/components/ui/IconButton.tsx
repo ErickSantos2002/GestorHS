@@ -19,23 +19,27 @@ export function IconButton({
   onClick,
   children,
   className,
+  disabled,
 }: {
   label: string
   tone?: IconButtonTone
   onClick: () => void
   children: ReactNode
   className?: string
+  disabled?: boolean
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       title={label}
       aria-label={label}
       className={cn(
         'inline-flex items-center justify-center p-1.5 rounded-lg border transition-colors',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
         TONES[tone],
+        disabled && 'opacity-50 pointer-events-none',
         className,
       )}
     >

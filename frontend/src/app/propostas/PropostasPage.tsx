@@ -4,6 +4,8 @@ import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/Spinner'
 import { SearchBar } from '../../components/ui/SearchBar'
 import { PageContainer } from '../../components/ui/Page'
+import { IconButton, IconButtonGroup } from '../../components/ui/IconButton'
+import { IconEye, IconDownload, IconClock, IconPencil, IconCopy, IconTrash } from '../../components/ui/icons'
 import { useAuth } from '../../auth/AuthContext'
 import { podeGerenciarPropostas } from '../../auth/roles'
 import { ApiError } from '../../lib/api'
@@ -68,6 +70,23 @@ export function PropostasPage() {
       URL.revokeObjectURL(url)
     } catch (e) {
       setErro(e instanceof ApiError ? e.message : 'Falha ao baixar PDF')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function visualizarPdf(p: Proposta) {
+    const win = window.open('', '_blank')
+    setBusyId(p.id)
+    setErro('')
+    try {
+      const blob = await propostasApi.baixarPdf(p.id)
+      const url = URL.createObjectURL(blob)
+      if (win) win.location.href = url
+      else window.open(url, '_blank')
+    } catch (e) {
+      if (win) win.close()
+      setErro(e instanceof ApiError ? e.message : 'Falha ao abrir o PDF')
     } finally {
       setBusyId(null)
     }
@@ -151,17 +170,30 @@ export function PropostasPage() {
                 <TD>{formatarDocumento(p.cliente_documento) || '—'}</TD>
                 <TD>R$ {formatarMoeda(p.total)}</TD>
                 <TD>
-                  <div className="flex flex-wrap gap-1.5">
-                    <Button variant="ghost" className="px-2 py-1 text-xs" disabled={busyId === p.id} onClick={() => baixarPdf(p)}>PDF</Button>
-                    <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => setHistorico({ id: p.id, numero: p.numero })}>Histórico</Button>
+                  <IconButtonGroup>
+                    <IconButton label="Visualizar" tone="ver" disabled={busyId === p.id} onClick={() => visualizarPdf(p)}>
+                      <IconEye className="w-4 h-4" />
+                    </IconButton>
+                    <IconButton label="Baixar PDF" tone="neutro" disabled={busyId === p.id} onClick={() => baixarPdf(p)}>
+                      <IconDownload className="w-4 h-4" />
+                    </IconButton>
+                    <IconButton label="Histórico" tone="neutro" onClick={() => setHistorico({ id: p.id, numero: p.numero })}>
+                      <IconClock className="w-4 h-4" />
+                    </IconButton>
                     {podeEscrever && (
                       <>
-                        <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => setModalId(p.id)}>Editar</Button>
-                        <Button variant="ghost" className="px-2 py-1 text-xs" disabled={busyId === p.id} onClick={() => duplicar(p.id)}>Duplicar</Button>
-                        <Button variant="ghost" className="px-2 py-1 text-xs text-danger hover:text-danger" disabled={busyId === p.id} onClick={() => excluir(p)}>Excluir</Button>
+                        <IconButton label="Editar" tone="editar" onClick={() => setModalId(p.id)}>
+                          <IconPencil className="w-4 h-4" />
+                        </IconButton>
+                        <IconButton label="Duplicar" tone="neutro" disabled={busyId === p.id} onClick={() => duplicar(p.id)}>
+                          <IconCopy className="w-4 h-4" />
+                        </IconButton>
+                        <IconButton label="Excluir" tone="excluir" disabled={busyId === p.id} onClick={() => excluir(p)}>
+                          <IconTrash className="w-4 h-4" />
+                        </IconButton>
                       </>
                     )}
-                  </div>
+                  </IconButtonGroup>
                 </TD>
               </tr>
             ))}
