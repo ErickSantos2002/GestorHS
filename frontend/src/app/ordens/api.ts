@@ -215,6 +215,16 @@ export interface AbrirPayload {
   observacoes?: string | null
 }
 
+export interface EditarPayload {
+  tipo_servico?: TipoServico
+  condicao_chegada?: string | null
+  checklist?: number[] | null
+  pilhas?: number | null
+  bocais?: number | null
+  observacoes?: string | null
+  data_chegada?: string | null
+}
+
 export interface AvancarPayload {
   obs?: string | null
   cod_retorno?: string | null
@@ -334,6 +344,8 @@ export const ordensApi = {
   logs: (id: number): Promise<LogOS[]> => apiJson<LogOS[]>(`/ordens/${id}/logs`),
   abrir: (payload: AbrirPayload): Promise<OrdemDetalhe> =>
     apiJson<OrdemDetalhe>('/ordens', { method: 'POST', body: JSON.stringify(payload) }),
+  editar: (id: number, payload: EditarPayload): Promise<OrdemDetalhe> =>
+    apiJson<OrdemDetalhe>(`/ordens/${id}/editar`, { method: 'PUT', body: JSON.stringify(payload) }),
   avancar: (id: number, payload: AvancarPayload): Promise<OrdemDetalhe> =>
     apiJson<OrdemDetalhe>(`/ordens/${id}/avancar`, { method: 'POST', body: JSON.stringify(payload) }),
   cancelar: (id: number, payload: { motivo: string }): Promise<OrdemDetalhe> =>
