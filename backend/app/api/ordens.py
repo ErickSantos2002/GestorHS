@@ -15,8 +15,8 @@ from app.core.certificado_gerar import tipos_para, tipos_sem_modelo
 from app.core.os_workflow import FASE_FINALIZADA
 from app.api.espelhamento import agendar_espelhamento_caixa
 from app.schemas.ordens import (
-    OrdemListOut, OrdemPage, QuadroColuna, OrdemOut, LogOut, OrdemAbrirIn, AvancarIn,
-    CancelarIn, DesfechoLabIn,
+    OrdemListOut, OrdemPage, QuadroColuna, OrdemOut, LogOut, OrdemAbrirIn, OrdemEditarIn,
+    AvancarIn, CancelarIn, DesfechoLabIn,
 )
 
 router = APIRouter(prefix="/ordens", tags=["ordens"])
@@ -190,6 +190,44 @@ def abrir(dados: OrdemAbrirIn, background_tasks: BackgroundTasks, db: Session = 
     db.refresh(ordem)
     db.refresh(cx)
     agendar_espelhamento_caixa(db, background_tasks, cx)
+    _anotar_modelos_faltantes(db, ordem)
+    return ordem
+
+
+@router.put("/{ordem_id}/editar", response_model=OrdemOut)
+def editar(ordem_id: int, dados: OrdemEditarIn, db: Session = Depends(get_db),
+           usuario: Usuario = Depends(require_funcao("Administrador"))):
+    ordem = db.query(Ordem).filter(Ordem.id == ordem_id).first()
+    if ordem is None:
+        raise HTTPException(status_code=404, detail="OS não encontrada")
+    campos = dados.model_dump(exclude_unset=True)
+    if "condicao_chegada" in campos and campos["condicao_chegada"] is not None \
+            and campos["condicao_chegada"] not in rec.CONDICOES_CHEGADA:
+        raise HTTPException(status_code=400, detail="condição de chegada inválida")
+    if "checklist" in campos:
+        try:
+            ordem.checklist = rec.checklist_ids_para_csv(campos["checklist"])
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+    if "data_chegada" in campos and campos["data_chegada"] is not None:
+        d = campos["data_chegada"]
+        ordem.data_chegada = datetime(d.year, d.month, d.day, tzinfo=timezone.utc)
+    if "tipo_servico" in campos:
+        ordem.tipo_servico = campos["tipo_servico"]
+    if "condicao_chegada" in campos:
+        ordem.condicao_chegada = campos["condicao_chegada"]
+    if "pilhas" in campos:
+        ordem.pilhas = campos["pilhas"]
+    if "bocais" in campos:
+        ordem.sopradores = campos["bocais"]
+    if "garantia" in campos and campos["garantia"] is not None:
+        ordem.garantia = campos["garantia"]
+    if "observacoes" in campos:
+        ordem.obs = campos["observacoes"]
+    alterados = ", ".join(sorted(campos.keys()))
+    registrar_log(db, ordem, usuario, f"OS editada (admin): {alterados}")
+    db.commit()
+    db.refresh(ordem)
     _anotar_modelos_faltantes(db, ordem)
     return ordem
 

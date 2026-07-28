@@ -225,6 +225,52 @@ def os_no_lab(db_session, os_base, caixa_base):
 
 
 @pytest.fixture()
+def client_admin(client, usuario_admin, fases_seed):
+    """Client autenticado como usuário de função Administrador (headers já embutidos)."""
+    tok = client.post("/auth/login", json={"email": "admin@hs.com", "senha": "senha123"}).json()
+    client.headers["Authorization"] = f"Bearer {tok['access_token']}"
+    return client
+
+
+@pytest.fixture()
+def os_manutencao_iblow(db_session, os_base, fases_seed):
+    """OS tipo 'M' de um aparelho cujo equipamento só tem modelo de certificado
+    de Calibração ('C') cadastrado — editar para tipo_servico='C' deve zerar
+    certificado_modelos_faltantes."""
+    from app.models import Ordem, CertificadoModelo
+    cm = CertificadoModelo(equipamento=os_base["equipamento"], tipo="C", texto="modelo C")
+    db_session.add(cm)
+    o = Ordem(
+        cliente=os_base["cliente"],
+        equipamento_cliente=os_base["equipamento_cliente"],
+        fase=5,
+        situacao="E",
+        tipo_servico="M",
+    )
+    db_session.add(o)
+    db_session.commit()
+    db_session.refresh(o)
+    return o.id
+
+
+@pytest.fixture()
+def os_com_obs(db_session, os_base, fases_seed):
+    """OS com obs="obs original" (para testar que editar outro campo não apaga obs)."""
+    from app.models import Ordem
+    o = Ordem(
+        cliente=os_base["cliente"],
+        equipamento_cliente=os_base["equipamento_cliente"],
+        fase=5,
+        situacao="E",
+        obs="obs original",
+    )
+    db_session.add(o)
+    db_session.commit()
+    db_session.refresh(o)
+    return o.id
+
+
+@pytest.fixture()
 def client_exp(client, usuario_comum, fases_seed):
     """Client autenticado como usuário de função Expedição (headers já embutidos)."""
     tok = client.post("/auth/login", json={"email": "comum@hs.com", "senha": "senha123"}).json()
