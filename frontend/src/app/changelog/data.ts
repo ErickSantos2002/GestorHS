@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.27.5',
+    data: '28/07/2026',
+    itens: [
+      { tipo: 'correcao', texto: 'A busca de clientes e de propostas agora encontra pelo CNPJ/CPF mesmo colado formatado (ex.: 01.899.414/0001-67). A busca de proposta também passou a procurar pelo documento do cliente, não só pelo nome e número.' },
+    ],
+  },
+  {
     versao: '1.27.4',
     data: '28/07/2026',
     itens: [
