@@ -104,6 +104,9 @@ export interface Proposta extends PropostaBase {
   cliente_documento: string | null
   created_at: string | null
   updated_at: string | null
+  faturada: boolean
+  faturada_em: string | null
+  faturada_por: string | null
 }
 
 export interface PropostaPage {
@@ -146,6 +149,10 @@ export const propostasApi = {
   excluir: (id: number): Promise<void> => apiVoid(`/propostas/${id}`, { method: 'DELETE' }),
   duplicar: (id: number): Promise<Proposta> =>
     apiJson<Proposta>(`/propostas/${id}/duplicar`, { method: 'POST' }),
+  faturar: (id: number): Promise<Proposta> =>
+    apiJson<Proposta>(`/propostas/${id}/faturar`, { method: 'POST' }),
+  desfaturar: (id: number): Promise<Proposta> =>
+    apiJson<Proposta>(`/propostas/${id}/desfaturar`, { method: 'POST' }),
   listarVersoes: (id: number): Promise<PropostaVersao[]> =>
     apiJson<PropostaVersao[]>(`/propostas/${id}/versoes`),
   // Retorna a URL absoluta (não faz o fetch) — quem consome decide se abre

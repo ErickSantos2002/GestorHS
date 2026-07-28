@@ -14,6 +14,8 @@ const listar = vi.fn()
 const excluir = vi.fn()
 const duplicar = vi.fn()
 const baixarPdf = vi.fn()
+const faturar = vi.fn()
+const desfaturar = vi.fn()
 
 vi.mock('./api', async (orig) => {
   const real = await orig<typeof import('./api')>()
@@ -25,6 +27,8 @@ vi.mock('./api', async (orig) => {
       excluir: (...a: unknown[]) => excluir(...a),
       duplicar: (...a: unknown[]) => duplicar(...a),
       baixarPdf: (...a: unknown[]) => baixarPdf(...a),
+      faturar: (...a: unknown[]) => faturar(...a),
+      desfaturar: (...a: unknown[]) => desfaturar(...a),
     },
   }
 })
@@ -33,6 +37,7 @@ import { PropostasPage } from './PropostasPage'
 
 const USUARIO_ADMIN = { id: 1, nome: 'Erick', email: 'e@hs.com', funcao_id: 1, funcao: 'Administrador' }
 const USUARIO_SEM_ESCRITA = { id: 2, nome: 'Fulano', email: 'f@hs.com', funcao_id: 2, funcao: 'Laboratório' }
+const USUARIO_FINANCEIRO = { id: 3, nome: 'Beltrana', email: 'b@hs.com', funcao_id: 3, funcao: 'Financeiro' }
 
 const PROPOSTA = {
   id: 10, numero: 42, data: '2026-07-20', cliente_nome: 'Cliente Teste', cliente_documento: '36312056000552',
@@ -41,6 +46,7 @@ const PROPOSTA = {
   transportador: null, condicao_pagamento: null, validade_dias: null, data_entrega: null, descricao_entrega: null,
   endereco_entrega_diferente: false, endereco_entrega: null, cliente_override: null, observacoes: null, assinatura: null,
   created_at: null, updated_at: null,
+  faturada: false, faturada_em: null, faturada_por: null,
 }
 
 // jsdom não implementa URL.createObjectURL/revokeObjectURL — atribuímos stubs
@@ -109,5 +115,40 @@ describe('PropostasPage', () => {
     expect(openSpy).not.toHaveBeenCalled()
 
     openSpy.mockRestore()
+  })
+
+  it('mostra o selo Faturada quando a proposta está faturada', async () => {
+    listar.mockResolvedValue({ items: [{ ...PROPOSTA, faturada: true }], total: 1, page: 1, page_size: 25, total_pages: 1 })
+    render(<PropostasPage />)
+    await screen.findByText('#42')
+    expect(screen.getByText('Faturada')).toBeInTheDocument()
+  })
+
+  it('usuário Financeiro vê "Marcar como Faturada" numa proposta não-faturada e ao clicar chama propostasApi.faturar', async () => {
+    useAuth.mockReturnValue({ user: USUARIO_FINANCEIRO })
+    faturar.mockResolvedValue({ ...PROPOSTA, faturada: true })
+    render(<PropostasPage />)
+    await screen.findByText('#42')
+
+    const botao = screen.getByRole('button', { name: /marcar como faturada/i })
+    expect(botao).toBeInTheDocument()
+    fireEvent.click(botao)
+    await waitFor(() => expect(faturar).toHaveBeenCalledWith(10))
+  })
+
+  it('"Desfazer faturamento" só aparece para Admin numa proposta faturada', async () => {
+    listar.mockResolvedValue({ items: [{ ...PROPOSTA, faturada: true }], total: 1, page: 1, page_size: 25, total_pages: 1 })
+    useAuth.mockReturnValue({ user: USUARIO_ADMIN })
+    render(<PropostasPage />)
+    await screen.findByText('#42')
+    expect(screen.getByRole('button', { name: /desfazer faturamento/i })).toBeInTheDocument()
+  })
+
+  it('"Desfazer faturamento" não aparece para Financeiro mesmo numa proposta faturada', async () => {
+    listar.mockResolvedValue({ items: [{ ...PROPOSTA, faturada: true }], total: 1, page: 1, page_size: 25, total_pages: 1 })
+    useAuth.mockReturnValue({ user: USUARIO_FINANCEIRO })
+    render(<PropostasPage />)
+    await screen.findByText('#42')
+    expect(screen.queryByRole('button', { name: /desfazer faturamento/i })).not.toBeInTheDocument()
   })
 })

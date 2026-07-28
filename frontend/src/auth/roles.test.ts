@@ -7,6 +7,8 @@ import {
   podeGerenciarPropostas,
   podeAvancarCaixa,
   podeMarcarSemConserto,
+  podeFaturarProposta,
+  podeDesfaturarProposta,
   FUNCAO_RESPONSAVEL_POR_FASE,
   FUNCAO_EXPEDICAO,
   FUNCAO_LABORATORIO,
@@ -157,4 +159,17 @@ describe('auth/roles — podeMarcarSemConserto', () => {
   it('usuario sem sessao (null) não pode marcar sem conserto', () => {
     expect(podeMarcarSemConserto(null)).toBe(false)
   })
+})
+
+describe('auth/roles — podeFaturarProposta', () => {
+  it('Financeiro pode faturar', () => expect(podeFaturarProposta(u('Financeiro'))).toBe(true))
+  it('Admin pode faturar', () => expect(podeFaturarProposta(u('Administrador'))).toBe(true))
+  it('Comercial Pós-Vendas não pode faturar', () => expect(podeFaturarProposta(u('Comercial Pós-Vendas'))).toBe(false))
+  it('null não pode faturar', () => expect(podeFaturarProposta(null)).toBe(false))
+})
+
+describe('auth/roles — podeDesfaturarProposta', () => {
+  it('Admin pode desfaturar', () => expect(podeDesfaturarProposta(u('Administrador'))).toBe(true))
+  it('Financeiro não pode desfaturar', () => expect(podeDesfaturarProposta(u('Financeiro'))).toBe(false))
+  it('null não pode desfaturar', () => expect(podeDesfaturarProposta(null)).toBe(false))
 })
