@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.27.8',
+    data: '28/07/2026',
+    itens: [
+      { tipo: 'melhoria', texto: 'A proposta agora tem um campo de Introdução (logo abaixo dos dados do cliente) para o pós-vendas escrever observações — por exemplo, confirmar o endereço de entrega. O texto sai na seção "Introdução" do PDF.' },
+    ],
+  },
+  {
     versao: '1.27.7',
     data: '28/07/2026',
     itens: [

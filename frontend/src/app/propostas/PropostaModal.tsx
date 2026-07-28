@@ -557,6 +557,21 @@ export function PropostaModal({ propostaId, onClose, onSalvo }: {
             )}
           </Secao>
 
+          {/* ── Introdução ── */}
+          <Secao titulo="Introdução">
+            <div>
+              <label htmlFor="intro-proposta" className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">Introdução</label>
+              <textarea
+                id="intro-proposta"
+                value={form.intro ?? ''}
+                onChange={(e) => setField('intro', e.target.value)}
+                rows={3}
+                placeholder="Texto de introdução da proposta (opcional)"
+                className={`${inputClass} resize-none`}
+              />
+            </div>
+          </Secao>
+
           {/* ── Aparelhos ── */}
           {form.cliente != null && (
             <Secao titulo="Aparelhos" icon={<IconFrota className="w-3.5 h-3.5" />}>
