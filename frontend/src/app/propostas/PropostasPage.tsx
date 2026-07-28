@@ -8,6 +8,7 @@ import { useAuth } from '../../auth/AuthContext'
 import { podeGerenciarPropostas } from '../../auth/roles'
 import { ApiError } from '../../lib/api'
 import { formatData } from '../../lib/utils'
+import { formatarDocumento } from '../../lib/documento'
 import { propostasApi, type Proposta } from './api'
 import { PropostaModal } from './PropostaModal'
 import { HistoricoModal } from './HistoricoModal'
@@ -147,7 +148,7 @@ export function PropostasPage() {
                 <TD><span className="font-semibold text-slate-200">#{p.numero}</span></TD>
                 <TD>{formatData(p.data)}</TD>
                 <TD><span className="truncate max-w-xs block">{p.cliente_nome ?? '—'}</span></TD>
-                <TD>{p.cliente_documento ?? '—'}</TD>
+                <TD>{formatarDocumento(p.cliente_documento) || '—'}</TD>
                 <TD>R$ {formatarMoeda(p.total)}</TD>
                 <TD>
                   <div className="flex flex-wrap gap-1.5">

@@ -6,6 +6,7 @@ import { Badge } from '../../components/ui/Badge'
 import { Spinner } from '../../components/ui/Spinner'
 import { SearchBar } from '../../components/ui/SearchBar'
 import { ApiError } from '../../lib/api'
+import { formatarDocumento } from '../../lib/documento'
 import { useAuth } from '../../auth/AuthContext'
 import { podeGerenciarCadastros } from '../../auth/roles'
 import { clientesApi, type ClienteListItem } from './api'
@@ -80,7 +81,7 @@ export function ClientesPage() {
             {itens.map((c) => (
               <tr key={c.id} className="hover:bg-background-elevated transition-colors cursor-pointer" onClick={() => navigate(`/app/clientes/${c.id}`)}>
                 <TD>{c.nome ?? '—'}</TD>
-                <TD>{c.cgc || c.cpf || '—'}</TD>
+                <TD>{formatarDocumento(c.cgc || c.cpf) || '—'}</TD>
                 <TD>{[c.municipio, c.estado].filter(Boolean).join(' / ') || '—'}</TD>
                 <TD><Badge tone={c.ativo ? 'primary' : 'neutral'}>{c.ativo ? 'Ativo' : 'Inativo'}</Badge></TD>
               </tr>

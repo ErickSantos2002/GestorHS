@@ -12,6 +12,7 @@ import { RichText } from '../../components/ui/RichText'
 import { useAuth } from '../../auth/AuthContext'
 import { ApiError } from '../../lib/api'
 import { hojeISO } from '../../lib/datas'
+import { formatarDocumento } from '../../lib/documento'
 import { descreverVencimento } from './aparelhosFrota'
 import { clientesApi, type Cliente, type ClienteListItem } from '../clientes/api'
 import { STATUS_CALIBRACAO, type StatusCalibracao } from '../frota/api'
@@ -459,7 +460,7 @@ export function PropostaModal({ propostaId, onClose, onSalvo }: {
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-semibold text-slate-100">{clienteSelecionado.nome}</p>
                     {(clienteSelecionado.cgc || clienteSelecionado.cpf) && (
-                      <p className="mt-0.5 text-xs text-slate-400">CNPJ/CPF: {clienteSelecionado.cgc || clienteSelecionado.cpf}</p>
+                      <p className="mt-0.5 text-xs text-slate-400">CNPJ/CPF: {formatarDocumento(clienteSelecionado.cgc || clienteSelecionado.cpf)}</p>
                     )}
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
@@ -483,7 +484,7 @@ export function PropostaModal({ propostaId, onClose, onSalvo }: {
                         <li key={c.id}>
                           <button type="button" onClick={() => selecionarCliente(c)} className="w-full text-left px-3 py-2.5 text-sm hover:bg-background-elevated transition-colors">
                             <span className="block font-semibold text-slate-200">{c.nome ?? `Cliente #${c.id}`}</span>
-                            {(c.cgc || c.cpf) && <span className="block text-xs text-slate-500">{c.cgc || c.cpf}</span>}
+                            {(c.cgc || c.cpf) && <span className="block text-xs text-slate-500">{formatarDocumento(c.cgc || c.cpf)}</span>}
                           </button>
                         </li>
                       ))}
