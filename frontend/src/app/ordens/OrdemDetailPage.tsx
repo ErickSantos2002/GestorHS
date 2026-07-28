@@ -13,6 +13,7 @@ import { isAdmin, podeAbrirOS, podeMarcarSemConserto } from '../../auth/roles'
 import { ordensApi, fotosApi, TIPO_SERVICO, FLUXO_FASES, posicaoFase, posLaboratorio, formatData, garantiaBadge, garantiasAtivas, type OrdemDetalhe, type GarantiaItem, type LogOS, type Foto, type OSCertificado } from './api'
 import { GerarCertificadoModal } from './GerarCertificadoModal'
 import { LiberarLabModal } from './LiberarLabModal'
+import { EditarOSModal } from './EditarOSModal'
 import { FotoImg } from './FotoImg'
 import { FotoLightbox } from './FotoLightbox'
 import { PageContainer, DetailGrid, DetailMain, DetailAside } from '../../components/ui/Page'
@@ -103,6 +104,7 @@ export function OrdemDetailPage() {
   const [carregando, setCarregando] = useState(true)
   const [acao, setAcao] = useState<'gerar' | null>(null)
   const [liberarLabAberto, setLiberarLabAberto] = useState(false)
+  const [editarAberto, setEditarAberto] = useState(false)
   const [fotos, setFotos] = useState<Foto[]>([])
   const [certs, setCerts] = useState<OSCertificado[]>([])
   const [erroFoto, setErroFoto] = useState('')
@@ -176,6 +178,12 @@ export function OrdemDetailPage() {
 
   function aoLiberarLab() {
     setLiberarLabAberto(false)
+    void ordensApi.obter(osId).then(setOs).catch(() => {})
+    void ordensApi.logs(osId).then(setLogs).catch(() => {})
+  }
+
+  function aoEditarOS() {
+    setEditarAberto(false)
     void ordensApi.obter(osId).then(setOs).catch(() => {})
     void ordensApi.logs(osId).then(setLogs).catch(() => {})
   }
@@ -274,6 +282,9 @@ export function OrdemDetailPage() {
           </div>
           <div className="flex gap-2 flex-wrap">
             <Button variant="secondary" onClick={() => navigate('/app/ordens')}>Voltar</Button>
+            {isAdmin(user) && (
+              <Button variant="secondary" onClick={() => setEditarAberto(true)}>Editar OS</Button>
+            )}
             {podeLiberarLab && (
               <Button variant="primary" onClick={() => setLiberarLabAberto(true)}>Liberar do Laboratório</Button>
             )}
@@ -510,6 +521,10 @@ export function OrdemDetailPage() {
 
       {liberarLabAberto && (
         <LiberarLabModal osId={osId} onClose={() => setLiberarLabAberto(false)} onConcluido={aoLiberarLab} />
+      )}
+
+      {editarAberto && (
+        <EditarOSModal os={os} onClose={() => setEditarAberto(false)} onSalvo={aoEditarOS} />
       )}
 
       {lightboxIdx !== null && fotos[lightboxIdx] && (

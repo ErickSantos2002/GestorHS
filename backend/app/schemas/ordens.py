@@ -109,6 +109,17 @@ class OrdemAbrirIn(BaseModel):
     observacoes: str | None = None
 
 
+class OrdemEditarIn(BaseModel):
+    tipo_servico: Literal["C", "M", "A"] | None = None
+    condicao_chegada: str | None = None
+    checklist: list[int] | None = None
+    pilhas: int | None = None
+    bocais: int | None = None
+    garantia: bool | None = None
+    observacoes: str | None = None
+    data_chegada: date | None = None
+
+
 class AvancarIn(BaseModel):
     obs: str | None = None
     cod_retorno: str | None = None

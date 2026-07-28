@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.27.1',
+    data: '28/07/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'O Administrador agora pode editar os dados de recebimento de uma OS (tipo de serviço, condição de chegada, acessórios, pilhas, bocais, observações e data de chegada) — útil para corrigir, por exemplo, uma OS aberta como Manutenção que era Calibração.' },
+    ],
+  },
+  {
     versao: '1.27.0',
     data: '27/07/2026',
     itens: [
