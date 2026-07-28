@@ -173,6 +173,58 @@ describe('PropostaModal', () => {
     expect(payload.aparelhos).toEqual([{ equipamento_cliente: 42 }])
   })
 
+  it('digitar na Introdução envia o texto no payload ao submeter', async () => {
+    render(<PropostaModal onClose={vi.fn()} />)
+    await selecionarCliente()
+
+    fireEvent.change(screen.getByLabelText(/introdução/i), { target: { value: 'Texto de introdução digitado.' } })
+    fireEvent.click(screen.getByText('Criar Proposta'))
+
+    await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
+    const payload = propostasCriar.mock.calls[0][0]
+    expect(payload.intro).toBe('Texto de introdução digitado.')
+  })
+
+  it('ao editar uma proposta existente, o campo Introdução vem pré-preenchido', async () => {
+    propostasObter.mockResolvedValue({
+      id: 900,
+      numero: 10,
+      cliente: 5,
+      contato: null,
+      vendedor: 'Erick Santos',
+      data: '2026-07-24',
+      intro: 'Endereço Confirmado.',
+      outros_itens: null,
+      desconto: 0,
+      frete: 0,
+      forma_envio: null,
+      forma_frete: null,
+      transportador: null,
+      condicao_pagamento: null,
+      validade_dias: 30,
+      data_entrega: null,
+      descricao_entrega: null,
+      endereco_entrega_diferente: false,
+      endereco_entrega: null,
+      cliente_override: null,
+      observacoes: null,
+      assinatura: null,
+      itens: [],
+      aparelhos: [],
+      total_itens: 0,
+      total: 0,
+      cliente_nome: 'Cliente Teste',
+      cliente_documento: '36312056000552',
+      created_at: null,
+      updated_at: null,
+    })
+
+    render(<PropostaModal propostaId={900} onClose={vi.fn()} />)
+
+    const campo = (await screen.findByLabelText(/introdução/i)) as HTMLTextAreaElement
+    expect(campo.value).toBe('Endereço Confirmado.')
+  })
+
   it('override de documento nasce mascarado com o CNPJ do cadastro e guarda so digitos', async () => {
     render(<PropostaModal onClose={vi.fn()} />)
     await selecionarCliente()
