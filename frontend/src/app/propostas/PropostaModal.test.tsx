@@ -172,6 +172,25 @@ describe('PropostaModal', () => {
     const payload = propostasCriar.mock.calls[0][0]
     expect(payload.aparelhos).toEqual([{ equipamento_cliente: 42 }])
   })
+
+  it('override de documento nasce mascarado com o CNPJ do cadastro e guarda so digitos', async () => {
+    render(<PropostaModal onClose={vi.fn()} />)
+    await selecionarCliente()
+
+    fireEvent.click(screen.getByLabelText('Editar dados nesta proposta'))
+    const documentoInput = screen.getByLabelText('CNPJ / Documento') as HTMLInputElement
+    expect(documentoInput.value).toBe('36.312.056/0005-52')
+
+    fireEvent.change(documentoInput, { target: { value: '123.456.789-09' } })
+    expect(documentoInput.value).toBe('123.456.789-09')
+
+    fireEvent.click(screen.getByText('Aplicar'))
+    fireEvent.click(screen.getByText('Criar Proposta'))
+
+    await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
+    const payload = propostasCriar.mock.calls[0][0]
+    expect(payload.cliente_override.documento).toBe('12345678909')
+  })
 })
 
 describe('descreverVencimento', () => {

@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Input } from '../../components/ui/Input'
 import { Select } from '../../components/ui/Select'
 import { mediaTestes } from '../../lib/calibragem'
+import { formatarDocumento, soDigitos } from '../../lib/documento'
 import type { ValoresCertificado } from './valoresCertificado'
 
 const secao = 'text-xs font-semibold text-slate-500 uppercase tracking-wide'
@@ -27,7 +28,7 @@ export function CamposCertificado({ valores, onChange, extra }: {
         <p className={secao}>Cliente</p>
         <Input id="nomecli" label="Nome" value={valores.nomecli} onChange={(e) => onChange({ nomecli: e.target.value })} />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Input id="cnpj" label="CNPJ/CPF" value={valores.cnpj} onChange={(e) => onChange({ cnpj: e.target.value })} />
+          <Input id="cnpj" label="CNPJ/CPF" value={formatarDocumento(valores.cnpj)} onChange={(e) => onChange({ cnpj: soDigitos(e.target.value) })} />
           <Input id="endcli" label="Endereço" value={valores.endcli} onChange={(e) => onChange({ endcli: e.target.value })} />
         </div>
       </div>

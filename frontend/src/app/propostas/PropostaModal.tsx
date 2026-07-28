@@ -12,7 +12,7 @@ import { RichText } from '../../components/ui/RichText'
 import { useAuth } from '../../auth/AuthContext'
 import { ApiError } from '../../lib/api'
 import { hojeISO } from '../../lib/datas'
-import { formatarDocumento } from '../../lib/documento'
+import { formatarDocumento, soDigitos } from '../../lib/documento'
 import { descreverVencimento } from './aparelhosFrota'
 import { clientesApi, type Cliente, type ClienteListItem } from '../clientes/api'
 import { STATUS_CALIBRACAO, type StatusCalibracao } from '../frota/api'
@@ -309,7 +309,7 @@ export function PropostaModal({ propostaId, onClose, onSalvo }: {
     } else {
       setOverrideDraft({
         nome: clienteSelecionado?.nome ?? '',
-        documento: clienteSelecionado?.cgc || clienteSelecionado?.cpf || '',
+        documento: soDigitos(clienteSelecionado?.cgc || clienteSelecionado?.cpf || ''),
         endereco: clienteSelecionado?.endereco ?? '',
         municipio: clienteSelecionado?.municipio ?? '',
         estado: clienteSelecionado?.estado ?? '',
@@ -515,7 +515,7 @@ export function PropostaModal({ propostaId, onClose, onSalvo }: {
                 <p className="text-xs text-slate-500">Estes dados valem só para esta proposta e não alteram o cadastro do cliente. Campos em branco usam os dados do cadastro.</p>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <Input id="ov-nome" label="Razão social / Nome" value={overrideDraft.nome ?? ''} onChange={(e) => definirOverride('nome', e.target.value)} className="sm:col-span-2" />
-                  <Input id="ov-documento" label="CNPJ / Documento" value={overrideDraft.documento ?? ''} onChange={(e) => definirOverride('documento', e.target.value)} />
+                  <Input id="ov-documento" label="CNPJ / Documento" value={formatarDocumento(overrideDraft.documento ?? '')} onChange={(e) => definirOverride('documento', soDigitos(e.target.value))} />
                   <Input id="ov-telefone" label="Telefone" value={overrideDraft.telefone ?? ''} onChange={(e) => definirOverride('telefone', e.target.value)} />
                   <Input id="ov-endereco" label="Endereço" value={overrideDraft.endereco ?? ''} onChange={(e) => definirOverride('endereco', e.target.value)} className="sm:col-span-2" />
                   <Input id="ov-municipio" label="Município" value={overrideDraft.municipio ?? ''} onChange={(e) => definirOverride('municipio', e.target.value)} />
