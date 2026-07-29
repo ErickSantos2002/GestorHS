@@ -101,3 +101,9 @@ def test_mapear_brasilapi_cnpj_campos_ausentes_viram_string_vazia():
     r = enderecos.mapear_brasilapi_cnpj({"cnpj": "36312056000552"})
     assert r == {"documento": "36312056000552", "nome": "", "endereco": "",
                  "municipio": "", "estado": "", "cep": "", "situacao": ""}
+
+
+def test_capitalizar_preserva_sufixos_societarios_com_vogal():
+    assert enderecos.capitalizar("BAFOMETRO HS SA") == "Bafometro HS SA"
+    assert enderecos.capitalizar("COMERCIO DE PECAS ME") == "Comercio de Pecas ME"
+    assert enderecos.capitalizar("INDUSTRIA E COMERCIO EPP") == "Industria e Comercio EPP"

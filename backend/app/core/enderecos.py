@@ -10,13 +10,22 @@ _CONECTIVOS = {"de", "da", "do", "das", "dos", "e"}
 
 _VOGAIS = set("AEIOUaeiou")
 
+# Sufixos societarios curtos e comuns em razao_social de CNPJ que TEM vogal
+# mas ainda sao sigla ("SA", "ME", "EPP") — a heuristica "sem vogal" sozinha
+# nao os distingue de palavras comuns, entao precisam de lista propria.
+_SIGLAS_SOCIETARIAS = {"SA", "ME", "EPP"}
+
 
 def _e_sigla(token: str) -> bool:
-    """Sigla = token curto todo maiusculo sem vogal ("BR", "KM", "CBF") ou com
-    caracter nao alfabetico ("S/A") — nao e uma palavra comum como "RUA".
+    """Sigla = token curto todo maiusculo que e (a) um sufixo societario
+    conhecido ("SA", "ME", "EPP"), (b) sem vogal ("BR", "KM", "CBF") ou
+    (c) com caracter nao alfabetico ("S/A") — nao e uma palavra comum como
+    "RUA" (curta, so letras, com vogal, fora da lista societaria).
     """
     if not (len(token) <= 3 and token.isupper()):
         return False
+    if token in _SIGLAS_SOCIETARIAS:
+        return True
     return not token.isalpha() or not any(c in _VOGAIS for c in token)
 
 
@@ -53,9 +62,10 @@ def validar_cnpj(cnpj: str) -> str:
 def capitalizar(texto) -> str:
     """Converte o CAIXA ALTA da Receita para forma capitalizada.
 
-    Preserva o que nao deve ser mexido: tokens com digito ("101", "196,5") e
+    Preserva o que nao deve ser mexido: tokens com digito ("101", "196,5"),
     siglas de ate 3 caracteres em maiuscula sem vogal ou com caracter nao
-    alfabetico ("BR", "KM", "CBF", "S/A") — o que evita capturar palavras
+    alfabetico ("BR", "KM", "CBF", "S/A") e sufixos societarios comuns em
+    razao_social de CNPJ ("SA", "ME", "EPP") — o que evita capturar palavras
     curtas comuns como "RUA". Conectivos ficam minusculos, exceto na
     primeira palavra.
 
