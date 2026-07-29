@@ -367,18 +367,15 @@ def montar_html(proposta, cliente) -> str:
     cliente_email = ""
     cliente_cep = ""
 
+    municipio = ""
+    estado = ""
+
     if cliente:
         cliente_display = _esc(cliente.nome or "—")
         cliente_documento = _fmt_documento(cliente.cgc or cliente.cpf)
         cliente_endereco = _esc(cliente.endereco or "")
         municipio = cliente.municipio or ""
         estado = cliente.estado or ""
-        if municipio and estado:
-            cliente_cidade_estado = _esc(f"{municipio} - {estado}")
-        elif municipio:
-            cliente_cidade_estado = _esc(municipio)
-        elif estado:
-            cliente_cidade_estado = _esc(estado)
         cliente_email = _esc(cliente.email or "")
         cliente_telefone = _esc(cliente.celular or cliente.whatsapp or cliente.telefones or "")
         cliente_cep = _fmt_cep(cliente.cep)
@@ -395,10 +392,14 @@ def montar_html(proposta, cliente) -> str:
         cliente_documento = _fmt_documento(ov["documento"])
     if ov.get("endereco"):
         cliente_endereco = _esc(ov["endereco"])
-    if ov.get("municipio") or ov.get("estado"):
-        _m = ov.get("municipio") or ""
-        _e = ov.get("estado") or ""
-        cliente_cidade_estado = _esc(f"{_m} - {_e}" if _m and _e else (_m or _e))
+    # Municipio e estado sao resolvidos INDEPENDENTEMENTE: o override pode
+    # trazer so um dos dois (ex.: a lupa de CEP preenche so o municipio
+    # quando o estado ja bate com o cadastro) — o outro precisa continuar
+    # vindo do cadastro em vez de sumir da proposta (ACHADO 1 do review).
+    if ov.get("municipio"):
+        municipio = ov["municipio"]
+    if ov.get("estado"):
+        estado = ov["estado"]
     if ov.get("email"):
         cliente_email = _esc(ov["email"])
     if ov.get("telefone"):
@@ -408,8 +409,16 @@ def montar_html(proposta, cliente) -> str:
     if ov.get("cep"):
         cliente_cep = _fmt_cep(ov["cep"])
 
-    # CEP entra na linha de cidade/UF — mesma convencao que o bloco de Entrega
-    # deste PDF ja usa ("Municipio/UF — CEP: NNNNN-NNN").
+    if municipio and estado:
+        cliente_cidade_estado = _esc(f"{municipio} - {estado}")
+    elif municipio:
+        cliente_cidade_estado = _esc(municipio)
+    elif estado:
+        cliente_cidade_estado = _esc(estado)
+
+    # CEP entra na linha de cidade/UF com o marcador "— CEP:", compartilhado
+    # com o bloco de Endereco de Entrega deste PDF — mas o separador entre
+    # municipio e UF difere entre os dois blocos (aqui "-", no de Entrega "/").
     if cliente_cep:
         cliente_cidade_estado = (
             f"{cliente_cidade_estado} — CEP: {cliente_cep}"
@@ -492,7 +501,7 @@ def montar_html(proposta, cliente) -> str:
             if de.get('estado'):
                 cidade_estado_cep += f"/{de_get('estado')}"
             if de.get('cep'):
-                cidade_estado_cep += f" — CEP: {de_get('cep')}"
+                cidade_estado_cep += f" — CEP: {_fmt_cep(de.get('cep'))}"
 
             if de_get('destinatario'):
                 linhas_entrega += f"{de_get('destinatario')}<br>"
