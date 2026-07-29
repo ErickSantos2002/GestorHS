@@ -16,6 +16,8 @@ import { propostasApi, type Proposta } from './api'
 import { PropostaModal } from './PropostaModal'
 import { HistoricoModal } from './HistoricoModal'
 import { VisualizarPropostaModal } from './VisualizarPropostaModal'
+import { OverrideDetalheModal } from './OverrideDetalhe'
+import { temOverride } from './clienteOverride'
 
 const PAGE = 25
 const formatarMoeda = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -35,6 +37,7 @@ export function PropostasPage() {
   const [modalId, setModalId] = useState<number | null | undefined>(undefined)
   const [historico, setHistorico] = useState<{ id: number; numero: number } | null>(null)
   const [visualizar, setVisualizar] = useState<{ id: number; numero: number } | null>(null)
+  const [overrideDe, setOverrideDe] = useState<Proposta | null>(null)
 
   useEffect(() => {
     let vivo = true
@@ -183,7 +186,20 @@ export function PropostasPage() {
                   </div>
                 </TD>
                 <TD>{formatData(p.data)}</TD>
-                <TD><span className="truncate max-w-xs block">{p.cliente_nome ?? '—'}</span></TD>
+                <TD>
+                  <span className="truncate max-w-xs block">{p.cliente_nome ?? '—'}</span>
+                  {temOverride(p.cliente_override) && (
+                    <button
+                      type="button"
+                      onClick={() => setOverrideDe(p)}
+                      title="Ver o que foi editado só nesta proposta"
+                      className="mt-1 inline-flex items-center gap-1 rounded-full bg-warning/10 px-2 py-0.5 text-xs font-semibold text-warning hover:bg-warning/20 transition-colors"
+                    >
+                      <IconPencil className="w-3 h-3" />
+                      Dados editados
+                    </button>
+                  )}
+                </TD>
                 <TD>{formatarDocumento(p.cliente_documento) || '—'}</TD>
                 <TD>R$ {formatarMoeda(p.total)}</TD>
                 <TD>
@@ -249,6 +265,15 @@ export function PropostasPage() {
           propostaId={historico.id}
           propostaNumero={historico.numero}
           onClose={() => setHistorico(null)}
+        />
+      )}
+
+      {overrideDe && (
+        <OverrideDetalheModal
+          propostaNumero={overrideDe.numero}
+          clienteId={overrideDe.cliente}
+          override={overrideDe.cliente_override}
+          onClose={() => setOverrideDe(null)}
         />
       )}
 

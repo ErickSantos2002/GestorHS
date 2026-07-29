@@ -10,6 +10,11 @@ vi.mock('../../auth/AuthContext', () => ({
 vi.mock('./PropostaModal', () => ({ PropostaModal: () => <div data-testid="proposta-modal" /> }))
 vi.mock('./HistoricoModal', () => ({ HistoricoModal: () => <div data-testid="historico-modal" /> }))
 
+const clientesObter = vi.fn()
+vi.mock('../clientes/api', () => ({
+  clientesApi: { obter: (...a: unknown[]) => clientesObter(...a) },
+}))
+
 const listar = vi.fn()
 const excluir = vi.fn()
 const duplicar = vi.fn()
@@ -56,11 +61,19 @@ const PROPOSTA = {
 URL.createObjectURL = vi.fn().mockReturnValue('blob:mock')
 URL.revokeObjectURL = vi.fn()
 
+const CLIENTE_CADASTRO = {
+  id: 5, grupo: null, nome: 'Cliente Teste', cgc: '36312056000552', cpf: null, endereco: 'Rua X, 10',
+  numero: null, complemento: null, bairro: null, municipio: 'Recife', estado: 'PE', cep: null, contato: 'Ana',
+  email: 'cliente@teste.com', telefones: '8130001111', celular: null, whatsapp: null, whatsapp1: null, whatsapp2: null,
+  insc_mun: null, insc_est: null, datcad: null, obs: null, ativo: true,
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   useAuth.mockReturnValue({ user: USUARIO_ADMIN })
   listar.mockResolvedValue({ items: [PROPOSTA], total: 1, page: 1, page_size: 25, total_pages: 1 })
   excluir.mockResolvedValue(undefined)
+  clientesObter.mockResolvedValue(CLIENTE_CADASTRO)
 })
 
 describe('PropostasPage', () => {
@@ -150,5 +163,45 @@ describe('PropostasPage', () => {
     render(<PropostasPage />)
     await screen.findByText('#42')
     expect(screen.queryByRole('button', { name: /desfazer faturamento/i })).not.toBeInTheDocument()
+  })
+
+  it('proposta sem dados editados nao mostra o selo', async () => {
+    render(<PropostasPage />)
+    await screen.findByText('#42')
+    expect(screen.queryByText('Dados editados')).not.toBeInTheDocument()
+  })
+
+  it('selo "Dados editados" abre o comparativo cadastro x proposta', async () => {
+    listar.mockResolvedValue({
+      items: [{ ...PROPOSTA, cliente_nome: 'Filial Recife', cliente_override: { nome: 'Filial Recife', contato: 'Joao' } }],
+      total: 1, page: 1, page_size: 25, total_pages: 1,
+    })
+    render(<PropostasPage />)
+    await screen.findByText('#42')
+
+    fireEvent.click(screen.getByRole('button', { name: /dados editados/i }))
+
+    expect(await screen.findByText('Dados editados — Proposta #42')).toBeInTheDocument()
+    await waitFor(() => expect(clientesObter).toHaveBeenCalledWith(5))
+    // lado do cadastro
+    await screen.findByText('Cliente Teste')
+    await screen.findByText('Ana')
+    // lado da proposta (o nome aparece tambem na linha da tabela)
+    expect(screen.getAllByText('Filial Recife').length).toBeGreaterThan(0)
+    expect(screen.getByText('Joao')).toBeInTheDocument()
+    // campo nao editado nao entra
+    expect(screen.queryByText('E-mail')).not.toBeInTheDocument()
+  })
+
+  it('override que repete o cadastro aparece marcado como igual', async () => {
+    listar.mockResolvedValue({
+      items: [{ ...PROPOSTA, cliente_override: { nome: 'Cliente Teste' } }],
+      total: 1, page: 1, page_size: 25, total_pages: 1,
+    })
+    render(<PropostasPage />)
+    await screen.findByText('#42')
+
+    fireEvent.click(screen.getByRole('button', { name: /dados editados/i }))
+    expect(await screen.findByText('(igual ao cadastro)')).toBeInTheDocument()
   })
 })
