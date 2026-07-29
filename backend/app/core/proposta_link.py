@@ -4,6 +4,7 @@ from app.core.config import settings
 
 
 def _mensagem(proposta_id: int) -> str:
+    # NAO MUDAR este formato: ha links de proposta publicados nos cards do TaskHS.
     return f"proposta:{proposta_id}"
 
 

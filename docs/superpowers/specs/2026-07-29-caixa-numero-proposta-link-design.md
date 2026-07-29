@@ -34,6 +34,7 @@ Quando o GrowthHS dá ganho e move a caixa pra Financeiro (endpoint inbound `gan
 - Auto-marcar a proposta como Faturada (Financeiro faz manual — feature de ontem).
 - Versionar/travar qual versão do PDF (serve o PDF atual, como o endpoint autenticado).
 - Lado do GrowthHS (mandar o campo) — feito por eles, guiado pelo doc.
+- Proposta soft-deletada ainda pode ser baixada por um token já emitido (o link só é gerado para propostas não deletadas, mas tokens antigos em cards antigos continuam válidos) — comportamento consistente com os links de certificado/nota fiscal, aceito de propósito.
 
 ## Segurança
 Link público = mesmo esquema HMAC do certificado (token assinado, sem login, só leitura do PDF). `numero_proposta` é um inteiro; a resolução por `numero` é interna (o link usa o id).
