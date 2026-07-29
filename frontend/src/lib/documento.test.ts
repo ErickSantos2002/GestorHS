@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { soDigitos, formatarDocumento, mascararCNPJ, mascararCPF } from './documento'
+import { soDigitos, formatarDocumento, mascararCNPJ, mascararCPF, mascararCEP } from './documento'
 
 describe('soDigitos', () => {
   it('remove nao-digitos', () => {
@@ -35,5 +35,19 @@ describe('mascaras progressivas', () => {
     expect(mascararCPF('123')).toBe('123')
     expect(mascararCPF('1234567')).toBe('123.456.7')
     expect(mascararCPF('123456789012')).toBe('123.456.789-01') // capa em 11
+  })
+})
+
+describe('mascararCEP', () => {
+  it('mascara progressivamente e capa em 8 digitos', () => {
+    expect(mascararCEP('50030')).toBe('50030')
+    expect(mascararCEP('50030230')).toBe('50030-230')
+    expect(mascararCEP('500302309999')).toBe('50030-230')
+  })
+
+  it('ignora o que nao e digito e trata vazio', () => {
+    expect(mascararCEP('50030-230')).toBe('50030-230')
+    expect(mascararCEP('')).toBe('')
+    expect(mascararCEP(null)).toBe('')
   })
 })
