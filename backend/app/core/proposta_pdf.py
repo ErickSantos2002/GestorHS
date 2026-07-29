@@ -98,6 +98,12 @@ def _fmt_documento(doc: Optional[str]) -> str:
     return _esc(doc)
 
 
+def _fmt_cep(v) -> str:
+    """Formata CEP de 8 dígitos; mantém o original se não bater."""
+    digitos = re.sub(r"\D", "", str(v or ""))
+    return f"{digitos[:5]}-{digitos[5:]}" if len(digitos) == 8 else digitos
+
+
 def _sanitizar_html(html: Optional[str]) -> str:
     """
     Sanitização defensiva do HTML do editor rico (outros_itens) antes de
@@ -359,6 +365,7 @@ def montar_html(proposta, cliente) -> str:
     cliente_cidade_estado = ""
     cliente_telefone = ""
     cliente_email = ""
+    cliente_cep = ""
 
     if cliente:
         cliente_display = _esc(cliente.nome or "—")
@@ -374,6 +381,7 @@ def montar_html(proposta, cliente) -> str:
             cliente_cidade_estado = _esc(estado)
         cliente_email = _esc(cliente.email or "")
         cliente_telefone = _esc(cliente.celular or cliente.whatsapp or cliente.telefones or "")
+        cliente_cep = _fmt_cep(cliente.cep)
 
     # ── "Aos cuidados de" — sem entidade Person no Gestor: campo texto da proposta ──
     aos_cuidados = proposta.contato or ""
@@ -397,6 +405,16 @@ def montar_html(proposta, cliente) -> str:
         cliente_telefone = _esc(ov["telefone"])
     if ov.get("contato"):
         aos_cuidados = ov["contato"]
+    if ov.get("cep"):
+        cliente_cep = _fmt_cep(ov["cep"])
+
+    # CEP entra na linha de cidade/UF — mesma convencao que o bloco de Entrega
+    # deste PDF ja usa ("Municipio/UF — CEP: NNNNN-NNN").
+    if cliente_cep:
+        cliente_cidade_estado = (
+            f"{cliente_cidade_estado} — CEP: {cliente_cep}"
+            if cliente_cidade_estado else f"CEP: {cliente_cep}"
+        )
 
     aos_cuidados_esc = _esc(aos_cuidados) or "—"
 

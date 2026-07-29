@@ -93,3 +93,42 @@ def test_montar_html_endereco_entrega_documento_formatado():
 
     assert "36.312.056/0005-52" in html
     assert "36312056000552" not in html
+
+
+def test_montar_html_mostra_cep_do_cadastro_na_linha_de_cidade():
+    from app.core import proposta_pdf
+    from app.models import Cliente, Proposta
+
+    cli = Cliente(nome="ACME", cgc="08857492000148", municipio="Recife",
+                  estado="PE", cep="50030230")
+    p = Proposta(id=1, numero=101)
+
+    html = proposta_pdf.montar_html(p, cli)
+
+    assert "Recife - PE — CEP: 50030-230" in html
+
+
+def test_montar_html_usa_o_cep_do_override_quando_houver():
+    from app.core import proposta_pdf
+    from app.models import Cliente, Proposta
+
+    cli = Cliente(nome="ACME", municipio="Recife", estado="PE", cep="50030230")
+    p = Proposta(id=2, numero=102, cliente_override={"cep": "01310100"})
+
+    html = proposta_pdf.montar_html(p, cli)
+
+    assert "CEP: 01310-100" in html
+    assert "50030-230" not in html
+
+
+def test_montar_html_sem_cep_nenhum_nao_emite_a_parte_de_cep():
+    from app.core import proposta_pdf
+    from app.models import Cliente, Proposta
+
+    cli = Cliente(nome="ACME", municipio="Recife", estado="PE", cep=None)
+    p = Proposta(id=3, numero=103)
+
+    html = proposta_pdf.montar_html(p, cli)
+
+    assert "CEP:" not in html
+    assert "Recife - PE" in html
