@@ -23,6 +23,15 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.31.0',
+    data: '29/07/2026',
+    itens: [
+      { tipo: 'correcao', texto: 'Não é mais possível criar uma proposta em branco: apertar Enter em um campo de texto não envia mais o formulário, e agora é obrigatório ter cliente, CNPJ/CPF e o bloco "Outros Itens ou Serviços" preenchidos para salvar.' },
+      { tipo: 'melhoria', texto: 'A tela de Propostas mostra um selo "Dados editados" nas propostas em que os dados do cliente foram alterados só naquela proposta. Clicando no selo, você vê campo a campo o que está no cadastro e o que está sendo usado na proposta.' },
+      { tipo: 'melhoria', texto: 'Clicar fora da janela de proposta não fecha mais o formulário — só o X e o botão Cancelar fecham, para não perder o que já foi digitado.' },
+    ],
+  },
+  {
     versao: '1.30.0',
     data: '29/07/2026',
     itens: [
