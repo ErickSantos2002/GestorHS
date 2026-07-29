@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.models.database import get_db
 from app.models import Usuario, Cliente, Proposta, PropostaVersao
 from app.api.deps import get_current_usuario, require_funcao
+from app.api.ordens_acoes import agora
 from app.core import proposta_servico as ps
 from app.core import proposta_pdf
 from app.schemas.proposta import (
@@ -24,6 +25,10 @@ router = APIRouter(prefix="/propostas", tags=["propostas"])
 
 # Quem pode criar/alterar/excluir/duplicar propostas.
 _escrever = require_funcao("Comercial Pós-Vendas", "Administrador", "Financeiro")
+
+# Quem pode marcar/desfazer a proposta como faturada.
+_faturar_gate = require_funcao("Financeiro", "Administrador")
+_desfaturar_gate = require_funcao("Administrador")
 
 
 def _proposta_ou_404(db: Session, proposta_id: int) -> Proposta:
@@ -212,6 +217,42 @@ def duplicar(
     )
     nova = ps.criar_proposta(db, dados, vendedor=usuario.nome)
     return ps.montar_saida(db, nova)
+
+
+@router.post("/{proposta_id}/faturar", response_model=PropostaOut)
+def faturar(
+    proposta_id: int,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(_faturar_gate),
+):
+    """Marca a proposta como faturada (Financeiro ou Admin). Idempotente:
+    repetir numa proposta já faturada não altera `faturada_em`/`faturada_por`."""
+    proposta = _proposta_ou_404(db, proposta_id)
+    if not proposta.faturada:
+        proposta.faturada = True
+        proposta.faturada_em = agora()
+        proposta.faturada_por = usuario.nome
+        db.commit()
+        db.refresh(proposta)
+    return ps.montar_saida(db, proposta)
+
+
+@router.post("/{proposta_id}/desfaturar", response_model=PropostaOut)
+def desfaturar(
+    proposta_id: int,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(_desfaturar_gate),
+):
+    """Desfaz a marcação de faturada (só Admin). Idempotente: numa proposta
+    já não-faturada é no-op."""
+    proposta = _proposta_ou_404(db, proposta_id)
+    if proposta.faturada:
+        proposta.faturada = False
+        proposta.faturada_em = None
+        proposta.faturada_por = None
+        db.commit()
+        db.refresh(proposta)
+    return ps.montar_saida(db, proposta)
 
 
 # ---------------------------------------------------------------------------

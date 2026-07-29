@@ -5,9 +5,10 @@ import { Spinner } from '../../components/ui/Spinner'
 import { SearchBar } from '../../components/ui/SearchBar'
 import { PageContainer } from '../../components/ui/Page'
 import { IconButton, IconButtonGroup } from '../../components/ui/IconButton'
-import { IconEye, IconDownload, IconClock, IconPencil, IconCopy, IconTrash } from '../../components/ui/icons'
+import { IconEye, IconDownload, IconClock, IconPencil, IconCopy, IconTrash, IconCheck, IconX } from '../../components/ui/icons'
+import { Badge } from '../../components/ui/Badge'
 import { useAuth } from '../../auth/AuthContext'
-import { podeGerenciarPropostas } from '../../auth/roles'
+import { podeGerenciarPropostas, podeFaturarProposta, podeDesfaturarProposta } from '../../auth/roles'
 import { ApiError } from '../../lib/api'
 import { formatData } from '../../lib/utils'
 import { formatarDocumento } from '../../lib/documento'
@@ -104,6 +105,32 @@ export function PropostasPage() {
     }
   }
 
+  async function faturar(p: Proposta) {
+    setErro('')
+    setBusyId(p.id)
+    try {
+      await propostasApi.faturar(p.id)
+      recarregar()
+    } catch (e) {
+      setErro(e instanceof ApiError ? e.message : 'Falha ao marcar como faturada')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function desfaturar(p: Proposta) {
+    setErro('')
+    setBusyId(p.id)
+    try {
+      await propostasApi.desfaturar(p.id)
+      recarregar()
+    } catch (e) {
+      setErro(e instanceof ApiError ? e.message : 'Falha ao desfazer faturamento')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   const inicio = dados && dados.total > 0 ? (page - 1) * PAGE + 1 : 0
   const fim = dados ? Math.min(page * PAGE, dados.total) : 0
 
@@ -149,7 +176,12 @@ export function PropostasPage() {
           }>
             {dados.items.map((p) => (
               <tr key={p.id} className="hover:bg-background-elevated transition-colors">
-                <TD><span className="font-semibold text-slate-200">#{p.numero}</span></TD>
+                <TD>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-slate-200">#{p.numero}</span>
+                    {p.faturada && <Badge tone="primary">Faturada</Badge>}
+                  </div>
+                </TD>
                 <TD>{formatData(p.data)}</TD>
                 <TD><span className="truncate max-w-xs block">{p.cliente_nome ?? '—'}</span></TD>
                 <TD>{formatarDocumento(p.cliente_documento) || '—'}</TD>
@@ -165,6 +197,16 @@ export function PropostasPage() {
                     <IconButton label="Histórico" tone="neutro" onClick={() => setHistorico({ id: p.id, numero: p.numero })}>
                       <IconClock className="w-4 h-4" />
                     </IconButton>
+                    {!p.faturada && podeFaturarProposta(user) && (
+                      <IconButton label="Marcar como Faturada" tone="ok" disabled={busyId === p.id} onClick={() => faturar(p)}>
+                        <IconCheck className="w-4 h-4" />
+                      </IconButton>
+                    )}
+                    {p.faturada && podeDesfaturarProposta(user) && (
+                      <IconButton label="Desfazer faturamento" tone="neutro" disabled={busyId === p.id} onClick={() => desfaturar(p)}>
+                        <IconX className="w-4 h-4" />
+                      </IconButton>
+                    )}
                     {podeEscrever && (
                       <>
                         <IconButton label="Editar" tone="editar" onClick={() => setModalId(p.id)}>

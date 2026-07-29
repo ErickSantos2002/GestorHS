@@ -110,6 +110,9 @@ class PropostaOut(PropostaBase):
     cliente_documento: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    faturada: bool = False
+    faturada_em: Optional[datetime] = None
+    faturada_por: Optional[str] = None
     model_config = {"from_attributes": True}
 
 

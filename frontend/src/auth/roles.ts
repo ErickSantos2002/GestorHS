@@ -73,3 +73,15 @@ export function podeAvancarCaixa(user: User | null, fase: number | null): boolea
 export function podeMarcarSemConserto(user: User | null): boolean {
   return isAdmin(user) || user?.funcao === FUNCAO_LABORATORIO
 }
+
+// Espelha require_funcao("Financeiro", "Administrador") em
+// backend/app/api/propostas.py (POST /propostas/{id}/faturar) — mudou lá, mude aqui.
+export function podeFaturarProposta(user: User | null): boolean {
+  return isAdmin(user) || user?.funcao === FUNCAO_FINANCEIRO
+}
+
+// Espelha require_funcao("Administrador") em backend/app/api/propostas.py
+// (POST /propostas/{id}/desfaturar) — reversão de faturamento é exclusiva do Admin.
+export function podeDesfaturarProposta(user: User | null): boolean {
+  return isAdmin(user)
+}
