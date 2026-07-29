@@ -82,6 +82,11 @@ async function selecionarCliente() {
   await screen.findByLabelText('Bafômetro X')
 }
 
+// "Outros Itens ou Serviços" e obrigatorio para salvar — preenche via modelo.
+function aplicarModelo() {
+  fireEvent.click(screen.getByText('Aplicar modelo'))
+}
+
 describe('PropostaModal', () => {
   it('marcar um aparelho da frota inclui no payload ao submeter', async () => {
     const onSalvo = vi.fn()
@@ -97,6 +102,7 @@ describe('PropostaModal', () => {
     expect(screen.getByText('CNPJ/CPF: 36.312.056/0005-52')).toBeInTheDocument()
 
     fireEvent.click(screen.getByLabelText('Bafômetro X'))
+    aplicarModelo()
     fireEvent.click(screen.getByText('Criar Proposta'))
 
     await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
@@ -167,6 +173,7 @@ describe('PropostaModal', () => {
     expect(screen.queryByLabelText('Bafômetro X')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Phoebus 3000')).toBeInTheDocument()
 
+    aplicarModelo()
     fireEvent.click(screen.getByText('Criar Proposta'))
     await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
     const payload = propostasCriar.mock.calls[0][0]
@@ -178,6 +185,7 @@ describe('PropostaModal', () => {
     await selecionarCliente()
 
     fireEvent.change(screen.getByLabelText(/introdução/i), { target: { value: 'Texto de introdução digitado.' } })
+    aplicarModelo()
     fireEvent.click(screen.getByText('Criar Proposta'))
 
     await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
@@ -225,6 +233,77 @@ describe('PropostaModal', () => {
     expect(campo.value).toBe('Endereço Confirmado.')
   })
 
+  it('Enter na busca de cliente nao submete o formulario', async () => {
+    render(<PropostaModal onClose={vi.fn()} />)
+    await waitFor(() => expect(servicosListar).toHaveBeenCalled())
+
+    const busca = screen.getByPlaceholderText('Buscar cliente por nome, CNPJ ou CPF')
+    fireEvent.change(busca, { target: { value: 'Cliente' } })
+    // jsdom nao faz submit implicito; o que garante o comportamento no browser
+    // e o preventDefault — fireEvent devolve false quando o evento foi cancelado.
+    const naoCancelado = fireEvent.keyDown(busca, { key: 'Enter', code: 'Enter' })
+
+    expect(naoCancelado).toBe(false)
+    await waitFor(() => expect(screen.getByText('Cliente Teste')).toBeInTheDocument())
+    expect(propostasCriar).not.toHaveBeenCalled()
+  })
+
+  it('submeter sem cliente nao cria proposta e mostra erro', async () => {
+    const onSalvo = vi.fn()
+    render(<PropostaModal onClose={vi.fn()} onSalvo={onSalvo} />)
+    await waitFor(() => expect(servicosListar).toHaveBeenCalled())
+
+    fireEvent.click(screen.getByText('Criar Proposta'))
+
+    expect(await screen.findByText(/selecione o cliente/i)).toBeInTheDocument()
+    expect(propostasCriar).not.toHaveBeenCalled()
+    expect(onSalvo).not.toHaveBeenCalled()
+  })
+
+  it('clique fora nao fecha a proposta; o X fecha', async () => {
+    const onClose = vi.fn()
+    render(<PropostaModal onClose={onClose} />)
+    await waitFor(() => expect(servicosListar).toHaveBeenCalled())
+
+    fireEvent.click(screen.getByTestId('modal-backdrop'))
+    expect(onClose).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByLabelText('Fechar'))
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('submeter sem o bloco de outros itens nao cria proposta', async () => {
+    render(<PropostaModal onClose={vi.fn()} />)
+    await selecionarCliente()
+
+    fireEvent.click(screen.getByText('Criar Proposta'))
+
+    expect(await screen.findByText(/Outros Itens ou Serviços.*Aplicar modelo/i)).toBeInTheDocument()
+    expect(propostasCriar).not.toHaveBeenCalled()
+  })
+
+  it('cliente sem CNPJ/CPF no cadastro bloqueia o salvamento ate preencher o override', async () => {
+    clientesObter.mockResolvedValue({ ...CLIENTE_COMPLETO, cgc: null, cpf: null })
+    render(<PropostaModal onClose={vi.fn()} />)
+    await selecionarCliente()
+    aplicarModelo()
+
+    expect(await screen.findByText(/não tem CNPJ\/CPF no cadastro/i)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Criar Proposta'))
+    expect(await screen.findByText(/nao tem CNPJ\/CPF\. Preencha o documento/i)).toBeInTheDocument()
+    expect(propostasCriar).not.toHaveBeenCalled()
+
+    // Preenchendo o documento no override, a proposta passa a poder ser salva.
+    fireEvent.click(screen.getByLabelText('Editar dados nesta proposta'))
+    fireEvent.change(screen.getByLabelText('CNPJ / Documento'), { target: { value: '36.312.056/0005-52' } })
+    fireEvent.click(screen.getByText('Aplicar'))
+    fireEvent.click(screen.getByText('Criar Proposta'))
+
+    await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
+    expect(propostasCriar.mock.calls[0][0].cliente_override.documento).toBe('36312056000552')
+  })
+
   it('override de documento nasce mascarado com o CNPJ do cadastro e guarda so digitos', async () => {
     render(<PropostaModal onClose={vi.fn()} />)
     await selecionarCliente()
@@ -237,11 +316,27 @@ describe('PropostaModal', () => {
     expect(documentoInput.value).toBe('123.456.789-09')
 
     fireEvent.click(screen.getByText('Aplicar'))
+
+    // O override e' aberto pre-preenchido com o cadastro inteiro, mas o aviso
+    // deve apontar so o que de fato mudou.
+    expect(await screen.findByText(/Editados só nesta proposta: CNPJ \/ Documento\./)).toBeInTheDocument()
+
+    aplicarModelo()
     fireEvent.click(screen.getByText('Criar Proposta'))
 
     await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
     const payload = propostasCriar.mock.calls[0][0]
     expect(payload.cliente_override.documento).toBe('12345678909')
+  })
+
+  it('override aplicado sem mudar nada avisa que os dados so foram fixados', async () => {
+    render(<PropostaModal onClose={vi.fn()} />)
+    await selecionarCliente()
+
+    fireEvent.click(screen.getByLabelText('Editar dados nesta proposta'))
+    fireEvent.click(screen.getByText('Aplicar'))
+
+    expect(await screen.findByText(/fixados nesta proposta — hoje iguais ao cadastro/i)).toBeInTheDocument()
   })
 })
 

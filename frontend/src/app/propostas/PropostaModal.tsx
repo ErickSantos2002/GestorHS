@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Modal } from '../../components/ui/Modal'
 import { Input } from '../../components/ui/Input'
@@ -21,16 +21,13 @@ import {
   type PropostaCreate, type PropostaItemCreate, type EquipamentoClienteFrota,
 } from './api'
 import { buildDefaultOtherItems, buildPhoebusOtherItems, DEFAULT_NOTES } from './propostaDefaults'
+import { htmlTemTexto, validarProposta } from './validacao'
+import { camposAlterados, CAMPOS_OVERRIDE, temOverride as overrideTemDados, type CampoOverride } from './clienteOverride'
 
 const UFS = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG',
   'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
 ]
-
-// Chaves PT-BR do override editável só nesta proposta — DEVEM bater com o
-// backend (ver app/core/proposta_pdf.py, montagem do contexto do certificado/PDF).
-const CAMPOS_OVERRIDE = ['nome', 'documento', 'endereco', 'municipio', 'estado', 'email', 'telefone', 'contato'] as const
-type CampoOverride = (typeof CAMPOS_OVERRIDE)[number]
 
 const formatarMoeda = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const sanitizarDecimal = (v: string) => v.replace(/[^0-9,]/g, '').replace(/(,.*),/g, '$1')
@@ -63,10 +60,6 @@ const EMPTY_FORM = (): PropostaCreate => ({
   itens: [],
   aparelhos: [],
 })
-
-function overrideTemDados(o?: Record<string, unknown> | null): boolean {
-  return !!o && Object.values(o).some((v) => v != null && String(v).trim() !== '')
-}
 
 function Secao({ titulo, icon, primeira, children }: { titulo: string; icon?: ReactNode; primeira?: boolean; children: ReactNode }) {
   return (
@@ -299,6 +292,7 @@ export function PropostaModal({ propostaId, onClose, onSalvo }: {
 
   // ─── Override ──────────────────────────────────────────────────────────
   const temOverride = overrideTemDados(form.cliente_override)
+  const camposEditados = camposAlterados(form.cliente_override, clienteSelecionado)
 
   function abrirOverride() {
     const atual = form.cliente_override
@@ -394,13 +388,39 @@ export function PropostaModal({ propostaId, onClose, onSalvo }: {
     setLinhaAberta(null)
   }
 
+  // Documento que a proposta vai carregar: o override manda; sem ele, o cadastro.
+  const documentoEfetivo = soDigitos(
+    String((form.cliente_override as Record<string, unknown> | null)?.documento ?? '')
+    || clienteSelecionado?.cgc
+    || clienteSelecionado?.cpf
+    || '',
+  )
+
   // ─── Totais ────────────────────────────────────────────────────────────
   const totalItens = itens.reduce((soma, i) => soma + (Number(i.quantidade) || 0) * (Number(i.preco_un) || 0), 0)
   const totalProposta = totalItens + (Number(form.frete) || 0) - (Number(form.desconto) || 0)
 
   // ─── Submit ────────────────────────────────────────────────────────────
+  // Enter num campo de uma linha NAO submete: o formulario tem varios inputs
+  // de busca (cliente, aparelho, descricao do item) e o submit implicito do
+  // browser criava proposta em branco. Textarea e o editor rico ficam livres.
+  function aoTeclarNoForm(e: ReactKeyboardEvent<HTMLFormElement>) {
+    if (e.key !== 'Enter') return
+    if ((e.target as HTMLElement).tagName === 'INPUT') e.preventDefault()
+  }
+
   async function submeter(e: FormEvent) {
     e.preventDefault()
+    const problema = validarProposta({
+      cliente: form.cliente ?? null,
+      documento: documentoEfetivo,
+      outrosItens: form.outros_itens,
+      carregandoCliente: form.cliente != null && clienteSelecionado == null && carregandoFrota,
+    })
+    if (problema) {
+      setErro(problema)
+      return
+    }
     setErro('')
     setSalvando(true)
     try {
@@ -437,6 +457,8 @@ export function PropostaModal({ propostaId, onClose, onSalvo }: {
       onClose={onClose}
       title={editando ? `Editar Proposta${numero != null ? ` #${numero}` : ''}` : 'Nova Proposta'}
       size="5xl"
+      // Formulario longo: clique fora nao fecha — so o X ou Cancelar.
+      closeOnBackdrop={false}
       footer={
         <>
           <Button variant="secondary" type="button" onClick={onClose} disabled={salvando}>Cancelar</Button>
@@ -449,7 +471,7 @@ export function PropostaModal({ propostaId, onClose, onSalvo }: {
       {carregando ? (
         <div className="flex justify-center py-16"><Spinner className="w-8 h-8" /></div>
       ) : (
-        <form id="form-proposta" onSubmit={submeter} className="space-y-6">
+        <form id="form-proposta" onSubmit={submeter} onKeyDown={aoTeclarNoForm} className="space-y-6">
 
           {/* ── Cliente ── */}
           <Secao titulo="Cliente" icon={<IconClientes className="w-3.5 h-3.5" />} primeira>
@@ -503,7 +525,17 @@ export function PropostaModal({ propostaId, onClose, onSalvo }: {
             />
 
             {temOverride && (
-              <p className="text-xs font-medium text-warning">Dados do cliente/contato editados só nesta proposta.</p>
+              <p className="text-xs font-medium text-warning">
+                {camposEditados.some((c) => c.mudou)
+                  ? `Editados só nesta proposta: ${camposEditados.filter((c) => c.mudou).map((c) => c.rotulo).join(', ')}.`
+                  : 'Dados do cliente fixados nesta proposta — hoje iguais ao cadastro.'}
+              </p>
+            )}
+
+            {clienteSelecionado && !documentoEfetivo && (
+              <p className="text-xs font-medium text-danger">
+                Este cliente não tem CNPJ/CPF no cadastro. Preencha o documento em “Editar dados nesta proposta” para poder salvar.
+              </p>
             )}
 
             {mostrarOverride && (
@@ -735,7 +767,7 @@ export function PropostaModal({ propostaId, onClose, onSalvo }: {
           </Secao>
 
           {/* ── Outros itens ou serviços (bloco técnico) ── */}
-          <Secao titulo="Outros Itens ou Serviços" icon={<IconNote className="w-3.5 h-3.5" />}>
+          <Secao titulo="Outros Itens ou Serviços (obrigatório)" icon={<IconNote className="w-3.5 h-3.5" />}>
             <div className="mb-2 flex flex-wrap items-end gap-2">
               <div className="w-56">
                 <Select id="modelo-texto-proposta" label="Modelo do texto" value={modeloTexto} onChange={(e) => setModeloTexto(e.target.value as 'demais' | 'phoebus')}>
@@ -752,6 +784,11 @@ export function PropostaModal({ propostaId, onClose, onSalvo }: {
               onChange={(v) => setField('outros_itens', v)}
               placeholder="Descreva outros itens, serviços ou condições especiais…"
             />
+            {!htmlTemTexto(form.outros_itens) && (
+              <p className="text-xs font-medium text-danger">
+                Aplique o modelo (ou escreva o conteúdo) — este bloco vai em toda proposta.
+              </p>
+            )}
           </Secao>
 
           {/* ── Totais ── */}
