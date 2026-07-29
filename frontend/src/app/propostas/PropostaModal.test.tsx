@@ -46,6 +46,13 @@ vi.mock('./api', async (orig) => {
   }
 })
 
+const buscarCep = vi.fn()
+const buscarCnpj = vi.fn()
+vi.mock('./buscaEndereco', async (orig) => {
+  const real = await orig<typeof import('./buscaEndereco')>()
+  return { ...real, buscaApi: { cep: (...a: unknown[]) => buscarCep(...a), cnpj: (...a: unknown[]) => buscarCnpj(...a) } }
+})
+
 import { PropostaModal } from './PropostaModal'
 import { descreverVencimento } from './aparelhosFrota'
 
@@ -345,6 +352,116 @@ describe('PropostaModal', () => {
     fireEvent.click(screen.getByText('Criar Proposta'))
     await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
     expect(propostasCriar.mock.calls[0][0].cliente_override).toBeNull()
+  })
+})
+
+describe('PropostaModal — busca de CEP e CNPJ', () => {
+  const RESULTADO_CNPJ = {
+    documento: '36312056000552', nome: 'Acme Industria Ltda', endereco: 'Rua Nova, 10',
+    municipio: 'Olinda', estado: 'PE', cep: '53000000', situacao: 'ATIVA',
+  }
+  const RESULTADO_CEP = {
+    cep: '53000000', endereco: 'Rua Nova', municipio: 'Olinda', estado: 'PE',
+  }
+
+  async function abrirOverride() {
+    render(<PropostaModal onClose={vi.fn()} />)
+    await selecionarCliente()
+    fireEvent.click(screen.getByLabelText('Editar dados nesta proposta'))
+  }
+
+  it('lupa do CNPJ preenche razao social, endereco, municipio, estado e CEP', async () => {
+    buscarCnpj.mockResolvedValue(RESULTADO_CNPJ)
+    await abrirOverride()
+
+    fireEvent.click(screen.getByLabelText('Buscar dados pelo CNPJ'))
+
+    await waitFor(() => expect(buscarCnpj).toHaveBeenCalledWith('36312056000552'))
+    expect((screen.getByLabelText('Razão social / Nome') as HTMLInputElement).value).toBe('Acme Industria Ltda')
+    expect((screen.getByLabelText('Endereço') as HTMLInputElement).value).toBe('Rua Nova, 10')
+    expect((screen.getByLabelText('Município') as HTMLInputElement).value).toBe('Olinda')
+    expect((screen.getByLabelText('CEP') as HTMLInputElement).value).toBe('53000-000')
+  })
+
+  it('lupa do CNPJ nao altera telefone nem e-mail', async () => {
+    buscarCnpj.mockResolvedValue(RESULTADO_CNPJ)
+    await abrirOverride()
+    const email = screen.getByLabelText('E-mail') as HTMLInputElement
+    const antes = email.value
+
+    fireEvent.click(screen.getByLabelText('Buscar dados pelo CNPJ'))
+    await waitFor(() => expect(buscarCnpj).toHaveBeenCalled())
+
+    expect(email.value).toBe(antes)
+  })
+
+  it('mostra os campos preenchidos e a situacao cadastral', async () => {
+    buscarCnpj.mockResolvedValue(RESULTADO_CNPJ)
+    await abrirOverride()
+
+    fireEvent.click(screen.getByLabelText('Buscar dados pelo CNPJ'))
+
+    expect(await screen.findByText(/Preenchido pelo CNPJ:/)).toBeInTheDocument()
+    expect(screen.getByText(/Situação na Receita: ATIVA/)).toBeInTheDocument()
+  })
+
+  it('Desfazer restaura os valores anteriores a busca', async () => {
+    buscarCnpj.mockResolvedValue(RESULTADO_CNPJ)
+    await abrirOverride()
+    const nome = screen.getByLabelText('Razão social / Nome') as HTMLInputElement
+    const antes = nome.value
+
+    fireEvent.click(screen.getByLabelText('Buscar dados pelo CNPJ'))
+    await waitFor(() => expect(nome.value).toBe('Acme Industria Ltda'))
+
+    fireEvent.click(screen.getByText('Desfazer'))
+
+    expect(nome.value).toBe(antes)
+    expect(screen.queryByText(/Preenchido pelo CNPJ:/)).not.toBeInTheDocument()
+  })
+
+  it('o painel abre com o CEP do cadastro ja preenchido', async () => {
+    clientesObter.mockResolvedValue({ ...CLIENTE_COMPLETO, cep: '50030230' })
+    await abrirOverride()
+    expect((screen.getByLabelText('CEP') as HTMLInputElement).value).toBe('50030-230')
+  })
+
+  it('lupa do CEP preenche endereco, municipio e estado sem tocar no nome', async () => {
+    buscarCep.mockResolvedValue(RESULTADO_CEP)
+    await abrirOverride()
+    const nome = screen.getByLabelText('Razão social / Nome') as HTMLInputElement
+    const antes = nome.value
+
+    fireEvent.change(screen.getByLabelText('CEP'), { target: { value: '53000-000' } })
+    fireEvent.click(screen.getByLabelText('Buscar endereço pelo CEP'))
+
+    await waitFor(() => expect(buscarCep).toHaveBeenCalledWith('53000000'))
+    expect((screen.getByLabelText('Endereço') as HTMLInputElement).value).toBe('Rua Nova')
+    expect(nome.value).toBe(antes)
+  })
+
+  it('CNPJ nao encontrado mostra mensagem e nao altera campo nenhum', async () => {
+    const { ApiError } = await import('../../lib/api')
+    buscarCnpj.mockRejectedValue(new ApiError(404, 'nao encontrado'))
+    await abrirOverride()
+    const nome = screen.getByLabelText('Razão social / Nome') as HTMLInputElement
+    const antes = nome.value
+
+    fireEvent.click(screen.getByLabelText('Buscar dados pelo CNPJ'))
+
+    expect(await screen.findByText(/CNPJ não encontrado/i)).toBeInTheDocument()
+    expect(nome.value).toBe(antes)
+  })
+
+  it('provedor fora do ar mostra mensagem de indisponivel', async () => {
+    const { ApiError } = await import('../../lib/api')
+    buscarCep.mockRejectedValue(new ApiError(502, 'fora'))
+    await abrirOverride()
+
+    fireEvent.change(screen.getByLabelText('CEP'), { target: { value: '53000-000' } })
+    fireEvent.click(screen.getByLabelText('Buscar endereço pelo CEP'))
+
+    expect(await screen.findByText(/indisponível/i)).toBeInTheDocument()
   })
 })
 

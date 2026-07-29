@@ -12,7 +12,7 @@ import { RichText } from '../../components/ui/RichText'
 import { useAuth } from '../../auth/AuthContext'
 import { ApiError } from '../../lib/api'
 import { hojeISO } from '../../lib/datas'
-import { formatarDocumento, soDigitos } from '../../lib/documento'
+import { formatarDocumento, soDigitos, mascararCEP } from '../../lib/documento'
 import { descreverVencimento } from './aparelhosFrota'
 import { clientesApi, type Cliente, type ClienteListItem } from '../clientes/api'
 import { STATUS_CALIBRACAO, type StatusCalibracao } from '../frota/api'
@@ -22,7 +22,14 @@ import {
 } from './api'
 import { buildDefaultOtherItems, buildPhoebusOtherItems, DEFAULT_NOTES } from './propostaDefaults'
 import { htmlTemTexto, validarProposta } from './validacao'
-import { camposAlterados, CAMPOS_OVERRIDE, mesmoValorDoCadastro, temOverride as overrideTemDados, type CampoOverride } from './clienteOverride'
+import {
+  camposAlterados, CAMPOS_OVERRIDE, mesmoValorDoCadastro, ROTULOS_OVERRIDE,
+  temOverride as overrideTemDados, type CampoOverride,
+} from './clienteOverride'
+import {
+  buscaApi, aplicarResultadoCep, aplicarResultadoCnpj, mensagemErroBusca,
+  type DraftOverride,
+} from './buscaEndereco'
 
 const UFS = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG',
@@ -73,6 +80,29 @@ function Secao({ titulo, icon, primeira, children }: { titulo: string; icon?: Re
   )
 }
 
+function ComLupa({ aoBuscar, buscando, rotulo, children }: {
+  aoBuscar: () => void
+  buscando: boolean
+  rotulo: string
+  children: ReactNode
+}) {
+  return (
+    <div className="flex items-end gap-2">
+      <div className="flex-1 min-w-0">{children}</div>
+      <button
+        type="button"
+        onClick={aoBuscar}
+        disabled={buscando}
+        aria-label={rotulo}
+        title={rotulo}
+        className="mb-0.5 shrink-0 rounded-lg border border-border bg-background-elevated p-2.5 text-slate-400 hover:text-primary hover:border-primary/40 disabled:opacity-50 transition-colors"
+      >
+        {buscando ? <Spinner className="w-4 h-4" /> : <IconSearch className="w-4 h-4" />}
+      </button>
+    </div>
+  )
+}
+
 const inputClass = 'w-full px-3 py-2 text-sm rounded-lg border border-border bg-background-elevated text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-transparent transition-colors'
 
 interface ItemCatalogo { nome: string; sku: string | null; preco: number }
@@ -113,6 +143,12 @@ export function PropostaModal({ propostaId, onClose, onSalvo }: {
   // ─── Override cliente/pessoa (só nesta proposta) ──────────────────────
   const [mostrarOverride, setMostrarOverride] = useState(false)
   const [overrideDraft, setOverrideDraft] = useState<Partial<Record<CampoOverride, string>>>({})
+  const [buscando, setBuscando] = useState<'cep' | 'cnpj' | null>(null)
+  const [erroBusca, setErroBusca] = useState('')
+  const [resultadoBusca, setResultadoBusca] = useState<
+    { origem: 'CEP' | 'CNPJ'; campos: string[]; situacao?: string } | null
+  >(null)
+  const [draftAnterior, setDraftAnterior] = useState<DraftOverride | null>(null)
 
   // ─── Catálogo (Serviços + Produtos) para busca por linha de item ──────
   // A própria Descrição é a busca: digitar já filtra o catálogo; não existe
@@ -307,16 +343,69 @@ export function PropostaModal({ propostaId, onClose, onSalvo }: {
         endereco: clienteSelecionado?.endereco ?? '',
         municipio: clienteSelecionado?.municipio ?? '',
         estado: clienteSelecionado?.estado ?? '',
+        cep: soDigitos(clienteSelecionado?.cep ?? ''),
         email: clienteSelecionado?.email ?? '',
         telefone: clienteSelecionado?.celular || clienteSelecionado?.whatsapp || clienteSelecionado?.telefones || '',
         contato: form.contato ?? '',
       })
     }
+    limparBusca()
     setMostrarOverride(true)
   }
 
   function definirOverride(campo: CampoOverride, valor: string) {
     setOverrideDraft((d) => ({ ...d, [campo]: valor }))
+  }
+
+  function limparBusca() {
+    setErroBusca('')
+    setResultadoBusca(null)
+    setDraftAnterior(null)
+  }
+
+  async function buscarPorCnpj() {
+    setErroBusca('')
+    setBuscando('cnpj')
+    const anterior = overrideDraft
+    try {
+      const r = await buscaApi.cnpj(soDigitos(overrideDraft.documento ?? ''))
+      const { draft, preenchidos } = aplicarResultadoCnpj(overrideDraft, r)
+      setOverrideDraft(draft)
+      setDraftAnterior(anterior)
+      setResultadoBusca({
+        origem: 'CNPJ',
+        campos: preenchidos.map((c) => ROTULOS_OVERRIDE[c]),
+        situacao: r.situacao || undefined,
+      })
+    } catch (e) {
+      setResultadoBusca(null)
+      setErroBusca(mensagemErroBusca(e, 'CNPJ'))
+    } finally {
+      setBuscando(null)
+    }
+  }
+
+  async function buscarPorCep() {
+    setErroBusca('')
+    setBuscando('cep')
+    const anterior = overrideDraft
+    try {
+      const r = await buscaApi.cep(soDigitos(overrideDraft.cep ?? ''))
+      const { draft, preenchidos } = aplicarResultadoCep(overrideDraft, r)
+      setOverrideDraft({ ...draft, cep: r.cep || draft.cep })
+      setDraftAnterior(anterior)
+      setResultadoBusca({ origem: 'CEP', campos: preenchidos.map((c) => ROTULOS_OVERRIDE[c]) })
+    } catch (e) {
+      setResultadoBusca(null)
+      setErroBusca(mensagemErroBusca(e, 'CEP'))
+    } finally {
+      setBuscando(null)
+    }
+  }
+
+  function desfazerBusca() {
+    if (draftAnterior) setOverrideDraft(draftAnterior)
+    limparBusca()
   }
 
   function salvarOverride() {
@@ -331,11 +420,13 @@ export function PropostaModal({ propostaId, onClose, onSalvo }: {
       limpo[k] = v.trim()
     })
     setField('cliente_override', Object.keys(limpo).length ? limpo : null)
+    limparBusca()
     setMostrarOverride(false)
   }
 
   function restaurarOverride() {
     setField('cliente_override', null)
+    limparBusca()
     setMostrarOverride(false)
   }
 
@@ -550,17 +641,40 @@ export function PropostaModal({ propostaId, onClose, onSalvo }: {
                 <p className="text-xs text-slate-500">Estes dados valem só para esta proposta e não alteram o cadastro do cliente. Campos em branco usam os dados do cadastro.</p>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <Input id="ov-nome" label="Razão social / Nome" value={overrideDraft.nome ?? ''} onChange={(e) => definirOverride('nome', e.target.value)} className="sm:col-span-2" />
-                  <Input id="ov-documento" label="CNPJ / Documento" value={formatarDocumento(overrideDraft.documento ?? '')} onChange={(e) => definirOverride('documento', soDigitos(e.target.value))} />
-                  <Input id="ov-telefone" label="Telefone" value={overrideDraft.telefone ?? ''} onChange={(e) => definirOverride('telefone', e.target.value)} />
+                  <ComLupa aoBuscar={buscarPorCnpj} buscando={buscando === 'cnpj'} rotulo="Buscar dados pelo CNPJ">
+                    <Input id="ov-documento" label="CNPJ / Documento" value={formatarDocumento(overrideDraft.documento ?? '')} onChange={(e) => definirOverride('documento', soDigitos(e.target.value))} />
+                  </ComLupa>
+                  <ComLupa aoBuscar={buscarPorCep} buscando={buscando === 'cep'} rotulo="Buscar endereço pelo CEP">
+                    <Input id="ov-cep" label="CEP" value={mascararCEP(overrideDraft.cep ?? '')} onChange={(e) => definirOverride('cep', soDigitos(e.target.value))} />
+                  </ComLupa>
                   <Input id="ov-endereco" label="Endereço" value={overrideDraft.endereco ?? ''} onChange={(e) => definirOverride('endereco', e.target.value)} className="sm:col-span-2" />
                   <Input id="ov-municipio" label="Município" value={overrideDraft.municipio ?? ''} onChange={(e) => definirOverride('municipio', e.target.value)} />
                   <Select id="ov-estado" label="Estado (UF)" value={overrideDraft.estado ?? ''} onChange={(e) => definirOverride('estado', e.target.value)}>
                     <option value="">—</option>
                     {UFS.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
                   </Select>
-                  <Input id="ov-email" label="E-mail" value={overrideDraft.email ?? ''} onChange={(e) => definirOverride('email', e.target.value)} className="sm:col-span-2" />
+                  <Input id="ov-telefone" label="Telefone" value={overrideDraft.telefone ?? ''} onChange={(e) => definirOverride('telefone', e.target.value)} />
+                  <Input id="ov-email" label="E-mail" value={overrideDraft.email ?? ''} onChange={(e) => definirOverride('email', e.target.value)} />
                   <Input id="ov-contato" label="Contato (aos cuidados de)" value={overrideDraft.contato ?? ''} onChange={(e) => definirOverride('contato', e.target.value)} className="sm:col-span-2" />
                 </div>
+                {erroBusca && (
+                  <p className="text-xs font-medium text-danger">{erroBusca}</p>
+                )}
+                {resultadoBusca && (
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                    <span className="text-slate-400">
+                      Preenchido pelo {resultadoBusca.origem}: {resultadoBusca.campos.join(', ')}.
+                    </span>
+                    {resultadoBusca.situacao && (
+                      <span className={resultadoBusca.situacao === 'ATIVA' ? 'text-slate-500' : 'font-semibold text-warning'}>
+                        Situação na Receita: {resultadoBusca.situacao}
+                      </span>
+                    )}
+                    <button type="button" onClick={desfazerBusca} className="font-semibold text-primary hover:underline">
+                      Desfazer
+                    </button>
+                  </div>
+                )}
                 <div className="flex items-center justify-between border-t border-warning/20 pt-3">
                   <Button type="button" variant="ghost" onClick={restaurarOverride}>Restaurar do cadastro</Button>
                   <div className="flex gap-2">
