@@ -353,6 +353,61 @@ describe('PropostaModal', () => {
     await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
     expect(propostasCriar.mock.calls[0][0].cliente_override).toBeNull()
   })
+
+  it('proposta antiga com override redundante (8 campos iguais ao cadastro) nao mostra o aviso quebrado', async () => {
+    // Simula uma proposta criada antes da mudanca que passou a gravar so os
+    // campos divergentes: o override tem os campos preenchidos, mas todos
+    // batem com o cadastro atual do cliente — nao sera migrada.
+    propostasObter.mockResolvedValue({
+      id: 901,
+      numero: 11,
+      cliente: 5,
+      contato: null,
+      vendedor: 'Erick Santos',
+      data: '2026-07-24',
+      intro: '',
+      outros_itens: null,
+      desconto: 0,
+      frete: 0,
+      forma_envio: null,
+      forma_frete: null,
+      transportador: null,
+      condicao_pagamento: null,
+      validade_dias: 30,
+      data_entrega: null,
+      descricao_entrega: null,
+      endereco_entrega_diferente: false,
+      endereco_entrega: null,
+      cliente_override: {
+        nome: 'Cliente Teste',
+        documento: '36312056000552',
+        endereco: 'Rua X, 10',
+        municipio: 'Recife',
+        estado: 'PE',
+        cep: '',
+        email: 'cliente@teste.com',
+        telefone: '8130001111',
+      },
+      observacoes: null,
+      assinatura: null,
+      itens: [],
+      aparelhos: [],
+      total_itens: 0,
+      total: 0,
+      cliente_nome: 'Cliente Teste',
+      cliente_documento: '36312056000552',
+      created_at: null,
+      updated_at: null,
+    })
+
+    render(<PropostaModal propostaId={901} onClose={vi.fn()} />)
+
+    await screen.findByText('Cliente Teste')
+    // aguarda o cadastro completo do cliente carregar antes de checar o aviso
+    await waitFor(() => expect(clientesObter).toHaveBeenCalledWith(5))
+
+    expect(screen.queryByText(/Editados só nesta proposta/)).not.toBeInTheDocument()
+  })
 })
 
 describe('PropostaModal — busca de CEP e CNPJ', () => {

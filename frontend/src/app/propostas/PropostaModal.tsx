@@ -630,7 +630,7 @@ export function PropostaModal({ propostaId, onClose, onSalvo }: {
               placeholder="Nome do contato no cliente"
             />
 
-            {temOverride && (
+            {temOverride && camposEditados.some((c) => c.mudou) && (
               <p className="text-xs font-medium text-warning">
                 Editados só nesta proposta: {camposEditados.filter((c) => c.mudou).map((c) => c.rotulo).join(', ')}.
               </p>
