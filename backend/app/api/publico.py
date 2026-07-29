@@ -1,9 +1,17 @@
-"""Endpoints públicos (sem autenticação). Hoje: download de certificado e de nota fiscal por token."""
+"""Endpoints públicos (sem autenticação). Hoje: download de certificado, nota fiscal e proposta por token."""
 from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
-from app.core import certificado_geral_link, certificado_link, nota_fiscal, nota_fiscal_link, storage
+from app.core import (
+    certificado_geral_link,
+    certificado_link,
+    nota_fiscal,
+    nota_fiscal_link,
+    proposta_link,
+    proposta_pdf,
+    storage,
+)
 from app.core.certificado_pdf import html_para_pdf
 from app.models import CertificadoGeral, OSCertificado, Ordem
 from app.models.database import get_db
@@ -58,6 +66,21 @@ def baixar_nota_fiscal_publica(ordem_id: int, t: str = "", db: Session = Depends
         media_type=media,
         filename=nota_fiscal.nome_download(ordem_id, o.nota_fiscal),
         headers={"X-Content-Type-Options": "nosniff"},
+    )
+
+
+@router.get("/proposta/{proposta_id}")
+def baixar_proposta_publica(proposta_id: int, t: str = "", db: Session = Depends(get_db)):
+    if not proposta_link.verificar(proposta_id, t):
+        raise HTTPException(status_code=403, detail="link inválido")
+    try:
+        conteudo = proposta_pdf.gerar_pdf(db, proposta_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="proposta não encontrada")
+    return Response(
+        content=conteudo,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="proposta-{proposta_id}.pdf"'},
     )
 
 
