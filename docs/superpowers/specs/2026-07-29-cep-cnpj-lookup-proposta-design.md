@@ -121,4 +121,4 @@ Endpoints exigem usuário interno — não são expostos ao portal do cliente. O
 
 ## Rollout
 
-Backend + frontend, **sem migração**. Versão **v1.31.0**, entrada no changelog (`frontend/src/app/changelog/data.ts`) citando o campo CEP e as buscas automáticas.
+Backend + frontend, **sem migração**. Branch `feat/cep-cnpj-proposta`. Versão **v1.32.0** (a v1.31.0 saiu antes, com as correções de proposta vazia e o selo de dados editados), entrada no changelog (`frontend/src/app/changelog/data.ts`) citando o campo CEP e as buscas automáticas.
