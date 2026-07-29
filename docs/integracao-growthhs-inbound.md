@@ -54,7 +54,8 @@ criado pelo GestorHS. Basta ler o `external_id` do card e usá-lo como `{caixa_i
 
 ```json
 {
-  "observacao": "Negócio fechado — Proposta #123, OC 456, R$ 18.500,00"
+  "observacao": "Negócio fechado — Proposta #123, OC 456, R$ 18.500,00",
+  "numero_proposta": 123
 }
 ```
 
@@ -62,6 +63,14 @@ Campo `observacao` é **opcional** (texto livre) e vai para o histórico da caix
 GestorHS — valor do negócio, número de proposta, número de OC, o que for útil para quem
 olhar o histórico depois. Se omitido ou vazio, o histórico registra apenas `via
 GrowthHS`; se preenchido, registra `via GrowthHS: <observacao>`.
+
+Campo `numero_proposta` também é **opcional** (inteiro) e é o **número da proposta do
+GestorHS** — o mesmo `#N` mostrado na tela de Propostas, não um identificador do
+GrowthHS. Quando enviado, fica gravado na caixa (`caixas.numero_proposta`) e passa a
+aparecer como um link de download do PDF da proposta na seção de Pós-Vendas do card do
+TaskHS — do mesmo jeito que já acontece com os links de certificado. Se omitido, a caixa
+simplesmente não ganha esse link. O valor é gravado mesmo quando a chamada é um no-op
+(caixa já avançada) — só não é gravado quando ausente do corpo.
 
 ## Respostas
 
@@ -91,7 +100,7 @@ fase que o fluxo normal (Recebido → Laboratório → Pós-Vendas) ainda não a
 curl -X POST "https://api.gestorhs.com.br/integracao/growthhs/caixas/42/ganho" \
   -H "X-API-Key: $GESTORHS_INBOUND_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"observacao": "Negocio fechado - Proposta #123, OC 456, R$ 18.500,00"}'
+  -d '{"observacao": "Negocio fechado - Proposta #123, OC 456, R$ 18.500,00", "numero_proposta": 123}'
 ```
 
 Resposta esperada (caixa 42 estava em Pós-Vendas):
