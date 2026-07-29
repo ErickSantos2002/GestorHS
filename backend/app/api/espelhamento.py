@@ -3,10 +3,11 @@ para evitar import circular. Fonte única do payload (contrato v2: list_id + obs
 
 from app.core import certificado_link
 from app.core import nota_fiscal_link
+from app.core import proposta_link
 from app.core import taskhs
 from app.core.caixa import principal_valido
 from app.integrations import taskhs_client
-from app.models import OSCertificado
+from app.models import OSCertificado, Proposta
 
 
 def _montar_payload_os(db, ordem, *, list_id, arquivado) -> dict:
@@ -54,7 +55,14 @@ def _montar_payload_caixa(db, caixa, *, list_id, arquivado) -> dict:
     rep_nf = next((o for o in ordens if o.nota_fiscal), None)
     if rep_nf is not None:
         nf_url = nota_fiscal_link.link_nota_fiscal(rep_nf.id)
-    obs = taskhs.montar_obs_caixa(caixa, ordens, certificados_por_os=certificados_por_os, nota_fiscal_url=nf_url)
+    proposta_url = None
+    if caixa.numero_proposta is not None:
+        p = db.query(Proposta).filter(Proposta.numero == caixa.numero_proposta,
+                                       Proposta.is_deleted.is_(False)).first()
+        if p is not None:
+            proposta_url = proposta_link.link_proposta(p.id)
+    obs = taskhs.montar_obs_caixa(caixa, ordens, certificados_por_os=certificados_por_os,
+                                   nota_fiscal_url=nf_url, proposta_url=proposta_url)
     return taskhs.montar_payload_caixa(caixa, ordens, list_id=list_id, arquivado=arquivado, obs=obs)
 
 
