@@ -46,6 +46,13 @@ vi.mock('./api', async (orig) => {
   }
 })
 
+const buscarCep = vi.fn()
+const buscarCnpj = vi.fn()
+vi.mock('./buscaEndereco', async (orig) => {
+  const real = await orig<typeof import('./buscaEndereco')>()
+  return { ...real, buscaApi: { cep: (...a: unknown[]) => buscarCep(...a), cnpj: (...a: unknown[]) => buscarCnpj(...a) } }
+})
+
 import { PropostaModal } from './PropostaModal'
 import { descreverVencimento } from './aparelhosFrota'
 
@@ -327,16 +334,213 @@ describe('PropostaModal', () => {
     await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
     const payload = propostasCriar.mock.calls[0][0]
     expect(payload.cliente_override.documento).toBe('12345678909')
+    // so o campo que divergiu entra no override
+    expect(Object.keys(payload.cliente_override)).toEqual(['documento'])
   })
 
-  it('override aplicado sem mudar nada avisa que os dados so foram fixados', async () => {
+  it('aplicar override sem mudar nada nao grava override', async () => {
     render(<PropostaModal onClose={vi.fn()} />)
     await selecionarCliente()
 
     fireEvent.click(screen.getByLabelText('Editar dados nesta proposta'))
     fireEvent.click(screen.getByText('Aplicar'))
 
-    expect(await screen.findByText(/fixados nesta proposta — hoje iguais ao cadastro/i)).toBeInTheDocument()
+    // nada divergiu do cadastro: a proposta nao pode ficar marcada como editada
+    expect(screen.queryByText(/Editados só nesta proposta/)).not.toBeInTheDocument()
+
+    aplicarModelo()
+    fireEvent.click(screen.getByText('Criar Proposta'))
+    await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
+    expect(propostasCriar.mock.calls[0][0].cliente_override).toBeNull()
+  })
+
+  it('proposta antiga com override redundante (8 campos iguais ao cadastro) nao mostra o aviso quebrado', async () => {
+    // Simula uma proposta criada antes da mudanca que passou a gravar so os
+    // campos divergentes: o override tem os campos preenchidos, mas todos
+    // batem com o cadastro atual do cliente — nao sera migrada.
+    propostasObter.mockResolvedValue({
+      id: 901,
+      numero: 11,
+      cliente: 5,
+      contato: null,
+      vendedor: 'Erick Santos',
+      data: '2026-07-24',
+      intro: '',
+      outros_itens: null,
+      desconto: 0,
+      frete: 0,
+      forma_envio: null,
+      forma_frete: null,
+      transportador: null,
+      condicao_pagamento: null,
+      validade_dias: 30,
+      data_entrega: null,
+      descricao_entrega: null,
+      endereco_entrega_diferente: false,
+      endereco_entrega: null,
+      cliente_override: {
+        nome: 'Cliente Teste',
+        documento: '36312056000552',
+        endereco: 'Rua X, 10',
+        municipio: 'Recife',
+        estado: 'PE',
+        cep: '',
+        email: 'cliente@teste.com',
+        telefone: '8130001111',
+      },
+      observacoes: null,
+      assinatura: null,
+      itens: [],
+      aparelhos: [],
+      total_itens: 0,
+      total: 0,
+      cliente_nome: 'Cliente Teste',
+      cliente_documento: '36312056000552',
+      created_at: null,
+      updated_at: null,
+    })
+
+    render(<PropostaModal propostaId={901} onClose={vi.fn()} />)
+
+    await screen.findByText('Cliente Teste')
+    // aguarda o cadastro completo do cliente carregar antes de checar o aviso
+    await waitFor(() => expect(clientesObter).toHaveBeenCalledWith(5))
+
+    expect(screen.queryByText(/Editados só nesta proposta/)).not.toBeInTheDocument()
+  })
+})
+
+describe('PropostaModal — busca de CEP e CNPJ', () => {
+  const RESULTADO_CNPJ = {
+    documento: '36312056000552', nome: 'Acme Industria Ltda', endereco: 'Rua Nova, 10',
+    municipio: 'Olinda', estado: 'PE', cep: '53000000', situacao: 'ATIVA',
+  }
+  const RESULTADO_CEP = {
+    cep: '53000000', endereco: 'Rua Nova', municipio: 'Olinda', estado: 'PE',
+  }
+
+  async function abrirOverride() {
+    render(<PropostaModal onClose={vi.fn()} />)
+    await selecionarCliente()
+    fireEvent.click(screen.getByLabelText('Editar dados nesta proposta'))
+  }
+
+  it('lupa do CNPJ preenche razao social, endereco, municipio, estado e CEP', async () => {
+    buscarCnpj.mockResolvedValue(RESULTADO_CNPJ)
+    await abrirOverride()
+
+    fireEvent.click(screen.getByLabelText('Buscar dados pelo CNPJ'))
+
+    await waitFor(() => expect(buscarCnpj).toHaveBeenCalledWith('36312056000552'))
+    expect((screen.getByLabelText('Razão social / Nome') as HTMLInputElement).value).toBe('Acme Industria Ltda')
+    expect((screen.getByLabelText('Endereço') as HTMLInputElement).value).toBe('Rua Nova, 10')
+    expect((screen.getByLabelText('Município') as HTMLInputElement).value).toBe('Olinda')
+    expect((screen.getByLabelText('CEP') as HTMLInputElement).value).toBe('53000-000')
+  })
+
+  it('lupa do CNPJ nao altera telefone nem e-mail', async () => {
+    buscarCnpj.mockResolvedValue(RESULTADO_CNPJ)
+    await abrirOverride()
+    const email = screen.getByLabelText('E-mail') as HTMLInputElement
+    const antes = email.value
+
+    fireEvent.click(screen.getByLabelText('Buscar dados pelo CNPJ'))
+    await waitFor(() => expect(buscarCnpj).toHaveBeenCalled())
+
+    expect(email.value).toBe(antes)
+  })
+
+  it('mostra os campos preenchidos e a situacao cadastral', async () => {
+    buscarCnpj.mockResolvedValue(RESULTADO_CNPJ)
+    await abrirOverride()
+
+    fireEvent.click(screen.getByLabelText('Buscar dados pelo CNPJ'))
+
+    expect(await screen.findByText(/Preenchido pelo CNPJ:/)).toBeInTheDocument()
+    expect(screen.getByText(/Situação na Receita: ATIVA/)).toBeInTheDocument()
+  })
+
+  it('Desfazer restaura os valores anteriores a busca', async () => {
+    buscarCnpj.mockResolvedValue(RESULTADO_CNPJ)
+    await abrirOverride()
+    const nome = screen.getByLabelText('Razão social / Nome') as HTMLInputElement
+    const antes = nome.value
+
+    fireEvent.click(screen.getByLabelText('Buscar dados pelo CNPJ'))
+    await waitFor(() => expect(nome.value).toBe('Acme Industria Ltda'))
+
+    fireEvent.click(screen.getByText('Desfazer'))
+
+    expect(nome.value).toBe(antes)
+    expect(screen.queryByText(/Preenchido pelo CNPJ:/)).not.toBeInTheDocument()
+  })
+
+  it('o painel abre com o CEP do cadastro ja preenchido', async () => {
+    clientesObter.mockResolvedValue({ ...CLIENTE_COMPLETO, cep: '50030230' })
+    await abrirOverride()
+    expect((screen.getByLabelText('CEP') as HTMLInputElement).value).toBe('50030-230')
+  })
+
+  it('lupa do CEP preenche endereco, municipio e estado sem tocar no nome', async () => {
+    buscarCep.mockResolvedValue(RESULTADO_CEP)
+    await abrirOverride()
+    const nome = screen.getByLabelText('Razão social / Nome') as HTMLInputElement
+    const antes = nome.value
+
+    fireEvent.change(screen.getByLabelText('CEP'), { target: { value: '53000-000' } })
+    fireEvent.click(screen.getByLabelText('Buscar endereço pelo CEP'))
+
+    await waitFor(() => expect(buscarCep).toHaveBeenCalledWith('53000000'))
+    expect((screen.getByLabelText('Endereço') as HTMLInputElement).value).toBe('Rua Nova')
+    expect(nome.value).toBe(antes)
+  })
+
+  it('CNPJ nao encontrado mostra mensagem e nao altera campo nenhum', async () => {
+    const { ApiError } = await import('../../lib/api')
+    buscarCnpj.mockRejectedValue(new ApiError(404, 'nao encontrado'))
+    await abrirOverride()
+    const nome = screen.getByLabelText('Razão social / Nome') as HTMLInputElement
+    const antes = nome.value
+
+    fireEvent.click(screen.getByLabelText('Buscar dados pelo CNPJ'))
+
+    expect(await screen.findByText(/CNPJ não encontrado/i)).toBeInTheDocument()
+    expect(nome.value).toBe(antes)
+  })
+
+  it('provedor fora do ar mostra mensagem de indisponivel', async () => {
+    const { ApiError } = await import('../../lib/api')
+    buscarCep.mockRejectedValue(new ApiError(502, 'fora'))
+    await abrirOverride()
+
+    fireEvent.change(screen.getByLabelText('CEP'), { target: { value: '53000-000' } })
+    fireEvent.click(screen.getByLabelText('Buscar endereço pelo CEP'))
+
+    expect(await screen.findByText(/indisponível/i)).toBeInTheDocument()
+  })
+
+  it('busca em andamento desabilita as duas lupas, evitando que a segunda sobrescreva a primeira', async () => {
+    // Promise controlada a mao: so resolve quando o teste mandar, pra segurar
+    // a busca de CNPJ "em voo" e tentar disparar a de CEP nesse meio-tempo.
+    let resolverCnpj: (r: typeof RESULTADO_CNPJ) => void = () => {}
+    const promessaCnpj = new Promise<typeof RESULTADO_CNPJ>((resolve) => { resolverCnpj = resolve })
+    buscarCnpj.mockReturnValue(promessaCnpj)
+    await abrirOverride()
+
+    fireEvent.click(screen.getByLabelText('Buscar dados pelo CNPJ'))
+
+    await waitFor(() => expect(screen.getByLabelText('Buscar dados pelo CNPJ')).toBeDisabled())
+    expect(screen.getByLabelText('Buscar endereço pelo CEP')).toBeDisabled()
+
+    // Enquanto a busca de CNPJ esta em voo, a lupa do CEP esta desabilitada:
+    // o clique nao chega ao handler, entao nao ha uma segunda busca concorrente
+    // capturando um draft desatualizado e sobrescrevendo o resultado da primeira.
+    fireEvent.click(screen.getByLabelText('Buscar endereço pelo CEP'))
+    expect(buscarCep).not.toHaveBeenCalled()
+
+    resolverCnpj(RESULTADO_CNPJ)
+    await waitFor(() => expect(screen.getByLabelText('Buscar dados pelo CNPJ')).not.toBeDisabled())
+    expect(screen.getByLabelText('Buscar endereço pelo CEP')).not.toBeDisabled()
   })
 })
 

@@ -29,3 +29,9 @@ export function mascararCPF(v: string | null | undefined): string {
   if (d.length > 3) return `${d.slice(0, 3)}.${d.slice(3)}`
   return d
 }
+
+/** Mascara progressiva de CEP para input (capa em 8 digitos). */
+export function mascararCEP(v: string | null | undefined): string {
+  const d = soDigitos(v).slice(0, 8)
+  return d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d
+}

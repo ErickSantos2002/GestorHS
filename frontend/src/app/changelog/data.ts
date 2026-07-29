@@ -23,6 +23,15 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.32.0',
+    data: '29/07/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'Os dados do cliente na proposta agora têm campo CEP, e ele passa a sair no endereço do PDF.' },
+      { tipo: 'novidade', texto: 'Duas lupas no painel "Editar dados nesta proposta": a do CNPJ busca razão social e endereço completo na base pública da Receita; a do CEP preenche endereço, município e estado. Um botão Desfazer volta atrás se a busca atropelar algo.' },
+      { tipo: 'melhoria', texto: 'Ao editar os dados do cliente numa proposta, só os campos realmente diferentes do cadastro são guardados — o selo "Dados editados" agora aparece apenas quando algo de fato diverge.' },
+    ],
+  },
+  {
     versao: '1.31.0',
     data: '29/07/2026',
     itens: [

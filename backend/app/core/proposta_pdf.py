@@ -98,6 +98,12 @@ def _fmt_documento(doc: Optional[str]) -> str:
     return _esc(doc)
 
 
+def _fmt_cep(v) -> str:
+    """Formata CEP de 8 dígitos; mantém o original se não bater."""
+    digitos = re.sub(r"\D", "", str(v or ""))
+    return f"{digitos[:5]}-{digitos[5:]}" if len(digitos) == 8 else digitos
+
+
 def _sanitizar_html(html: Optional[str]) -> str:
     """
     Sanitização defensiva do HTML do editor rico (outros_itens) antes de
@@ -359,6 +365,10 @@ def montar_html(proposta, cliente) -> str:
     cliente_cidade_estado = ""
     cliente_telefone = ""
     cliente_email = ""
+    cliente_cep = ""
+
+    municipio = ""
+    estado = ""
 
     if cliente:
         cliente_display = _esc(cliente.nome or "—")
@@ -366,14 +376,9 @@ def montar_html(proposta, cliente) -> str:
         cliente_endereco = _esc(cliente.endereco or "")
         municipio = cliente.municipio or ""
         estado = cliente.estado or ""
-        if municipio and estado:
-            cliente_cidade_estado = _esc(f"{municipio} - {estado}")
-        elif municipio:
-            cliente_cidade_estado = _esc(municipio)
-        elif estado:
-            cliente_cidade_estado = _esc(estado)
         cliente_email = _esc(cliente.email or "")
         cliente_telefone = _esc(cliente.celular or cliente.whatsapp or cliente.telefones or "")
+        cliente_cep = _fmt_cep(cliente.cep)
 
     # ── "Aos cuidados de" — sem entidade Person no Gestor: campo texto da proposta ──
     aos_cuidados = proposta.contato or ""
@@ -387,16 +392,38 @@ def montar_html(proposta, cliente) -> str:
         cliente_documento = _fmt_documento(ov["documento"])
     if ov.get("endereco"):
         cliente_endereco = _esc(ov["endereco"])
-    if ov.get("municipio") or ov.get("estado"):
-        _m = ov.get("municipio") or ""
-        _e = ov.get("estado") or ""
-        cliente_cidade_estado = _esc(f"{_m} - {_e}" if _m and _e else (_m or _e))
+    # Municipio e estado sao resolvidos INDEPENDENTEMENTE: o override pode
+    # trazer so um dos dois (ex.: a lupa de CEP preenche so o municipio
+    # quando o estado ja bate com o cadastro) — o outro precisa continuar
+    # vindo do cadastro em vez de sumir da proposta (ACHADO 1 do review).
+    if ov.get("municipio"):
+        municipio = ov["municipio"]
+    if ov.get("estado"):
+        estado = ov["estado"]
     if ov.get("email"):
         cliente_email = _esc(ov["email"])
     if ov.get("telefone"):
         cliente_telefone = _esc(ov["telefone"])
     if ov.get("contato"):
         aos_cuidados = ov["contato"]
+    if ov.get("cep"):
+        cliente_cep = _fmt_cep(ov["cep"])
+
+    if municipio and estado:
+        cliente_cidade_estado = _esc(f"{municipio} - {estado}")
+    elif municipio:
+        cliente_cidade_estado = _esc(municipio)
+    elif estado:
+        cliente_cidade_estado = _esc(estado)
+
+    # CEP entra na linha de cidade/UF com o marcador "— CEP:", compartilhado
+    # com o bloco de Endereco de Entrega deste PDF — mas o separador entre
+    # municipio e UF difere entre os dois blocos (aqui "-", no de Entrega "/").
+    if cliente_cep:
+        cliente_cidade_estado = (
+            f"{cliente_cidade_estado} — CEP: {cliente_cep}"
+            if cliente_cidade_estado else f"CEP: {cliente_cep}"
+        )
 
     aos_cuidados_esc = _esc(aos_cuidados) or "—"
 
@@ -474,7 +501,7 @@ def montar_html(proposta, cliente) -> str:
             if de.get('estado'):
                 cidade_estado_cep += f"/{de_get('estado')}"
             if de.get('cep'):
-                cidade_estado_cep += f" — CEP: {de_get('cep')}"
+                cidade_estado_cep += f" — CEP: {_fmt_cep(de.get('cep'))}"
 
             if de_get('destinatario'):
                 linhas_entrega += f"{de_get('destinatario')}<br>"

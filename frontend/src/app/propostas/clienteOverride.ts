@@ -3,11 +3,11 @@
 // suportados, dos rotulos e da comparacao cadastro x proposta — usado pelo
 // editor (PropostaModal), pela listagem e pela tela de detalhe.
 
-import { formatarDocumento, soDigitos } from '../../lib/documento'
+import { formatarDocumento, mascararCEP, soDigitos } from '../../lib/documento'
 import type { Cliente } from '../clientes/api'
 
 // As chaves DEVEM bater com o backend (app/core/proposta_pdf.py, montagem do contexto).
-export const CAMPOS_OVERRIDE = ['nome', 'documento', 'endereco', 'municipio', 'estado', 'email', 'telefone', 'contato'] as const
+export const CAMPOS_OVERRIDE = ['nome', 'documento', 'endereco', 'municipio', 'estado', 'cep', 'email', 'telefone', 'contato'] as const
 export type CampoOverride = (typeof CAMPOS_OVERRIDE)[number]
 
 export const ROTULOS_OVERRIDE: Record<CampoOverride, string> = {
@@ -16,6 +16,7 @@ export const ROTULOS_OVERRIDE: Record<CampoOverride, string> = {
   endereco: 'Endereço',
   municipio: 'Município',
   estado: 'Estado (UF)',
+  cep: 'CEP',
   email: 'E-mail',
   telefone: 'Telefone',
   contato: 'Contato',
@@ -34,6 +35,7 @@ export function valorDoCadastro(campo: CampoOverride, cliente?: Cliente | null):
     case 'endereco': return cliente.endereco ?? ''
     case 'municipio': return cliente.municipio ?? ''
     case 'estado': return cliente.estado ?? ''
+    case 'cep': return soDigitos(cliente.cep)
     case 'email': return cliente.email ?? ''
     case 'telefone': return cliente.celular || cliente.whatsapp || cliente.telefones || ''
     case 'contato': return cliente.contato ?? ''
@@ -50,6 +52,24 @@ export interface CampoAlterado {
   mudou: boolean
 }
 
+// Campos guardados como digitos puros — mascara e' so apresentacao.
+const CAMPOS_DIGITOS = new Set<CampoOverride>(['documento', 'cep'])
+
+function normalizarCampo(campo: CampoOverride, v: string): string {
+  return CAMPOS_DIGITOS.has(campo) ? soDigitos(v) : v.trim()
+}
+
+function exibirCampo(campo: CampoOverride, v: string): string {
+  if (campo === 'documento') return formatarDocumento(v)
+  if (campo === 'cep') return mascararCEP(v)
+  return v
+}
+
+/** true quando o valor digitado equivale ao que ja esta no cadastro. */
+export function mesmoValorDoCadastro(campo: CampoOverride, valor: string, cliente?: Cliente | null): boolean {
+  return normalizarCampo(campo, valor) === normalizarCampo(campo, valorDoCadastro(campo, cliente))
+}
+
 /**
  * Campos preenchidos no override, com o valor do cadastro ao lado.
  * Campos em branco no override nao entram — eles caem no cadastro.
@@ -61,19 +81,17 @@ export function camposAlterados(
   cliente?: Cliente | null,
 ): CampoAlterado[] {
   if (!override) return []
-  const exibir = (campo: CampoOverride, v: string) => (campo === 'documento' ? formatarDocumento(v) : v)
 
   return CAMPOS_OVERRIDE.flatMap((campo) => {
     const bruto = String(override[campo] ?? '').trim()
     if (!bruto) return []
     const cadastro = valorDoCadastro(campo, cliente)
-    const normalizar = (v: string) => (campo === 'documento' ? soDigitos(v) : v.trim())
     return [{
       campo,
       rotulo: ROTULOS_OVERRIDE[campo],
-      cadastro: exibir(campo, cadastro),
-      proposta: exibir(campo, bruto),
-      mudou: normalizar(bruto) !== normalizar(cadastro),
+      cadastro: exibirCampo(campo, cadastro),
+      proposta: exibirCampo(campo, bruto),
+      mudou: normalizarCampo(campo, bruto) !== normalizarCampo(campo, cadastro),
     }]
   })
 }

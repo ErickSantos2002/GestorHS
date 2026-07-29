@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { camposAlterados, temOverride, valorDoCadastro } from './clienteOverride'
+import { camposAlterados, temOverride, valorDoCadastro, mesmoValorDoCadastro } from './clienteOverride'
 import type { Cliente } from '../clientes/api'
 
 const CLIENTE = {
@@ -71,5 +71,41 @@ describe('camposAlterados', () => {
   it('mantem a ordem canonica dos campos', () => {
     const r = camposAlterados({ contato: 'Joao', nome: 'X', documento: '111' }, CLIENTE)
     expect(r.map((c) => c.campo)).toEqual(['nome', 'documento', 'contato'])
+  })
+})
+
+describe('cep como campo do override', () => {
+  it('valorDoCadastro le o CEP do cliente sem mascara', () => {
+    expect(valorDoCadastro('cep', { ...CLIENTE, cep: '50030-230' })).toBe('50030230')
+    expect(valorDoCadastro('cep', { ...CLIENTE, cep: null })).toBe('')
+  })
+
+  it('camposAlterados formata o CEP dos dois lados', () => {
+    const [c] = camposAlterados({ cep: '01310100' }, { ...CLIENTE, cep: '50030230' })
+    expect(c.rotulo).toBe('CEP')
+    expect(c.cadastro).toBe('50030-230')
+    expect(c.proposta).toBe('01310-100')
+    expect(c.mudou).toBe(true)
+  })
+
+  it('CEP com e sem mascara conta como igual ao cadastro', () => {
+    const [c] = camposAlterados({ cep: '50030-230' }, { ...CLIENTE, cep: '50030230' })
+    expect(c.mudou).toBe(false)
+  })
+})
+
+describe('mesmoValorDoCadastro', () => {
+  it('compara ignorando mascara em documento e cep', () => {
+    expect(mesmoValorDoCadastro('documento', '36.312.056/0005-52', CLIENTE)).toBe(true)
+    expect(mesmoValorDoCadastro('cep', '50030-230', { ...CLIENTE, cep: '50030230' })).toBe(true)
+  })
+
+  it('compara ignorando espacos em volta nos campos de texto', () => {
+    expect(mesmoValorDoCadastro('nome', '  Cliente Teste  ', CLIENTE)).toBe(true)
+    expect(mesmoValorDoCadastro('nome', 'Outro Nome', CLIENTE)).toBe(false)
+  })
+
+  it('sem cliente carregado nada e igual ao cadastro', () => {
+    expect(mesmoValorDoCadastro('nome', 'Cliente Teste', null)).toBe(false)
   })
 })
