@@ -80,9 +80,13 @@ function Secao({ titulo, icon, primeira, children }: { titulo: string; icon?: Re
   )
 }
 
-function ComLupa({ aoBuscar, buscando, rotulo, children }: {
+function ComLupa({ aoBuscar, carregando, desabilitado, rotulo, children }: {
   aoBuscar: () => void
-  buscando: boolean
+  /** Spinner nesta lupa especifica — so a que de fato esta buscando. */
+  carregando: boolean
+  /** Desabilita o clique — vale para as duas lupas enquanto qualquer busca estiver em andamento,
+   * pra evitar que uma segunda busca dispare com um draft ja desatualizado pela primeira. */
+  desabilitado: boolean
   rotulo: string
   children: ReactNode
 }) {
@@ -92,12 +96,12 @@ function ComLupa({ aoBuscar, buscando, rotulo, children }: {
       <button
         type="button"
         onClick={aoBuscar}
-        disabled={buscando}
+        disabled={desabilitado}
         aria-label={rotulo}
         title={rotulo}
         className="mb-0.5 shrink-0 rounded-lg border border-border bg-background-elevated p-2.5 text-slate-400 hover:text-primary hover:border-primary/40 disabled:opacity-50 transition-colors"
       >
-        {buscando ? <Spinner className="w-4 h-4" /> : <IconSearch className="w-4 h-4" />}
+        {carregando ? <Spinner className="w-4 h-4" /> : <IconSearch className="w-4 h-4" />}
       </button>
     </div>
   )
@@ -364,6 +368,11 @@ export function PropostaModal({ propostaId, onClose, onSalvo }: {
   }
 
   async function buscarPorCnpj() {
+    // As duas lupas ficam desabilitadas enquanto qualquer busca esta em andamento
+    // (ver ComLupa), mas a guarda fica aqui tambem: sem ela, uma segunda chamada
+    // capturaria overrideDraft desatualizado e sobrescreveria silenciosamente o
+    // que a outra busca acabou de preencher.
+    if (buscando) return
     setErroBusca('')
     setBuscando('cnpj')
     const anterior = overrideDraft
@@ -386,6 +395,7 @@ export function PropostaModal({ propostaId, onClose, onSalvo }: {
   }
 
   async function buscarPorCep() {
+    if (buscando) return
     setErroBusca('')
     setBuscando('cep')
     const anterior = overrideDraft
@@ -641,10 +651,10 @@ export function PropostaModal({ propostaId, onClose, onSalvo }: {
                 <p className="text-xs text-slate-500">Estes dados valem só para esta proposta e não alteram o cadastro do cliente. Campos em branco usam os dados do cadastro.</p>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <Input id="ov-nome" label="Razão social / Nome" value={overrideDraft.nome ?? ''} onChange={(e) => definirOverride('nome', e.target.value)} className="sm:col-span-2" />
-                  <ComLupa aoBuscar={buscarPorCnpj} buscando={buscando === 'cnpj'} rotulo="Buscar dados pelo CNPJ">
+                  <ComLupa aoBuscar={buscarPorCnpj} carregando={buscando === 'cnpj'} desabilitado={buscando !== null} rotulo="Buscar dados pelo CNPJ">
                     <Input id="ov-documento" label="CNPJ / Documento" value={formatarDocumento(overrideDraft.documento ?? '')} onChange={(e) => definirOverride('documento', soDigitos(e.target.value))} />
                   </ComLupa>
-                  <ComLupa aoBuscar={buscarPorCep} buscando={buscando === 'cep'} rotulo="Buscar endereço pelo CEP">
+                  <ComLupa aoBuscar={buscarPorCep} carregando={buscando === 'cep'} desabilitado={buscando !== null} rotulo="Buscar endereço pelo CEP">
                     <Input id="ov-cep" label="CEP" value={mascararCEP(overrideDraft.cep ?? '')} onChange={(e) => definirOverride('cep', soDigitos(e.target.value))} />
                   </ComLupa>
                   <Input id="ov-endereco" label="Endereço" value={overrideDraft.endereco ?? ''} onChange={(e) => definirOverride('endereco', e.target.value)} className="sm:col-span-2" />

@@ -463,6 +463,30 @@ describe('PropostaModal — busca de CEP e CNPJ', () => {
 
     expect(await screen.findByText(/indisponível/i)).toBeInTheDocument()
   })
+
+  it('busca em andamento desabilita as duas lupas, evitando que a segunda sobrescreva a primeira', async () => {
+    // Promise controlada a mao: so resolve quando o teste mandar, pra segurar
+    // a busca de CNPJ "em voo" e tentar disparar a de CEP nesse meio-tempo.
+    let resolverCnpj: (r: typeof RESULTADO_CNPJ) => void = () => {}
+    const promessaCnpj = new Promise<typeof RESULTADO_CNPJ>((resolve) => { resolverCnpj = resolve })
+    buscarCnpj.mockReturnValue(promessaCnpj)
+    await abrirOverride()
+
+    fireEvent.click(screen.getByLabelText('Buscar dados pelo CNPJ'))
+
+    await waitFor(() => expect(screen.getByLabelText('Buscar dados pelo CNPJ')).toBeDisabled())
+    expect(screen.getByLabelText('Buscar endereço pelo CEP')).toBeDisabled()
+
+    // Enquanto a busca de CNPJ esta em voo, a lupa do CEP esta desabilitada:
+    // o clique nao chega ao handler, entao nao ha uma segunda busca concorrente
+    // capturando um draft desatualizado e sobrescrevendo o resultado da primeira.
+    fireEvent.click(screen.getByLabelText('Buscar endereço pelo CEP'))
+    expect(buscarCep).not.toHaveBeenCalled()
+
+    resolverCnpj(RESULTADO_CNPJ)
+    await waitFor(() => expect(screen.getByLabelText('Buscar dados pelo CNPJ')).not.toBeDisabled())
+    expect(screen.getByLabelText('Buscar endereço pelo CEP')).not.toBeDisabled()
+  })
 })
 
 describe('descreverVencimento', () => {
