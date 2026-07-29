@@ -327,16 +327,24 @@ describe('PropostaModal', () => {
     await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
     const payload = propostasCriar.mock.calls[0][0]
     expect(payload.cliente_override.documento).toBe('12345678909')
+    // so o campo que divergiu entra no override
+    expect(Object.keys(payload.cliente_override)).toEqual(['documento'])
   })
 
-  it('override aplicado sem mudar nada avisa que os dados so foram fixados', async () => {
+  it('aplicar override sem mudar nada nao grava override', async () => {
     render(<PropostaModal onClose={vi.fn()} />)
     await selecionarCliente()
 
     fireEvent.click(screen.getByLabelText('Editar dados nesta proposta'))
     fireEvent.click(screen.getByText('Aplicar'))
 
-    expect(await screen.findByText(/fixados nesta proposta — hoje iguais ao cadastro/i)).toBeInTheDocument()
+    // nada divergiu do cadastro: a proposta nao pode ficar marcada como editada
+    expect(screen.queryByText(/Editados só nesta proposta/)).not.toBeInTheDocument()
+
+    aplicarModelo()
+    fireEvent.click(screen.getByText('Criar Proposta'))
+    await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
+    expect(propostasCriar.mock.calls[0][0].cliente_override).toBeNull()
   })
 })
 

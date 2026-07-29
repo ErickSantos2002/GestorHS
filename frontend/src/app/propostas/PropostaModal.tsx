@@ -22,7 +22,7 @@ import {
 } from './api'
 import { buildDefaultOtherItems, buildPhoebusOtherItems, DEFAULT_NOTES } from './propostaDefaults'
 import { htmlTemTexto, validarProposta } from './validacao'
-import { camposAlterados, CAMPOS_OVERRIDE, temOverride as overrideTemDados, type CampoOverride } from './clienteOverride'
+import { camposAlterados, CAMPOS_OVERRIDE, mesmoValorDoCadastro, temOverride as overrideTemDados, type CampoOverride } from './clienteOverride'
 
 const UFS = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG',
@@ -323,7 +323,12 @@ export function PropostaModal({ propostaId, onClose, onSalvo }: {
     const limpo: Record<string, string> = {}
     CAMPOS_OVERRIDE.forEach((k) => {
       const v = overrideDraft[k]
-      if (v != null && v.trim() !== '') limpo[k] = v.trim()
+      if (v == null || v.trim() === '') return
+      // Campo identico ao cadastro nao vira override: o painel abre
+      // pre-preenchido, entao gravar tudo marcaria a proposta como
+      // "Dados editados" sem nada divergir de fato.
+      if (mesmoValorDoCadastro(k, v, clienteSelecionado)) return
+      limpo[k] = v.trim()
     })
     setField('cliente_override', Object.keys(limpo).length ? limpo : null)
     setMostrarOverride(false)
@@ -526,9 +531,7 @@ export function PropostaModal({ propostaId, onClose, onSalvo }: {
 
             {temOverride && (
               <p className="text-xs font-medium text-warning">
-                {camposEditados.some((c) => c.mudou)
-                  ? `Editados só nesta proposta: ${camposEditados.filter((c) => c.mudou).map((c) => c.rotulo).join(', ')}.`
-                  : 'Dados do cliente fixados nesta proposta — hoje iguais ao cadastro.'}
+                Editados só nesta proposta: {camposEditados.filter((c) => c.mudou).map((c) => c.rotulo).join(', ')}.
               </p>
             )}
 
