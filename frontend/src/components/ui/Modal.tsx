@@ -20,15 +20,22 @@ interface ModalProps {
   children: ReactNode
   footer?: ReactNode
   size?: ModalSize
+  /**
+   * Clique no fundo escuro fecha a modal (padrao). Desligue em formularios
+   * longos, onde o clique acidental fora joga fora o que o usuario digitou —
+   * ai so o X e o Cancelar fecham.
+   */
+  closeOnBackdrop?: boolean
 }
 
-export function Modal({ open, onClose, title, children, footer, size = 'md' }: ModalProps) {
+export function Modal({ open, onClose, title, children, footer, size = 'md', closeOnBackdrop = true }: ModalProps) {
   if (!open) return null
   return (
     <div
+      data-testid="modal-backdrop"
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
+        if (closeOnBackdrop && e.target === e.currentTarget) onClose()
       }}
     >
       <div className={`w-full ${SIZES[size]} max-h-[90vh] flex flex-col rounded-2xl bg-background-surface border border-border shadow-2xl`}>
