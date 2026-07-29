@@ -18,10 +18,15 @@ URL_BRASILAPI_CNPJ = "https://brasilapi.com.br/api/cnpj/v1/{cnpj}"
 
 
 def _get_json(url: str):
-    """GET que devolve o JSON, None em 404 e levanta ProvedorIndisponivel no resto."""
+    """GET que devolve o JSON, None em 404 e levanta ProvedorIndisponivel no resto.
+
+    So captura httpx.HTTPError (a arvore de erro de transporte/HTTP do httpx:
+    ConnectError, TimeoutException, etc.) — um bug de programacao (TypeError,
+    AttributeError...) deve estourar, nao virar um falso "provedor fora do ar".
+    """
     try:
         resp = httpx.get(url, timeout=TIMEOUT)
-    except Exception as e:
+    except httpx.HTTPError as e:
         raise enderecos.ProvedorIndisponivel(str(e)) from e
     if resp.status_code == 404:
         return None
@@ -41,8 +46,8 @@ def buscar_cep(cep: str) -> dict:
         dados = _get_json(URL_BRASILAPI_CEP.format(cep=digitos))
         if dados is not None:
             return enderecos.mapear_brasilapi_cep(dados)
-    except enderecos.ProvedorIndisponivel:
-        logger.warning("BrasilAPI CEP indisponivel; tentando ViaCEP")
+    except enderecos.ProvedorIndisponivel as e:
+        logger.warning("BrasilAPI CEP indisponivel (%s); tentando ViaCEP", e)
     dados = _get_json(URL_VIACEP.format(cep=digitos))
     if dados is None:
         raise enderecos.NaoEncontrado("CEP nao encontrado")

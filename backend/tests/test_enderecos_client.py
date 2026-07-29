@@ -15,6 +15,16 @@ class RespostaFake:
         return self._dados
 
 
+class RespostaJsonInvalido:
+    """Simula HTTP 200 com corpo que nao e JSON valido (resp.json() levanta)."""
+
+    def __init__(self, status_code=200):
+        self.status_code = status_code
+
+    def json(self):
+        raise ValueError("Expecting value: line 1 column 1 (char 0)")
+
+
 def _fingir(monkeypatch, roteador):
     """roteador: callable(url) -> RespostaFake, ou levanta para simular rede fora."""
     chamadas = []
@@ -118,3 +128,20 @@ def test_buscar_cnpj_invalido_nao_sai_para_a_rede(monkeypatch):
     with pytest.raises(enderecos.DocumentoInvalido):
         enderecos_client.buscar_cnpj("123")
     assert chamadas == []
+
+
+def test_buscar_cep_cai_no_viacep_quando_brasilapi_da_5xx(monkeypatch):
+    def roteador(url):
+        return RespostaFake(500) if "brasilapi" in url else RespostaFake(200, CEP_VIACEP)
+
+    chamadas = _fingir(monkeypatch, roteador)
+    assert enderecos_client.buscar_cep("50030230") == ESPERADO_CEP
+    assert len(chamadas) == 2
+    assert "viacep" in chamadas[1]
+
+
+def test_buscar_cep_com_corpo_invalido_levanta_indisponivel(monkeypatch):
+    chamadas = _fingir(monkeypatch, lambda url: RespostaJsonInvalido(200))
+    with pytest.raises(enderecos.ProvedorIndisponivel):
+        enderecos_client._get_json(enderecos_client.URL_BRASILAPI_CEP.format(cep="50030230"))
+    assert len(chamadas) == 1
