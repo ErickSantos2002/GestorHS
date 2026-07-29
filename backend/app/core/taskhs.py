@@ -115,7 +115,7 @@ def _sec_laboratorio(ordem, certificados: list[dict]) -> str | None:
     ])
 
 
-def _sec_posvendas(ordem) -> str | None:
+def _sec_posvendas(ordem, *, numero_proposta=None, proposta_url=None) -> str | None:
     if wf.posicao(ordem.fase) < wf.posicao(6):
         return None
     cli = ordem.cliente_rel
@@ -126,9 +126,15 @@ def _sec_posvendas(ordem) -> str | None:
     aceite = None
     if ordem.aceite:
         aceite = f"Aceite: {_fmt(ordem.data_aceite)}" if ordem.data_aceite else "Aceite: sim"
+    proposta = None
+    if numero_proposta is not None:
+        proposta = f"Proposta #{numero_proposta}"
+        if proposta_url:
+            proposta = f"{proposta}: {proposta_url}"
     return _bloco([
         f"Contato: {contato}" if contato else None,
         aceite,
+        proposta,
     ])
 
 
@@ -229,7 +235,7 @@ def _linha_aparelho_lab(ordem, certificados: list[dict]) -> str:
     return " ".join(partes)
 
 
-def montar_obs_caixa(caixa, ordens, *, certificados_por_os: dict, nota_fiscal_url=None) -> dict:
+def montar_obs_caixa(caixa, ordens, *, certificados_por_os: dict, nota_fiscal_url=None, proposta_url=None) -> dict:
     cliente_os = next((o for o in ordens if o.cliente_nome), ordens[0] if ordens else None)
     cabecalho = "\n".join(_cabecalho(cliente_os)) if cliente_os else None
     aparelhos = _bloco([
@@ -240,10 +246,11 @@ def montar_obs_caixa(caixa, ordens, *, certificados_por_os: dict, nota_fiscal_ur
     obs2 = _bloco([_linha_aparelho_lab(o, certificados_por_os.get(o.id, [])) for o in ordens]) or None
     # obs3..obs6 (nível lote) reusam a lógica de uma OS representativa
     rep = ordens[0] if ordens else None
+    numero_proposta = getattr(caixa, "numero_proposta", None)
     return {
         "obs1": obs1,
         "obs2": obs2,
-        "obs3": _sec_posvendas(rep) if rep else None,
+        "obs3": _sec_posvendas(rep, numero_proposta=numero_proposta, proposta_url=proposta_url) if rep else None,
         "obs4": _sec_financeiro(rep, nota_fiscal_url) if rep else None,
         "obs5": _sec_preparando(rep) if rep else None,
         "obs6": _sec_finalizada(rep) if rep else None,

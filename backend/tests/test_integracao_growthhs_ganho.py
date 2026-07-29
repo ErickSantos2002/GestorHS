@@ -7,7 +7,7 @@ endpoint mora no app principal; a autenticacao aqui e via header X-API-Key
 (nao JWT), entao nao precisa de client_com/client_fin autenticado.
 """
 from app.core.config import settings
-from app.models import Ordem, LogOS
+from app.models import Caixa, Ordem, LogOS
 
 
 def test_caixa_posvendas_avanca_para_financeiro(client, caixa_posvendas, db_session, monkeypatch):
@@ -29,6 +29,49 @@ def test_caixa_posvendas_avanca_para_financeiro(client, caixa_posvendas, db_sess
 
     logs = db_session.query(LogOS).filter(LogOS.os.in_([o.id for o in ordens])).all()
     assert any("Proposta #123" in (log.texto or "") for log in logs)
+
+
+def test_ganho_grava_numero_proposta_ao_avancar(client, caixa_posvendas, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "GROWTHHS_INBOUND_API_KEY", "segredo-123")
+
+    resp = client.post(
+        f"/integracao/growthhs/caixas/{caixa_posvendas}/ganho",
+        json={"observacao": "Proposta #123", "numero_proposta": 123},
+        headers={"X-API-Key": "segredo-123"},
+    )
+    assert resp.status_code == 200
+
+    cx = db_session.query(Caixa).filter(Caixa.id == caixa_posvendas).first()
+    assert cx.numero_proposta == 123
+
+
+def test_ganho_grava_numero_proposta_mesmo_no_noop(client, caixa_financeiro, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "GROWTHHS_INBOUND_API_KEY", "segredo-123")
+
+    resp = client.post(
+        f"/integracao/growthhs/caixas/{caixa_financeiro}/ganho",
+        json={"observacao": "Proposta #999", "numero_proposta": 999},
+        headers={"X-API-Key": "segredo-123"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["movida"] is False
+
+    cx = db_session.query(Caixa).filter(Caixa.id == caixa_financeiro).first()
+    assert cx.numero_proposta == 999
+
+
+def test_ganho_sem_numero_proposta_fica_none(client, caixa_posvendas, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "GROWTHHS_INBOUND_API_KEY", "segredo-123")
+
+    resp = client.post(
+        f"/integracao/growthhs/caixas/{caixa_posvendas}/ganho",
+        json={"observacao": "sem numero"},
+        headers={"X-API-Key": "segredo-123"},
+    )
+    assert resp.status_code == 200
+
+    cx = db_session.query(Caixa).filter(Caixa.id == caixa_posvendas).first()
+    assert cx.numero_proposta is None
 
 
 def test_caixa_ja_em_financeiro_nao_reavanca(client, caixa_financeiro, db_session, monkeypatch):

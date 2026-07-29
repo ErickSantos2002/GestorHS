@@ -11,6 +11,7 @@ class Caixa(Base):
     obs = Column(String(1000), nullable=True)
     fase = Column(Integer, ForeignKey("fases.id"), nullable=True)
     cliente_principal = Column(Integer, ForeignKey("clientes.id"), nullable=True)
+    numero_proposta = Column(Integer, nullable=True)
 
     ordens = relationship("Ordem", back_populates="caixa_rel", lazy="selectin")
     fase_rel = relationship("Fase", lazy="joined")

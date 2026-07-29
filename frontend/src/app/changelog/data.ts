@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.30.0',
+    data: '29/07/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'Ao dar ganho no GrowthHS, o número da proposta é guardado na caixa e vira um link para baixar o PDF da proposta direto no card do TaskHS (na etapa de Pós-Vendas), do mesmo jeito que já acontece com os certificados.' },
+    ],
+  },
+  {
     versao: '1.29.0',
     data: '28/07/2026',
     itens: [

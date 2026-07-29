@@ -26,6 +26,7 @@ _FASES_JA_AVANCADAS = (wf.FASE_FINANCEIRO, 7, wf.FASE_FINALIZADA)
 
 class GanhoIn(BaseModel):
     observacao: str | None = None
+    numero_proposta: int | None = None
 
 
 class GanhoOut(BaseModel):
@@ -48,6 +49,9 @@ def ganho(
         raise HTTPException(status_code=404, detail="caixa nao encontrada")
     if cx.fase in _FASES_JA_AVANCADAS:
         logger.info("GrowthHS ganho: caixa %s ja avancada (fase %s), no-op", caixa_id, cx.fase)
+        if dados.numero_proposta is not None:
+            cx.numero_proposta = dados.numero_proposta
+            db.commit()
         return GanhoOut(movida=False, caixa_id=cx.id, fase=cx.fase)
     if cx.fase != FASE_POSVENDAS:
         logger.warning("GrowthHS ganho: caixa %s nao esta em Pos-Vendas (fase %s)", caixa_id, cx.fase)
@@ -56,6 +60,9 @@ def ganho(
     obs = "via GrowthHS"
     if dados.observacao and dados.observacao.strip():
         obs = f"via GrowthHS: {dados.observacao.strip()}"
+
+    if dados.numero_proposta is not None:
+        cx.numero_proposta = dados.numero_proposta
 
     executar_avanco_caixa(
         db, cx,
