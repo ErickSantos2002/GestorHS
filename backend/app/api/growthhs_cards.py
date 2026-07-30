@@ -107,7 +107,7 @@ def agendar_card_caixa(db, background_tasks, caixa) -> None:
                                  motivo="caixa_de_modulo",
                                  referencia_os=do_card[0].id if do_card else None)
         return
-    ordens = [o for o in caixa.ordens if o.equipamento_rel is not None]
+    ordens = [o for o in do_card if o.equipamento_rel is not None]
     if not ordens:
         return
     try:
