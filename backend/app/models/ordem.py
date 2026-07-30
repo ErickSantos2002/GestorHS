@@ -81,6 +81,12 @@ class Ordem(Base):
         return self.equipamento_rel.equipamento_descricao if self.equipamento_rel else None
 
     @property
+    def equipamento_catalogo(self):
+        """Id de catalogo do equipamento da OS (36 = Phoebus, 47 = Modulo PHOEBUS).
+        Ponte entre a OS e `core.fluxo_modulo`."""
+        return self.equipamento_rel.equipamento if self.equipamento_rel else None
+
+    @property
     def fase_descricao(self):
         return self.fase_rel.descricao if self.fase_rel else None
 

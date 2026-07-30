@@ -1,4 +1,5 @@
-"""Lógica pura de composição de clientes de uma caixa (sem I/O)."""
+"""Lógica pura de composição de uma caixa: clientes e as ordens que a representam
+nas integrações (sem I/O)."""
 from collections.abc import Iterable
 
 
@@ -22,3 +23,14 @@ def cliente_unico(clientes: Iterable[int | None]) -> int | None:
     """O único cliente distinto, se houver exatamente um; senão None."""
     d = _distintos(clientes)
     return next(iter(d)) if len(d) == 1 else None
+
+
+def ordens_do_card(caixa) -> list:
+    """As OS que representam a caixa nas integracoes (TaskHS e GrowthHS).
+
+    Exclui canceladas (fase 9), com fallback na lista completa quando a caixa toda
+    foi cancelada — senao o card ficaria sem nenhuma OS. Fonte unica do criterio:
+    o gate de modulo e a montagem do payload precisam concordar, e duplicar o
+    filtro nas duas integracoes seria pedir para elas divergirem.
+    """
+    return [o for o in caixa.ordens if o.fase not in (9,)] or list(caixa.ordens)
