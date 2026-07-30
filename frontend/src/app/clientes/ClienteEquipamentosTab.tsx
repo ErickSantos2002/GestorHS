@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { Spinner } from '../../components/ui/Spinner'
 import { ApiError } from '../../lib/api'
+import { cn } from '../../lib/utils'
 import { useAuth } from '../../auth/AuthContext'
 import { podeGerenciarCadastros } from '../../auth/roles'
 import { equipamentosClienteApi, STATUS_CALIBRACAO, type FrotaItem } from '../frota/api'
@@ -51,11 +52,20 @@ export function ClienteEquipamentosTab() {
           {itens.map((e) => {
             const s = STATUS_CALIBRACAO[e.status_calibracao]
             return (
-              <tr key={e.id} className="hover:bg-background-elevated transition-colors cursor-pointer" onClick={() => navigate(String(e.id))}>
-                <TD>{e.equipamento_descricao ?? '—'}</TD>
+              <tr
+                key={e.id}
+                className={cn('hover:bg-background-elevated transition-colors cursor-pointer', !e.ativo && 'opacity-60')}
+                onClick={() => navigate(String(e.id))}
+              >
+                <TD>
+                  <span className="inline-flex items-center gap-2">
+                    {e.equipamento_descricao ?? '—'}
+                    {!e.ativo && <Badge tone="neutral">Inativo</Badge>}
+                  </span>
+                </TD>
                 <TD>{e.serie || e.patrimonio || '—'}</TD>
                 <TD>{e.prox_calibragem ?? '—'}</TD>
-                <TD><Badge tone={s.tone}>{s.label}</Badge></TD>
+                <TD><Badge tone={e.ativo ? s.tone : 'neutral'}>{s.label}</Badge></TD>
               </tr>
             )
           })}
