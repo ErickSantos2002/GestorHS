@@ -33,9 +33,11 @@ def sincronizar(db: Session) -> tuple[int, int]:
         if list_id is None:
             continue
         try:
-            espelhamento.espelhar_os_sync(db, o, list_id=list_id, arquivado=False)
-            enviadas += 1
-            print(f"OK   OS #{o.id} -> lista {list_id}")
+            if espelhamento.espelhar_os_sync(db, o, list_id=list_id, arquivado=False):
+                enviadas += 1
+                print(f"OK   OS #{o.id} -> lista {list_id}")
+            else:
+                print(f"PULA OS #{o.id}: modulo/phoebus tem fluxo proprio")
         except Exception as e:  # noqa: BLE001 — relatório, segue para a próxima
             print(f"ERRO OS #{o.id}: {e}")
     return enviadas, len(ordens)

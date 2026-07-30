@@ -25,23 +25,35 @@ def _montar_payload_os(db, ordem, *, list_id, arquivado) -> dict:
 
 
 def agendar_espelhamento(db, background_tasks, ordem, *, list_id, arquivado):
-    """Agenda o upsert no TaskHS (async, best-effort). No-op se sem list_id ou integração desligada."""
+    """Agenda o upsert no TaskHS (async, best-effort). No-op se sem list_id,
+    integração desligada ou OS de módulo/phoebus."""
     if list_id is None or not taskhs_client.integracao_ativa():
+        return
+    if fluxo_modulo.os_de_modulo(ordem):
+        registrar_log_integracao(integracao="taskhs", status="pulado",
+                                 motivo="caixa_de_modulo", referencia_os=ordem.id)
         return
     payload = _montar_payload_os(db, ordem, list_id=list_id, arquivado=arquivado)
     background_tasks.add_task(taskhs_client.enviar_card, payload)
 
 
-def espelhar_os_sync(db, ordem, *, list_id, arquivado):
-    """Monta o payload e envia sincronamente, PROPAGANDO erro (uso no backfill)."""
+def espelhar_os_sync(db, ordem, *, list_id, arquivado) -> bool:
+    """Monta o payload e envia sincronamente, PROPAGANDO erro (uso no backfill).
+    Devolve True se enviou, False se pulou por ser módulo/phoebus — o backfill
+    relata o número real de OS enviadas."""
+    if fluxo_modulo.os_de_modulo(ordem):
+        registrar_log_integracao(integracao="taskhs", status="pulado",
+                                 motivo="caixa_de_modulo", referencia_os=ordem.id)
+        return False
     payload = _montar_payload_os(db, ordem, list_id=list_id, arquivado=arquivado)
     taskhs_client.enviar_card_sync(payload)
+    return True
 
 
 def _montar_payload_caixa(db, caixa, *, list_id, arquivado) -> dict:
     """Junta certificados + nota fiscal de todas as OS da caixa, monta as obs e
     devolve o payload v2 completo. Espelho de `_montar_payload_os` para caixas."""
-    from app.models import Ordem, OSCertificado
+    from app.models import OSCertificado
 
     ordens = ordens_do_card(caixa)
     pid = principal_valido(caixa.cliente_principal, [o.cliente for o in ordens])
