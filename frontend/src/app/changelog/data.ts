@@ -26,7 +26,7 @@ export const CHANGELOG: VersaoChangelog[] = [
     versao: '1.33.1',
     data: '30/07/2026',
     itens: [
-      { tipo: 'melhoria', texto: 'A tela do aparelho tinha dois jeitos de dizer se ele está ativo — o campo "Situação" e a caixinha "Ativo" — e só a caixinha valia de verdade. O campo "Situação" foi removido: agora é a caixinha "Ativo" que controla se o aparelho aparece no portal do cliente, no painel, nos alertas e nas cargas de cobrança.' },
+      { tipo: 'melhoria', texto: 'A tela do aparelho tinha dois jeitos de dizer se ele está ativo — o campo "Situação" e a caixinha "Ativo" — e só a caixinha valia de verdade. O campo "Situação" foi removido: continua sendo a caixinha "Ativo" que controla se o aparelho aparece no portal do cliente, no painel, nos alertas e nas cargas de cobrança.' },
     ],
   },
   {
