@@ -40,7 +40,6 @@ def test_sincronizar_desligada_levanta(db_session, monkeypatch):
 
 def test_sincronizar_nao_conta_os_de_modulo_como_enviada(db_session, fases_seed, monkeypatch):
     """OS de modulo e' pulada; o relatorio nao pode contar como enviada."""
-    from app.api import espelhamento
     from app.models import Cliente, Equipamento, EquipamentoCliente, Ordem
     monkeypatch.setattr(settings, "TASKHS_BASE_URL", "http://t/api")
     monkeypatch.setattr(settings, "TASKHS_API_KEY", "k")

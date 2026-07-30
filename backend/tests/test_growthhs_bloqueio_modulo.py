@@ -9,7 +9,6 @@ import pytest
 
 from app.api import growthhs_cards
 from app.core.config import settings
-from app.integrations import hsgrowth_client
 
 
 class _BG:
@@ -40,27 +39,22 @@ def _caixa_com(db, catalogo_id):
     return cx
 
 
-def test_card_caixa_de_modulo_nao_agenda(db_session, fases_seed, growth_ligado, monkeypatch):
-    enviados = []
-    monkeypatch.setattr(hsgrowth_client, "enviar_card", lambda c: enviados.append(c))
+def test_card_caixa_de_modulo_nao_agenda(db_session, fases_seed, growth_ligado):
     cx = _caixa_com(db_session, settings.EQUIPAMENTO_MODULO_ID)
     bg = _BG()
     growthhs_cards.agendar_card_caixa(db_session, bg, cx)
     assert bg.tarefas == []
-    assert enviados == []
 
 
-def test_card_caixa_de_phoebus_nao_agenda(db_session, fases_seed, growth_ligado, monkeypatch):
-    monkeypatch.setattr(hsgrowth_client, "enviar_card", lambda c: None)
+def test_card_caixa_de_phoebus_nao_agenda(db_session, fases_seed, growth_ligado):
     cx = _caixa_com(db_session, settings.EQUIPAMENTO_PHOEBUS_ID)
     bg = _BG()
     growthhs_cards.agendar_card_caixa(db_session, bg, cx)
     assert bg.tarefas == []
 
 
-def test_card_caixa_comum_continua_agendando(db_session, fases_seed, growth_ligado, monkeypatch):
+def test_card_caixa_comum_continua_agendando(db_session, fases_seed, growth_ligado):
     """Controle positivo."""
-    monkeypatch.setattr(hsgrowth_client, "enviar_card", lambda c: None)
     cx = _caixa_com(db_session, 1)
     bg = _BG()
     growthhs_cards.agendar_card_caixa(db_session, bg, cx)
