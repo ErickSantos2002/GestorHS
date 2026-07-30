@@ -32,6 +32,7 @@ export const CHANGELOG: VersaoChangelog[] = [
       { tipo: 'melhoria', texto: 'As colunas de Ações (Usuários, Cadastros, Cobrança, Propostas) trocaram os textos por ícones coloridos — lápis para editar, lixeira para excluir, olho para visualizar, entre outros.' },
       { tipo: 'melhoria', texto: 'As páginas passam a ocupar toda a largura da tela e a barra de busca ficou padronizada: campo em largura total com o botão Buscar ao lado.' },
       { tipo: 'melhoria', texto: 'Dashboard com cartões maiores e as fases das OS numa única linha; a janela "O que há de novo" ficou mais larga.' },
+      { tipo: 'melhoria', texto: 'Os botões de criar ficaram mais claros: em vez de só "Novo", mostram o que será criado — "Novo setor", "Nova marca", "Novo serviço", "Novo produto" e assim por diante.' },
     ],
   },
   {

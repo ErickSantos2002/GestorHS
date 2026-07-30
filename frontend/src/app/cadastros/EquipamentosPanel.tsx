@@ -77,7 +77,7 @@ export function EquipamentosPanel() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-slate-100">Catálogo de equipamentos</h2>
-        <Button onClick={abrirNovo}>Novo</Button>
+        <Button onClick={abrirNovo}>Novo equipamento</Button>
       </div>
       {erro && <div className="rounded-lg bg-danger/10 border border-danger/20 px-3 py-2.5 text-sm text-danger">{erro}</div>}
       {itens === null ? (

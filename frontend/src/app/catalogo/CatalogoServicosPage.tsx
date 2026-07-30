@@ -77,7 +77,7 @@ export function CatalogoServicosPage() {
     <PageContainer>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-extrabold text-slate-100">Serviços</h1>
-        <Button onClick={abrirNovo}>Novo</Button>
+        <Button onClick={abrirNovo}>Novo serviço</Button>
       </div>
       {erro && <div className="rounded-lg bg-danger/10 border border-danger/20 px-3 py-2.5 text-sm text-danger">{erro}</div>}
       {itens === null ? (

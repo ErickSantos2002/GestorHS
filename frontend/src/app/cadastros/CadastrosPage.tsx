@@ -43,12 +43,12 @@ export function CadastrosPage() {
         ))}
       </div>
       <div className="rounded-2xl bg-background-surface border border-border p-5">
-        {aba === 'Setores' && <CadastroSimples<Setor> titulo="Setores" client={setoresApi} />}
-        {aba === 'Marcas' && <CadastroSimples<Marca> titulo="Marcas" client={marcasApi} />}
+        {aba === 'Setores' && <CadastroSimples<Setor> titulo="Setores" rotuloNovo="Novo setor" client={setoresApi} />}
+        {aba === 'Marcas' && <CadastroSimples<Marca> titulo="Marcas" rotuloNovo="Nova marca" client={marcasApi} />}
         {aba === 'Grupos' && <GruposPanel />}
         {aba === 'Categorias' && <CategoriasPanel />}
         {aba === 'Equipamentos' && <EquipamentosPanel />}
-        {aba === 'Funções' && <CadastroSimples<Funcao> titulo="Funções" client={funcoesApi} />}
+        {aba === 'Funções' && <CadastroSimples<Funcao> titulo="Funções" rotuloNovo="Nova função" client={funcoesApi} />}
         {aba === 'Fases' && <FasesPanel />}
       </div>
     </PageContainer>
