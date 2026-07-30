@@ -23,6 +23,18 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.33.0',
+    data: '30/07/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'Nova paginação nas listas: os registros agora aparecem em páginas com números clicáveis, dentro da própria tabela e com a contagem "Mostrando X a Y de Z".' },
+      { tipo: 'novidade', texto: 'As telas de Serviços, Produtos, Logs de Integração e Modelos de certificado passam a paginar de 15 em 15.' },
+      { tipo: 'melhoria', texto: 'Duplicar uma proposta agora abre a janela já preenchida (com você como responsável e a data de hoje) para conferir e confirmar — nada é criado até clicar em "Criar Proposta", e cancelar não deixa proposta duplicada.' },
+      { tipo: 'melhoria', texto: 'As colunas de Ações (Usuários, Cadastros, Cobrança, Propostas) trocaram os textos por ícones coloridos — lápis para editar, lixeira para excluir, olho para visualizar, entre outros.' },
+      { tipo: 'melhoria', texto: 'As páginas passam a ocupar toda a largura da tela e a barra de busca ficou padronizada: campo em largura total com o botão Buscar ao lado.' },
+      { tipo: 'melhoria', texto: 'Dashboard com cartões maiores e as fases das OS numa única linha; a janela "O que há de novo" ficou mais larga.' },
+    ],
+  },
+  {
     versao: '1.32.0',
     data: '29/07/2026',
     itens: [
