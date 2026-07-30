@@ -15,7 +15,7 @@ import sys
 from sqlalchemy.orm import Session
 
 from app.api import espelhamento
-from app.core import taskhs
+from app.core import fluxo_modulo, taskhs
 from app.core.config import settings
 from app.integrations import taskhs_client
 from app.models import Ordem
@@ -45,6 +45,9 @@ def reenviar(db: Session, ids: list[int], *, enviar: bool) -> tuple[int, int]:
         list_id = taskhs.list_id_da_fase(ordem.fase)
         if list_id is None:
             print(f"PULA OS #{oid}: fase {ordem.fase} nao tem lista (cancelada/desconhecida)")
+            continue
+        if fluxo_modulo.os_de_modulo(ordem):
+            print(f"PULA OS #{oid}: modulo/phoebus tem fluxo proprio, nao vai pro board")
             continue
         payload = espelhamento._montar_payload_os(
             db, ordem, list_id=list_id, arquivado=False
