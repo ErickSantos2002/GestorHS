@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.33.0',
+    data: '30/07/2026',
+    itens: [
+      { tipo: 'melhoria', texto: 'Caixa que contém módulo ou Phoebus não gera mais card no TaskHS nem no GrowthHS — esses equipamentos seguem um fluxo próprio, fora dos boards. Vale para os próximos envios; os cards que já estavam nos boards continuam onde estão.' },
+    ],
+  },
+  {
     versao: '1.32.0',
     data: '29/07/2026',
     itens: [
