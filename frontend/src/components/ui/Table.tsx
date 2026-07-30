@@ -3,9 +3,11 @@ import { type ReactNode } from 'react'
 interface TableProps {
   head: ReactNode
   children: ReactNode
+  /** Rodapé dentro do card da tabela (ex.: paginação), separado por uma linha fina. */
+  footer?: ReactNode
 }
 
-export function Table({ head, children }: TableProps) {
+export function Table({ head, children, footer }: TableProps) {
   return (
     <div className="rounded-2xl border border-border bg-background-surface overflow-hidden shadow-sm">
       <table className="w-full text-sm">
@@ -14,6 +16,7 @@ export function Table({ head, children }: TableProps) {
         </thead>
         <tbody className="divide-y divide-border">{children}</tbody>
       </table>
+      {footer && <div className="border-t border-border px-5 py-3">{footer}</div>}
     </div>
   )
 }
