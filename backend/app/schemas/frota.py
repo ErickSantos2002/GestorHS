@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, Literal
+from typing import Optional
 from datetime import date, datetime
 
 
@@ -13,7 +13,6 @@ class FrotaListOut(BaseModel):
     patrimonio: Optional[str] = None
     prox_calibragem: Optional[date] = None
     ativo: bool
-    status: str
     status_calibracao: str
     model_config = {"from_attributes": True}
 
@@ -53,7 +52,6 @@ class EquipamentoClienteOut(BaseModel):
     ult_calibragem: Optional[date] = None
     prox_calibragem: Optional[date] = None
     ativo: bool
-    status: str
     status_calibracao: str
     os_atual: Optional[int] = None
     calib_cert: Optional[str] = None
@@ -80,7 +78,6 @@ class EquipamentoClienteCreate(BaseModel):
     ult_calibragem: Optional[date] = None
     prox_calibragem: Optional[date] = None
     ativo: bool = True
-    status: Literal["A", "I", "M"] = "A"
 
 
 class EquipamentoClienteUpdate(BaseModel):
@@ -92,7 +89,6 @@ class EquipamentoClienteUpdate(BaseModel):
     ult_calibragem: Optional[date] = None
     prox_calibragem: Optional[date] = None
     ativo: Optional[bool] = None
-    status: Optional[Literal["A", "I", "M"]] = None
 
 
 class HistoricoOut(BaseModel):

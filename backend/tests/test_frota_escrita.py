@@ -30,7 +30,7 @@ def test_frota_write_expedicao_pode_criar_editar_mas_nao_excluir(client, usuario
 def test_frota_crud(client, usuario_admin, db_session):
     cid, eid = _base(db_session)
     h = _headers(client, "admin@hs.com", "senha123")
-    criado = client.post("/equipamentos-cliente", json={"cliente": cid, "equipamento": eid, "serie": "S1", "status": "A"}, headers=h)
+    criado = client.post("/equipamentos-cliente", json={"cliente": cid, "equipamento": eid, "serie": "S1"}, headers=h)
     assert criado.status_code == 201
     iid = criado.json()["id"]
     assert criado.json()["cliente"] == cid
@@ -119,3 +119,43 @@ def test_excluir_frota_em_uso_409(client, usuario_admin, db_session):
     db_session.commit()
     r = client.delete(f"/equipamentos-cliente/{ec.id}", headers=_headers(client, "admin@hs.com", "senha123"))
     assert r.status_code == 409
+
+
+def test_criar_e_editar_aparelho_sem_status(client, usuario_admin, db_session):
+    """Criar/editar sem `status` funciona, e a coluna do banco mantem o default 'A'
+    (ela continua existindo — nao houve migracao)."""
+    from app.models import Cliente, Equipamento, EquipamentoCliente
+    cli = Cliente(nome="Cliente Sem Status")
+    eq = Equipamento(descricao="Bafometro")
+    db_session.add_all([cli, eq]); db_session.flush(); db_session.commit()
+    tok = client.post("/auth/login", json={"email": "admin@hs.com", "senha": "senha123"}).json()
+    h = {"Authorization": f"Bearer {tok['access_token']}"}
+
+    criado = client.post("/equipamentos-cliente",
+                         json={"cliente": cli.id, "equipamento": eq.id, "serie": "S-NS"}, headers=h)
+    assert criado.status_code == 201
+    iid = criado.json()["id"]
+    assert db_session.get(EquipamentoCliente, iid).status == "A"
+
+    assert client.patch(f"/equipamentos-cliente/{iid}",
+                        json={"ativo": False}, headers=h).status_code == 200
+    db_session.expire_all()
+    obj = db_session.get(EquipamentoCliente, iid)
+    assert obj.ativo is False
+    assert obj.status == "A"   # a coluna nao e' mexida por ninguem
+
+
+def test_status_enviado_por_cliente_antigo_e_ignorado_sem_erro(client, usuario_admin, db_session):
+    """Compatibilidade: quem ainda mandar `status` no corpo nao toma 422 — o campo
+    e' ignorado (Pydantic v2, extra='ignore')."""
+    from app.models import Cliente, Equipamento, EquipamentoCliente
+    cli = Cliente(nome="Cliente Legado")
+    eq = Equipamento(descricao="Bafometro")
+    db_session.add_all([cli, eq]); db_session.flush(); db_session.commit()
+    tok = client.post("/auth/login", json={"email": "admin@hs.com", "senha": "senha123"}).json()
+    h = {"Authorization": f"Bearer {tok['access_token']}"}
+    criado = client.post("/equipamentos-cliente",
+                         json={"cliente": cli.id, "equipamento": eq.id, "serie": "S-LEG",
+                               "status": "I"}, headers=h)
+    assert criado.status_code == 201
+    assert db_session.get(EquipamentoCliente, criado.json()["id"]).status == "A"

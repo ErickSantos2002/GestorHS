@@ -85,3 +85,27 @@ def test_frota_historico(client, usuario_admin, db_session):
     hist = client.get(f"/equipamentos-cliente/{ec.id}/historico", headers=h).json()
     assert len(hist) == 1 and hist[0]["saida"] == 1
     assert client.get("/equipamentos-cliente/99999/historico", headers=h).status_code == 404
+
+
+def test_frota_nao_expoe_mais_o_campo_status(client, usuario_admin, db_session):
+    """O campo `status` (A/I/M) era morto — nenhuma regra o lia — e saiu da API.
+    `status_calibracao`, que e' outra coisa, continua."""
+    from app.models import Cliente, Equipamento, EquipamentoCliente
+    cli = Cliente(nome="Cliente Status")
+    eq = Equipamento(descricao="Bafometro")
+    db_session.add_all([cli, eq]); db_session.flush()
+    ec = EquipamentoCliente(cliente=cli.id, equipamento=eq.id, serie="S-ST")
+    db_session.add(ec); db_session.commit(); db_session.refresh(ec)
+    tok = client.post("/auth/login", json={"email": "admin@hs.com", "senha": "senha123"}).json()
+    h = {"Authorization": f"Bearer {tok['access_token']}"}
+
+    lista = client.get("/equipamentos-cliente", headers=h)
+    assert lista.status_code == 200
+    item = lista.json()["items"][0]
+    assert "status" not in item
+    assert "status_calibracao" in item
+
+    detalhe = client.get(f"/equipamentos-cliente/{ec.id}", headers=h)
+    assert detalhe.status_code == 200
+    assert "status" not in detalhe.json()
+    assert "status_calibracao" in detalhe.json()

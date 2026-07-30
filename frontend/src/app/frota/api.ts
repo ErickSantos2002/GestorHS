@@ -20,7 +20,6 @@ export interface FrotaItem {
   patrimonio: string | null
   prox_calibragem: string | null
   ativo: boolean
-  status: string
   status_calibracao: StatusCalibracao
 }
 
@@ -57,7 +56,6 @@ export interface EquipamentoCliente {
   ult_calibragem: string | null
   prox_calibragem: string | null
   ativo: boolean
-  status: string
   status_calibracao: StatusCalibracao
   os_atual: number | null
   calib_cert: string | null
@@ -83,7 +81,6 @@ export interface EquipamentoClientePayload {
   ult_calibragem: string | null
   prox_calibragem: string | null
   ativo: boolean
-  status: 'A' | 'I' | 'M'
 }
 
 export interface Historico {
