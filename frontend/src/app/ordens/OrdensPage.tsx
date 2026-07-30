@@ -1,10 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Table, TH, TD } from '../../components/ui/Table'
-import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { Spinner } from '../../components/ui/Spinner'
 import { SearchBar } from '../../components/ui/SearchBar'
+import { PaginationOffset } from '../../components/ui/Pagination'
 import { Select } from '../../components/ui/Select'
 import { cn } from '../../lib/utils'
 import { ApiError } from '../../lib/api'
@@ -180,9 +180,6 @@ function Lista({ clienteId, faseInicial, onAbrir }: { clienteId?: number; faseIn
     setBusca(termo.trim())
   }
 
-  const inicio = total === 0 ? 0 : offset + 1
-  const fim = Math.min(offset + LIMITE, total)
-
   return (
     <div className="space-y-4">
       <SearchBar
@@ -218,7 +215,10 @@ function Lista({ clienteId, faseInicial, onAbrir }: { clienteId?: number; faseIn
         <p className="text-sm text-slate-500">Nenhuma OS encontrada.</p>
       ) : (
         <>
-          <Table head={<><TH>Caixa</TH><TH>OS</TH><TH>Cliente</TH><TH>Equipamento</TH><TH>Fase</TH><TH>Tipo</TH><TH>Chegada</TH><TH>Situação</TH></>}>
+          <Table
+            head={<><TH>Caixa</TH><TH>OS</TH><TH>Cliente</TH><TH>Equipamento</TH><TH>Fase</TH><TH>Tipo</TH><TH>Chegada</TH><TH>Situação</TH></>}
+            footer={<PaginationOffset offset={offset} limit={LIMITE} total={total} onOffsetChange={setOffset} itemLabel="OS" />}
+          >
             {itens.map((o) => (
               <tr key={o.id} className="hover:bg-background-elevated transition-colors cursor-pointer" onClick={() => onAbrir(o.id)}>
                 <TD>{o.caixa ? `CX ${o.caixa}` : '—'}</TD>
@@ -239,13 +239,6 @@ function Lista({ clienteId, faseInicial, onAbrir }: { clienteId?: number; faseIn
               </tr>
             ))}
           </Table>
-          <div className="flex items-center justify-between text-sm text-slate-400">
-            <span>{inicio}–{fim} de {total}</span>
-            <div className="flex gap-2">
-              <Button variant="secondary" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - LIMITE))}>Anterior</Button>
-              <Button variant="secondary" disabled={fim >= total} onClick={() => setOffset(offset + LIMITE)}>Próxima</Button>
-            </div>
-          </div>
         </>
       )}
     </div>

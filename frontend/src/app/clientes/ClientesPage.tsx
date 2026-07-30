@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { Spinner } from '../../components/ui/Spinner'
 import { SearchBar } from '../../components/ui/SearchBar'
+import { PaginationOffset } from '../../components/ui/Pagination'
 import { ApiError } from '../../lib/api'
 import { formatarDocumento } from '../../lib/documento'
 import { useAuth } from '../../auth/AuthContext'
@@ -52,9 +53,6 @@ export function ClientesPage() {
     setBusca(termo.trim())
   }
 
-  const inicio = total === 0 ? 0 : offset + 1
-  const fim = Math.min(offset + LIMITE, total)
-
   return (
     <PageContainer>
       <div className="flex items-center justify-between">
@@ -77,7 +75,10 @@ export function ClientesPage() {
         <p className="text-sm text-slate-500">Nenhum cliente encontrado.</p>
       ) : (
         <>
-          <Table head={<><TH>Nome</TH><TH>CNPJ / CPF</TH><TH>Município/UF</TH><TH>Ativo</TH></>}>
+          <Table
+            head={<><TH>Nome</TH><TH>CNPJ / CPF</TH><TH>Município/UF</TH><TH>Ativo</TH></>}
+            footer={<PaginationOffset offset={offset} limit={LIMITE} total={total} onOffsetChange={setOffset} itemLabel="clientes" />}
+          >
             {itens.map((c) => (
               <tr key={c.id} className="hover:bg-background-elevated transition-colors cursor-pointer" onClick={() => navigate(`/app/clientes/${c.id}`)}>
                 <TD>{c.nome ?? '—'}</TD>
@@ -87,13 +88,6 @@ export function ClientesPage() {
               </tr>
             ))}
           </Table>
-          <div className="flex items-center justify-between text-sm text-slate-400">
-            <span>{inicio}–{fim} de {total}</span>
-            <div className="flex gap-2">
-              <Button variant="secondary" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - LIMITE))}>Anterior</Button>
-              <Button variant="secondary" disabled={fim >= total} onClick={() => setOffset(offset + LIMITE)}>Próxima</Button>
-            </div>
-          </div>
         </>
       )}
     </PageContainer>

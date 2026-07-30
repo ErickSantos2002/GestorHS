@@ -6,6 +6,7 @@ import { Spinner } from '../../components/ui/Spinner'
 import { Modal } from '../../components/ui/Modal'
 import { Input } from '../../components/ui/Input'
 import { SearchBar } from '../../components/ui/SearchBar'
+import { PaginationOffset } from '../../components/ui/Pagination'
 import { Toggle } from '../../components/ui/Toggle'
 import { useAuth } from '../../auth/AuthContext'
 import { podeAbrirOS } from '../../auth/roles'
@@ -62,9 +63,6 @@ export function CaixasPage() {
     setBusca(q.trim())
   }
 
-  const inicio = dados && dados.total > 0 ? offset + 1 : 0
-  const fim = dados ? Math.min(offset + PAGE, dados.total) : 0
-
   return (
     <PageContainer>
       <div className="flex items-center justify-between">
@@ -105,15 +103,18 @@ export function CaixasPage() {
         <p className="text-sm text-slate-500">Nenhuma caixa.</p>
       ) : dados.items.length > 0 ? (
         <>
-          <Table head={
-            <>
-              <TH>Caixa</TH>
-              <TH>Data</TH>
-              <TH>OS</TH>
-              <TH>Clientes</TH>
-              <TH>Descrição</TH>
-            </>
-          }>
+          <Table
+            head={
+              <>
+                <TH>Caixa</TH>
+                <TH>Data</TH>
+                <TH>OS</TH>
+                <TH>Clientes</TH>
+                <TH>Descrição</TH>
+              </>
+            }
+            footer={<PaginationOffset offset={offset} limit={PAGE} total={dados.total} onOffsetChange={setOffset} itemLabel="caixas" />}
+          >
             {dados.items.map((c) => (
               <tr
                 key={c.id}
@@ -136,14 +137,6 @@ export function CaixasPage() {
               </tr>
             ))}
           </Table>
-
-          <div className="flex items-center justify-between text-sm text-slate-400">
-            <span>{inicio}–{fim} de {dados.total}</span>
-            <div className="flex gap-2">
-              <Button variant="secondary" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE))}>Anterior</Button>
-              <Button variant="secondary" disabled={fim >= dados.total} onClick={() => setOffset(offset + PAGE)}>Próxima</Button>
-            </div>
-          </div>
         </>
       ) : null}
 

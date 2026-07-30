@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Table, TH, TD } from '../components/ui/Table'
-import { Button } from '../components/ui/Button'
+import { PaginationOffset } from '../components/ui/Pagination'
 import { Spinner } from '../components/ui/Spinner'
 import { ApiError } from '../lib/api'
 import { portalApi, TIPO_LABEL, formatData, type PortalOSItem } from './api'
@@ -25,9 +25,6 @@ export function PortalOSPage() {
     return () => { ativo = false }
   }, [emAndamento, offset])
 
-  const inicio = total === 0 ? 0 : offset + 1
-  const fim = Math.min(offset + LIMITE, total)
-
   return (
     <div className="px-4 md:px-6 py-6 space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -44,7 +41,10 @@ export function PortalOSPage() {
         <p className="text-sm text-slate-500">Nenhuma OS encontrada.</p>
       ) : (
         <>
-          <Table head={<><TH>OS</TH><TH>Aparelho</TH><TH>Fase</TH><TH>Tipo</TH><TH>Chegada</TH></>}>
+          <Table
+            head={<><TH>OS</TH><TH>Aparelho</TH><TH>Fase</TH><TH>Tipo</TH><TH>Chegada</TH></>}
+            footer={<PaginationOffset offset={offset} limit={LIMITE} total={total} onOffsetChange={setOffset} itemLabel="OS" />}
+          >
             {itens.map((o) => (
               <tr key={o.id} className="hover:bg-background-elevated transition-colors">
                 <TD>#{o.id}</TD>
@@ -60,13 +60,6 @@ export function PortalOSPage() {
               </tr>
             ))}
           </Table>
-          <div className="flex items-center justify-between text-sm text-slate-400">
-            <span>{inicio}–{fim} de {total}</span>
-            <div className="flex gap-2">
-              <Button variant="secondary" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - LIMITE))}>Anterior</Button>
-              <Button variant="secondary" disabled={fim >= total} onClick={() => setOffset(offset + LIMITE)}>Próxima</Button>
-            </div>
-          </div>
         </>
       )}
     </div>

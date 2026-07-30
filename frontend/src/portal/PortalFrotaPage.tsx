@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Table, TH, TD } from '../components/ui/Table'
 import { Button } from '../components/ui/Button'
+import { PaginationOffset } from '../components/ui/Pagination'
 import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
 import { Input } from '../components/ui/Input'
@@ -44,9 +45,6 @@ export function PortalFrotaPage() {
     }
   }
 
-  const inicio = total === 0 ? 0 : offset + 1
-  const fim = Math.min(offset + LIMITE, total)
-
   return (
     <div className="px-4 md:px-6 py-6 space-y-6">
       <h1 className="text-2xl font-extrabold text-slate-100">Meus equipamentos</h1>
@@ -73,7 +71,10 @@ export function PortalFrotaPage() {
         <p className="text-sm text-slate-500">Nenhum aparelho encontrado.</p>
       ) : (
         <>
-          <Table head={<><TH>Aparelho</TH><TH>Série / Patrimônio</TH><TH>Próx. calibração</TH><TH>Status</TH><TH>Ações</TH></>}>
+          <Table
+            head={<><TH>Aparelho</TH><TH>Série / Patrimônio</TH><TH>Próx. calibração</TH><TH>Status</TH><TH>Ações</TH></>}
+            footer={<PaginationOffset offset={offset} limit={LIMITE} total={total} onOffsetChange={setOffset} itemLabel="aparelhos" />}
+          >
             {itens.map((e) => {
               const s = STATUS_CALIB[e.status_calibracao] ?? STATUS_CALIB.sem_data
               return (
@@ -87,13 +88,6 @@ export function PortalFrotaPage() {
               )
             })}
           </Table>
-          <div className="flex items-center justify-between text-sm text-slate-400">
-            <span>{inicio}–{fim} de {total}</span>
-            <div className="flex gap-2">
-              <Button variant="secondary" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - LIMITE))}>Anterior</Button>
-              <Button variant="secondary" disabled={fim >= total} onClick={() => setOffset(offset + LIMITE)}>Próxima</Button>
-            </div>
-          </div>
         </>
       )}
     </div>

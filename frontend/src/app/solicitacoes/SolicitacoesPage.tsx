@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Table, TH, TD } from '../../components/ui/Table'
-import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { Spinner } from '../../components/ui/Spinner'
 import { Select } from '../../components/ui/Select'
+import { PaginationOffset } from '../../components/ui/Pagination'
 import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
 import { podeAtenderSolicitacao } from '../../auth/roles'
@@ -44,8 +44,6 @@ export function SolicitacoesPage() {
     }
   }
 
-  const inicio = total === 0 ? 0 : offset + 1
-  const fim = Math.min(offset + LIMITE, total)
 
   return (
     <PageContainer>
@@ -64,7 +62,10 @@ export function SolicitacoesPage() {
         <p className="text-sm text-slate-500">Nenhuma solicitação.</p>
       ) : (
         <>
-          <Table head={<><TH>Cliente</TH><TH>Aparelho</TH><TH>Data</TH><TH>Status</TH><TH>Atendido por</TH><TH>Ações</TH></>}>
+          <Table
+            head={<><TH>Cliente</TH><TH>Aparelho</TH><TH>Data</TH><TH>Status</TH><TH>Atendido por</TH><TH>Ações</TH></>}
+            footer={<PaginationOffset offset={offset} limit={LIMITE} total={total} onOffsetChange={setOffset} itemLabel="solicitações" />}
+          >
             {itens.map((s) => {
               const st = STATUS_SOLIC[s.status] ?? STATUS_SOLIC.pendente
               return (
@@ -86,13 +87,6 @@ export function SolicitacoesPage() {
               )
             })}
           </Table>
-          <div className="flex items-center justify-between text-sm text-slate-400">
-            <span>{inicio}–{fim} de {total}</span>
-            <div className="flex gap-2">
-              <Button variant="secondary" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - LIMITE))}>Anterior</Button>
-              <Button variant="secondary" disabled={fim >= total} onClick={() => setOffset(offset + LIMITE)}>Próxima</Button>
-            </div>
-          </div>
         </>
       )}
     </PageContainer>
