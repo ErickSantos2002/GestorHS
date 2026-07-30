@@ -2,11 +2,13 @@
 para evitar import circular. Fonte única do payload (contrato v2: list_id + obs)."""
 
 from app.core import certificado_link
+from app.core import fluxo_modulo
 from app.core import nota_fiscal_link
 from app.core import proposta_link
 from app.core import taskhs
-from app.core.caixa import principal_valido
+from app.core.caixa import ordens_do_card, principal_valido
 from app.integrations import taskhs_client
+from app.integrations.log_integracao import registrar_log_integracao
 from app.models import OSCertificado, Proposta
 
 
@@ -41,7 +43,7 @@ def _montar_payload_caixa(db, caixa, *, list_id, arquivado) -> dict:
     devolve o payload v2 completo. Espelho de `_montar_payload_os` para caixas."""
     from app.models import Ordem, OSCertificado
 
-    ordens = [o for o in caixa.ordens if o.fase not in (9,)] or list(caixa.ordens)
+    ordens = ordens_do_card(caixa)
     pid = principal_valido(caixa.cliente_principal, [o.cliente for o in ordens])
     if pid is not None:
         ordens.sort(key=lambda o: 0 if o.cliente == pid else 1)
@@ -68,10 +70,19 @@ def _montar_payload_caixa(db, caixa, *, list_id, arquivado) -> dict:
 
 def agendar_espelhamento_caixa(db, background_tasks, caixa, *, origem=None, arquivado=False):
     """Agenda o upsert no TaskHS do card da CAIXA (async, best-effort). No-op se
-    sem list_id (fase sem mapeamento) ou integração desligada."""
+    sem list_id (fase sem mapeamento), integração desligada ou caixa de módulo."""
     fase = origem if origem is not None else caixa.fase
     list_id = taskhs.list_id_da_fase(fase) if fase is not None else None
     if list_id is None or not taskhs_client.integracao_ativa():
+        return
+    ordens = ordens_do_card(caixa)
+    if fluxo_modulo.caixa_de_modulo(ordens):
+        # Módulo/phoebus tem fluxo próprio, fora do board. Bloquear ANTES de montar
+        # o payload também congela card antigo: criar, mover e arquivar são o mesmo
+        # caminho, então nada mexe no que já foi enviado.
+        registrar_log_integracao(integracao="taskhs", status="pulado",
+                                 motivo="caixa_de_modulo",
+                                 referencia_os=ordens[0].id if ordens else None)
         return
     payload = _montar_payload_caixa(db, caixa, list_id=list_id, arquivado=arquivado)
     background_tasks.add_task(taskhs_client.enviar_card, payload)
