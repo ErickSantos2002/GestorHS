@@ -7,7 +7,8 @@ import logging
 from datetime import date
 from types import SimpleNamespace
 
-from app.core.caixa import principal_valido
+from app.core import fluxo_modulo
+from app.core.caixa import ordens_do_card, principal_valido
 from app.core.config import settings
 from app.core.growthhs_os import montar_card_caixa, montar_card_os
 from app.core.growthhs_payload import montar_device
@@ -60,6 +61,10 @@ def agendar_card_os(db, background_tasks, ordem) -> None:
     """
     if not hsgrowth_client.integracao_ativa():
         return
+    if fluxo_modulo.os_de_modulo(ordem):
+        registrar_log_integracao(integracao="growthhs", status="pulado",
+                                 motivo="caixa_de_modulo", referencia_os=ordem.id)
+        return
     ec = ordem.equipamento_rel
     if ec is None:
         # Dado benigno (OS sem equipamento vinculado) — nao e' excecao, nao
@@ -91,9 +96,16 @@ def agendar_card_caixa(db, background_tasks, caixa) -> None:
 
     Espelho de `agendar_card_os`, mas com um device por OS da caixa (equipamentos
     sem vinculo sao pulados individualmente, sem no-op da caixa inteira). No-op
-    se a integracao estiver desligada ou nenhuma OS da caixa tiver equipamento.
+    se a integracao estiver desligada, se a caixa for de modulo/phoebus (fluxo
+    proprio, fora do board) ou se nenhuma OS da caixa tiver equipamento.
     """
     if not hsgrowth_client.integracao_ativa():
+        return
+    do_card = ordens_do_card(caixa)
+    if fluxo_modulo.caixa_de_modulo(do_card):
+        registrar_log_integracao(integracao="growthhs", status="pulado",
+                                 motivo="caixa_de_modulo",
+                                 referencia_os=do_card[0].id if do_card else None)
         return
     ordens = [o for o in caixa.ordens if o.equipamento_rel is not None]
     if not ordens:
