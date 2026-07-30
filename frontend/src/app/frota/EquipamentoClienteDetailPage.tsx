@@ -20,7 +20,7 @@ import { hojeISO, daquiAAnos } from '../../lib/datas'
 
 const VAZIO: EquipamentoClientePayload = {
   cliente: 0, equipamento: 0, modulo: 0, serie: null, patrimonio: null,
-  datacompra: null, ult_calibragem: null, prox_calibragem: null, ativo: true, status: 'A',
+  datacompra: null, ult_calibragem: null, prox_calibragem: null, ativo: true,
 }
 
 /** Aparelho novo ja nasce com as datas do caso comum: cadastrado no dia da
@@ -96,7 +96,7 @@ export function EquipamentoClienteDetailPage({ embutido = false }: { embutido?: 
         setForm({
           cliente: e.cliente, equipamento: e.equipamento, modulo: e.modulo, serie: e.serie, patrimonio: e.patrimonio,
           datacompra: e.datacompra, ult_calibragem: e.ult_calibragem, prox_calibragem: e.prox_calibragem,
-          ativo: e.ativo, status: (e.status as 'A' | 'I' | 'M'),
+          ativo: e.ativo,
         })
       })
       .catch((err) => {
@@ -195,16 +195,11 @@ export function EquipamentoClienteDetailPage({ embutido = false }: { embutido?: 
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Input id="ec-modulo" label="Módulo" type="number" value={String(form.modulo)} onChange={(e) => set('modulo', Number(e.target.value) || 0)} disabled={ro} />
-          <Select id="ec-status" label="Situação" value={form.status} onChange={(e) => set('status', e.target.value as 'A' | 'I' | 'M')} disabled={ro}>
-            <option value="A">Ativo</option>
-            <option value="I">Inativo</option>
-            <option value="M">Manutenção</option>
-          </Select>
+          <label htmlFor="ec-ativo" className="flex items-center gap-2 text-sm text-slate-300 sm:self-end sm:pb-2">
+            <input id="ec-ativo" type="checkbox" checked={form.ativo} onChange={(e) => set('ativo', e.target.checked)} disabled={ro} className="accent-primary" />
+            Ativo
+          </label>
         </div>
-        <label className="flex items-center gap-2 text-sm text-slate-300">
-          <input type="checkbox" checked={form.ativo} onChange={(e) => set('ativo', e.target.checked)} disabled={ro} className="accent-primary" />
-          Ativo
-        </label>
       </Secao>
 
       <Secao titulo="Calibração">
