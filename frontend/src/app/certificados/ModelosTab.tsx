@@ -4,6 +4,8 @@ import { Spinner } from '../../components/ui/Spinner'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
 import { SearchBar } from '../../components/ui/SearchBar'
+import { Pagination } from '../../components/ui/Pagination'
+import { usePaginacaoLocal } from '../../lib/usePaginacaoLocal'
 import { Badge } from '../../components/ui/Badge'
 import { useAuth } from '../../auth/AuthContext'
 import { isAdmin } from '../../auth/roles'
@@ -22,6 +24,7 @@ export function ModelosTab() {
   const [carregandoEd, setCarregandoEd] = useState(false)
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
+  const { page, setPage, totalPages, total, pageSize, visiveis } = usePaginacaoLocal(itens, 15)
 
   useEffect(() => {
     let vivo = true
@@ -106,12 +109,12 @@ export function ModelosTab() {
         id="busca-modelo"
         value={q}
         onChange={setQ}
-        onSubmit={(e) => { e.preventDefault(); setBusca(q.trim()) }}
+        onSubmit={(e) => { e.preventDefault(); setPage(1); setBusca(q.trim()) }}
         placeholder="Buscar modelo — ex.: Mark X"
       />
       {itens === null ? <div className="py-10 flex justify-center"><Spinner className="w-7 h-7" /></div> : (
         <div className="rounded-xl border border-border divide-y divide-border overflow-hidden">
-          {itens.map((m) => (
+          {visiveis.map((m) => (
             <button key={m.equipamento} onClick={() => abrir(m)}
               className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-background-elevated transition-colors">
               <span className="text-sm text-slate-200">{m.equipamento_descricao ?? `#${m.equipamento}`}</span>
@@ -125,6 +128,9 @@ export function ModelosTab() {
           ))}
           {itens.length === 0 && <p className="px-4 py-8 text-center text-sm text-slate-500">Nenhum modelo.</p>}
         </div>
+      )}
+      {itens && total > 0 && (
+        <Pagination page={page} totalPages={totalPages} total={total} pageSize={pageSize} onPageChange={setPage} itemLabel="modelos" />
       )}
     </div>
   )

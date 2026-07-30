@@ -8,6 +8,8 @@ import { Input } from '../../components/ui/Input'
 import { ApiError } from '../../lib/api'
 import { IconButton, IconButtonGroup } from '../../components/ui/IconButton'
 import { IconPencil, IconTrash } from '../../components/ui/icons'
+import { Pagination } from '../../components/ui/Pagination'
+import { usePaginacaoLocal } from '../../lib/usePaginacaoLocal'
 import { useCrud } from '../cadastros/useCrud'
 import { useAuth } from '../../auth/AuthContext'
 import { podeGerenciarPropostas } from '../../auth/roles'
@@ -21,6 +23,7 @@ const VAZIO: ServicoPayload = {
 export function CatalogoServicosPage() {
   const { user } = useAuth()
   const { itens, erro, setErro, recarregar } = useCrud<Servico>(servicosApi)
+  const { page, setPage, totalPages, total, pageSize, visiveis } = usePaginacaoLocal(itens, 15)
   const [aberto, setAberto] = useState(false)
   const [editandoId, setEditandoId] = useState<number | null>(null)
   const [form, setForm] = useState<ServicoPayload>(VAZIO)
@@ -82,8 +85,11 @@ export function CatalogoServicosPage() {
       ) : itens.length === 0 ? (
         <p className="text-sm text-slate-500">Nenhum serviço cadastrado.</p>
       ) : (
-        <Table head={<><TH>Nome</TH><TH>SKU</TH><TH>Preço</TH><TH>Status</TH><TH>Ações</TH></>}>
-          {itens.map((s) => (
+        <Table
+          head={<><TH>Nome</TH><TH>SKU</TH><TH>Preço</TH><TH>Status</TH><TH>Ações</TH></>}
+          footer={<Pagination page={page} totalPages={totalPages} total={total} pageSize={pageSize} onPageChange={setPage} itemLabel="serviços" />}
+        >
+          {visiveis.map((s) => (
             <tr key={s.id} className="hover:bg-background-elevated transition-colors">
               <TD>{s.nome}</TD>
               <TD>{s.sku ?? '—'}</TD>
