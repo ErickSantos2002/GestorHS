@@ -109,3 +109,67 @@ def test_frota_nao_expoe_mais_o_campo_status(client, usuario_admin, db_session):
     assert detalhe.status_code == 200
     assert "status" not in detalhe.json()
     assert "status_calibracao" in detalhe.json()
+
+
+def _dois_aparelhos(db):
+    """Um ativo e um inativo, do mesmo cliente."""
+    from app.models import Cliente, Equipamento, EquipamentoCliente
+    cli = Cliente(nome="Cliente Ativo/Inativo")
+    eq = Equipamento(descricao="Bafometro")
+    db.add_all([cli, eq]); db.flush()
+    ativo = EquipamentoCliente(cliente=cli.id, equipamento=eq.id, serie="S-ATIVO", ativo=True)
+    inativo = EquipamentoCliente(cliente=cli.id, equipamento=eq.id, serie="S-INATIVO", ativo=False)
+    db.add_all([ativo, inativo]); db.commit()
+    return cli.id
+
+
+def test_frota_filtro_ativo_true(client, usuario_admin, db_session):
+    _dois_aparelhos(db_session)
+    tok = client.post("/auth/login", json={"email": "admin@hs.com", "senha": "senha123"}).json()
+    h = {"Authorization": f"Bearer {tok['access_token']}"}
+    r = client.get("/equipamentos-cliente?ativo=true", headers=h)
+    assert r.status_code == 200
+    series = [i["serie"] for i in r.json()["items"]]
+    assert series == ["S-ATIVO"]
+
+
+def test_frota_filtro_ativo_false(client, usuario_admin, db_session):
+    _dois_aparelhos(db_session)
+    tok = client.post("/auth/login", json={"email": "admin@hs.com", "senha": "senha123"}).json()
+    h = {"Authorization": f"Bearer {tok['access_token']}"}
+    r = client.get("/equipamentos-cliente?ativo=false", headers=h)
+    assert r.status_code == 200
+    series = [i["serie"] for i in r.json()["items"]]
+    assert series == ["S-INATIVO"]
+
+
+def test_frota_sem_filtro_ativo_devolve_os_dois(client, usuario_admin, db_session):
+    """Compatibilidade: sem o parametro a lista continua trazendo tudo, como antes."""
+    _dois_aparelhos(db_session)
+    tok = client.post("/auth/login", json={"email": "admin@hs.com", "senha": "senha123"}).json()
+    h = {"Authorization": f"Bearer {tok['access_token']}"}
+    r = client.get("/equipamentos-cliente", headers=h)
+    assert r.status_code == 200
+    assert r.json()["total"] == 2
+
+
+def test_frota_filtro_ativo_combina_com_filtro_de_calibracao(client, usuario_admin, db_session):
+    """Os dois filtros sao independentes e se somam."""
+    from datetime import date, timedelta
+    from app.models import Cliente, Equipamento, EquipamentoCliente
+    cli = Cliente(nome="Cliente Combinado")
+    eq = Equipamento(descricao="Bafometro")
+    db_session.add_all([cli, eq]); db_session.flush()
+    ontem = date.today() - timedelta(days=1)
+    db_session.add_all([
+        EquipamentoCliente(cliente=cli.id, equipamento=eq.id, serie="S-AT-VENC",
+                           ativo=True, prox_calibragem=ontem),
+        EquipamentoCliente(cliente=cli.id, equipamento=eq.id, serie="S-IN-VENC",
+                           ativo=False, prox_calibragem=ontem),
+    ])
+    db_session.commit()
+    tok = client.post("/auth/login", json={"email": "admin@hs.com", "senha": "senha123"}).json()
+    h = {"Authorization": f"Bearer {tok['access_token']}"}
+    r = client.get("/equipamentos-cliente?ativo=true&status=vencido", headers=h)
+    assert r.status_code == 200
+    assert [i["serie"] for i in r.json()["items"]] == ["S-AT-VENC"]
