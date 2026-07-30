@@ -8,6 +8,9 @@ const TONES = {
   excluir: 'text-danger bg-danger/10 border-danger/20 hover:text-red-400 hover:bg-danger/20 hover:border-danger/40',
   neutro: 'text-slate-400 bg-slate-400/10 border-slate-400/20 hover:text-slate-200 hover:bg-slate-400/20 hover:border-slate-400/40',
   ok: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20 hover:text-emerald-300 hover:bg-emerald-400/20 hover:border-emerald-400/40',
+  baixar: 'text-indigo-400 bg-indigo-400/10 border-indigo-400/20 hover:text-indigo-300 hover:bg-indigo-400/20 hover:border-indigo-400/40',
+  historico: 'text-violet-400 bg-violet-400/10 border-violet-400/20 hover:text-violet-300 hover:bg-violet-400/20 hover:border-violet-400/40',
+  duplicar: 'text-teal-400 bg-teal-400/10 border-teal-400/20 hover:text-teal-300 hover:bg-teal-400/20 hover:border-teal-400/40',
 } as const
 
 export type IconButtonTone = keyof typeof TONES

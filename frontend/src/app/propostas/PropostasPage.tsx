@@ -3,6 +3,7 @@ import { Table, TH, TD } from '../../components/ui/Table'
 import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/Spinner'
 import { SearchBar } from '../../components/ui/SearchBar'
+import { Pagination } from '../../components/ui/Pagination'
 import { PageContainer } from '../../components/ui/Page'
 import { IconButton, IconButtonGroup } from '../../components/ui/IconButton'
 import { IconEye, IconDownload, IconClock, IconPencil, IconCopy, IconTrash, IconCheck, IconX } from '../../components/ui/icons'
@@ -38,6 +39,8 @@ export function PropostasPage() {
   const [historico, setHistorico] = useState<{ id: number; numero: number } | null>(null)
   const [visualizar, setVisualizar] = useState<{ id: number; numero: number } | null>(null)
   const [overrideDe, setOverrideDe] = useState<Proposta | null>(null)
+  // id da proposta-modelo p/ duplicar (abre a modal como nova, sem salvar até confirmar)
+  const [duplicarDeId, setDuplicarDeId] = useState<number | null>(null)
 
   useEffect(() => {
     let vivo = true
@@ -81,17 +84,11 @@ export function PropostasPage() {
     }
   }
 
-  async function duplicar(id: number) {
-    setErro('')
-    setBusyId(id)
-    try {
-      const nova = await propostasApi.duplicar(id)
-      setModalId(nova.id)
-    } catch (e) {
-      setErro(e instanceof ApiError ? e.message : 'Falha ao duplicar')
-    } finally {
-      setBusyId(null)
-    }
+  // Abre a modal como proposta NOVA pré-preenchida com os dados da original
+  // (vendedor/assinatura = quem duplica, data de hoje). Só cria ao confirmar —
+  // cancelar não deixa rastro, ao contrário da criação imediata de antes.
+  function duplicar(id: number) {
+    setDuplicarDeId(id)
   }
 
   async function excluir(p: Proposta) {
@@ -134,8 +131,6 @@ export function PropostasPage() {
     }
   }
 
-  const inicio = dados && dados.total > 0 ? (page - 1) * PAGE + 1 : 0
-  const fim = dados ? Math.min(page * PAGE, dados.total) : 0
 
   return (
     <PageContainer>
@@ -167,16 +162,28 @@ export function PropostasPage() {
         <p className="text-sm text-slate-500">Nenhuma proposta.</p>
       ) : (
         <>
-          <Table head={
-            <>
-              <TH>Número</TH>
-              <TH>Data</TH>
-              <TH>Cliente</TH>
-              <TH>CNPJ</TH>
-              <TH>Valor</TH>
-              <TH>Ações</TH>
-            </>
-          }>
+          <Table
+            head={
+              <>
+                <TH>Número</TH>
+                <TH>Data</TH>
+                <TH>Cliente</TH>
+                <TH>CNPJ</TH>
+                <TH>Valor</TH>
+                <TH>Ações</TH>
+              </>
+            }
+            footer={
+              <Pagination
+                page={page}
+                totalPages={dados.total_pages}
+                total={dados.total}
+                pageSize={PAGE}
+                onPageChange={setPage}
+                itemLabel="propostas"
+              />
+            }
+          >
             {dados.items.map((p) => (
               <tr key={p.id} className="hover:bg-background-elevated transition-colors">
                 <TD>
@@ -207,10 +214,10 @@ export function PropostasPage() {
                     <IconButton label="Visualizar" tone="ver" onClick={() => setVisualizar({ id: p.id, numero: p.numero })}>
                       <IconEye className="w-4 h-4" />
                     </IconButton>
-                    <IconButton label="Baixar PDF" tone="neutro" disabled={busyId === p.id} onClick={() => baixarPdf(p)}>
+                    <IconButton label="Baixar PDF" tone="baixar" disabled={busyId === p.id} onClick={() => baixarPdf(p)}>
                       <IconDownload className="w-4 h-4" />
                     </IconButton>
-                    <IconButton label="Histórico" tone="neutro" onClick={() => setHistorico({ id: p.id, numero: p.numero })}>
+                    <IconButton label="Histórico" tone="historico" onClick={() => setHistorico({ id: p.id, numero: p.numero })}>
                       <IconClock className="w-4 h-4" />
                     </IconButton>
                     {!p.faturada && podeFaturarProposta(user) && (
@@ -228,7 +235,7 @@ export function PropostasPage() {
                         <IconButton label="Editar" tone="editar" onClick={() => setModalId(p.id)}>
                           <IconPencil className="w-4 h-4" />
                         </IconButton>
-                        <IconButton label="Duplicar" tone="neutro" disabled={busyId === p.id} onClick={() => duplicar(p.id)}>
+                        <IconButton label="Duplicar" tone="duplicar" onClick={() => duplicar(p.id)}>
                           <IconCopy className="w-4 h-4" />
                         </IconButton>
                         <IconButton label="Excluir" tone="excluir" disabled={busyId === p.id} onClick={() => excluir(p)}>
@@ -241,14 +248,6 @@ export function PropostasPage() {
               </tr>
             ))}
           </Table>
-
-          <div className="flex items-center justify-between text-sm text-slate-400">
-            <span>{inicio}–{fim} de {dados.total}</span>
-            <div className="flex gap-2">
-              <Button variant="secondary" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Anterior</Button>
-              <Button variant="secondary" disabled={page >= dados.total_pages} onClick={() => setPage((p) => p + 1)}>Próxima</Button>
-            </div>
-          </div>
         </>
       )}
 
@@ -257,6 +256,15 @@ export function PropostasPage() {
           propostaId={modalId}
           onClose={() => setModalId(undefined)}
           onSalvo={() => { setModalId(undefined); recarregar() }}
+        />
+      )}
+
+      {duplicarDeId !== null && (
+        <PropostaModal
+          propostaId={null}
+          duplicarDe={duplicarDeId}
+          onClose={() => setDuplicarDeId(null)}
+          onSalvo={() => { setDuplicarDeId(null); recarregar() }}
         />
       )}
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Table, TH, TD } from '../components/ui/Table'
-import { Button } from '../components/ui/Button'
+import { PaginationOffset } from '../components/ui/Pagination'
 import { Spinner } from '../components/ui/Spinner'
 import { ApiError } from '../lib/api'
 import { portalApi, formatData, type PortalCertItem } from './api'
@@ -24,9 +24,6 @@ export function PortalCertificadosPage() {
     return () => { ativo = false }
   }, [offset])
 
-  const inicio = total === 0 ? 0 : offset + 1
-  const fim = Math.min(offset + LIMITE, total)
-
   return (
     <div className="px-4 md:px-6 py-6 space-y-6">
       <h1 className="text-2xl font-extrabold text-slate-100">Certificados</h1>
@@ -37,7 +34,10 @@ export function PortalCertificadosPage() {
         <p className="text-sm text-slate-500">Nenhum certificado disponível.</p>
       ) : (
         <>
-          <Table head={<><TH>Aparelho</TH><TH>Série</TH><TH>Certificado</TH><TH>Última calibração</TH><TH>Próxima calibração</TH><TH>PDF</TH></>}>
+          <Table
+            head={<><TH>Aparelho</TH><TH>Série</TH><TH>Certificado</TH><TH>Última calibração</TH><TH>Próxima calibração</TH><TH>PDF</TH></>}
+            footer={<PaginationOffset offset={offset} limit={LIMITE} total={total} onOffsetChange={setOffset} itemLabel="certificados" />}
+          >
             {itens.map((c) => (
               <tr key={c.equipamento_cliente} className="hover:bg-background-elevated transition-colors">
                 <TD>{c.equipamento_descricao ?? '—'}</TD>
@@ -53,13 +53,6 @@ export function PortalCertificadosPage() {
               </tr>
             ))}
           </Table>
-          <div className="flex items-center justify-between text-sm text-slate-400">
-            <span>{inicio}–{fim} de {total}</span>
-            <div className="flex gap-2">
-              <Button variant="secondary" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - LIMITE))}>Anterior</Button>
-              <Button variant="secondary" disabled={fim >= total} onClick={() => setOffset(offset + LIMITE)}>Próxima</Button>
-            </div>
-          </div>
         </>
       )}
     </div>

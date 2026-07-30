@@ -6,6 +6,8 @@ import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/Spinner'
 import { Select } from '../../components/ui/Select'
+import { Pagination } from '../../components/ui/Pagination'
+import { usePaginacaoLocal } from '../../lib/usePaginacaoLocal'
 import { ApiError } from '../../lib/api'
 import {
   logsIntegracaoApi, podeReenviar, TONE_STATUS,
@@ -22,6 +24,7 @@ export function LogsIntegracaoPage() {
   const [reenviando, setReenviando] = useState<number | null>(null)
   const [aviso, setAviso] = useState('')
   const [erro, setErro] = useState('')
+  const { page, setPage, totalPages, total, pageSize, visiveis } = usePaginacaoLocal(itens, 15)
 
   const carregar = useCallback(async () => {
     setErro('')
@@ -68,14 +71,14 @@ export function LogsIntegracaoPage() {
 
       <div className="flex flex-wrap gap-3 items-end">
         <div className="w-48">
-          <Select id="integracao" label="Integração" value={integracao} onChange={(e) => setIntegracao(e.target.value)}>
+          <Select id="integracao" label="Integração" value={integracao} onChange={(e) => { setPage(1); setIntegracao(e.target.value) }}>
             <option value="">Todas</option>
             <option value="growthhs">GrowthHS</option>
             <option value="taskhs">TaskHS</option>
           </Select>
         </div>
         <div className="w-48">
-          <Select id="status" label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
+          <Select id="status" label="Status" value={status} onChange={(e) => { setPage(1); setStatus(e.target.value) }}>
             <option value="">Todos</option>
             <option value="sucesso">Sucesso</option>
             <option value="erro">Erro</option>
@@ -90,11 +93,14 @@ export function LogsIntegracaoPage() {
       {itens === null ? (
         <div className="flex justify-center py-16"><Spinner className="w-8 h-8" /></div>
       ) : (
-        <Table head={<>
-          <TH>Quando</TH><TH>Integração</TH><TH>Tipo</TH><TH>OS</TH>
-          <TH>Status</TH><TH>Detalhe</TH><TH>Ação</TH>
-        </>}>
-          {itens.map((log) => (
+        <Table
+          head={<>
+            <TH>Quando</TH><TH>Integração</TH><TH>Tipo</TH><TH>OS</TH>
+            <TH>Status</TH><TH>Detalhe</TH><TH>Ação</TH>
+          </>}
+          footer={total > 0 ? <Pagination page={page} totalPages={totalPages} total={total} pageSize={pageSize} onPageChange={setPage} itemLabel="logs" /> : undefined}
+        >
+          {visiveis.map((log) => (
             <tr key={log.id} className="align-top">
               <TD>{log.criado_em ? new Date(log.criado_em).toLocaleString('pt-BR') : '—'}</TD>
               <TD>{NOME_INTEGRACAO[log.integracao] ?? log.integracao}</TD>

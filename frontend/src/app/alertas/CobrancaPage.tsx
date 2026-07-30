@@ -1,10 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Table, TH, TD } from '../../components/ui/Table'
-import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { Spinner } from '../../components/ui/Spinner'
 import { SearchBar } from '../../components/ui/SearchBar'
+import { PaginationOffset } from '../../components/ui/Pagination'
 import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
 import { podeRegistrarContato } from '../../auth/roles'
@@ -65,9 +65,6 @@ export function CobrancaPage() {
     }
   }
 
-  const inicio = total === 0 ? 0 : offset + 1
-  const fim = Math.min(offset + LIMITE, total)
-
   return (
     <PageContainer>
       <h1 className="text-2xl font-extrabold text-slate-100">Cobrança</h1>
@@ -93,7 +90,10 @@ export function CobrancaPage() {
         <p className="text-sm text-slate-500">Nenhum cliente com pendências.</p>
       ) : (
         <>
-          <Table head={<><TH>Cliente</TH><TH>Vencidos</TH><TH>Vencendo</TH><TH>Venc. mais antigo</TH><TH>Último contato</TH><TH>Ações</TH></>}>
+          <Table
+            head={<><TH>Cliente</TH><TH>Vencidos</TH><TH>Vencendo</TH><TH>Venc. mais antigo</TH><TH>Último contato</TH><TH>Ações</TH></>}
+            footer={<PaginationOffset offset={offset} limit={LIMITE} total={total} onOffsetChange={setOffset} itemLabel="clientes" />}
+          >
             {itens.map((i) => (
               <tr key={i.cliente} className="hover:bg-background-elevated transition-colors">
                 <TD>{i.cliente_nome ?? `#${i.cliente}`}</TD>
@@ -116,13 +116,6 @@ export function CobrancaPage() {
               </tr>
             ))}
           </Table>
-          <div className="flex items-center justify-between text-sm text-slate-400">
-            <span>{inicio}–{fim} de {total}</span>
-            <div className="flex gap-2">
-              <Button variant="secondary" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - LIMITE))}>Anterior</Button>
-              <Button variant="secondary" disabled={fim >= total} onClick={() => setOffset(offset + LIMITE)}>Próxima</Button>
-            </div>
-          </div>
         </>
       )}
     </PageContainer>

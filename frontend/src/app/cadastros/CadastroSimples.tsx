@@ -17,7 +17,7 @@ interface SimpleItem {
 
 type SimpleClient<T> = CrudClient<T, { descricao: string }, { descricao?: string }>
 
-export function CadastroSimples<T extends SimpleItem>({ titulo, client }: { titulo: string; client: SimpleClient<T> }) {
+export function CadastroSimples<T extends SimpleItem>({ titulo, rotuloNovo = 'Novo', client }: { titulo: string; rotuloNovo?: string; client: SimpleClient<T> }) {
   const { itens, erro, setErro, recarregar } = useCrud<T>(client)
   const [aberto, setAberto] = useState(false)
   const [editando, setEditando] = useState<T | null>(null)
@@ -69,7 +69,7 @@ export function CadastroSimples<T extends SimpleItem>({ titulo, client }: { titu
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-slate-100">{titulo}</h2>
-        <Button onClick={abrirNovo}>Novo</Button>
+        <Button onClick={abrirNovo}>{rotuloNovo}</Button>
       </div>
       {erro && <div className="rounded-lg bg-danger/10 border border-danger/20 px-3 py-2.5 text-sm text-danger">{erro}</div>}
       {itens === null ? (

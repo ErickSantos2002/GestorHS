@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { Spinner } from '../../components/ui/Spinner'
 import { SearchBar } from '../../components/ui/SearchBar'
+import { PaginationOffset } from '../../components/ui/Pagination'
 import { Select } from '../../components/ui/Select'
 import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
@@ -62,8 +63,6 @@ export function FrotaPage() {
     setBusca(termo.trim())
   }
 
-  const inicio = total === 0 ? 0 : offset + 1
-  const fim = Math.min(offset + LIMITE, total)
   const nomeCliente = itens?.[0]?.cliente_nome
 
   return (
@@ -124,7 +123,10 @@ export function FrotaPage() {
         <p className="text-sm text-slate-500">Nenhum aparelho encontrado.</p>
       ) : (
         <>
-          <Table head={<><TH>Aparelho</TH><TH>Cliente</TH><TH>Série / Patrimônio</TH><TH>Próx. calibração</TH><TH>Status</TH></>}>
+          <Table
+            head={<><TH>Aparelho</TH><TH>Cliente</TH><TH>Série / Patrimônio</TH><TH>Próx. calibração</TH><TH>Status</TH></>}
+            footer={<PaginationOffset offset={offset} limit={LIMITE} total={total} onOffsetChange={setOffset} itemLabel="aparelhos" />}
+          >
             {itens.map((e) => {
               const s = STATUS_CALIBRACAO[e.status_calibracao]
               return (
@@ -138,13 +140,6 @@ export function FrotaPage() {
               )
             })}
           </Table>
-          <div className="flex items-center justify-between text-sm text-slate-400">
-            <span>{inicio}–{fim} de {total}</span>
-            <div className="flex gap-2">
-              <Button variant="secondary" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - LIMITE))}>Anterior</Button>
-              <Button variant="secondary" disabled={fim >= total} onClick={() => setOffset(offset + LIMITE)}>Próxima</Button>
-            </div>
-          </div>
         </>
       )}
     </PageContainer>

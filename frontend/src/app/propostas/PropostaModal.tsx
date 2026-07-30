@@ -111,13 +111,16 @@ const inputClass = 'w-full px-3 py-2 text-sm rounded-lg border border-border bg-
 
 interface ItemCatalogo { nome: string; sku: string | null; preco: number }
 
-export function PropostaModal({ propostaId, onClose, onSalvo }: {
+export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
   propostaId?: number | null
+  /** Id da proposta-modelo: abre como proposta NOVA pré-preenchida, sem salvar nada até confirmar. */
+  duplicarDe?: number | null
   onClose: () => void
   onSalvo?: (id: number) => void
 }) {
   const { user } = useAuth()
   const editando = propostaId != null
+  const duplicando = !editando && duplicarDe != null
 
   const [form, setForm] = useState<PropostaCreate>(EMPTY_FORM())
   const [itens, setItens] = useState<PropostaItemCreate[]>([])
@@ -127,7 +130,7 @@ export function PropostaModal({ propostaId, onClose, onSalvo }: {
   const [editorKey, setEditorKey] = useState(0)
   const [modeloTexto, setModeloTexto] = useState<'demais' | 'phoebus'>('demais')
 
-  const [carregando, setCarregando] = useState(editando)
+  const [carregando, setCarregando] = useState(editando || duplicarDe != null)
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
 
@@ -224,9 +227,57 @@ export function PropostaModal({ propostaId, onClose, onSalvo }: {
     return () => { vivo = false }
   }, [propostaId])
 
+  // ─── Semente de duplicação: nova proposta pré-preenchida ──────────────
+  // Copia o conteúdo da proposta original, mas com a identidade de quem está
+  // duplicando (vendedor + assinatura) e data de hoje. Nada é salvo até a
+  // pessoa confirmar em "Criar Proposta"; cancelar não deixa rastro. Número
+  // fica automático (null) e o histórico/versões não são copiados.
+  useEffect(() => {
+    if (propostaId || !duplicarDe) return
+    let vivo = true
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCarregando(true)
+    propostasApi.obter(duplicarDe)
+      .then((p) => {
+        if (!vivo) return
+        setForm({
+          cliente: p.cliente,
+          contato: p.contato ?? '',
+          vendedor: user?.nome ?? '',
+          data: hojeISO(),
+          intro: p.intro ?? '',
+          outros_itens: p.outros_itens ?? '',
+          desconto: p.desconto ?? 0,
+          frete: p.frete ?? 0,
+          forma_envio: p.forma_envio ?? '',
+          forma_frete: p.forma_frete ?? '',
+          transportador: p.transportador ?? '',
+          condicao_pagamento: p.condicao_pagamento ?? '',
+          validade_dias: p.validade_dias ?? null,
+          data_entrega: p.data_entrega ?? '',
+          descricao_entrega: p.descricao_entrega ?? '',
+          endereco_entrega_diferente: p.endereco_entrega_diferente ?? false,
+          endereco_entrega: p.endereco_entrega ?? null,
+          cliente_override: p.cliente_override ?? null,
+          observacoes: p.observacoes ?? '',
+          assinatura: `Atenciosamente,\n${user?.nome ?? ''}`,
+          itens: [],
+          aparelhos: [],
+        })
+        setItens(p.itens.map((i) => ({ descricao: i.descricao, sku: i.sku, quantidade: i.quantidade, unidade: i.unidade, preco_un: i.preco_un })))
+        setAparelhosSelecionados(p.aparelhos.map((a) => a.equipamento_cliente).filter((x): x is number => x != null))
+        setDescontoStr(numeroParaTexto(p.desconto))
+        setFreteStr(numeroParaTexto(p.frete))
+        setEditorKey((k) => k + 1)
+      })
+      .catch(() => { if (vivo) setErro('Falha ao carregar a proposta para duplicar') })
+      .finally(() => { if (vivo) setCarregando(false) })
+    return () => { vivo = false }
+  }, [propostaId, duplicarDe, user])
+
   // ─── Defaults de proposta nova ────────────────────────────────────────
   useEffect(() => {
-    if (propostaId) return
+    if (propostaId || duplicarDe) return
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setForm((f) => ({
       ...f,
@@ -561,7 +612,7 @@ export function PropostaModal({ propostaId, onClose, onSalvo }: {
     <Modal
       open
       onClose={onClose}
-      title={editando ? `Editar Proposta${numero != null ? ` #${numero}` : ''}` : 'Nova Proposta'}
+      title={editando ? `Editar Proposta${numero != null ? ` #${numero}` : ''}` : duplicando ? 'Duplicar Proposta' : 'Nova Proposta'}
       size="5xl"
       // Formulario longo: clique fora nao fecha — so o X ou Cancelar.
       closeOnBackdrop={false}
