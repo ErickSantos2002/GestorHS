@@ -23,6 +23,15 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.34.0',
+    data: '30/07/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'A lista de aparelhos agora mostra quais estão inativos: a linha aparece esmaecida e com o selo "Inativo" ao lado do nome. Vale na página de Equipamentos e na aba Equipamentos dentro do cliente.' },
+      { tipo: 'novidade', texto: 'Novo filtro "Aparelhos" na página de Equipamentos, para ver só os ativos, só os inativos ou todos. Ele começa em "Todos", então a lista abre como sempre abriu.' },
+      { tipo: 'melhoria', texto: 'Aparelho inativo com calibração vencida não aparece mais em vermelho na lista — ele saiu de uso, então não é trabalho pendente. O texto continua lá para consulta.' },
+    ],
+  },
+  {
     versao: '1.33.1',
     data: '30/07/2026',
     itens: [
