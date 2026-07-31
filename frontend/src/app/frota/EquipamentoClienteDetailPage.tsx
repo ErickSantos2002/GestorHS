@@ -8,7 +8,7 @@ import { Spinner } from '../../components/ui/Spinner'
 import { Table, TH, TD } from '../../components/ui/Table'
 import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
-import { isAdmin, podeAbrirOS, podeGerenciarCadastros, podeGerarCertificadoVenda } from '../../auth/roles'
+import { isAdmin, podeAbrirOS, podeEditarCadastros, podeGerenciarCadastros, podeGerarCertificadoVenda } from '../../auth/roles'
 import { AbrirOSModal } from '../ordens/AbrirOSModal'
 import { TransferirModal } from './TransferirModal'
 import { CertificadoVendaModal } from './CertificadoVendaModal'
@@ -57,7 +57,7 @@ export function EquipamentoClienteDetailPage({ embutido = false }: { embutido?: 
   const { user } = useAuth()
   const aparelhoId = embutido ? params.aparelho : params.id
   const editando = aparelhoId !== undefined
-  const podeEditar = podeGerenciarCadastros(user)
+  const podeEditar = editando ? podeEditarCadastros(user) : podeGerenciarCadastros(user)
   const clienteParam = searchParams.get('cliente')
   const clienteId = embutido ? Number(params.id) : (clienteParam ? Number(clienteParam) : 0)
   const voltarBase = embutido ? `/app/clientes/${clienteId}/equipamentos` : '/app/equipamentos'
