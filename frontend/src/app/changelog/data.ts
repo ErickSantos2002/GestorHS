@@ -23,6 +23,14 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.36.0',
+    data: '31/07/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'A página da OS ganhou uma seção "Observações", entre Recebimento e Fotos, com um campo de texto que qualquer pessoa da equipe pode preencher — em qualquer fase da OS. A anotação fica na OS, não na fase, e o histórico registra quem alterou.' },
+      { tipo: 'melhoria', texto: 'As observações antes só apareciam quando já havia texto e só o Administrador conseguia alterá-las, pelo modal de editar OS. Agora o campo está sempre visível na própria página.' },
+    ],
+  },
+  {
     versao: '1.35.0',
     data: '31/07/2026',
     itens: [
