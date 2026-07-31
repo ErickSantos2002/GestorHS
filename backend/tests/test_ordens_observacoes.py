@@ -71,5 +71,6 @@ def test_observacoes_sem_token_401(client, fases_seed, os_base, db_session):
 
 def test_observacoes_os_inexistente_404(client, usuario_lab, fases_seed):
     h = _headers(client, "lab@hs.com", "senha123")
-    assert client.patch("/ordens/999999/observacoes", json={"observacoes": "x"},
-                        headers=h).status_code == 404
+    r = client.patch("/ordens/999999/observacoes", json={"observacoes": "x"}, headers=h)
+    assert r.status_code == 404
+    assert r.json()["detail"] == "OS não encontrada"
