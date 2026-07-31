@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/Spinner'
 import {
   IconNote, IconCalendar, IconChart, IconCamera, IconClock,
-  IconCheck, IconSearch, IconBattery, IconWrench, IconCaixas, IconX, IconCertificado,
+  IconCheck, IconSearch, IconBattery, IconWrench, IconCaixas, IconX, IconCertificado, IconPencil,
 } from '../../components/ui/icons'
 import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
@@ -110,6 +110,9 @@ export function OrdemDetailPage() {
   const [erroFoto, setErroFoto] = useState('')
   const [erroCert, setErroCert] = useState('')
   const [erroNF, setErroNF] = useState('')
+  const [erroObs, setErroObs] = useState('')
+  const [obsTexto, setObsTexto] = useState('')
+  const [salvandoObs, setSalvandoObs] = useState(false)
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null)
 
   useEffect(() => {
@@ -149,6 +152,11 @@ export function OrdemDetailPage() {
       .catch(() => {})
     return () => { ativo = false }
   }, [osId])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setObsTexto(os?.obs ?? '')
+  }, [os?.obs])
 
   if (carregando) return <div className="flex justify-center py-16"><Spinner className="w-8 h-8" /></div>
   if (erro || !os)
@@ -210,6 +218,19 @@ export function OrdemDetailPage() {
       await ordensApi.baixarNotaFiscal(os.id, os.nota_fiscal)
     } catch (e) {
       setErroNF(e instanceof ApiError ? e.message : 'Falha ao baixar nota fiscal')
+    }
+  }
+
+  async function onSalvarObs() {
+    setErroObs('')
+    setSalvandoObs(true)
+    try {
+      const atualizado = await ordensApi.editarObservacoes(osId, obsTexto.trim() || null)
+      setOs(atualizado)
+    } catch (err) {
+      setErroObs(err instanceof ApiError ? err.message : 'Falha ao salvar observações')
+    } finally {
+      setSalvandoObs(false)
     }
   }
 
@@ -324,12 +345,33 @@ export function OrdemDetailPage() {
             <span className="text-sm text-slate-500">—</span>
           )}
         </div>
-        {os.obs && (
-          <div>
-            <dt className="text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-1">Observações</dt>
-            <dd className="text-sm text-slate-200 whitespace-pre-wrap">{os.obs}</dd>
-          </div>
-        )}
+      </Secao>
+
+      {/* Observações */}
+      <Secao
+        icon={<IconPencil className="w-4 h-4" />}
+        titulo="Observações"
+        acao={
+          <button
+            type="button"
+            onClick={onSalvarObs}
+            disabled={salvandoObs || obsTexto === (os.obs ?? '')}
+            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold bg-primary text-white hover:bg-primary-600 disabled:opacity-50 transition-colors"
+          >
+            Salvar observações
+          </button>
+        }
+      >
+        <label htmlFor="os-obs" className="sr-only">Observações</label>
+        <textarea
+          id="os-obs"
+          value={obsTexto}
+          onChange={(e) => setObsTexto(e.target.value)}
+          rows={4}
+          placeholder="Anotações sobre esta OS — visíveis para toda a equipe, em qualquer fase."
+          className="w-full rounded-lg bg-background border border-border px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/40"
+        />
+        {erroObs && <p className="text-sm text-danger">{erroObs}</p>}
       </Secao>
 
       {/* Fotos */}

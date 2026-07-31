@@ -346,6 +346,8 @@ export const ordensApi = {
     apiJson<OrdemDetalhe>('/ordens', { method: 'POST', body: JSON.stringify(payload) }),
   editar: (id: number, payload: EditarPayload): Promise<OrdemDetalhe> =>
     apiJson<OrdemDetalhe>(`/ordens/${id}/editar`, { method: 'PUT', body: JSON.stringify(payload) }),
+  editarObservacoes: (id: number, observacoes: string | null): Promise<OrdemDetalhe> =>
+    apiJson<OrdemDetalhe>(`/ordens/${id}/observacoes`, { method: 'PATCH', body: JSON.stringify({ observacoes }) }),
   avancar: (id: number, payload: AvancarPayload): Promise<OrdemDetalhe> =>
     apiJson<OrdemDetalhe>(`/ordens/${id}/avancar`, { method: 'POST', body: JSON.stringify(payload) }),
   cancelar: (id: number, payload: { motivo: string }): Promise<OrdemDetalhe> =>
