@@ -17,7 +17,7 @@ from app.api.caixas import sincronizar_principal
 from app.api.espelhamento import agendar_espelhamento_caixa
 from app.schemas.ordens import (
     OrdemListOut, OrdemPage, QuadroColuna, OrdemOut, LogOut, OrdemAbrirIn, OrdemEditarIn,
-    AvancarIn, CancelarIn, DesfechoLabIn,
+    AvancarIn, CancelarIn, DesfechoLabIn, ObservacoesIn,
 )
 
 router = APIRouter(prefix="/ordens", tags=["ordens"])
@@ -228,6 +228,27 @@ def editar(ordem_id: int, dados: OrdemEditarIn, db: Session = Depends(get_db),
         ordem.obs = campos["observacoes"]
     alterados = ", ".join(sorted(campos.keys()))
     registrar_log(db, ordem, usuario, f"OS editada (admin): {alterados}")
+    db.commit()
+    db.refresh(ordem)
+    _anotar_modelos_faltantes(db, ordem)
+    return ordem
+
+
+@router.patch("/{ordem_id}/observacoes", response_model=OrdemOut)
+def editar_observacoes(ordem_id: int, dados: ObservacoesIn, db: Session = Depends(get_db),
+                       usuario: Usuario = Depends(get_current_usuario)):
+    """Anotacao livre da OS: sem dono de fase e sem funcao exigida.
+
+    Endpoint proprio de proposito — o `/editar` mexe em tipo de servico, checklist,
+    datas e garantia, e exige Administrador; abri-lo daria muito mais que isto.
+    """
+    ordem = db.query(Ordem).filter(Ordem.id == ordem_id).first()
+    if ordem is None:
+        raise HTTPException(status_code=404, detail="OS não encontrada")
+    texto = (dados.observacoes or "").strip() or None
+    ordem.obs = texto
+    registrar_log(db, ordem, usuario,
+                  "Observações editadas" if texto else "Observações apagadas")
     db.commit()
     db.refresh(ordem)
     _anotar_modelos_faltantes(db, ordem)

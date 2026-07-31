@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 
 let mockUser: { funcao: string } | null = { funcao: 'Administrador' }
@@ -77,7 +77,10 @@ describe('OrdemDetailPage — Editar OS (Admin)', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Editar OS' }))
 
     expect(await screen.findByRole('heading', { name: /editar os/i })).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: /salvar/i }))
+    // Escopado ao modal: a pagina por tras tambem tem um botao "Salvar observações"
+    // (secao Observações) que casaria com um /salvar/i solto.
+    const modal = within(screen.getByTestId('modal-backdrop'))
+    fireEvent.click(modal.getByRole('button', { name: /salvar/i }))
 
     await waitFor(() => expect(editar).toHaveBeenCalledWith(500, expect.anything()))
     await waitFor(() => expect(obter).toHaveBeenCalledTimes(2))

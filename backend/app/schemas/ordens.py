@@ -189,3 +189,7 @@ class TipoCalibragemOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     descricao: str
+
+
+class ObservacoesIn(BaseModel):
+    observacoes: str | None = None
