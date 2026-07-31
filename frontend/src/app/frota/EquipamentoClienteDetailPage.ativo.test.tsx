@@ -59,4 +59,17 @@ describe('controle unico de ativo', () => {
     expect(payload.ativo).toBe(false)
     expect(payload).not.toHaveProperty('status')
   })
+
+  it('mostra o estado por extenso ao lado do interruptor', async () => {
+    obter.mockResolvedValue({ ...APARELHO, ativo: true })
+    editar()
+    expect(await screen.findByRole('switch')).toBeInTheDocument()
+    expect(screen.getByText('Ativo')).toBeInTheDocument()
+  })
+
+  it('mostra Inativo quando o aparelho esta desativado', async () => {
+    obter.mockResolvedValue({ ...APARELHO, ativo: false })
+    editar()
+    expect(await screen.findByText('Inativo')).toBeInTheDocument()
+  })
 })

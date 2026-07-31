@@ -4,19 +4,22 @@ interface ToggleProps {
   checked: boolean
   onChange: (next: boolean) => void
   label?: string
+  disabled?: boolean
 }
 
-export function Toggle({ checked, onChange, label }: ToggleProps) {
+export function Toggle({ checked, onChange, label, disabled = false }: ToggleProps) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
       aria-label={label}
+      disabled={disabled}
       onClick={() => onChange(!checked)}
       className={cn(
         'relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full p-0 transition-colors',
         checked ? 'bg-primary' : 'bg-slate-200 dark:bg-border',
+        disabled && 'opacity-50 cursor-not-allowed',
       )}
     >
       <span
