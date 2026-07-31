@@ -25,6 +25,30 @@ describe('frota/api', () => {
     expect(url).toContain('offset=25')
   })
 
+  it('listar com ativo=false manda o parametro (nao pode ser omitido por falsy)', async () => {
+    const f = vi.fn().mockResolvedValue(jsonResponse({ items: [], total: 0 }))
+    vi.stubGlobal('fetch', f)
+    await equipamentosClienteApi.listar({ ativo: false })
+    const url = String(f.mock.calls[0][0])
+    expect(url).toContain('ativo=false')
+  })
+
+  it('listar com ativo=true manda o parametro', async () => {
+    const f = vi.fn().mockResolvedValue(jsonResponse({ items: [], total: 0 }))
+    vi.stubGlobal('fetch', f)
+    await equipamentosClienteApi.listar({ ativo: true })
+    const url = String(f.mock.calls[0][0])
+    expect(url).toContain('ativo=true')
+  })
+
+  it('listar sem ativo nao manda o parametro', async () => {
+    const f = vi.fn().mockResolvedValue(jsonResponse({ items: [], total: 0 }))
+    vi.stubGlobal('fetch', f)
+    await equipamentosClienteApi.listar({})
+    const url = String(f.mock.calls[0][0])
+    expect(url).not.toContain('ativo=')
+  })
+
   it('historico bate no path certo', async () => {
     const f = vi.fn().mockResolvedValue(jsonResponse([]))
     vi.stubGlobal('fetch', f)
