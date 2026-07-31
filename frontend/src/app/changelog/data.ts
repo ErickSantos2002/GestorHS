@@ -23,6 +23,14 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.35.0',
+    data: '31/07/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'O time de Pós-Vendas agora pode corrigir os dados de um cliente (endereço, contato e o resto do cadastro) e editar um aparelho, inclusive marcá-lo como ativo ou inativo. Criar cliente ou aparelho novo e transferir aparelho entre clientes continuam com Administração, Laboratório e Expedição.' },
+      { tipo: 'melhoria', texto: 'O controle de ativo do aparelho virou um interruptor, com o estado escrito ao lado — "Ativo" ou "Inativo" — no lugar da antiga caixinha de marcar.' },
+    ],
+  },
+  {
     versao: '1.34.0',
     data: '30/07/2026',
     itens: [
