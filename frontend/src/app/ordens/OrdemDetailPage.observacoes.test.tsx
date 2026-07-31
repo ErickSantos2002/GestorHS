@@ -96,6 +96,44 @@ describe('OrdemDetailPage — Observações', () => {
     expect(editarObservacoes).toHaveBeenCalledWith(expect.any(Number), 'veio sem tampa')
   })
 
+  it('o botao volta a desabilitar depois de um salvamento sem efeito (so espaco a mais)', async () => {
+    // Regressao do achado 1: se o usuario so acrescenta espaco ao final de uma
+    // observacao ja salva, o servidor normaliza (trim) e devolve o MESMO valor
+    // que ja estava em os.obs. Sem sincronizar obsTexto a partir da resposta,
+    // o botao ficaria aceso para sempre (o efeito de sync so dispara quando
+    // os.obs muda, e aqui ele nao muda).
+    obter.mockResolvedValue(baseOs({ obs: 'nota' }))
+    editarObservacoes.mockResolvedValue(baseOs({ obs: 'nota' }))
+    tela()
+    const campo = await screen.findByDisplayValue('nota')
+    const botao = screen.getByRole('button', { name: /salvar observações/i })
+    expect(botao).toBeDisabled()
+    await userEvent.type(campo, ' ')
+    expect(botao).not.toBeDisabled()
+    await userEvent.click(botao)
+    expect(await screen.findByDisplayValue('nota')).toBeInTheDocument()
+    expect(botao).toBeDisabled()
+  })
+
+  it('o textarea fica desabilitado enquanto o salvamento esta em andamento', async () => {
+    // Regressao do achado 2: se o campo continuar editavel durante o PATCH,
+    // o setOs(atualizado) ao final sobrescreve o textarea e descarta o que
+    // a pessoa tiver digitado nesse meio-tempo.
+    obter.mockResolvedValue(baseOs({ obs: null }))
+    let liberar: (v: ReturnType<typeof baseOs>) => void = () => {}
+    editarObservacoes.mockImplementation(() => new Promise((resolve) => { liberar = resolve }))
+    tela()
+    const campo = await screen.findByLabelText('Observações')
+    const botao = screen.getByRole('button', { name: /salvar observações/i })
+    await userEvent.type(campo, 'em andamento')
+    expect(campo).not.toBeDisabled()
+    await userEvent.click(botao)
+    expect(campo).toBeDisabled()
+    liberar(baseOs({ obs: 'em andamento' }))
+    await screen.findByDisplayValue('em andamento')
+    expect(campo).not.toBeDisabled()
+  })
+
   it('a observacao aparece uma unica vez na pagina', async () => {
     obter.mockResolvedValue(baseOs({ obs: 'anotacao existente' }))
     tela()

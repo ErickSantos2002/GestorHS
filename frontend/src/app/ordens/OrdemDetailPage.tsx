@@ -227,6 +227,12 @@ export function OrdemDetailPage() {
     try {
       const atualizado = await ordensApi.editarObservacoes(osId, obsTexto.trim() || null)
       setOs(atualizado)
+      // Sincroniza direto da resposta: se o texto so tinha diferenca de espacos
+      // (ex.: "nota " -> "nota"), o servidor normaliza para o mesmo valor que
+      // ja estava salvo, `os.obs` nao muda e o efeito de sincronizacao (que so
+      // dispara quando os.obs muda) nunca re-executaria. Sem isto o botao de
+      // salvar ficaria aceso para sempre nesse caso.
+      setObsTexto(atualizado.obs ?? '')
     } catch (err) {
       setErroObs(err instanceof ApiError ? err.message : 'Falha ao salvar observações')
     } finally {
@@ -366,10 +372,11 @@ export function OrdemDetailPage() {
         <textarea
           id="os-obs"
           value={obsTexto}
-          onChange={(e) => setObsTexto(e.target.value)}
+          onChange={(e) => { setObsTexto(e.target.value); setErroObs('') }}
+          disabled={salvandoObs}
           rows={4}
           placeholder="Anotações sobre esta OS — visíveis para toda a equipe, em qualquer fase."
-          className="w-full rounded-lg bg-background border border-border px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/40"
+          className="w-full rounded-lg bg-background border border-border px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-60"
         />
         {erroObs && <p className="text-sm text-danger">{erroObs}</p>}
       </Secao>
