@@ -46,7 +46,8 @@ export function podeGerarCertificadoVenda(user: User | null): boolean {
 }
 
 // Cadastro de clientes e aparelhos: Administrador, Laboratório e Expedição podem
-// criar, alterar e transferir (Expedição dá entrada de módulos novos no estoque).
+// criar e transferir (Expedição dá entrada de módulos novos no estoque).
+// ALTERAR é mais amplo — ver podeEditarCadastros abaixo.
 // EXCLUIR continua exclusivo do Administrador — por isso os botões de excluir
 // seguem usando isAdmin(), não este helper.
 // Espelha GESTOR_CADASTRO em backend/app/api/deps.py — mudou lá, mude aqui.
