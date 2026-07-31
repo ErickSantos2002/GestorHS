@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 
 let mockUser: { funcao: string | null } | null = { funcao: 'Administrador' }
@@ -60,21 +60,21 @@ describe('ClienteEquipamentosTab', () => {
 
   it('marca a linha do aparelho inativo com selo e esmaecido', async () => {
     listar.mockResolvedValue({ items: [
-      { id: 1, cliente: 5, cliente_nome: 'ACME', equipamento: 9, equipamento_descricao: 'Bafômetro Ativo',
+      { id: 1, cliente: 5, cliente_nome: 'ACME', equipamento: 9, equipamento_descricao: 'Bafômetro Novo',
         serie: 'SN-1', patrimonio: null, prox_calibragem: '2026-08-01', ativo: true, status_calibracao: 'em_dia' },
-      { id: 2, cliente: 5, cliente_nome: 'ACME', equipamento: 9, equipamento_descricao: 'Bafômetro Inativo',
+      { id: 2, cliente: 5, cliente_nome: 'ACME', equipamento: 9, equipamento_descricao: 'Bafômetro Velho',
         serie: 'SN-2', patrimonio: null, prox_calibragem: '2026-08-01', ativo: false, status_calibracao: 'vencido' },
     ], total: 2 })
     renderTab()
 
-    const linhaInativa = (await screen.findByText('Bafômetro Inativo')).closest('tr')
+    const linhaInativa = (await screen.findByText('Bafômetro Velho')).closest('tr')
     expect(linhaInativa).not.toBeNull()
     expect(linhaInativa!.className).toContain('opacity-60')
-    expect(linhaInativa!.textContent).toContain('Inativo')
+    expect(within(linhaInativa!).getByText('Inativo')).toBeInTheDocument()
 
-    const linhaAtiva = screen.getByText('Bafômetro Ativo').closest('tr')
+    const linhaAtiva = screen.getByText('Bafômetro Novo').closest('tr')
     expect(linhaAtiva!.className).not.toContain('opacity-60')
-    expect(linhaAtiva!.textContent).not.toContain('Inativo')
+    expect(within(linhaAtiva!).queryByText('Inativo')).toBeNull()
   })
 
   it('nao pinta de alarme a calibracao de um aparelho inativo', async () => {

@@ -36,19 +36,19 @@ describe('FrotaPage — aparelho inativo', () => {
 
   it('marca a linha do inativo com selo e esmaecido', async () => {
     listar.mockResolvedValue({ items: [
-      item({ id: 1, equipamento_descricao: 'Bafômetro Ativo', ativo: true }),
-      item({ id: 2, equipamento_descricao: 'Bafômetro Inativo', ativo: false, serie: 'SN-2' }),
+      item({ id: 1, equipamento_descricao: 'Bafômetro Novo', ativo: true }),
+      item({ id: 2, equipamento_descricao: 'Bafômetro Velho', ativo: false, serie: 'SN-2' }),
     ], total: 2 })
     renderPage()
 
-    const linhaInativa = (await screen.findByText('Bafômetro Inativo')).closest('tr')
+    const linhaInativa = (await screen.findByText('Bafômetro Velho')).closest('tr')
     expect(linhaInativa).not.toBeNull()
     expect(linhaInativa!.className).toContain('opacity-60')
-    expect(linhaInativa!.textContent).toContain('Inativo')
+    expect(within(linhaInativa!).getByText('Inativo')).toBeInTheDocument()
 
-    const linhaAtiva = screen.getByText('Bafômetro Ativo').closest('tr')
+    const linhaAtiva = screen.getByText('Bafômetro Novo').closest('tr')
     expect(linhaAtiva!.className).not.toContain('opacity-60')
-    expect(linhaAtiva!.textContent).not.toContain('Inativo')
+    expect(within(linhaAtiva!).queryByText('Inativo')).toBeNull()
   })
 
   it('nao pinta de alarme a calibracao de um aparelho inativo', async () => {
