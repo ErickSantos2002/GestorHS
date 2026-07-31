@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.models.database import get_db
 from app.models import Usuario, EquipamentoCliente, HistoricoEquipamento, Ordem, OSCertificado, Cliente, TransferenciaEquipamento, CertificadoVenda
-from app.api.deps import get_current_usuario, require_funcao, GESTOR_CADASTRO
+from app.api.deps import get_current_usuario, require_funcao, GESTOR_CADASTRO, EDITOR_CADASTRO
 from app.api.cadastros_common import excluir_protegido
 from app.api.ordens_acoes import agora
 from app.core import os_workflow as wf
@@ -178,7 +178,7 @@ def criar(dados: EquipamentoClienteCreate, db: Session = Depends(get_db), _: Usu
 
 
 @router.patch("/{item_id}", response_model=EquipamentoClienteOut)
-def atualizar(item_id: int, dados: EquipamentoClienteUpdate, db: Session = Depends(get_db), _: Usuario = Depends(require_funcao(*GESTOR_CADASTRO))):
+def atualizar(item_id: int, dados: EquipamentoClienteUpdate, db: Session = Depends(get_db), _: Usuario = Depends(require_funcao(*EDITOR_CADASTRO))):
     obj = db.query(EquipamentoCliente).filter(EquipamentoCliente.id == item_id).first()
     if obj is None:
         raise HTTPException(status_code=404, detail="não encontrado")

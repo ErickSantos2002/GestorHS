@@ -88,8 +88,16 @@ def require_funcao(*descricoes: str):
 
 ADMIN = "Administrador"
 
-# Quem pode CADASTRAR, ALTERAR e TRANSFERIR clientes e aparelhos da frota.
+# Quem pode CADASTRAR e TRANSFERIR clientes e aparelhos da frota.
 # Fonte unica: usada pelos routers de clientes e de equipamentos_cliente.
 # Expedicao entra porque da entrada de modulos novos no estoque (cadastro de aparelhos).
+# ALTERAR e mais amplo — ver EDITOR_CADASTRO abaixo.
 # EXCLUIR continua so com Administrador — e a unica acao destrutiva de verdade.
 GESTOR_CADASTRO = (ADMIN, "Laboratório", "Expedição")
+
+# Quem pode ALTERAR cadastro ja existente — os gestores acima MAIS o Comercial
+# Pos-Vendas, que precisa corrigir endereco/dados do cliente e marcar aparelho
+# como inativo. Derivada de GESTOR_CADASTRO de proposito: as duas nao podem
+# divergir quando alguem mexer na primeira.
+# CRIAR e TRANSFERIR seguem em GESTOR_CADASTRO; EXCLUIR segue so com ADMIN.
+EDITOR_CADASTRO = GESTOR_CADASTRO + ("Comercial Pós-Vendas",)

@@ -50,8 +50,24 @@ describe('ClienteEquipamentosTab', () => {
     expect(await screen.findByText(/Nenhum aparelho/i)).toBeInTheDocument()
   })
 
-  it('esconde "Novo aparelho" para não-admin', async () => {
+  it('mostra "Novo aparelho" para Expedição, que cadastra aparelho', async () => {
     mockUser = { funcao: 'Expedição' }
+    listar.mockResolvedValue({ items: [], total: 0 })
+    renderTab()
+    await screen.findByText(/Nenhum aparelho/i)
+    expect(screen.getByText('Novo aparelho')).toBeInTheDocument()
+  })
+
+  it('esconde "Novo aparelho" para quem nao gerencia cadastro', async () => {
+    mockUser = { funcao: 'Financeiro' }
+    listar.mockResolvedValue({ items: [], total: 0 })
+    renderTab()
+    await screen.findByText(/Nenhum aparelho/i)
+    expect(screen.queryByText('Novo aparelho')).toBeNull()
+  })
+
+  it('esconde "Novo aparelho" para Pós-Vendas, que so edita', async () => {
+    mockUser = { funcao: 'Comercial Pós-Vendas' }
     listar.mockResolvedValue({ items: [], total: 0 })
     renderTab()
     await screen.findByText(/Nenhum aparelho/i)

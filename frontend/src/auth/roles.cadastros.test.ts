@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isAdmin, podeGerenciarCadastros } from './roles'
+import { isAdmin, podeGerenciarCadastros, podeEditarCadastros } from './roles'
 
 const u = (funcao: string | null) => ({ funcao }) as never
 
@@ -23,5 +23,26 @@ describe('podeGerenciarCadastros (cliente e aparelho)', () => {
     // teste nao pega, mas a distincao entre os dois fica registrada aqui.
     expect(podeGerenciarCadastros(u('Laboratório'))).toBe(true)
     expect(isAdmin(u('Laboratório'))).toBe(false)
+  })
+})
+
+describe('podeEditarCadastros (alterar cadastro existente)', () => {
+  it('libera o Comercial Pos-Vendas, que gerenciar nao libera', () => {
+    expect(podeEditarCadastros(u('Comercial Pós-Vendas'))).toBe(true)
+    expect(podeGerenciarCadastros(u('Comercial Pós-Vendas'))).toBe(false)
+  })
+
+  it('quem gerencia tambem edita', () => {
+    for (const f of ['Administrador', 'Laboratório', 'Expedição']) {
+      expect(podeGerenciarCadastros(u(f))).toBe(true)
+      expect(podeEditarCadastros(u(f))).toBe(true)
+    }
+  })
+
+  it('bloqueia as demais funcoes e usuario sem sessao', () => {
+    for (const f of ['Financeiro', 'Suporte', 'Qualidade']) {
+      expect(podeEditarCadastros(u(f))).toBe(false)
+    }
+    expect(podeEditarCadastros(null)).toBe(false)
   })
 })

@@ -5,10 +5,11 @@ import { Input } from '../../components/ui/Input'
 import { Select } from '../../components/ui/Select'
 import { Badge } from '../../components/ui/Badge'
 import { Spinner } from '../../components/ui/Spinner'
+import { Toggle } from '../../components/ui/Toggle'
 import { Table, TH, TD } from '../../components/ui/Table'
 import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
-import { isAdmin, podeAbrirOS, podeGerenciarCadastros, podeGerarCertificadoVenda } from '../../auth/roles'
+import { isAdmin, podeAbrirOS, podeEditarCadastros, podeGerenciarCadastros, podeGerarCertificadoVenda } from '../../auth/roles'
 import { AbrirOSModal } from '../ordens/AbrirOSModal'
 import { TransferirModal } from './TransferirModal'
 import { CertificadoVendaModal } from './CertificadoVendaModal'
@@ -57,7 +58,7 @@ export function EquipamentoClienteDetailPage({ embutido = false }: { embutido?: 
   const { user } = useAuth()
   const aparelhoId = embutido ? params.aparelho : params.id
   const editando = aparelhoId !== undefined
-  const podeEditar = podeGerenciarCadastros(user)
+  const podeEditar = editando ? podeEditarCadastros(user) : podeGerenciarCadastros(user)
   const clienteParam = searchParams.get('cliente')
   const clienteId = embutido ? Number(params.id) : (clienteParam ? Number(clienteParam) : 0)
   const voltarBase = embutido ? `/app/clientes/${clienteId}/equipamentos` : '/app/equipamentos'
@@ -195,10 +196,10 @@ export function EquipamentoClienteDetailPage({ embutido = false }: { embutido?: 
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Input id="ec-modulo" label="Módulo" type="number" value={String(form.modulo)} onChange={(e) => set('modulo', Number(e.target.value) || 0)} disabled={ro} />
-          <label htmlFor="ec-ativo" className="flex items-center gap-2 text-sm text-slate-300 sm:self-end sm:pb-2">
-            <input id="ec-ativo" type="checkbox" checked={form.ativo} onChange={(e) => set('ativo', e.target.checked)} disabled={ro} className="accent-primary" />
-            Ativo
-          </label>
+          <div className="flex items-center gap-3 text-sm text-slate-300 sm:self-end sm:pb-2">
+            <Toggle checked={form.ativo} onChange={(v) => set('ativo', v)} label="Ativo" disabled={ro} />
+            <span>{form.ativo ? 'Ativo' : 'Inativo'}</span>
+          </div>
         </div>
       </Secao>
 

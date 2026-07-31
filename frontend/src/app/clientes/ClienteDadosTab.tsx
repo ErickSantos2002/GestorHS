@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
-import { isAdmin, podeGerenciarCadastros } from '../../auth/roles'
+import { isAdmin, podeEditarCadastros } from '../../auth/roles'
 import { clientesApi, type Cliente, type ClientePayload } from './api'
 import { gruposApi, type Grupo } from '../cadastros/api'
 import { ClienteFormFields } from './ClienteFormFields'
@@ -13,7 +13,7 @@ import { useCliente } from './ClienteLayout'
 export function ClienteDadosTab() {
   const { cliente, recarregar } = useCliente()
   const { user } = useAuth()
-  const podeEditar = podeGerenciarCadastros(user)
+  const podeEditar = podeEditarCadastros(user)
   const [grupos, setGrupos] = useState<Grupo[]>([])
   const [form, setForm] = useState<ClientePayload>(() => paraForm(cliente))
   const [erro, setErro] = useState('')
