@@ -172,6 +172,7 @@ async function apiVoid(path: string, options: RequestInit = {}): Promise<void> {
 export interface FrotaParams {
   cliente?: number
   status?: string
+  ativo?: boolean
   q?: string
   offset?: number
   limit?: number
@@ -182,6 +183,7 @@ export const equipamentosClienteApi = {
     const sp = new URLSearchParams()
     if (params.cliente != null) sp.set('cliente', String(params.cliente))
     if (params.status) sp.set('status', params.status)
+    if (params.ativo !== undefined) sp.set('ativo', String(params.ativo))
     if (params.q) sp.set('q', params.q)
     sp.set('offset', String(params.offset ?? 0))
     sp.set('limit', String(params.limit ?? 25))

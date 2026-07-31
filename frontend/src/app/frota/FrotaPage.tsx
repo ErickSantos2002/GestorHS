@@ -12,6 +12,7 @@ import { useAuth } from '../../auth/AuthContext'
 import { podeGerenciarCadastros } from '../../auth/roles'
 import { equipamentosClienteApi, STATUS_CALIBRACAO, type FrotaItem } from './api'
 import { PageContainer } from '../../components/ui/Page'
+import { cn } from '../../lib/utils'
 
 const LIMITE = 25
 
@@ -23,6 +24,7 @@ export function FrotaPage() {
   const clienteId = clienteParam ? Number(clienteParam) : undefined
 
   const [statusFiltro, setStatusFiltro] = useState('')
+  const [ativoFiltro, setAtivoFiltro] = useState('')
   const [termo, setTermo] = useState('')
   const [busca, setBusca] = useState('')
   const [offset, setOffset] = useState(0)
@@ -41,7 +43,14 @@ export function FrotaPage() {
     setItens(null)
     setErro('')
     equipamentosClienteApi
-      .listar({ cliente: clienteId, status: statusFiltro || undefined, q: busca || undefined, offset, limit: LIMITE })
+      .listar({
+        cliente: clienteId,
+        status: statusFiltro || undefined,
+        ativo: ativoFiltro === '' ? undefined : ativoFiltro === 'true',
+        q: busca || undefined,
+        offset,
+        limit: LIMITE,
+      })
       .then((p) => {
         if (!ativo) return
         setItens(p.items)
@@ -55,7 +64,7 @@ export function FrotaPage() {
     return () => {
       ativo = false
     }
-  }, [clienteId, statusFiltro, busca, offset])
+  }, [clienteId, statusFiltro, ativoFiltro, busca, offset])
 
   function onBuscar(e: FormEvent) {
     e.preventDefault()
@@ -95,22 +104,39 @@ export function FrotaPage() {
         onSubmit={onBuscar}
         placeholder="Série ou patrimônio"
         antes={
-          <div className="w-48">
-            <Select
-              id="status"
-              label="Status"
-              value={statusFiltro}
-              onChange={(e) => {
-                setOffset(0)
-                setStatusFiltro(e.target.value)
-              }}
-            >
-              <option value="">Todos</option>
-              <option value="em_dia">Em dia</option>
-              <option value="vencendo">Vencendo</option>
-              <option value="vencido">Vencido</option>
-              <option value="sem_data">Sem data</option>
-            </Select>
+          <div className="flex gap-3">
+            <div className="w-48">
+              <Select
+                id="status"
+                label="Status"
+                value={statusFiltro}
+                onChange={(e) => {
+                  setOffset(0)
+                  setStatusFiltro(e.target.value)
+                }}
+              >
+                <option value="">Todos</option>
+                <option value="em_dia">Em dia</option>
+                <option value="vencendo">Vencendo</option>
+                <option value="vencido">Vencido</option>
+                <option value="sem_data">Sem data</option>
+              </Select>
+            </div>
+            <div className="w-48">
+              <Select
+                id="ativo"
+                label="Aparelhos"
+                value={ativoFiltro}
+                onChange={(e) => {
+                  setOffset(0)
+                  setAtivoFiltro(e.target.value)
+                }}
+              >
+                <option value="">Todos</option>
+                <option value="true">Ativos</option>
+                <option value="false">Inativos</option>
+              </Select>
+            </div>
           </div>
         }
       />
@@ -130,12 +156,21 @@ export function FrotaPage() {
             {itens.map((e) => {
               const s = STATUS_CALIBRACAO[e.status_calibracao]
               return (
-                <tr key={e.id} className="hover:bg-background-elevated transition-colors cursor-pointer" onClick={() => navigate(`/app/equipamentos/${e.id}`)}>
-                  <TD>{e.equipamento_descricao ?? '—'}</TD>
+                <tr
+                  key={e.id}
+                  className={cn('hover:bg-background-elevated transition-colors cursor-pointer', !e.ativo && 'opacity-60')}
+                  onClick={() => navigate(`/app/equipamentos/${e.id}`)}
+                >
+                  <TD>
+                    <span className="inline-flex items-center gap-2">
+                      {e.equipamento_descricao ?? '—'}
+                      {!e.ativo && <Badge tone="neutral">Inativo</Badge>}
+                    </span>
+                  </TD>
                   <TD>{e.cliente_nome ?? '—'}</TD>
                   <TD>{e.serie || e.patrimonio || '—'}</TD>
                   <TD>{e.prox_calibragem ?? '—'}</TD>
-                  <TD><Badge tone={s.tone}>{s.label}</Badge></TD>
+                  <TD><Badge tone={e.ativo ? s.tone : 'neutral'}>{s.label}</Badge></TD>
                 </tr>
               )
             })}

@@ -77,6 +77,7 @@ def _anotar_elo(db: Session, obj) -> None:
 def listar(
     cliente: int | None = None,
     status: str | None = None,
+    ativo: bool | None = None,
     q: str | None = None,
     offset: int = 0,
     limit: int = Query(25, ge=1, le=100),
@@ -86,6 +87,9 @@ def listar(
     query = db.query(EquipamentoCliente)
     if cliente is not None:
         query = query.filter(EquipamentoCliente.cliente == cliente)
+    if ativo is not None:
+        # Filtro opcional: omitido devolve ativos E inativos, como sempre foi.
+        query = query.filter(EquipamentoCliente.ativo.is_(ativo))
     if status:
         hoje = date.today()
         if status == "vencido":
