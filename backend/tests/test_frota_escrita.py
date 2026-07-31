@@ -159,3 +159,30 @@ def test_status_enviado_por_cliente_antigo_e_ignorado_sem_erro(client, usuario_a
                                "status": "I"}, headers=h)
     assert criado.status_code == 201
     assert db_session.get(EquipamentoCliente, criado.json()["id"]).status == "A"
+
+
+def test_pos_vendas_edita_aparelho_mas_nao_cria_nem_transfere(client, usuario_admin, usuario_comercial, db_session):
+    """Pos-Vendas corrige cadastro (inclusive o ativo), mas nao cadastra do zero
+    nem move aparelho entre clientes."""
+    from app.models import Cliente
+    cid, eid = _base(db_session)
+    adm = _headers(client, "admin@hs.com", "senha123")
+    criado = client.post("/equipamentos-cliente", json={"cliente": cid, "equipamento": eid}, headers=adm)
+    assert criado.status_code == 201
+    iid = criado.json()["id"]
+
+    pv = _headers(client, "comercial@hs.com", "senha123")
+    # EDITAR: pode
+    r = client.patch(f"/equipamentos-cliente/{iid}", json={"ativo": False}, headers=pv)
+    assert r.status_code == 200
+    assert r.json()["ativo"] is False
+    # CRIAR: nao pode
+    assert client.post("/equipamentos-cliente", json={"cliente": cid, "equipamento": eid},
+                       headers=pv).status_code == 403
+    # TRANSFERIR: nao pode
+    outro = Cliente(nome="Destino")
+    db_session.add(outro); db_session.commit()
+    assert client.post(f"/equipamentos-cliente/{iid}/transferir", json={"cliente": outro.id},
+                       headers=pv).status_code == 403
+    # EXCLUIR: continua so do Admin
+    assert client.delete(f"/equipamentos-cliente/{iid}", headers=pv).status_code == 403

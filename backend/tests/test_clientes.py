@@ -80,3 +80,26 @@ def test_excluir_cliente_em_uso_409(client, usuario_admin, db_session):
     db_session.commit()
     r = client.delete(f"/clientes/{c.id}", headers=_headers(client, "admin@hs.com", "senha123"))
     assert r.status_code == 409
+
+
+def test_pos_vendas_edita_cliente_mas_nao_cria(client, usuario_admin, usuario_comercial):
+    """Pos-Vendas corrige endereco e demais dados do cliente, mas nao cadastra cliente novo."""
+    adm = _headers(client, "admin@hs.com", "senha123")
+    criado = client.post("/clientes", json={"nome": "ACME"}, headers=adm)
+    assert criado.status_code == 201
+    cid = criado.json()["id"]
+
+    pv = _headers(client, "comercial@hs.com", "senha123")
+    r = client.patch(f"/clientes/{cid}", json={"endereco": "Rua Nova", "municipio": "Campinas"}, headers=pv)
+    assert r.status_code == 200
+    assert r.json()["endereco"] == "Rua Nova"
+    assert client.post("/clientes", json={"nome": "Outro"}, headers=pv).status_code == 403
+    assert client.delete(f"/clientes/{cid}", headers=pv).status_code == 403
+
+
+def test_gestores_continuam_editando_cliente(client, usuario_admin, usuario_comum):
+    """Controle: quem ja editava (Expedicao) nao perdeu nada com a separacao das tuplas."""
+    adm = _headers(client, "admin@hs.com", "senha123")
+    cid = client.post("/clientes", json={"nome": "ACME 2"}, headers=adm).json()["id"]
+    exp = _headers(client, "comum@hs.com", "senha123")
+    assert client.patch(f"/clientes/{cid}", json={"bairro": "Centro"}, headers=exp).status_code == 200

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.models.database import get_db
 from app.models import Usuario, Cliente
-from app.api.deps import get_current_usuario, require_funcao, GESTOR_CADASTRO
+from app.api.deps import get_current_usuario, require_funcao, GESTOR_CADASTRO, EDITOR_CADASTRO
 from app.api.cadastros_common import excluir_protegido
 from app.schemas.clientes import ClienteListOut, ClientesPage, ClienteOut, ClienteCreate, ClienteUpdate
 
@@ -54,7 +54,7 @@ def criar(dados: ClienteCreate, db: Session = Depends(get_db), _: Usuario = Depe
 
 
 @router.patch("/{cliente_id}", response_model=ClienteOut)
-def atualizar(cliente_id: int, dados: ClienteUpdate, db: Session = Depends(get_db), _: Usuario = Depends(require_funcao(*GESTOR_CADASTRO))):
+def atualizar(cliente_id: int, dados: ClienteUpdate, db: Session = Depends(get_db), _: Usuario = Depends(require_funcao(*EDITOR_CADASTRO))):
     obj = db.query(Cliente).filter(Cliente.id == cliente_id).first()
     if obj is None:
         raise HTTPException(status_code=404, detail="não encontrado")
