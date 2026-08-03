@@ -45,6 +45,9 @@ class CertificadoConfigIn(BaseModel):
     tecnico_cargo: str | None = None
     equipamentos_auxiliares: str | None = None
     margem_temperatura: str | None = None
+    doc_gas_id: int | None = None
+    doc_termohigrometro_id: int | None = None
+    doc_barometro_id: int | None = None
 
 
 class CertificadoConfigOut(CertificadoConfigIn):

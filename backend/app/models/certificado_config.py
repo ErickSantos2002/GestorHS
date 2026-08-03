@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Numeric, String, Text
+from sqlalchemy import Column, ForeignKey, Integer, Numeric, String, Text
 
 from app.models.database import Base
 
@@ -27,3 +27,9 @@ class CertificadoConfig(Base):
     tecnico_cargo = Column(String(100), nullable=True, default="Técnico em Metrologia")
     equipamentos_auxiliares = Column(Text, nullable=True)
     margem_temperatura = Column(String(50), nullable=True, default="20 ºC ~ 24 ºC")
+    # Documentos auxiliares que viram QR no rodape do certificado. Guarda-se o ID e nao
+    # a URL: o link publico e assinado e derivado na hora, entao continua valido se a
+    # chave HMAC ou a CERT_PUBLIC_BASE_URL mudarem.
+    doc_gas_id = Column(Integer, ForeignKey("certificados_gerais.id"), nullable=True)
+    doc_termohigrometro_id = Column(Integer, ForeignKey("certificados_gerais.id"), nullable=True)
+    doc_barometro_id = Column(Integer, ForeignKey("certificados_gerais.id"), nullable=True)

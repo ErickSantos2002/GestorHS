@@ -240,3 +240,89 @@ def test_gravar_config_aceita_virgula_decimal(client_admin):
     assert r.status_code == 200
     assert float(r.json()["valor_referencia"]) == 0.17
     assert float(r.json()["resolucao_instrumento"]) == 0.01
+
+
+# --- documentos auxiliares que viram QR no certificado ---------------------------
+
+def _doc_geral(db, nome="Certificado do Gás", arquivo="a.pdf"):
+    from app.models import CertificadoGeral
+    d = CertificadoGeral(nome=nome, arquivo=arquivo)
+    db.add(d)
+    db.commit()
+    db.refresh(d)
+    return d
+
+
+def test_documentos_qr_traz_os_tres_configurados(db_session, monkeypatch):
+    from app.core import certificado_geral_link
+    from app.core.certificado_config import documentos_qr, obter_config
+    monkeypatch.setattr(certificado_geral_link.settings, "CERT_PUBLIC_BASE_URL", "https://x.com")
+
+    gas = _doc_geral(db_session, "Gás", "g.pdf")
+    termo = _doc_geral(db_session, "Termo", "t.pdf")
+    baro = _doc_geral(db_session, "Baro", "b.pdf")
+    cfg = obter_config(db_session)
+    cfg.doc_gas_id, cfg.doc_termohigrometro_id, cfg.doc_barometro_id = gas.id, termo.id, baro.id
+    db_session.commit()
+
+    itens = documentos_qr(db_session, cfg)
+    assert [rotulo for rotulo, _ in itens] == [
+        "Certificado do Gás",
+        "Certificado do Termohigrômetro Digital",
+        "Certificado do Barômetro Digital",
+    ]
+    assert all(f"/publico/certificado-geral/" in url for _, url in itens)
+
+
+def test_documentos_qr_pula_o_que_nao_foi_configurado(db_session, monkeypatch):
+    from app.core import certificado_geral_link
+    from app.core.certificado_config import documentos_qr, obter_config
+    monkeypatch.setattr(certificado_geral_link.settings, "CERT_PUBLIC_BASE_URL", "https://x.com")
+
+    gas = _doc_geral(db_session, "Gás", "g.pdf")
+    cfg = obter_config(db_session)
+    cfg.doc_gas_id = gas.id          # os outros dois ficam nulos
+    db_session.commit()
+
+    itens = documentos_qr(db_session, cfg)
+    assert [rotulo for rotulo, _ in itens] == ["Certificado do Gás"]
+
+
+def test_documentos_qr_pula_documento_excluido_do_cadastro(db_session, monkeypatch):
+    from sqlalchemy import text
+    from app.core import certificado_geral_link
+    from app.core.certificado_config import documentos_qr, obter_config
+    monkeypatch.setattr(certificado_geral_link.settings, "CERT_PUBLIC_BASE_URL", "https://x.com")
+
+    cfg = obter_config(db_session)
+    # O FK normalmente protege esse estado (nao da pra gravar um id que nao existe em
+    # certificados_gerais), entao pra forcar o dado aqui desligamos a checagem so'
+    # durante o UPDATE — igual test_growthhs_elo.py faz pro mesmo tipo de cenario.
+    db_session.execute(text("PRAGMA foreign_keys=OFF"))
+    cfg.doc_gas_id = 9999            # id que nao existe mais
+    db_session.commit()
+    db_session.execute(text("PRAGMA foreign_keys=ON"))
+
+    # Nao levanta: um documento excluido nao pode impedir a emissao do certificado.
+    assert documentos_qr(db_session, cfg) == []
+
+
+def test_documentos_qr_vazio_sem_base_url_publica(db_session, monkeypatch):
+    from app.core import certificado_geral_link
+    from app.core.certificado_config import documentos_qr, obter_config
+    monkeypatch.setattr(certificado_geral_link.settings, "CERT_PUBLIC_BASE_URL", "")
+
+    gas = _doc_geral(db_session, "Gás", "g.pdf")
+    cfg = obter_config(db_session)
+    cfg.doc_gas_id = gas.id
+    db_session.commit()
+
+    # Sem base publica nao ha link para o QR apontar — sai sem bloco, sem erro.
+    assert documentos_qr(db_session, cfg) == []
+
+
+def test_config_api_grava_os_tres_documentos(client_admin, db_session):
+    gas = _doc_geral(db_session, "Gás", "g.pdf")
+    r = client_admin.put("/certificado-config", json={"doc_gas_id": gas.id})
+    assert r.status_code == 200
+    assert r.json()["doc_gas_id"] == gas.id
