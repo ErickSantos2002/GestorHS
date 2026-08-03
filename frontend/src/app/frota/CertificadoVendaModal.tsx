@@ -36,7 +36,7 @@ export function CertificadoVendaModal({ aparelhoId, onClose, onGerado }: {
           cert: c.calib_cert ?? '', situacao: c.calib_situacao ?? '',
           temp: c.calib_temp ?? '', pressao: c.calib_pressao ?? '',
           t1: c.calib_teste1 ?? '', t2: c.calib_teste2 ?? '', t3: c.calib_teste3 ?? '',
-          t4: '', t5: '',
+          t4: c.calib_teste4 ?? '', t5: c.calib_teste5 ?? '',
           media: c.calib_teste_media ?? '',
           dataCalib: c.data_calibracao ?? hojeISO(),
         })
@@ -66,6 +66,8 @@ export function CertificadoVendaModal({ aparelhoId, onClose, onGerado }: {
       calib_teste1: v.t1.trim() || null,
       calib_teste2: v.t2.trim() || null,
       calib_teste3: v.t3.trim() || null,
+      calib_teste4: v.t4.trim() || null,
+      calib_teste5: v.t5.trim() || null,
       calib_teste_media: v.media.trim() || null,
       calib_situacao: v.situacao.trim() || null,
     }
@@ -99,6 +101,7 @@ export function CertificadoVendaModal({ aparelhoId, onClose, onGerado }: {
           <CamposCertificado
             valores={v}
             onChange={set}
+            medicoes={5}
             extra={
               <Input
                 id="prox-calibragem"

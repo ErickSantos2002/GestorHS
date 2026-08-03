@@ -3,8 +3,8 @@ import { Input } from '../../components/ui/Input'
 import { Select } from '../../components/ui/Select'
 import { mediaTestesPreenchidas } from '../../lib/calibragem'
 import { formatarDocumento, soDigitos } from '../../lib/documento'
-import { certificadosApi, type CalculoPrevia, type CertificadoPadrao } from './api'
-import { padraoVigente } from './padraoVigente'
+import { PainelCalculoCertificado } from './PainelCalculoCertificado'
+import { useCalculoCertificado } from './useCalculoCertificado'
 import type { ValoresCertificado } from './valoresCertificado'
 
 const secao = 'text-xs font-semibold text-slate-500 uppercase tracking-wide'
@@ -18,9 +18,9 @@ export function CamposCertificado({ valores, onChange, extra, medicoes = 3 }: {
   valores: ValoresCertificado
   onChange: (patch: Partial<ValoresCertificado>) => void
   extra?: ReactNode
-  /** Quantas medicoes renderizar. A OS usa 5 (certificado EPS-LAB-002); venda e
-   *  avulso ficam em 3, porque os schemas deles so tem calib_teste1..3 — oferecer
-   *  cinco campos la seria aceitar digitacao e descartar em silencio. */
+  /** Quantas medicoes renderizar. OS e venda usam 5 (certificado EPS-LAB-002); o
+   *  padrao de 3 fica para quem ainda nao passa a prop — o avulso tem formulario
+   *  proprio e nao usa este componente. */
   medicoes?: 3 | 5
 }) {
   const chaves = medicoes === 5 ? CHAVES_5 : CHAVES_3
@@ -44,38 +44,9 @@ export function CamposCertificado({ valores, onChange, extra, medicoes = 3 }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chaveMedicoes, mediaEditada])
 
-  const [previaBruta, setPrevia] = useState<CalculoPrevia | null>(null)
-  // A previa so faz sentido com 5 medicoes preenchidas (calculo do EPS-LAB-002); deriva do
-  // estado em vez de zerar via setState sincrono no corpo do efeito (react-hooks/set-state-in-effect).
-  const mostrarPrevia = medicoes === 5 && !valoresMedicoes.every((m) => m.trim() === '')
-  const previa = mostrarPrevia ? previaBruta : null
-
-  useEffect(() => {
-    if (!mostrarPrevia) return
-    const timer = setTimeout(() => {
-      certificadosApi.calculoPrevia(valoresMedicoes)
-        .then(setPrevia)
-        // a previa e informativa: falhar nela nao pode travar a geracao do certificado
-        .catch(() => setPrevia(null))
-    }, 400)
-    return () => clearTimeout(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chaveMedicoes, medicoes])
-
-  // Cilindro que sera gravado nesta geracao. So no modo de 5 medicoes: e o unico
-  // fluxo que grava padrao_id. A lista vem inteira e a resolucao roda aqui porque a
-  // data de calibracao e editavel no proprio formulario.
-  const [padroes, setPadroes] = useState<CertificadoPadrao[] | null>(null)
-  useEffect(() => {
-    if (medicoes !== 5) return
-    let ativo = true
-    certificadosApi.padroes()
-      .then((lista) => { if (ativo) setPadroes(lista) })
-      // informativo: falhar aqui nao pode travar a geracao do certificado
-      .catch(() => { if (ativo) setPadroes(null) })
-    return () => { ativo = false }
-  }, [medicoes])
-  const padrao = padroes ? padraoVigente(padroes, valores.dataCalib) : null
+  // Previa do calculo (EPS-LAB-002) e cilindro vigente — so fazem sentido no modo de
+  // 5 medicoes, o unico fluxo que grava o bloco calculado e o padrao_id.
+  const { previa, padroes, padrao } = useCalculoCertificado(valoresMedicoes, valores.dataCalib, medicoes === 5)
 
   return (
     <>
@@ -129,43 +100,7 @@ export function CamposCertificado({ valores, onChange, extra, medicoes = 3 }: {
           })}
         </div>
         <Input id="media" label="Média dos testes" value={valores.media} onChange={(e) => { setMediaEditada(true); onChange({ media: e.target.value }) }} />
-        {medicoes === 5 && padroes !== null && (
-          // Rastreabilidade (seção 8 do EPS-LAB-002): o operador precisa ver o cilindro
-          // que sairá no documento. NAO bloqueia a geração — mesmo princípio do aviso de
-          // medição fora da faixa: um certificado que precisa sair, sai.
-          <p className="text-xs text-slate-400">
-            {padrao ? (
-              <>
-                Cilindro que será gravado: <strong className="text-slate-200">{padrao.numero_cilindro}</strong>
-                {' '}· certificado {padrao.numero_certificado ?? '—'}
-                {' '}· {padrao.concentracao ?? '—'} {padrao.unidade ?? ''}
-              </>
-            ) : (
-              <span className="text-amber-400">
-                Nenhum cilindro cadastrado cobre esta data — a seção de padrões sairá em branco.
-              </span>
-            )}
-          </p>
-        )}
-        {previa && (
-          <div className="rounded-lg border border-slate-700 bg-background-elevated p-3 space-y-2">
-            <p className={secao}>Cálculo (somente leitura)</p>
-            {previa.fora_da_faixa.some(Boolean) && (
-              <p className="text-xs text-red-400">
-                Medição fora da faixa {previa.limite_minimo} – {previa.limite_maximo}. Confira antes de gerar.
-              </p>
-            )}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs text-slate-400">
-              {previa.erros.map((erro, i) => (
-                <span key={i}>Erro {i + 1}: <strong className="text-slate-200">{erro || '—'}</strong></span>
-              ))}
-            </div>
-            <p className="text-xs text-slate-400">
-              Incerteza expandida (U): <strong className="text-slate-200">{previa.incerteza_expandida}</strong>
-              {' '}· k = {previa.fator_k} (95% de confiança)
-            </p>
-          </div>
-        )}
+        <PainelCalculoCertificado previa={previa} padroes={padroes} padrao={padrao} />
         {extra}
       </div>
     </>
