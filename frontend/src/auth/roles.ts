@@ -94,3 +94,9 @@ export function podeFaturarProposta(user: User | null): boolean {
 export function podeDesfaturarProposta(user: User | null): boolean {
   return isAdmin(user)
 }
+
+// Espelha require_funcao("Administrador") em backend/app/api/certificados_config.py —
+// mudou la, mude aqui. Sao os numeros que definem a incerteza de todo certificado emitido.
+export function podeEditarConfigCertificado(user: User | null): boolean {
+  return isAdmin(user)
+}

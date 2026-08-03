@@ -4,9 +4,10 @@ import { ModelosTab } from './ModelosTab'
 import { ImagensTab } from './ImagensTab'
 import { AvulsosTab } from './AvulsosTab'
 import { CertificadosGeraisTab } from './CertificadosGeraisTab'
+import { ConfiguracoesTab } from './ConfiguracoesTab'
 import { PageContainer } from '../../components/ui/Page'
 
-const ABAS = ['Modelos', 'Imagens', 'Em branco', 'Gerais'] as const
+const ABAS = ['Modelos', 'Imagens', 'Em branco', 'Gerais', 'Configurações'] as const
 type Aba = (typeof ABAS)[number]
 
 export function CertificadosPage() {
@@ -26,7 +27,11 @@ export function CertificadosPage() {
           </button>
         ))}
       </div>
-      {aba === 'Modelos' ? <ModelosTab /> : aba === 'Imagens' ? <ImagensTab /> : aba === 'Em branco' ? <AvulsosTab /> : <CertificadosGeraisTab />}
+      {aba === 'Modelos' ? <ModelosTab />
+        : aba === 'Imagens' ? <ImagensTab />
+        : aba === 'Em branco' ? <AvulsosTab />
+        : aba === 'Gerais' ? <CertificadosGeraisTab />
+        : <ConfiguracoesTab />}
     </PageContainer>
   )
 }
