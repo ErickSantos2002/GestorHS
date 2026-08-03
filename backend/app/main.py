@@ -5,7 +5,7 @@ import sys
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, funcoes, usuarios, setores, marcas, grupos, categorias, equipamentos, clientes, funcionarios, equipamentos_cliente, fases, ordens, tipos_calibragem, alertas, portal, solicitacoes, usuarios_cliente, dashboard, fotos, certificados, caixas, certificados_modelo, certificados_os, publico, notas_fiscais, certificados_avulsos, certificados_gerais, certificados_venda, logs_integracao, servicos, produtos, propostas, integracao_growthhs, integracoes_externas
+from app.api import auth, funcoes, usuarios, setores, marcas, grupos, categorias, equipamentos, clientes, funcionarios, equipamentos_cliente, fases, ordens, tipos_calibragem, alertas, portal, solicitacoes, usuarios_cliente, dashboard, fotos, certificados, caixas, certificados_modelo, certificados_os, publico, notas_fiscais, certificados_avulsos, certificados_gerais, certificados_venda, logs_integracao, servicos, produtos, propostas, integracao_growthhs, integracoes_externas, certificados_config
 from app.core.config import settings
 from app.tarefas import vencendo
 
@@ -89,6 +89,7 @@ app.include_router(publico.router)
 app.include_router(notas_fiscais.router)
 app.include_router(certificados_avulsos.router)
 app.include_router(certificados_gerais.router)
+app.include_router(certificados_config.router)
 app.include_router(logs_integracao.router)
 app.include_router(servicos.router)
 app.include_router(produtos.router)

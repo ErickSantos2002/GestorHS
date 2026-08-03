@@ -74,3 +74,83 @@ def test_equipamento_cliente_tem_as_colunas_novas():
     from app.models import EquipamentoCliente
     assert hasattr(EquipamentoCliente, "calib_teste4")
     assert hasattr(EquipamentoCliente, "calib_teste5")
+
+
+def test_get_config_devolve_os_valores(client_admin):
+    r = client_admin.get("/certificado-config")
+    assert r.status_code == 200
+    # Numeric no SQLite volta como Decimal de precisao imprevisivel: comparar em float
+    assert float(r.json()["valor_referencia"]) == 0.1
+    assert r.json()["tecnico_nome"] == "Walbert Santos"
+
+
+def test_put_config_grava_e_continua_singleton(client_admin, db_session):
+    from app.models import CertificadoConfig
+    r = client_admin.put("/certificado-config", json={
+        "valor_referencia": "0.17", "limite_minimo": "0.15", "limite_maximo": "0.19",
+        "resolucao_instrumento": "0.01", "incerteza_padrao_temp": "0.052",
+        "resolucao_pressao": None, "incerteza_padrao_pressao": None, "fator_k": "2",
+        "tecnico_nome": "Outro Tecnico", "tecnico_cargo": "Tecnico em Metrologia",
+        "equipamentos_auxiliares": "TESTO 622", "margem_temperatura": "20 ºC ~ 24 ºC",
+    })
+    assert r.status_code == 200
+    assert r.json()["tecnico_nome"] == "Outro Tecnico"
+    assert float(r.json()["resolucao_instrumento"]) == 0.01
+    assert db_session.query(CertificadoConfig).count() == 1
+
+
+def test_put_config_negado_para_nao_admin(client_lab):
+    r = client_lab.put("/certificado-config", json={"tecnico_nome": "X"})
+    assert r.status_code == 403
+
+
+def test_lab_le_a_config_para_o_modal(client_lab):
+    # o modal precisa dos limites para destacar medicao fora da faixa
+    assert client_lab.get("/certificado-config").status_code == 200
+
+
+def test_crud_de_padroes(client_admin):
+    r = client_admin.post("/certificado-padroes", json={
+        "numero_cilindro": "CC747704", "numero_certificado": "202231419",
+        "concentracao": "100.1", "incerteza_concentracao": "2.0",
+        "unidade": "µmol/mol", "vigencia_inicio": "2025-01-01",
+        "vigencia_fim": None, "ativo": True,
+    })
+    assert r.status_code == 201
+    padrao_id = r.json()["id"]
+
+    assert len(client_admin.get("/certificado-padroes").json()) == 1
+
+    r = client_admin.patch(f"/certificado-padroes/{padrao_id}", json={"vigencia_fim": "2026-12-31"})
+    assert r.status_code == 200
+    assert r.json()["vigencia_fim"] == "2026-12-31"
+
+    assert client_admin.delete(f"/certificado-padroes/{padrao_id}").status_code == 204
+    assert client_admin.get("/certificado-padroes").json() == []
+
+
+def test_criar_padrao_negado_para_nao_admin(client_lab):
+    r = client_lab.post("/certificado-padroes", json={"numero_cilindro": "X"})
+    assert r.status_code == 403
+
+
+def test_previa_de_calculo_devolve_os_numeros_da_planilha(client_lab):
+    r = client_lab.post("/certificado-calculo-previa",
+                        json={"medicoes": ["0.16", "0.16", "0.16", "0.16", "0.16"]})
+    assert r.status_code == 200
+    corpo = r.json()
+    assert corpo["erros"] == ["0,06"] * 5
+    assert corpo["media"] == "0,16"
+    assert corpo["incerteza_expandida"] == "0,1301"
+    assert corpo["fator_k"] == "2"
+    assert corpo["limite_minimo"] == "0,15"
+    assert corpo["limite_maximo"] == "0,19"
+    assert corpo["fora_da_faixa"] == [False] * 5
+
+
+def test_previa_marca_medicao_fora_da_faixa(client_lab):
+    r = client_lab.post("/certificado-calculo-previa",
+                        json={"medicoes": ["0.16", "0.016", "", "", ""]})
+    assert r.json()["fora_da_faixa"] == [False, True, False, False, False]
+    # medicao em branco nao e "fora da faixa" — e ausencia de medicao
+    assert r.json()["erros"][2] == ""
