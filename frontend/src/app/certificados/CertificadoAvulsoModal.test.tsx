@@ -77,7 +77,7 @@ describe('CertificadoAvulsoModal', () => {
   it('mostra o painel de calculo (incerteza expandida) quando a previa retorna', async () => {
     vi.mocked(certificadosApi.calculoPrevia).mockResolvedValue({
       ...PREVIA_VAZIA,
-      erros: ['0,06', '0,06', '0,06', '0,06', '0,06'],
+      erros: ['0,060', '0,060', '0,060', '0,060', '0,060'],
       incerteza_expandida: '0,1301',
     })
     await abrirModal()

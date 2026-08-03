@@ -7,7 +7,7 @@ from html import escape as _html_escape
 
 from sqlalchemy.orm import Session
 
-from app.core.certificado_calculo import calcular, formatar_numero
+from app.core.certificado_calculo import CASAS_MEDICAO, calcular, formatar_numero
 from app.models import Equipamento, Marca, TipoCalibragem, CertificadoModelo, OSCertificado
 
 # Campos suportados (expostos no editor de modelos). Os nomes batem com os
@@ -58,10 +58,6 @@ CAMPOS: list[tuple[str, str]] = [
     ("margemtemp", "Margem de temperatura padrão"),
     ("pulapagina", "Quebra de página (impressão)"),
 ]
-
-# Casas decimais das medicoes, dos erros e dos limites no certificado. Fixas, sem
-# cortar zero a direita: e a precisao que o laboratorio declara ter medido.
-CASAS_MEDICAO = 3
 
 # Quebra de página para impressão — HTML estrutural (não é dado, não escapar).
 _PAGE_BREAK = '<div style="page-break-after: always;"></div>'

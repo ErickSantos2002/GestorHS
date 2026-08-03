@@ -13,6 +13,13 @@ from dataclasses import dataclass
 # (na planilha, o /SQRT(3) das celulas C10:C13).
 _RAIZ_3 = math.sqrt(3)
 
+# Casas decimais das medicoes, dos erros e dos limites. Fixas, sem cortar zero a
+# direita: e a precisao que o laboratorio declara ter medido. Mora aqui, no modulo
+# puro, para que o certificado (`certificado_gerar`) e a previa do modal
+# (`api/certificados_config`) mostrem exatamente o mesmo numero — a tela e o PDF
+# divergirem numa casa decimal e o tipo de coisa que so aparece no cliente.
+CASAS_MEDICAO = 3
+
 
 @dataclass(frozen=True)
 class ParametrosCalculo:

@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_usuario, require_funcao
-from app.core.certificado_calculo import calcular, formatar_numero
+from app.core.certificado_calculo import CASAS_MEDICAO, calcular, formatar_numero
 from app.core.certificado_config import obter_config, parametros_de
 from app.models import CertificadoPadrao, Ordem, Usuario
 from app.models.database import get_db
@@ -131,13 +131,16 @@ def calculo_previa(dados: CalculoPreviaIn, db: Session = Depends(get_db),
     fora = [_fora(m) for m in dados.medicoes]
 
     return CalculoPreviaOut(
-        erros=[formatar_numero(e) for e in resultado.erros],
-        media=formatar_numero(resultado.media),
+        # Erros, media e limites com as casas FIXAS do certificado: o painel do modal
+        # e o PDF tem de mostrar o mesmo numero. Divergir numa casa decimal e o tipo
+        # de coisa que so aparece depois, no documento na mao do cliente.
+        erros=[formatar_numero(e, casas=CASAS_MEDICAO, cortar_zeros=False) for e in resultado.erros],
+        media=formatar_numero(resultado.media, casas=CASAS_MEDICAO, cortar_zeros=False),
         desvio_padrao=formatar_numero(resultado.desvio_padrao),
         incerteza_combinada=formatar_numero(resultado.incerteza_combinada),
         incerteza_expandida=formatar_numero(resultado.incerteza_expandida),
         fator_k=formatar_numero(resultado.fator_k, casas=2),
-        limite_minimo=formatar_numero(minimo),
-        limite_maximo=formatar_numero(maximo),
+        limite_minimo=formatar_numero(minimo, casas=CASAS_MEDICAO, cortar_zeros=False),
+        limite_maximo=formatar_numero(maximo, casas=CASAS_MEDICAO, cortar_zeros=False),
         fora_da_faixa=fora,
     )

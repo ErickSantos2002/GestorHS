@@ -139,12 +139,14 @@ def test_previa_de_calculo_devolve_os_numeros_da_planilha(client_lab):
                         json={"medicoes": ["0.16", "0.16", "0.16", "0.16", "0.16"]})
     assert r.status_code == 200
     corpo = r.json()
-    assert corpo["erros"] == ["0,06"] * 5
-    assert corpo["media"] == "0,16"
+    # Casas fixas, iguais as do PDF: o painel do modal e o certificado nao podem
+    # mostrar numeros diferentes para a mesma medicao.
+    assert corpo["erros"] == ["0,060"] * 5
+    assert corpo["media"] == "0,160"
     assert corpo["incerteza_expandida"] == "0,1301"
     assert corpo["fator_k"] == "2"
-    assert corpo["limite_minimo"] == "0,15"
-    assert corpo["limite_maximo"] == "0,19"
+    assert corpo["limite_minimo"] == "0,150"
+    assert corpo["limite_maximo"] == "0,190"
     assert corpo["fora_da_faixa"] == [False] * 5
 
 

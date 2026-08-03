@@ -62,9 +62,9 @@ describe('CamposCertificado', () => {
   })
 
   const PREVIA_OK = {
-    erros: ['0,06', '0,06', '0,06', '0,06', '0,06'], media: '0,16', desvio_padrao: '0',
+    erros: ['0,060', '0,060', '0,060', '0,060', '0,060'], media: '0,160', desvio_padrao: '0',
     incerteza_combinada: '0,0651', incerteza_expandida: '0,1301', fator_k: '2',
-    limite_minimo: '0,15', limite_maximo: '0,19', fora_da_faixa: [false, false, false, false, false],
+    limite_minimo: '0,150', limite_maximo: '0,190', fora_da_faixa: [false, false, false, false, false],
   }
 
   it('mostra cinco campos de medicao quando medicoes=5', async () => {
@@ -87,7 +87,7 @@ describe('CamposCertificado', () => {
   it('destaca medicao fora da faixa sem impedir a geracao', async () => {
     vi.mocked(certificadosApi.calculoPrevia).mockResolvedValue({
       ...PREVIA_OK,
-      erros: ['0,06', '', '', '', ''],
+      erros: ['0,060', '', '', '', ''],
       fora_da_faixa: [true, false, false, false, false],
     })
     const valores = { ...valoresIniciais(), t1: '0.016' }
