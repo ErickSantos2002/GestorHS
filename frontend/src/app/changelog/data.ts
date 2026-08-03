@@ -31,6 +31,7 @@ export const CHANGELOG: VersaoChangelog[] = [
       { tipo: 'novidade', texto: 'O certificado em branco e o de venda também passam a ter as cinco medições e o cálculo de incerteza, iguais aos da OS.' },
       { tipo: 'melhoria', texto: 'Os modais de certificado destacam medição fora da faixa, mostram o cálculo e informam qual cilindro de gás será registrado antes de gerar.' },
       { tipo: 'melhoria', texto: 'A OS grava qual cilindro foi usado, para que regerar um certificado antigo mantenha a rastreabilidade correta.' },
+      { tipo: 'novidade', texto: 'O certificado de calibração passa a trazer QR codes dos certificados do gás, do termohigrômetro e do barômetro — não é mais preciso enviá-los impressos junto. Os documentos são escolhidos em Certificados › Configurações.' },
     ],
   },
   {
