@@ -6,6 +6,7 @@ from html import escape as _html_escape
 
 from sqlalchemy.orm import Session
 
+from app.core.certificado_calculo import ParametrosCalculo, calcular, formatar_numero
 from app.models import Equipamento, Marca, TipoCalibragem, CertificadoModelo, OSCertificado
 
 # Campos suportados (expostos no editor de modelos). Os nomes batem com os
@@ -30,9 +31,30 @@ CAMPOS: list[tuple[str, str]] = [
     ("calibteste1", "Teste 1"),
     ("calibteste2", "Teste 2"),
     ("calibteste3", "Teste 3"),
+    ("calibteste4", "Teste 4"),
+    ("calibteste5", "Teste 5"),
     ("calibtestemedia", "Média dos testes"),
     ("situcalib", "Situação"),
     ("dataemissao", "Data de emissão"),
+    ("erro1", "Erro da medição 1"),
+    ("erro2", "Erro da medição 2"),
+    ("erro3", "Erro da medição 3"),
+    ("erro4", "Erro da medição 4"),
+    ("erro5", "Erro da medição 5"),
+    ("mediamedicoes", "Média das medições (calculada)"),
+    ("incertezaexpandida", "Incerteza expandida (U)"),
+    ("fatork", "Fator de abrangência (k)"),
+    ("drygasppm", "Dry gas ppm (concentração do padrão)"),
+    ("limitemin", "Limite mínimo"),
+    ("limitemax", "Limite máximo"),
+    ("padraocilindro", "Nº do cilindro"),
+    ("padraocertificado", "Nº do certificado do cilindro"),
+    ("padraoconcentracao", "Concentração do padrão"),
+    ("padraoincerteza", "Incerteza da concentração do padrão"),
+    ("tecnico", "Técnico responsável"),
+    ("tecnicocargo", "Cargo do técnico"),
+    ("equipamentosauxiliares", "Equipamentos auxiliares"),
+    ("margemtemp", "Margem de temperatura padrão"),
     ("pulapagina", "Quebra de página (impressão)"),
 ]
 
@@ -85,6 +107,23 @@ def _endereco(cli) -> str:
     return ", ".join(p for p in partes if p)
 
 
+# Chaves calculadas/derivadas do certificado EPS-LAB-002. Declaradas em UM lugar para
+# que todos os caminhos (OS, avulso, venda, geral) emitam exatamente o mesmo conjunto.
+_CHAVES_CALCULADAS = (
+    "erro1", "erro2", "erro3", "erro4", "erro5",
+    "mediamedicoes", "incertezaexpandida", "fatork",
+    "drygasppm", "limitemin", "limitemax",
+    "padraocilindro", "padraocertificado", "padraoconcentracao", "padraoincerteza",
+    "tecnico", "tecnicocargo", "equipamentosauxiliares", "margemtemp",
+)
+
+
+def _bloco_calculado(calc: dict[str, str] | None) -> dict[str, str]:
+    """Completa com string vazia toda chave calculada que o caminho nao informou."""
+    calc = calc or {}
+    return {chave: calc.get(chave, "") for chave in _CHAVES_CALCULADAS}
+
+
 def _montar_contexto(
     *,
     nomecli: str = "", cnpj: str = "", endcli: str = "",
@@ -93,6 +132,8 @@ def _montar_contexto(
     proxcalibragem: str = "", tipocalibragem: str = "",
     datacali: str = "", dataentr: str = "",
     temp: str = "", pressao: str = "", t1: str = "", t2: str = "", t3: str = "",
+    t4: str = "", t5: str = "",
+    calc: dict[str, str] | None = None,
     media: str = "", situ: str = "",
 ) -> dict[str, str]:
     """Fonte UNICA do conjunto de chaves do certificado.
@@ -136,6 +177,12 @@ def _montar_contexto(
         "teste3": t3,
         "media": media,
         "situacao": situ,
+        "calibteste4": t4,
+        "calibteste5": t5,
+        # bloco calculado + padrao + config; vazio quando o caminho nao tem calibracao
+        # (avulso, venda e certificado geral). Nunca AUSENTE — token ausente sai
+        # literalmente escrito no PDF.
+        **_bloco_calculado(calc),
         "datacli": hoje,
     }
 
@@ -157,6 +204,48 @@ def modelo_marca(db: Session, equipamento_id: int | None) -> tuple[str, str]:
         m = db.get(Marca, cat.marca)
         marca = (m.descricao if m else "") or ""
     return cat.descricao or "", marca
+
+
+def _calcular_para_os(db: Session, ordem) -> dict[str, str]:
+    """Bloco calculado do certificado: erros, incerteza, padrao e textos da config.
+
+    Os valores NAO sao persistidos: entram no HTML gerado, que ja e o snapshot do
+    documento emitido. Persistir numero calculado criaria uma segunda verdade.
+    """
+    from app.core.certificado_config import obter_config, parametros_de
+    from app.models import CertificadoPadrao
+
+    config = obter_config(db)
+    medicoes = [getattr(ordem, f"calib_teste{i}", None) for i in range(1, 6)]
+    resultado = calcular(medicoes, parametros_de(config))
+
+    padrao = db.get(CertificadoPadrao, ordem.padrao_id) if ordem.padrao_id else None
+
+    bloco = {
+        "mediamedicoes": formatar_numero(resultado.media),
+        "incertezaexpandida": formatar_numero(resultado.incerteza_expandida),
+        "fatork": formatar_numero(resultado.fator_k, casas=2),
+        "limitemin": formatar_numero(None if config.limite_minimo is None else float(config.limite_minimo)),
+        "limitemax": formatar_numero(None if config.limite_maximo is None else float(config.limite_maximo)),
+        "padraocilindro": (padrao.numero_cilindro if padrao else "") or "",
+        "padraocertificado": (padrao.numero_certificado if padrao else "") or "",
+        "padraoconcentracao": formatar_numero(
+            None if (padrao is None or padrao.concentracao is None) else float(padrao.concentracao)
+        ),
+        "padraoincerteza": formatar_numero(
+            None if (padrao is None or padrao.incerteza_concentracao is None)
+            else float(padrao.incerteza_concentracao)
+        ),
+        "tecnico": config.tecnico_nome or "",
+        "tecnicocargo": config.tecnico_cargo or "",
+        "equipamentosauxiliares": config.equipamentos_auxiliares or "",
+        "margemtemp": config.margem_temperatura or "",
+    }
+    # DRY GAS PPM e a propria concentracao do padrao (na planilha, A82 = $D$72)
+    bloco["drygasppm"] = bloco["padraoconcentracao"]
+    for i, erro in enumerate(resultado.erros, start=1):
+        bloco[f"erro{i}"] = formatar_numero(erro)
+    return bloco
 
 
 def montar_contexto(db: Session, ordem) -> dict[str, str]:
@@ -187,6 +276,9 @@ def montar_contexto(db: Session, ordem) -> dict[str, str]:
         t1=ordem.calib_teste1 or "",
         t2=ordem.calib_teste2 or "",
         t3=ordem.calib_teste3 or "",
+        t4=ordem.calib_teste4 or "",
+        t5=ordem.calib_teste5 or "",
+        calc=_calcular_para_os(db, ordem),
         media=ordem.calib_teste_media or "",
         situ=ordem.calib_situacao or "",
     )

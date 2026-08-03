@@ -78,3 +78,55 @@ def test_pulapagina_continua_virando_quebra_de_pagina(db_session):
     saida = preencher("<p>a</p>[pulapagina]<p>b</p>", montar_contexto_avulso(db_session, {}))
     assert "page-break-after" in saida
     assert "[pulapagina]" not in saida
+
+
+def test_contexto_da_os_traz_todos_os_tokens_de_CAMPOS(db_session, os_base):
+    ordem = _os_com_dados(db_session, os_base)
+    ctx = montar_contexto(db_session, ordem)
+    # Token que falta no contexto sai LITERALMENTE escrito no PDF do cliente.
+    # `pulapagina` fica de fora de proposito: preencher() o trata fora do laco.
+    faltando = [nome for nome, _ in CAMPOS if nome not in ctx and nome != "pulapagina"]
+    assert faltando == []
+
+
+def test_contexto_do_avulso_traz_as_mesmas_chaves_do_da_os(db_session, os_base):
+    ordem = _os_com_dados(db_session, os_base)
+    assert set(montar_contexto(db_session, ordem)) == set(montar_contexto_avulso(db_session, {}))
+
+
+def test_contexto_calcula_o_erro_e_a_incerteza_da_planilha(db_session, os_base):
+    ordem = _os_com_dados(db_session, os_base)
+    for i in range(1, 6):
+        setattr(ordem, f"calib_teste{i}", "0.16")
+    db_session.commit()
+    ctx = montar_contexto(db_session, ordem)
+    assert ctx["erro1"] == "0,06"
+    assert ctx["erro5"] == "0,06"
+    assert ctx["mediamedicoes"] == "0,16"
+    assert ctx["incertezaexpandida"] == "0,1301"
+    assert ctx["fatork"] == "2"
+
+
+def test_os_antiga_com_tres_medicoes_deixa_erro4_e_erro5_em_branco(db_session, os_base):
+    ordem = _os_com_dados(db_session, os_base)   # nasce com 3 medicoes, sem teste4/5
+    for i in range(1, 4):
+        setattr(ordem, f"calib_teste{i}", "0.16")
+    ordem.calib_teste4 = None
+    ordem.calib_teste5 = None
+    db_session.commit()
+    ctx = montar_contexto(db_session, ordem)
+    assert ctx["erro1"] == "0,06"
+    # nao inventa medicao: erro em branco, nao "-0,1"
+    assert ctx["erro4"] == ""
+    assert ctx["erro5"] == ""
+    assert ctx["calibteste4"] == ""
+
+
+def test_os_sem_padrao_deixa_os_campos_do_cilindro_vazios(db_session, os_base):
+    ordem = _os_com_dados(db_session, os_base)
+    ordem.padrao_id = None
+    db_session.commit()
+    ctx = montar_contexto(db_session, ordem)
+    assert ctx["padraocilindro"] == ""
+    assert ctx["padraocertificado"] == ""
+    assert ctx["drygasppm"] == ""
