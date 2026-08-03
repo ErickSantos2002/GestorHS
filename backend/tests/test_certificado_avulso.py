@@ -55,6 +55,11 @@ def test_avulso_salva_teste4_e_teste5_e_calcula_o_erro(client, usuario_lab, os_b
     av = db_session.query(CertificadoAvulso).filter(CertificadoAvulso.id == r.json()["id"]).first()
     assert "0,15" in av.html and "0,17" in av.html
     assert "[" not in av.html
+    # valor_referencia default e 0,1 (config criada sob demanda com os defaults do
+    # modelo) -> erro = medicao - referencia. Sem isto, um [erro4]/[erro5] em branco
+    # tambem passaria nas duas asserts acima.
+    assert "0,05" in av.html   # erro4: 0,15 - 0,1
+    assert "0,07" in av.html   # erro5: 0,17 - 0,1
 
 
 def test_modelo_e_marca_vem_do_catalogo_e_nao_sao_digitados(client, usuario_lab, os_base, db_session):

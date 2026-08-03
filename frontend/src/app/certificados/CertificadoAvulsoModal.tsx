@@ -26,7 +26,7 @@ export function CertificadoAvulsoModal({ onClose, onGerado }: {
   const [datacompra, setDatacompra] = useState('')
   const [os, setOs] = useState('XXXX')
   const [dataRecebimento, setDataRecebimento] = useState(hojeISO())
-  const [dataCalib, setDataCalib] = useState('')
+  const [dataCalib, setDataCalib] = useState(hojeISO())
   const [cert, setCert] = useState('')
   const [situacao, setSituacao] = useState('')
   const [temp, setTemp] = useState('')

@@ -155,6 +155,10 @@ def test_venda_teste4_e_teste5_caem_no_fallback_da_frota_quando_nao_digitados(db
     ctx = montar_contexto_venda(db_session, ec, _valores())   # sem teste4/5 no payload
     assert ctx["calibteste4"] == "0,20"
     assert ctx["calibteste5"] == "0,21"
+    # valor_referencia default e 0,1 -> confirma que o fallback da frota tambem
+    # alimenta o CALCULO (erro = medicao - referencia), nao so o token exibido.
+    assert ctx["erro4"] == "0,1"
+    assert ctx["erro5"] == "0,11"
 
 
 def test_venda_traz_tecnico_e_campos_de_config_nao_da_os(db_session):

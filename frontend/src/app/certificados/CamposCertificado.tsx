@@ -18,9 +18,10 @@ export function CamposCertificado({ valores, onChange, extra, medicoes = 3 }: {
   valores: ValoresCertificado
   onChange: (patch: Partial<ValoresCertificado>) => void
   extra?: ReactNode
-  /** Quantas medicoes renderizar. OS e venda usam 5 (certificado EPS-LAB-002); o
-   *  padrao de 3 fica para quem ainda nao passa a prop — o avulso tem formulario
-   *  proprio e nao usa este componente. */
+  /** Quantas medicoes renderizar. OS e venda passam 5 (certificado EPS-LAB-002); o
+   *  padrao de 3 e para o aparelho cujo modelo de certificado ainda so tem tres
+   *  celulas de medicao no template (nao migrado pro EPS-LAB-002). O avulso tem
+   *  formulario proprio e nao usa este componente. */
   medicoes?: 3 | 5
 }) {
   const chaves = medicoes === 5 ? CHAVES_5 : CHAVES_3

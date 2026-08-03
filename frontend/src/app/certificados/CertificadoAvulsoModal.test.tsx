@@ -84,4 +84,18 @@ describe('CertificadoAvulsoModal', () => {
     fireEvent.change(screen.getByLabelText('Teste 1'), { target: { value: '0,16' } })
     await waitFor(() => expect(screen.getByText('0,1301')).toBeInTheDocument())
   })
+
+  it('nao mostra o aviso de cilindro ao abrir o modal, antes de o operador digitar algo', async () => {
+    // Data de calibracao vem pre-preenchida com hoje (igual OS e venda), entao um
+    // cilindro vigente cadastrado ja resolve de cara — sem o aviso ambar de
+    // "nenhum cilindro cobre esta data" antes mesmo de o operador digitar algo.
+    vi.mocked(certificadosApi.padroes).mockResolvedValue([{
+      id: 1, numero_cilindro: 'CC747704', numero_certificado: '202231419',
+      concentracao: '100.1000', incerteza_concentracao: '2.0000', unidade: 'µmol/mol',
+      vigencia_inicio: '2020-01-01', vigencia_fim: null, ativo: true,
+    }])
+    await abrirModal()
+    await waitFor(() => expect(screen.getByText(/Cilindro que será gravado/)).toBeInTheDocument())
+    expect(screen.queryByText(/Nenhum cilindro cadastrado cobre esta data/)).not.toBeInTheDocument()
+  })
 })

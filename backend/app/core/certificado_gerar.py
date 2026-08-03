@@ -361,6 +361,11 @@ def montar_contexto_venda(db: Session, ec, valores: dict) -> dict[str, str]:
     resolvido alimenta tanto o token exibido (`calibtesteN`) quanto o bloco
     calculado, para que o erro exibido corresponda ao numero exibido.
 
+    Consequencia aceita: como `espelhar_calibracao_valores` so grava quando o
+    valor nao e `None`, LIMPAR uma medicao no modal de venda e um no-op — a frota
+    mantem o valor anterior e o certificado o imprime, em vez de sair em branco.
+    Nao e bug; se precisar zerar de verdade, o ajuste tem que ser feito na frota.
+
     Delega ao mesmo `_montar_contexto` da OS e do avulso: e o que garante que o
     conjunto de chaves seja identico e nenhum token vaze como [token] no PDF.
     """
@@ -369,9 +374,9 @@ def montar_contexto_venda(db: Session, ec, valores: dict) -> dict[str, str]:
     cli = ec.cliente_rel
     modelo, marca = modelo_marca(db, ec.equipamento)
 
-    def _v(chave, padrao=""):
+    def _v(chave, padrao_valor=""):
         valor = valores.get(chave)
-        return valor if valor not in (None, "") else padrao
+        return valor if valor not in (None, "") else padrao_valor
 
     # Nao ha "data de recebimento" numa venda: usa a data de compra do cadastro,
     # caindo em hoje quando o cadastro nao tem.
