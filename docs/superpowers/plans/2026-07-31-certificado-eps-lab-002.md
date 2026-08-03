@@ -1908,48 +1908,80 @@ git commit -m "feat(cert): aba de configuracoes com parametros de calculo e cada
 ## Task 7: Frontend — 5 medições, aviso fora de faixa e prévia
 
 **Files:**
-- Modify: `frontend/src/lib/calibragem.ts`, `frontend/src/app/certificados/valoresCertificado.ts`, `frontend/src/app/certificados/CamposCertificado.tsx`
-- Test: `frontend/src/app/certificados/CamposCertificado.test.tsx` (acrescentar), `frontend/src/lib/calibragem.test.ts` (se existir; senão criar)
+- Modify: `frontend/src/lib/calibragem.ts`, `frontend/src/app/certificados/valoresCertificado.ts`, `frontend/src/app/certificados/CamposCertificado.tsx`, `frontend/src/app/ordens/api.ts`, `frontend/src/app/ordens/GerarCertificadoModal.tsx`
+- Test: `frontend/src/app/certificados/CamposCertificado.test.tsx` (acrescentar)
 
 **Interfaces:**
 - Consumes: `certificadosApi.calculoPrevia` (Task 6).
-- Produces: `ValoresCertificado.t4`, `ValoresCertificado.t5`; `mediaTestes(...vals: string[])`.
+- Produces: `ValoresCertificado.t4`, `ValoresCertificado.t5`; `mediaTestes(...vals: string[])`; `CamposCertificado` com a prop nova `medicoes?: 3 | 5`.
+
+> ⚠️ **Corrigido em 03/08/2026, depois da revisão da Task 4.** A versão original desta task
+> esquecia duas coisas, ambas necessárias para os 5 campos realmente funcionarem:
+>
+> 1. **O wiring do payload da OS.** `frontend/src/app/ordens/api.ts` (`GerarCertificadoPayload`
+>    e `CertificadoCampos`) e `GerarCertificadoModal.tsx` (o prefill e a montagem do payload)
+>    só tratam `calib_teste1..3`. Sem alterá-los, a tela mostra 5 campos e só 3 valores
+>    chegam ao backend — o laboratório digita e some.
+> 2. **`CamposCertificado` é COMPARTILHADO** por três modais: a OS
+>    (`ordens/GerarCertificadoModal.tsx`), a venda (`frota/CertificadoVendaModal.tsx`) e o
+>    avulso (`certificados/CertificadoAvulsoModal.tsx`). Só o backend da OS aceita 5
+>    medições — os schemas de venda e avulso têm `calib_teste1..3`. **Decisão do Erick:**
+>    o componente ganha a prop `medicoes`, a OS passa `5`, venda e avulso ficam com o
+>    padrão `3`. Nenhum campo que aceita digitação e descarta em silêncio.
 
 - [ ] **Step 1: Escrever os testes que falham**
 
 Acrescentar a `frontend/src/app/certificados/CamposCertificado.test.tsx` (manter os mocks já existentes no arquivo; se ele ainda não mocka `./api`, acrescentar o mock de `certificadosApi.calculoPrevia`):
 
 ```tsx
-it('mostra cinco campos de medicao', () => {
-  render(<CamposCertificado valores={valoresIniciais()} onChange={() => {}} />)
+const PREVIA_OK = {
+  erros: ['0,06', '0,06', '0,06', '0,06', '0,06'], media: '0,16', desvio_padrao: '0',
+  incerteza_combinada: '0,0651', incerteza_expandida: '0,1301', fator_k: '2',
+  limite_minimo: '0,15', limite_maximo: '0,19', fora_da_faixa: [false, false, false, false, false],
+}
+
+it('mostra cinco campos de medicao quando medicoes=5', () => {
+  render(<CamposCertificado valores={valoresIniciais()} onChange={() => {}} medicoes={5} />)
   expect(screen.getByLabelText('Teste 1')).toBeInTheDocument()
   expect(screen.getByLabelText('Teste 4')).toBeInTheDocument()
   expect(screen.getByLabelText('Teste 5')).toBeInTheDocument()
 })
 
+it('fica em tres campos por padrao — venda e avulso nao aceitam cinco', () => {
+  // Sem a prop, o componente NAO pode oferecer campo que o backend descarta:
+  // os schemas de venda e avulso so tem calib_teste1..3.
+  render(<CamposCertificado valores={valoresIniciais()} onChange={() => {}} />)
+  expect(screen.getByLabelText('Teste 3')).toBeInTheDocument()
+  expect(screen.queryByLabelText('Teste 4')).not.toBeInTheDocument()
+  expect(screen.queryByLabelText('Teste 5')).not.toBeInTheDocument()
+})
+
 it('destaca medicao fora da faixa sem impedir a geracao', async () => {
   vi.mocked(certificadosApi.calculoPrevia).mockResolvedValue({
-    erros: ['0,06', '', '', '', ''], media: '0,16', desvio_padrao: '0',
-    incerteza_combinada: '0,0651', incerteza_expandida: '0,1301', fator_k: '2',
-    limite_minimo: '0,15', limite_maximo: '0,19',
+    ...PREVIA_OK,
+    erros: ['0,06', '', '', '', ''],
     fora_da_faixa: [true, false, false, false, false],
   })
   const valores = { ...valoresIniciais(), t1: '0.016' }
-  render(<CamposCertificado valores={valores} onChange={() => {}} />)
+  render(<CamposCertificado valores={valores} onChange={() => {}} medicoes={5} />)
   await waitFor(() => expect(screen.getByText(/fora da faixa/i)).toBeInTheDocument())
   // o aviso NAO desabilita nada: o certificado de aparelho reprovado tambem precisa existir
   expect(screen.getByLabelText('Teste 1')).not.toBeDisabled()
 })
 
 it('exibe a incerteza expandida vinda do backend', async () => {
-  vi.mocked(certificadosApi.calculoPrevia).mockResolvedValue({
-    erros: ['0,06', '0,06', '0,06', '0,06', '0,06'], media: '0,16', desvio_padrao: '0',
-    incerteza_combinada: '0,0651', incerteza_expandida: '0,1301', fator_k: '2',
-    limite_minimo: '0,15', limite_maximo: '0,19', fora_da_faixa: [false, false, false, false, false],
-  })
+  vi.mocked(certificadosApi.calculoPrevia).mockResolvedValue(PREVIA_OK)
   const valores = { ...valoresIniciais(), t1: '0.16', t2: '0.16', t3: '0.16', t4: '0.16', t5: '0.16' }
-  render(<CamposCertificado valores={valores} onChange={() => {}} />)
+  render(<CamposCertificado valores={valores} onChange={() => {}} medicoes={5} />)
   await waitFor(() => expect(screen.getByText('0,1301')).toBeInTheDocument())
+})
+
+it('nao chama a previa quando esta em tres medicoes', async () => {
+  vi.mocked(certificadosApi.calculoPrevia).mockClear()
+  const valores = { ...valoresIniciais(), t1: '0.16', t2: '0.16', t3: '0.16' }
+  render(<CamposCertificado valores={valores} onChange={() => {}} />)
+  await new Promise((r) => setTimeout(r, 500))   // passa do debounce de 400ms
+  expect(certificadosApi.calculoPrevia).not.toHaveBeenCalled()
 })
 ```
 
@@ -2003,25 +2035,42 @@ e em `valoresIniciais()`, trocar `t1: '', t2: '', t3: '', media: '',` por:
 
 Em `frontend/src/app/certificados/CamposCertificado.tsx`:
 
-Trocar o `useEffect` da média por:
+Acrescentar a prop à assinatura do componente, com **padrão 3** — assim venda e avulso, que não passam nada, continuam exatamente como hoje:
 
 ```tsx
-  useEffect(() => {
-    if (mediaEditada) return
-    onChange({ media: mediaTestes(valores.t1, valores.t2, valores.t3, valores.t4, valores.t5) })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [valores.t1, valores.t2, valores.t3, valores.t4, valores.t5, mediaEditada])
+export function CamposCertificado({ valores, onChange, extra, medicoes = 3 }: {
+  valores: ValoresCertificado
+  onChange: (patch: Partial<ValoresCertificado>) => void
+  extra?: ReactNode
+  /** Quantas medicoes renderizar. A OS usa 5 (certificado EPS-LAB-002); venda e
+   *  avulso ficam em 3, porque os schemas deles so tem calib_teste1..3 — oferecer
+   *  cinco campos la seria aceitar digitacao e descartar em silencio. */
+  medicoes?: 3 | 5
+}) {
+  const chaves = (medicoes === 5 ? ['t1', 't2', 't3', 't4', 't5'] : ['t1', 't2', 't3']) as const
 ```
 
-Trocar o grid dos 3 testes por um de 5:
+Trocar o `useEffect` da média para acompanhar a quantidade:
 
 ```tsx
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-          {([1, 2, 3, 4, 5] as const).map((n) => {
-            const chave = `t${n}` as 't1' | 't2' | 't3' | 't4' | 't5'
-            const fora = previa?.fora_da_faixa[n - 1] ?? false
+  const valoresMedicoes = chaves.map((c) => valores[c])
+  const chaveMedicoes = valoresMedicoes.join('|')
+
+  useEffect(() => {
+    if (mediaEditada) return
+    onChange({ media: mediaTestes(...valoresMedicoes) })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chaveMedicoes, mediaEditada])
+```
+
+Trocar o grid dos 3 testes por um dirigido pela prop:
+
+```tsx
+        <div className={medicoes === 5 ? 'grid grid-cols-2 sm:grid-cols-5 gap-3' : 'grid grid-cols-1 sm:grid-cols-3 gap-3'}>
+          {chaves.map((chave, i) => {
+            const fora = previa?.fora_da_faixa[i] ?? false
             return (
-              <Input key={n} id={chave} label={`Teste ${n}`} value={valores[chave]}
+              <Input key={chave} id={chave} label={`Teste ${i + 1}`} value={valores[chave]}
                 className={fora ? 'border-red-500 focus:border-red-500' : undefined}
                 // chave computada a partir de uma uniao de literais: o TS infere
                 // { [x: string]: string } e nao casa com Partial<ValoresCertificado>
@@ -2031,25 +2080,22 @@ Trocar o grid dos 3 testes por um de 5:
         </div>
 ```
 
-Acrescentar o estado e o efeito da prévia, com debounce (o técnico digita rápido; sem debounce é uma requisição por tecla):
+Acrescentar o estado e o efeito da prévia, com debounce (o técnico digita rápido; sem debounce é uma requisição por tecla). A prévia só roda com 5 medições — é o cálculo do EPS-LAB-002, que não se aplica a venda nem a avulso:
 
 ```tsx
   const [previa, setPrevia] = useState<CalculoPrevia | null>(null)
 
-  const medicoes = [valores.t1, valores.t2, valores.t3, valores.t4, valores.t5]
-  const chaveMedicoes = medicoes.join('|')
-
   useEffect(() => {
-    if (medicoes.every((m) => m.trim() === '')) { setPrevia(null); return }
+    if (medicoes !== 5 || valoresMedicoes.every((m) => m.trim() === '')) { setPrevia(null); return }
     const timer = setTimeout(() => {
-      certificadosApi.calculoPrevia(medicoes)
+      certificadosApi.calculoPrevia(valoresMedicoes)
         .then(setPrevia)
         // a previa e informativa: falhar nela nao pode travar a geracao do certificado
         .catch(() => setPrevia(null))
     }, 400)
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chaveMedicoes])
+  }, [chaveMedicoes, medicoes])
 ```
 
 E, logo abaixo do campo de média, o painel read-only:
@@ -2078,27 +2124,67 @@ E, logo abaixo do campo de média, o painel read-only:
 
 com os imports de `certificadosApi` e do tipo `CalculoPrevia` de `./api`, e o de `type ValoresCertificado` de `./valoresCertificado` (o arquivo hoje importa só o tipo `ValoresCertificado` — confirmar que o import cobre o uso no cast).
 
-- [ ] **Step 6: Rodar os testes para confirmar que passam**
+- [ ] **Step 6: Ligar as medições 4 e 5 ao backend da OS**
+
+Sem este passo os cinco campos aparecem e só três valores viajam — o laboratório digita e some. São dois arquivos.
+
+Em `frontend/src/app/ordens/api.ts`, acrescentar `calib_teste4` e `calib_teste5` logo após `calib_teste3` em **duas** interfaces:
+
+```ts
+// em GerarCertificadoPayload (campos opcionais)
+  calib_teste4?: string | null
+  calib_teste5?: string | null
+
+// em CertificadoCampos (campos obrigatorios, como os vizinhos)
+  calib_teste4: string | null
+  calib_teste5: string | null
+```
+
+> Há uma terceira interface no mesmo arquivo com `calib_teste1..3` — a da **OS** (`OrdemDetail`, por volta da linha 168). Essa NÃO precisa mudar: é a leitura da OS na página de detalhe, que não exibe medições individuais. Alterá-la sem alterar o `OrdemOut` do backend criaria um campo que nunca chega preenchido.
+
+Em `frontend/src/app/ordens/GerarCertificadoModal.tsx`, no prefill vindo de `certificadoCampos` (hoje na linha 35) e na montagem do payload (hoje na linha 63):
+
+```tsx
+// prefill — junto de t1/t2/t3
+          t4: c.calib_teste4 ?? '', t5: c.calib_teste5 ?? '',
+
+// payload — junto de calib_teste1..3
+      calib_teste4: v.t4.trim() || null,
+      calib_teste5: v.t5.trim() || null,
+```
+
+E, na renderização do `<CamposCertificado ... />` dentro desse modal, passar a prop:
+
+```tsx
+        <CamposCertificado valores={v} onChange={...} medicoes={5} />
+```
+
+**Não** mexer em `frota/CertificadoVendaModal.tsx` nem em `certificados/CertificadoAvulsoModal.tsx`: eles não passam a prop, ficam com o padrão 3 e seguem funcionando como hoje. Esse é o ponto da decisão.
+
+- [ ] **Step 7: Rodar os testes para confirmar que passam**
 
 Run: `cd frontend && npx vitest run src/app/certificados/`
 Expected: PASS — incluindo os testes que já existiam no arquivo.
 
-- [ ] **Step 7: Rodar a suíte de frontend inteira**
+- [ ] **Step 8: Rodar a suíte de frontend inteira**
 
 Run: `cd frontend && npm test`
-Expected: PASS. Se algum teste de `CertificadoAvulsoModal` ou do modal de venda quebrar por causa de `t4`/`t5`, corrigir o mock/fixture daquele teste — os dois modais compartilham `CamposCertificado` e agora recebem 5 medições.
+Expected: a baseline desta máquina é `1 failed` — `src/app/clientes/ClienteEquipamentosTab.test.tsx > esconde "Novo aparelho" para nao-admin`, pré-existente e não é regressão. Nenhuma outra falha.
 
-- [ ] **Step 8: Verificação completa de frontend**
+Os testes de `CertificadoAvulsoModal` e do modal de venda **não devem** quebrar: eles não passam a prop `medicoes`, então continuam renderizando 3 campos exatamente como antes. Se quebrarem, a prop está com o padrão errado — corrija o componente, não o teste.
+
+- [ ] **Step 9: Verificação completa de frontend**
 
 Run: `cd frontend && npm run lint && npx tsc -b --noEmit && npm run build`
 Expected: sem erro.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 10: Commit**
 
 ```bash
 git add frontend/src/lib/calibragem.ts frontend/src/app/certificados/valoresCertificado.ts \
         frontend/src/app/certificados/CamposCertificado.tsx \
-        frontend/src/app/certificados/CamposCertificado.test.tsx
+        frontend/src/app/certificados/CamposCertificado.test.tsx \
+        frontend/src/app/ordens/api.ts frontend/src/app/ordens/GerarCertificadoModal.tsx
 git commit -m "feat(cert): cinco medicoes no modal com aviso fora da faixa e previa do calculo"
 ```
 
