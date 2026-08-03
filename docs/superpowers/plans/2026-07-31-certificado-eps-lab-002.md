@@ -709,7 +709,7 @@ def downgrade() -> None:
 - [ ] **Step 9: Rodar a suíte inteira e comparar com a baseline**
 
 Run: `cd backend && source .venv/bin/activate && pytest -q`
-Expected: os testes novos passam. Esta máquina tem **5 falhas pré-existentes** que não são regressão — confira se o número de falhas continua o mesmo de antes da task e se nenhuma delas é de certificado.
+Expected: os testes novos passam. **Baseline medida nesta máquina em 03/08/2026: `4 failed, 909 passed`.** As 4 falhas são `PermissionError` de filesystem em `test_certificados_gerais.py` (2) e `test_publico_certificado_geral.py` (2) — não são regressão. Qualquer falha além dessas quatro é problema desta task.
 
 - [ ] **Step 10: Commit**
 
@@ -1422,7 +1422,7 @@ Expected: PASS. Os três entram porque compartilham `_montar_contexto` — se o 
 - [ ] **Step 7: Rodar a suíte inteira**
 
 Run: `cd backend && source .venv/bin/activate && pytest -q`
-Expected: mesmo número de falhas da baseline conhecida desta máquina (5 pré-existentes), nenhuma nova.
+Expected: `4 failed` (as mesmas quatro `PermissionError` da baseline de 03/08/2026), nenhuma nova.
 
 - [ ] **Step 8: Commit**
 
