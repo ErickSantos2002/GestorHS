@@ -108,17 +108,21 @@ def calcular(medicoes_texto: Sequence[str | None], parametros: ParametrosCalculo
     )
 
 
-def formatar_numero(valor: float | None, casas: int = 4) -> str:
-    """Numero -> texto do certificado, em PT-BR, sem zeros inuteis a direita.
+def formatar_numero(valor: float | None, casas: int = 4, cortar_zeros: bool = True) -> str:
+    """Numero -> texto do certificado, em PT-BR.
 
     ULTIMO passo do pipeline: o calculo roda com precisao cheia e so aqui arredonda.
     Arredondar no meio muda o U na terceira casa.
+
+    `cortar_zeros=False` mantem as casas fixas. Num certificado de calibracao o zero a
+    direita NAO e inutil: "0,160" e "0,16" declaram precisoes diferentes da medicao, e
+    a Qualidade exige as tres casas nas medias, nos erros e nos limites.
     """
     if valor is None:
         return ""
     texto = f"{valor:.{casas}f}"
-    if "." in texto:
+    if cortar_zeros and "." in texto:
         texto = texto.rstrip("0").rstrip(".")
-    if texto in ("", "-"):
-        texto = "0"
+    if texto.lstrip("-").replace(".", "").strip("0") == "":
+        texto = texto.lstrip("-")          # -0 e -0,000 saem como 0
     return texto.replace(".", ",")

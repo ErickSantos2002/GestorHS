@@ -71,7 +71,7 @@ describe('CertificadoAvulsoModal', () => {
     fireEvent.change(screen.getByLabelText('Teste 1'), { target: { value: '0,10' } })
     fireEvent.change(screen.getByLabelText('Teste 2'), { target: { value: '0,20' } })
     fireEvent.change(screen.getByLabelText('Teste 3'), { target: { value: '0,30' } })
-    expect((screen.getByLabelText('Média dos testes') as HTMLInputElement).value).toBe('0,2')
+    expect((screen.getByLabelText('Média dos testes') as HTMLInputElement).value).toBe('0,200')
   })
 
   it('mostra o painel de calculo (incerteza expandida) quando a previa retorna', async () => {

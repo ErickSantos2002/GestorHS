@@ -100,9 +100,9 @@ def test_venda_calcula_erro_e_incerteza_da_planilha(db_session):
         calib_teste1="0.16", calib_teste2="0.16", calib_teste3="0.16",
         calib_teste4="0.16", calib_teste5="0.16",
     ))
-    assert ctx["erro1"] == "0,06"
-    assert ctx["erro5"] == "0,06"
-    assert ctx["mediamedicoes"] == "0,16"
+    assert ctx["erro1"] == "0,060"
+    assert ctx["erro5"] == "0,060"
+    assert ctx["mediamedicoes"] == "0,160"
     assert ctx["incertezaexpandida"] == "0,1301"
 
 
@@ -157,8 +157,8 @@ def test_venda_teste4_e_teste5_caem_no_fallback_da_frota_quando_nao_digitados(db
     assert ctx["calibteste5"] == "0,21"
     # valor_referencia default e 0,1 -> confirma que o fallback da frota tambem
     # alimenta o CALCULO (erro = medicao - referencia), nao so o token exibido.
-    assert ctx["erro4"] == "0,1"
-    assert ctx["erro5"] == "0,11"
+    assert ctx["erro4"] == "0,100"
+    assert ctx["erro5"] == "0,110"
 
 
 def test_venda_traz_tecnico_e_campos_de_config_nao_da_os(db_session):
@@ -177,8 +177,8 @@ def test_venda_traz_tecnico_e_campos_de_config_nao_da_os(db_session):
     assert ctx["tecnicocargo"] == "Técnico em Metrologia"
     assert ctx["equipamentosauxiliares"] == "TESTO 622"
     assert ctx["margemtemp"] == "20 ºC ~ 24 ºC"
-    assert ctx["limitemin"] == "0,15"
-    assert ctx["limitemax"] == "0,19"
+    assert ctx["limitemin"] == "0,150"
+    assert ctx["limitemax"] == "0,190"
 
 
 def test_nenhum_token_vaza_no_html_de_venda(db_session):

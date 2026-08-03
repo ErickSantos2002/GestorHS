@@ -93,3 +93,21 @@ def test_formatar_numero_usa_virgula_e_corta_zero_a_direita():
     assert formatar_numero(0.16) == "0,16"
     assert formatar_numero(2.0) == "2"
     assert formatar_numero(None) == ""
+
+
+def test_formatar_numero_mantem_casas_fixas_quando_pedido():
+    # Num certificado de calibracao o zero a direita NAO e inutil: "0,160" e "0,16"
+    # declaram precisoes diferentes da medicao. A Qualidade exige tres casas na media,
+    # nos erros e nos limites.
+    assert formatar_numero(0.16, casas=3, cortar_zeros=False) == "0,160"
+    assert formatar_numero(0.06, casas=3, cortar_zeros=False) == "0,060"
+    assert formatar_numero(0.15, casas=3, cortar_zeros=False) == "0,150"
+    assert formatar_numero(0.19, casas=3, cortar_zeros=False) == "0,190"
+    # sem valor continua vazio, nao "0,000"
+    assert formatar_numero(None, casas=3, cortar_zeros=False) == ""
+
+
+def test_formatar_numero_nunca_devolve_zero_negativo():
+    # Erro de medicao minusculo e negativo arredondava para "-0" / "-0,000"
+    assert formatar_numero(-0.00001) == "0"
+    assert formatar_numero(-0.00001, casas=3, cortar_zeros=False) == "0,000"

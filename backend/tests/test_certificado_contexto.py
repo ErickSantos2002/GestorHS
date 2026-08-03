@@ -100,9 +100,9 @@ def test_contexto_calcula_o_erro_e_a_incerteza_da_planilha(db_session, os_base):
         setattr(ordem, f"calib_teste{i}", "0.16")
     db_session.commit()
     ctx = montar_contexto(db_session, ordem)
-    assert ctx["erro1"] == "0,06"
-    assert ctx["erro5"] == "0,06"
-    assert ctx["mediamedicoes"] == "0,16"
+    assert ctx["erro1"] == "0,060"
+    assert ctx["erro5"] == "0,060"
+    assert ctx["mediamedicoes"] == "0,160"
     assert ctx["incertezaexpandida"] == "0,1301"
     assert ctx["fatork"] == "2"
 
@@ -115,7 +115,7 @@ def test_os_antiga_com_tres_medicoes_deixa_erro4_e_erro5_em_branco(db_session, o
     ordem.calib_teste5 = None
     db_session.commit()
     ctx = montar_contexto(db_session, ordem)
-    assert ctx["erro1"] == "0,06"
+    assert ctx["erro1"] == "0,060"
     # nao inventa medicao: erro em branco, nao "-0,1"
     assert ctx["erro4"] == ""
     assert ctx["erro5"] == ""
@@ -141,12 +141,12 @@ def test_avulso_calcula_erro_e_incerteza_da_planilha(db_session):
         "calib_teste1": "0.16", "calib_teste2": "0.16", "calib_teste3": "0.16",
         "calib_teste4": "0.16", "calib_teste5": "0.16",
     })
-    assert ctx["erro1"] == "0,06"
-    assert ctx["erro2"] == "0,06"
-    assert ctx["erro3"] == "0,06"
-    assert ctx["erro4"] == "0,06"
-    assert ctx["erro5"] == "0,06"
-    assert ctx["mediamedicoes"] == "0,16"
+    assert ctx["erro1"] == "0,060"
+    assert ctx["erro2"] == "0,060"
+    assert ctx["erro3"] == "0,060"
+    assert ctx["erro4"] == "0,060"
+    assert ctx["erro5"] == "0,060"
+    assert ctx["mediamedicoes"] == "0,160"
     assert ctx["incertezaexpandida"] == "0,1301"
     assert ctx["fatork"] == "2"
 
@@ -205,8 +205,8 @@ def test_avulso_traz_tecnico_e_campos_de_config_nao_da_os(db_session):
     assert ctx["tecnicocargo"] == "Técnico em Metrologia"
     assert ctx["equipamentosauxiliares"] == "TESTO 622"
     assert ctx["margemtemp"] == "20 ºC ~ 24 ºC"
-    assert ctx["limitemin"] == "0,15"
-    assert ctx["limitemax"] == "0,19"
+    assert ctx["limitemin"] == "0,150"
+    assert ctx["limitemax"] == "0,190"
 
 
 def test_os_com_padrao_preenche_cilindro_e_espelha_drygasppm(db_session, os_base):

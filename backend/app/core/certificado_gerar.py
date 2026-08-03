@@ -59,6 +59,10 @@ CAMPOS: list[tuple[str, str]] = [
     ("pulapagina", "Quebra de página (impressão)"),
 ]
 
+# Casas decimais das medicoes, dos erros e dos limites no certificado. Fixas, sem
+# cortar zero a direita: e a precisao que o laboratorio declara ter medido.
+CASAS_MEDICAO = 3
+
 # Quebra de página para impressão — HTML estrutural (não é dado, não escapar).
 _PAGE_BREAK = '<div style="page-break-after: always;"></div>'
 
@@ -224,11 +228,20 @@ def _bloco_certificado(db: Session, medicoes: Sequence[str | None], padrao) -> d
     resultado = calcular(medicoes, parametros_de(config))
 
     bloco = {
-        "mediamedicoes": formatar_numero(resultado.media),
+        # Media, erros e limites saem com CASAS_MEDICAO fixas: num certificado de
+        # calibracao "0,160" e "0,16" declaram precisoes diferentes, e a Qualidade
+        # exige as tres casas. U fica com mais casas por ser a incerteza.
+        "mediamedicoes": formatar_numero(resultado.media, casas=CASAS_MEDICAO, cortar_zeros=False),
         "incertezaexpandida": formatar_numero(resultado.incerteza_expandida),
         "fatork": formatar_numero(resultado.fator_k, casas=2),
-        "limitemin": formatar_numero(None if config.limite_minimo is None else float(config.limite_minimo)),
-        "limitemax": formatar_numero(None if config.limite_maximo is None else float(config.limite_maximo)),
+        "limitemin": formatar_numero(
+            None if config.limite_minimo is None else float(config.limite_minimo),
+            casas=CASAS_MEDICAO, cortar_zeros=False,
+        ),
+        "limitemax": formatar_numero(
+            None if config.limite_maximo is None else float(config.limite_maximo),
+            casas=CASAS_MEDICAO, cortar_zeros=False,
+        ),
         "padraocilindro": (padrao.numero_cilindro if padrao else "") or "",
         "padraocertificado": (padrao.numero_certificado if padrao else "") or "",
         "padraoconcentracao": formatar_numero(
@@ -246,7 +259,7 @@ def _bloco_certificado(db: Session, medicoes: Sequence[str | None], padrao) -> d
     # DRY GAS PPM e a propria concentracao do padrao (na planilha, A82 = $D$72)
     bloco["drygasppm"] = bloco["padraoconcentracao"]
     for i, erro in enumerate(resultado.erros, start=1):
-        bloco[f"erro{i}"] = formatar_numero(erro)
+        bloco[f"erro{i}"] = formatar_numero(erro, casas=CASAS_MEDICAO, cortar_zeros=False)
     return bloco
 
 

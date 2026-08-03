@@ -46,7 +46,7 @@ describe('CamposCertificado', () => {
     fireEvent.change(screen.getByLabelText('Teste 2'), { target: { value: '0,20' } })
     fireEvent.change(screen.getByLabelText('Teste 3'), { target: { value: '0,30' } })
     // mediaTestes remove zeros a direita por design (0,200 -> 0,2)
-    expect((screen.getByLabelText('Média dos testes') as HTMLInputElement).value).toBe('0,2')
+    expect((screen.getByLabelText('Média dos testes') as HTMLInputElement).value).toBe('0,200')
   })
 
   it('para de calcular a media depois que o usuario digita a mao', () => {
@@ -112,7 +112,7 @@ describe('CamposCertificado', () => {
     fireEvent.change(screen.getByLabelText('Teste 2'), { target: { value: '0,20' } })
     fireEvent.change(screen.getByLabelText('Teste 3'), { target: { value: '0,30' } })
     const media = screen.getByLabelText('Média dos testes') as HTMLInputElement
-    expect(media.value).toBe('0,2')
+    expect(media.value).toBe('0,200')
     expect(media.value).not.toBe('')
     await screen.findByText(/Nenhum cilindro cadastrado cobre esta data/i)   // assenta a busca de cilindros
   })
