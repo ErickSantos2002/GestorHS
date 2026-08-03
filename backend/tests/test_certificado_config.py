@@ -271,7 +271,7 @@ def test_documentos_qr_traz_os_tres_configurados(db_session, monkeypatch):
         "Certificado do Termohigrômetro Digital",
         "Certificado do Barômetro Digital",
     ]
-    assert all(f"/publico/certificado-geral/" in url for _, url in itens)
+    assert all("/publico/certificado-geral/" in url for _, url in itens)
 
 
 def test_documentos_qr_pula_o_que_nao_foi_configurado(db_session, monkeypatch):
@@ -323,6 +323,14 @@ def test_documentos_qr_vazio_sem_base_url_publica(db_session, monkeypatch):
 
 def test_config_api_grava_os_tres_documentos(client_admin, db_session):
     gas = _doc_geral(db_session, "Gás", "g.pdf")
-    r = client_admin.put("/certificado-config", json={"doc_gas_id": gas.id})
+    termo = _doc_geral(db_session, "Termo", "t.pdf")
+    baro = _doc_geral(db_session, "Baro", "b.pdf")
+    r = client_admin.put("/certificado-config", json={
+        "doc_gas_id": gas.id,
+        "doc_termohigrometro_id": termo.id,
+        "doc_barometro_id": baro.id,
+    })
     assert r.status_code == 200
     assert r.json()["doc_gas_id"] == gas.id
+    assert r.json()["doc_termohigrometro_id"] == termo.id
+    assert r.json()["doc_barometro_id"] == baro.id

@@ -1,11 +1,13 @@
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_usuario, require_funcao
 from app.core import certificado_geral_link, storage
-from app.models import CertificadoGeral, Usuario
+from app.core.certificado_config import DOCUMENTOS_QR
+from app.models import CertificadoConfig, CertificadoGeral, Usuario
 from app.models.database import get_db
 from app.schemas.certificado_geral import CertificadoGeralOut
 
@@ -52,6 +54,19 @@ def excluir(cert_id: int, db: Session = Depends(get_db),
     c = db.query(CertificadoGeral).filter(CertificadoGeral.id == cert_id).first()
     if c is None:
         raise HTTPException(404, "certificado não encontrado")
+    # certificado_config.doc_*_id e FK sem ON DELETE: no Postgres, apagar um documento
+    # ja selecionado como anexo do certificado (QR do rodape) estoura IntegrityError e
+    # vira 500. Quem quer trocar o documento desmarca-o na Configuracao antes.
+    em_uso = db.query(CertificadoConfig).filter(
+        or_(*[getattr(CertificadoConfig, campo) == cert_id for campo, _ in DOCUMENTOS_QR])
+    ).first()
+    if em_uso is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Este documento está em uso como anexo do certificado (QR) e não "
+                   "pode ser excluído. Para excluí-lo, desmarque-o antes em "
+                   "Certificados › Configurações.",
+        )
     storage.remover_arquivo(SUBDIR, c.arquivo)
     db.delete(c); db.commit()
     return {"ok": True}
