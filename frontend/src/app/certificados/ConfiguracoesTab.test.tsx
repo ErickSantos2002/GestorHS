@@ -178,6 +178,15 @@ describe('ConfiguracoesTab', () => {
     expect(screen.getAllByRole('option', { name: 'LV09700-06672-26' })).toHaveLength(3)
   })
 
+  it('mostra a selecao ja salva de um documento, nao so o placeholder', async () => {
+    // CONFIG no resto do arquivo tem os tres doc_*_id nulos: sem este teste, um bug
+    // que impedisse o select de refletir um id ja gravado passaria por "nao salvou".
+    vi.mocked(certificadosApi.config).mockResolvedValue({ ...CONFIG, doc_gas_id: 1 })
+    render(<ConfiguracoesTab />)
+    await waitFor(() => expect(screen.getByLabelText(/certificado do g.s/i)).toBeInTheDocument())
+    expect(screen.getByLabelText(/certificado do g.s/i)).toHaveValue('1')
+  })
+
   it('salva os ids dos documentos escolhidos', async () => {
     vi.mocked(certificadosApi.salvarConfig).mockResolvedValue({ ...CONFIG, doc_gas_id: 1 })
     render(<ConfiguracoesTab />)

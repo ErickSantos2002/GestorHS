@@ -318,7 +318,12 @@ def montar_contexto(db: Session, ordem) -> dict[str, str]:
         situ=ordem.calib_situacao or "",
     )
     for chave, valor in (ordem.cert_overrides or {}).items():
-        if valor:
+        # cert_overrides e JSON livre; hoje so `certificados_os.py` grava nele, restrito
+        # a `_CAMPOS_OVERRIDE`, que nao inclui tokens estruturais — mas essa garantia mora
+        # num arquivo diferente. Barrar aqui tambem impede que um token cujo valor entra
+        # sem escapar em `preencher` (ex.: qrcertificados) vire injecao de HTML se algum
+        # dia alguem ampliar aquela lista copiando de CAMPOS sem notar a diferenca.
+        if valor and chave not in _TOKENS_ESTRUTURAIS:
             ctx[chave] = valor
     # o override do CNPJ e digitado a mao — mascara aqui tambem, senao sai cru no PDF
     ctx["cnpj"] = _fmt_doc(ctx["cnpj"])

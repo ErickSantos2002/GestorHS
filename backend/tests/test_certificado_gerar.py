@@ -94,6 +94,21 @@ def test_montar_contexto_override_vazio_mantem_derivado(db_session):
     assert ctx["nomecli"] == "ACME LTDA"
 
 
+def test_montar_contexto_ignora_override_de_token_estrutural(db_session):
+    """cert_overrides e JSON livre; se um dia carregar `qrcertificados`, esse valor
+    NAO pode alcancar o contexto — `preencher` insere esse token sem escapar, entao
+    um override malicioso viraria HTML executavel no certificado do cliente."""
+    from app.models import Cliente, Ordem
+    from app.core.certificado_gerar import montar_contexto
+    cli = Cliente(nome="ACME LTDA"); db_session.add(cli); db_session.flush()
+    o = Ordem(cliente=cli.id, situacao="E",
+              cert_overrides={"qrcertificados": "<script>x</script>", "nomecli": "OK"})
+    db_session.add(o); db_session.commit(); db_session.refresh(o)
+    ctx = montar_contexto(db_session, o)
+    assert "<script>" not in ctx["qrcertificados"]
+    assert ctx["nomecli"] == "OK"
+
+
 def test_preencher_nao_escapa_o_token_estrutural_do_qr():
     from app.core.certificado_gerar import preencher
     bloco = '<table><tr><td><img src="data:image/svg+xml,abc" /></td></tr></table>'

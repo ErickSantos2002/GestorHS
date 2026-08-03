@@ -321,6 +321,36 @@ def test_documentos_qr_vazio_sem_base_url_publica(db_session, monkeypatch):
     assert documentos_qr(db_session, cfg) == []
 
 
+def test_documentos_qr_pula_documento_sem_arquivo(db_session, monkeypatch):
+    """Um `arquivo` vazio (nao ha constraint de banco contra string vazia) geraria um
+    QR apontando para um link que o endpoint publico responde com 404 — pior que
+    nao ter QR nenhum."""
+    from app.core import certificado_geral_link
+    from app.core.certificado_config import documentos_qr, obter_config
+    monkeypatch.setattr(certificado_geral_link.settings, "CERT_PUBLIC_BASE_URL", "https://x.com")
+
+    sem_arquivo = _doc_geral(db_session, "Gás", arquivo="")
+    cfg = obter_config(db_session)
+    cfg.doc_gas_id = sem_arquivo.id
+    db_session.commit()
+
+    assert documentos_qr(db_session, cfg) == []
+
+
+def test_put_config_id_de_documento_apagado_devolve_422(client_admin, db_session):
+    """Corrida: admin A tem a tela aberta, admin B apaga o documento ainda nao
+    selecionado, admin A escolhe esse id e salva. Sem a validacao, o FK sem ON DELETE
+    estoura IntegrityError e vira 500 sem explicacao."""
+    gas = _doc_geral(db_session, "Gás", "g.pdf")
+    id_apagado = gas.id
+    db_session.delete(gas)
+    db_session.commit()
+
+    r = client_admin.put("/certificado-config", json={"doc_gas_id": id_apagado})
+    assert r.status_code == 422
+    assert "não existe mais" in r.json()["detail"]
+
+
 def test_config_api_grava_os_tres_documentos(client_admin, db_session):
     gas = _doc_geral(db_session, "Gás", "g.pdf")
     termo = _doc_geral(db_session, "Termo", "t.pdf")

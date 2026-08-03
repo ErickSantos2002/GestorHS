@@ -90,7 +90,7 @@ def documentos_qr(db: Session, config: CertificadoConfig) -> list[tuple[str, str
         if not cert_id:
             continue
         doc = db.get(CertificadoGeral, cert_id)
-        if doc is None:
+        if doc is None or not doc.arquivo:
             continue
         url = link_certificado_geral(doc.id)
         if not url:

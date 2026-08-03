@@ -3,9 +3,9 @@ import { Input } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
 import { useAuth } from '../../auth/AuthContext'
 import { podeEditarConfigCertificado } from '../../auth/roles'
-import { ApiError } from '../../lib/api'
 import { hojeISO } from './valoresCertificado'
 import { padraoVigente } from './padraoVigente'
+import { mensagemDeErro } from './erros'
 import { certificadosApi, type CertGeralItem, type CertificadoConfig, type CertificadoPadrao } from './api'
 
 const secao = 'text-xs font-semibold text-slate-500 uppercase tracking-wide'
@@ -36,16 +36,6 @@ const DOCUMENTOS_QR = [
 const PADRAO_NOVO = {
   numero_cilindro: '', numero_certificado: '', concentracao: '', incerteza_concentracao: '',
   unidade: 'µmol/mol', vigencia_inicio: hojeISO(), vigencia_fim: null as string | null, ativo: true,
-}
-
-/** Mostra o que o backend disse, e não um genérico.
- *
- *  O 409 de cilindro em uso explica o que fazer ("encerre a vigência"), e o 422 diz
- *  qual campo recusou — engolir isso deixa o admin sem saída, tendo que pedir para
- *  alguém ler o log para descobrir o que ele digitou de errado. Foi exatamente o que
- *  aconteceu em 03/08/2026 com "Falha ao cadastrar o cilindro.". */
-function mensagemDeErro(err: unknown, generica: string): string {
-  return err instanceof ApiError && err.message ? err.message : generica
 }
 
 export function ConfiguracoesTab() {

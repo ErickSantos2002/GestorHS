@@ -15,7 +15,10 @@ import segno
 # que e o requisito, porque o pedido nasceu de economizar papel.
 _ESCALA = 3
 
-# Lado da imagem no HTML, em px. Casado com _ESCALA para o QR nao ser reamostrado.
+# Lado da imagem no HTML, em px. E SVG, entao reamostragem nao e o problema — o que
+# importa e o tamanho: pequeno o bastante para os tres QRs caberem lado a lado no
+# rodape sem empurrar o certificado para uma terceira pagina, que e o ponto de toda
+# a funcionalidade (parar de imprimir os documentos auxiliares separados).
 _LADO_PX = 90
 
 

@@ -9,8 +9,8 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_usuario, require_funcao
 from app.core.certificado_calculo import CASAS_MEDICAO, calcular, formatar_numero
-from app.core.certificado_config import obter_config, parametros_de
-from app.models import CertificadoPadrao, Ordem, Usuario
+from app.core.certificado_config import DOCUMENTOS_QR, obter_config, parametros_de
+from app.models import CertificadoGeral, CertificadoPadrao, Ordem, Usuario
 from app.models.database import get_db
 from app.schemas.certificado_config import (
     CalculoPreviaIn,
@@ -37,7 +37,21 @@ def ler_config(db: Session = Depends(get_db), _: Usuario = Depends(get_current_u
 def gravar_config(dados: CertificadoConfigIn, db: Session = Depends(get_db),
                   _: Usuario = Depends(_escrita)):
     config = obter_config(db)
-    for chave, valor in dados.model_dump(exclude_unset=True).items():
+    alteracoes = dados.model_dump(exclude_unset=True)
+
+    # doc_*_id nao tem ON DELETE e nao ha handler global de IntegrityError: gravar um
+    # id apagado entre a tela abrir e o admin salvar estouraria no db.commit() como
+    # 500 sem explicacao. Validar antes e o que da um 422 acionavel em vez disso.
+    for campo, rotulo in DOCUMENTOS_QR:
+        if campo in alteracoes and alteracoes[campo] is not None:
+            if db.get(CertificadoGeral, alteracoes[campo]) is None:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"O documento selecionado para \"{rotulo}\" não existe mais. "
+                           f"Recarregue a página e escolha novamente.",
+                )
+
+    for chave, valor in alteracoes.items():
         setattr(config, chave, valor)
     db.commit()
     db.refresh(config)
