@@ -130,3 +130,35 @@ def test_os_sem_padrao_deixa_os_campos_do_cilindro_vazios(db_session, os_base):
     assert ctx["padraocilindro"] == ""
     assert ctx["padraocertificado"] == ""
     assert ctx["drygasppm"] == ""
+
+
+def test_os_com_padrao_preenche_cilindro_e_espelha_drygasppm(db_session, os_base):
+    """drygasppm e a PROPRIA concentracao do padrao (na planilha, A82 = $D$72).
+
+    Os outros testes deste arquivo nunca vinculam um padrao a OS, entao essa igualdade
+    so era exercitada com os dois lados vazios ("" == "") — prova vazia. Aqui o padrao
+    tem valores reais, e o teste checa que drygasppm nao so bate com padraoconcentracao
+    como tambem NAO esta vazio, o que descarta um calculo a partir de outro campo.
+    """
+    from datetime import date
+    from app.models import CertificadoPadrao
+
+    padrao = CertificadoPadrao(
+        numero_cilindro="CC747704", numero_certificado="202231419",
+        concentracao=100.1, incerteza_concentracao=2.0, unidade="µmol/mol",
+        vigencia_inicio=date(2020, 1, 1), vigencia_fim=None, ativo=True,
+    )
+    db_session.add(padrao)
+    db_session.commit()
+
+    ordem = _os_com_dados(db_session, os_base)
+    ordem.padrao_id = padrao.id
+    db_session.commit()
+
+    ctx = montar_contexto(db_session, ordem)
+    assert ctx["padraocilindro"] == "CC747704"
+    assert ctx["padraocertificado"] == "202231419"
+    assert ctx["padraoconcentracao"] == "100,1"
+    assert ctx["padraoincerteza"] == "2"
+    assert ctx["drygasppm"] == ctx["padraoconcentracao"]
+    assert ctx["drygasppm"] != ""

@@ -6,7 +6,7 @@ from html import escape as _html_escape
 
 from sqlalchemy.orm import Session
 
-from app.core.certificado_calculo import ParametrosCalculo, calcular, formatar_numero
+from app.core.certificado_calculo import calcular, formatar_numero
 from app.models import Equipamento, Marca, TipoCalibragem, CertificadoModelo, OSCertificado
 
 # Campos suportados (expostos no editor de modelos). Os nomes batem com os
@@ -108,7 +108,7 @@ def _endereco(cli) -> str:
 
 
 # Chaves calculadas/derivadas do certificado EPS-LAB-002. Declaradas em UM lugar para
-# que todos os caminhos (OS, avulso, venda, geral) emitam exatamente o mesmo conjunto.
+# que os tres caminhos (OS, avulso, venda) emitam exatamente o mesmo conjunto.
 _CHAVES_CALCULADAS = (
     "erro1", "erro2", "erro3", "erro4", "erro5",
     "mediamedicoes", "incertezaexpandida", "fatork",
@@ -180,8 +180,7 @@ def _montar_contexto(
         "calibteste4": t4,
         "calibteste5": t5,
         # bloco calculado + padrao + config; vazio quando o caminho nao tem calibracao
-        # (avulso, venda e certificado geral). Nunca AUSENTE — token ausente sai
-        # literalmente escrito no PDF.
+        # (avulso e venda). Nunca AUSENTE — token ausente sai literalmente escrito no PDF.
         **_bloco_calculado(calc),
         "datacli": hoje,
     }
