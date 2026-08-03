@@ -168,6 +168,8 @@ export interface OrdemDetalhe extends OrdemListItem {
   calib_teste1: string | null
   calib_teste2: string | null
   calib_teste3: string | null
+  calib_teste4: string | null
+  calib_teste5: string | null
   calib_teste_media: string | null
   calib_situacao: string | null
   pdf_certificado: string | null
