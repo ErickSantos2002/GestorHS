@@ -6,7 +6,7 @@ import { podeEditarConfigCertificado } from '../../auth/roles'
 import { ApiError } from '../../lib/api'
 import { hojeISO } from './valoresCertificado'
 import { padraoVigente } from './padraoVigente'
-import { certificadosApi, type CertificadoConfig, type CertificadoPadrao } from './api'
+import { certificadosApi, type CertGeralItem, type CertificadoConfig, type CertificadoPadrao } from './api'
 
 const secao = 'text-xs font-semibold text-slate-500 uppercase tracking-wide'
 
@@ -24,6 +24,13 @@ const CAMPOS_NUMERICOS = [
   ['resolucao_pressao', 'Resolução (pressão)'],
   ['incerteza_padrao_pressao', 'Incerteza do padrão (pressão)'],
   ['fator_k', 'Fator k'],
+] as const
+
+/** Espelha DOCUMENTOS_QR em backend/app/core/certificado_config.py — mudou lá, mude aqui. */
+const DOCUMENTOS_QR = [
+  ['doc_gas_id', 'Certificado do Gás'],
+  ['doc_termohigrometro_id', 'Certificado do Termohigrômetro Digital'],
+  ['doc_barometro_id', 'Certificado do Barômetro Digital'],
 ] as const
 
 const PADRAO_NOVO = {
@@ -47,6 +54,7 @@ export function ConfiguracoesTab() {
 
   const [config, setConfig] = useState<CertificadoConfig | null>(null)
   const [padroes, setPadroes] = useState<CertificadoPadrao[]>([])
+  const [gerais, setGerais] = useState<CertGeralItem[]>([])
   const [novo, setNovo] = useState({ ...PADRAO_NOVO })
   const [salvando, setSalvando] = useState(false)
   const [adicionando, setAdicionando] = useState(false)
@@ -66,6 +74,7 @@ export function ConfiguracoesTab() {
   useEffect(() => {
     certificadosApi.config().then(setConfig).catch(() => setAviso('Falha ao carregar a configuração.'))
     certificadosApi.padroes().then(setPadroes).catch(() => setPadroes([]))
+    certificadosApi.listarGerais().then(setGerais).catch(() => setGerais([]))
   }, [])
 
   function alterar(patch: Partial<CertificadoConfig>) {
@@ -222,6 +231,26 @@ export function ConfiguracoesTab() {
         {podeEditar && (
           <Button onClick={salvar} disabled={salvando}>{salvando ? 'Salvando…' : 'Salvar'}</Button>
         )}
+      </div>
+
+      <div className="space-y-3">
+        <p className={secao}>Documentos anexos ao certificado</p>
+        <p className="text-xs text-slate-500">
+          Viram QR code no rodapé do certificado de calibração, no lugar de irem impressos junto.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {DOCUMENTOS_QR.map(([chave, rotulo]) => (
+            <div key={chave}>
+              <label htmlFor={chave} className="block text-xs text-slate-400 mb-1">{rotulo}</label>
+              <select id={chave} disabled={!podeEditar} value={config[chave] ?? ''}
+                className="w-full rounded-lg bg-background-elevated border border-slate-700 p-2 text-sm text-slate-200"
+                onChange={(e) => alterar({ [chave]: e.target.value ? Number(e.target.value) : null } as Partial<CertificadoConfig>)}>
+                <option value="">— nenhum —</option>
+                {gerais.map((g) => <option key={g.id} value={g.id}>{g.nome}</option>)}
+              </select>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="space-y-3">

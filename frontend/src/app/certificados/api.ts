@@ -115,6 +115,7 @@ export const CAMPOS_CERTIFICADO: { campo: string; desc: string }[] = [
   { campo: '[tecnicocargo]', desc: 'Cargo do técnico' },
   { campo: '[equipamentosauxiliares]', desc: 'Equipamentos auxiliares' },
   { campo: '[margemtemp]', desc: 'Margem de temperatura padrão' },
+  { campo: '[qrcertificados]', desc: 'QR dos certificados auxiliares (gás, termohigrômetro, barômetro)' },
   { campo: '[pulapagina]', desc: 'Quebra de página (impressão)' },
 ]
 
@@ -132,6 +133,9 @@ export interface CertificadoConfig {
   tecnico_cargo: string | null
   equipamentos_auxiliares: string | null
   margem_temperatura: string | null
+  doc_gas_id: number | null
+  doc_termohigrometro_id: number | null
+  doc_barometro_id: number | null
 }
 
 export interface CertificadoPadrao {

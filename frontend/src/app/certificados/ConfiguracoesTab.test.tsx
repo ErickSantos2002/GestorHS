@@ -10,6 +10,7 @@ vi.mock('./api', () => ({
     criarPadrao: vi.fn(),
     atualizarPadrao: vi.fn(),
     excluirPadrao: vi.fn(),
+    listarGerais: vi.fn(),
   },
 }))
 
@@ -29,7 +30,13 @@ const CONFIG = {
   resolucao_pressao: null, incerteza_padrao_pressao: null, fator_k: '2.00',
   tecnico_nome: 'Walbert Santos', tecnico_cargo: 'Técnico em Metrologia',
   equipamentos_auxiliares: 'TESTO 622', margem_temperatura: '20 ºC ~ 24 ºC',
+  doc_gas_id: null as number | null, doc_termohigrometro_id: null as number | null, doc_barometro_id: null as number | null,
 }
+
+const GERAIS = [
+  { id: 1, nome: 'Certificado do Gás', data_upload: null, usuario_nome: null, link: 'https://x/1' },
+  { id: 3, nome: 'LV09700-06672-26', data_upload: null, usuario_nome: null, link: 'https://x/3' },
+]
 
 const CILINDRO = {
   id: 7, numero_cilindro: 'CC747704', numero_certificado: '202231419',
@@ -43,6 +50,8 @@ describe('ConfiguracoesTab', () => {
     vi.mocked(certificadosApi.config).mockResolvedValue(CONFIG)
     vi.mocked(certificadosApi.padroes).mockResolvedValue([{ ...CILINDRO }])
     vi.mocked(certificadosApi.atualizarPadrao).mockReset()
+    vi.mocked(certificadosApi.salvarConfig).mockReset()
+    vi.mocked(certificadosApi.listarGerais).mockResolvedValue(GERAIS)
   })
 
   it('carrega e mostra os parametros do calculo', async () => {
@@ -154,5 +163,38 @@ describe('ConfiguracoesTab', () => {
     render(<ConfiguracoesTab />)
     await waitFor(() => expect(screen.getByText('CC747704')).toBeInTheDocument())
     expect(screen.queryByRole('button', { name: /^editar$/i })).not.toBeInTheDocument()
+  })
+
+  it('lista os documentos gerais nos tres selects', async () => {
+    render(<ConfiguracoesTab />)
+    await waitFor(() => expect(screen.getByLabelText(/certificado do g.s/i)).toBeInTheDocument())
+    expect(screen.getByLabelText(/termohigr/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/bar.metro/i)).toBeInTheDocument()
+    // cada select oferece os documentos cadastrados
+    expect(screen.getAllByRole('option', { name: 'LV09700-06672-26' })).toHaveLength(3)
+  })
+
+  it('salva os ids dos documentos escolhidos', async () => {
+    vi.mocked(certificadosApi.salvarConfig).mockResolvedValue({ ...CONFIG, doc_gas_id: 1 })
+    render(<ConfiguracoesTab />)
+    await waitFor(() => expect(screen.getByLabelText(/certificado do g.s/i)).toBeInTheDocument())
+
+    fireEvent.change(screen.getByLabelText(/certificado do g.s/i), { target: { value: '1' } })
+    fireEvent.click(screen.getByRole('button', { name: /^salvar$/i }))
+
+    await waitFor(() => expect(certificadosApi.salvarConfig).toHaveBeenCalledTimes(1))
+    expect(vi.mocked(certificadosApi.salvarConfig).mock.calls[0][0]).toMatchObject({ doc_gas_id: 1 })
+  })
+
+  it('nenhum documento selecionado envia nulo, nao string vazia', async () => {
+    vi.mocked(certificadosApi.salvarConfig).mockResolvedValue(CONFIG)
+    render(<ConfiguracoesTab />)
+    await waitFor(() => expect(screen.getByLabelText(/certificado do g.s/i)).toBeInTheDocument())
+
+    fireEvent.change(screen.getByLabelText(/certificado do g.s/i), { target: { value: '' } })
+    fireEvent.click(screen.getByRole('button', { name: /^salvar$/i }))
+
+    await waitFor(() => expect(certificadosApi.salvarConfig).toHaveBeenCalledTimes(1))
+    expect(vi.mocked(certificadosApi.salvarConfig).mock.calls[0][0].doc_gas_id).toBeNull()
   })
 })
