@@ -28,7 +28,7 @@ def registrar_log(db: Session, ordem: Ordem, usuario: Usuario | None, texto: str
 
 _CAMPOS_CALIB = (
     "calib_cert", "calib_temp", "calib_pressao", "calib_teste1", "calib_teste2",
-    "calib_teste3", "calib_teste_media", "calib_situacao",
+    "calib_teste3", "calib_teste4", "calib_teste5", "calib_teste_media", "calib_situacao",
 )
 
 

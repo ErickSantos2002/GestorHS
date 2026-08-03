@@ -147,6 +147,8 @@ class GerarCertificadoIn(BaseModel):
     calib_teste1: str | None = None
     calib_teste2: str | None = None
     calib_teste3: str | None = None
+    calib_teste4: str | None = None
+    calib_teste5: str | None = None
     calib_teste_media: str | None = None
     calib_situacao: str | None = None
 
@@ -166,6 +168,8 @@ class CertificadoCamposOut(BaseModel):
     calib_teste1: str | None = None
     calib_teste2: str | None = None
     calib_teste3: str | None = None
+    calib_teste4: str | None = None
+    calib_teste5: str | None = None
     calib_teste_media: str | None = None
     calib_situacao: str | None = None
     data_calibracao: date | None = None

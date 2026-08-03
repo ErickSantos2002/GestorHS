@@ -236,3 +236,52 @@ def test_gerar_fora_do_lab_nao_conclui(client, usuario_admin, db_session):
     assert r.status_code == 200
     db_session.refresh(o)
     assert o.desfecho_lab == "pendente"           # guarda de fase bloqueia
+
+
+def test_gerar_grava_as_cinco_medicoes_e_o_padrao_vigente(client, usuario_admin, db_session):
+    from datetime import date
+    from app.models import CertificadoPadrao, Ordem
+
+    h = _headers(client, "admin@hs.com", "senha123")
+    oid = _os_com_modelo(client, db_session, h, tipos=("C",), tipo_servico="C")
+
+    padrao = CertificadoPadrao(
+        numero_cilindro="CC747704", numero_certificado="202231419",
+        concentracao=100.1, incerteza_concentracao=2.0, unidade="µmol/mol",
+        vigencia_inicio=date(2020, 1, 1), vigencia_fim=None, ativo=True,
+    )
+    db_session.add(padrao)
+    db_session.commit()
+
+    r = client.post(f"/ordens/{oid}/gerar-certificado", headers=h, json={
+        "data_calibracao": "2026-07-31",
+        "calib_teste1": "0.16", "calib_teste2": "0.16", "calib_teste3": "0.16",
+        "calib_teste4": "0.16", "calib_teste5": "0.16",
+    })
+    assert r.status_code == 200
+
+    ordem = db_session.query(Ordem).filter(Ordem.id == oid).first()
+    assert ordem.calib_teste4 == "0.16"
+    assert ordem.calib_teste5 == "0.16"
+    assert ordem.padrao_id == padrao.id
+
+
+def test_gerar_sem_padrao_cadastrado_grava_none_e_nao_falha(client, usuario_admin, db_session):
+    from app.models import Ordem
+    h = _headers(client, "admin@hs.com", "senha123")
+    oid = _os_com_modelo(client, db_session, h, tipos=("C",), tipo_servico="C")
+
+    r = client.post(f"/ordens/{oid}/gerar-certificado", headers=h, json={
+        "data_calibracao": "2026-07-31", "calib_teste1": "0.16",
+    })
+    assert r.status_code == 200
+    ordem = db_session.query(Ordem).filter(Ordem.id == oid).first()
+    assert ordem.padrao_id is None
+
+
+def test_certificado_campos_devolve_as_cinco_medicoes(client, usuario_admin, db_session):
+    h = _headers(client, "admin@hs.com", "senha123")
+    oid = _os_com_modelo(client, db_session, h, tipos=("C",), tipo_servico="C")
+    corpo = client.get(f"/ordens/{oid}/certificado-campos", headers=h).json()
+    assert "calib_teste4" in corpo
+    assert "calib_teste5" in corpo
