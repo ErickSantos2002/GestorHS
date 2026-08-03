@@ -33,6 +33,7 @@ export function GerarCertificadoModal({ os, onClose, onGerado }: {
           cert: c.calib_cert ?? '', situacao: c.calib_situacao ?? '',
           temp: c.calib_temp ?? '', pressao: c.calib_pressao ?? '',
           t1: c.calib_teste1 ?? '', t2: c.calib_teste2 ?? '', t3: c.calib_teste3 ?? '',
+          t4: c.calib_teste4 ?? '', t5: c.calib_teste5 ?? '',
           media: c.calib_teste_media ?? '',
           dataCalib: c.data_calibracao ? c.data_calibracao.slice(0, 10) : hojeISO(),
         })
@@ -61,6 +62,8 @@ export function GerarCertificadoModal({ os, onClose, onGerado }: {
       calib_teste1: v.t1.trim() || null,
       calib_teste2: v.t2.trim() || null,
       calib_teste3: v.t3.trim() || null,
+      calib_teste4: v.t4.trim() || null,
+      calib_teste5: v.t5.trim() || null,
       calib_teste_media: v.media.trim() || null,
       calib_situacao: v.situacao.trim() || null,
     }
@@ -90,7 +93,7 @@ export function GerarCertificadoModal({ os, onClose, onGerado }: {
         <div className="flex justify-center py-10"><Spinner className="w-7 h-7" /></div>
       ) : (
         <form id="form-gerar-cert" className="space-y-5" onSubmit={submeter}>
-          <CamposCertificado valores={v} onChange={set} />
+          <CamposCertificado valores={v} onChange={set} medicoes={5} />
           {erro && <div className="rounded-lg bg-danger/10 border border-danger/20 px-3 py-2.5 text-sm text-danger">{erro}</div>}
         </form>
       )}

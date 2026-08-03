@@ -36,6 +36,7 @@ export function CertificadoVendaModal({ aparelhoId, onClose, onGerado }: {
           cert: c.calib_cert ?? '', situacao: c.calib_situacao ?? '',
           temp: c.calib_temp ?? '', pressao: c.calib_pressao ?? '',
           t1: c.calib_teste1 ?? '', t2: c.calib_teste2 ?? '', t3: c.calib_teste3 ?? '',
+          t4: '', t5: '',
           media: c.calib_teste_media ?? '',
           dataCalib: c.data_calibracao ?? hojeISO(),
         })

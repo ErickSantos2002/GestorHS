@@ -20,6 +20,8 @@ export interface ValoresCertificado {
   t1: string
   t2: string
   t3: string
+  t4: string
+  t5: string
   media: string
 }
 
@@ -33,6 +35,6 @@ export function valoresIniciais(): ValoresCertificado {
     nomecli: '', cnpj: '', endcli: '',
     modelo: '', marca: '', serie: '', patrimonio: '', datacompra: '',
     dataCalib: hojeISO(), cert: '', situacao: '',
-    temp: '', pressao: '', t1: '', t2: '', t3: '', media: '',
+    temp: '', pressao: '', t1: '', t2: '', t3: '', t4: '', t5: '', media: '',
   }
 }
