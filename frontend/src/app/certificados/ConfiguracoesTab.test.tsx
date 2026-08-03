@@ -12,8 +12,12 @@ vi.mock('./api', () => ({
   },
 }))
 
+// Estado mutavel para variar o usuario logado por teste — vi.mock e hoisted, entao
+// o valor lido pelo mock precisa vir de um objeto criado via vi.hoisted().
+const authState = vi.hoisted(() => ({ user: { funcao: 'Administrador' } as { funcao: string } | null }))
+
 vi.mock('../../auth/AuthContext', () => ({
-  useAuth: () => ({ user: { funcao: 'Administrador' } }),
+  useAuth: () => ({ user: authState.user }),
 }))
 
 import { certificadosApi } from './api'
@@ -28,6 +32,7 @@ const CONFIG = {
 
 describe('ConfiguracoesTab', () => {
   beforeEach(() => {
+    authState.user = { funcao: 'Administrador' }
     vi.mocked(certificadosApi.config).mockResolvedValue(CONFIG)
     vi.mocked(certificadosApi.padroes).mockResolvedValue([{
       id: 7, numero_cilindro: 'CC747704', numero_certificado: '202231419',
@@ -46,5 +51,16 @@ describe('ConfiguracoesTab', () => {
     render(<ConfiguracoesTab />)
     await waitFor(() => expect(screen.getByText('CC747704')).toBeInTheDocument())
     expect(screen.getByText('202231419')).toBeInTheDocument()
+  })
+
+  it('esconde os controles de edicao e desabilita os campos para nao-admin', async () => {
+    authState.user = { funcao: 'Laboratório' }
+    render(<ConfiguracoesTab />)
+    await waitFor(() => expect(screen.getByText('CC747704')).toBeInTheDocument())
+
+    expect(screen.getByLabelText(/valor de refer/i)).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /salvar/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /adicionar/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /excluir/i })).not.toBeInTheDocument()
   })
 })

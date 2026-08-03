@@ -42,6 +42,8 @@ export function ConfiguracoesTab() {
   const [padroes, setPadroes] = useState<CertificadoPadrao[]>([])
   const [novo, setNovo] = useState({ ...PADRAO_NOVO })
   const [salvando, setSalvando] = useState(false)
+  const [adicionando, setAdicionando] = useState(false)
+  const [excluindoId, setExcluindoId] = useState<number | null>(null)
   const [aviso, setAviso] = useState('')
 
   useEffect(() => {
@@ -69,21 +71,31 @@ export function ConfiguracoesTab() {
 
   async function adicionarPadrao() {
     if (!novo.numero_cilindro.trim()) return
+    setAdicionando(true)
+    setAviso('')
     try {
       const criado = await certificadosApi.criarPadrao(novo)
       setPadroes((atual) => [criado, ...atual])
       setNovo({ ...PADRAO_NOVO })
+      setAviso('Cilindro cadastrado.')
     } catch {
       setAviso('Falha ao cadastrar o cilindro.')
+    } finally {
+      setAdicionando(false)
     }
   }
 
   async function excluirPadrao(id: number) {
+    setExcluindoId(id)
+    setAviso('')
     try {
       await certificadosApi.excluirPadrao(id)
       setPadroes((atual) => atual.filter((p) => p.id !== id))
+      setAviso('Cilindro excluído.')
     } catch {
       setAviso('Falha ao excluir o cilindro.')
+    } finally {
+      setExcluindoId(null)
     }
   }
 
@@ -159,8 +171,10 @@ export function ConfiguracoesTab() {
                   : <span className="text-slate-500 text-xs">—</span>}</td>
                 <td className="text-right">
                   {podeEditar && (
-                    <button onClick={() => excluirPadrao(p.id)}
-                      className="text-xs text-red-400 hover:text-red-300">Excluir</button>
+                    <button onClick={() => excluirPadrao(p.id)} disabled={excluindoId === p.id}
+                      className="text-xs text-red-400 hover:text-red-300 disabled:opacity-60 disabled:cursor-not-allowed">
+                      {excluindoId === p.id ? 'Excluindo…' : 'Excluir'}
+                    </button>
                   )}
                 </td>
               </tr>
@@ -183,7 +197,7 @@ export function ConfiguracoesTab() {
               onChange={(e) => setNovo({ ...novo, incerteza_concentracao: e.target.value })} />
             <Input id="nova_vigencia" label="Vigência a partir de" type="date" value={novo.vigencia_inicio}
               onChange={(e) => setNovo({ ...novo, vigencia_inicio: e.target.value })} />
-            <Button onClick={adicionarPadrao}>Adicionar</Button>
+            <Button onClick={adicionarPadrao} disabled={adicionando}>{adicionando ? 'Adicionando…' : 'Adicionar'}</Button>
           </div>
         )}
       </div>
