@@ -132,6 +132,83 @@ def test_os_sem_padrao_deixa_os_campos_do_cilindro_vazios(db_session, os_base):
     assert ctx["drygasppm"] == ""
 
 
+def test_avulso_calcula_erro_e_incerteza_da_planilha(db_session):
+    """O avulso agora calcula o bloco EPS-LAB-002 igual a OS — mesma planilha,
+    mesmos numeros: cinco medicoes de 0,16 dao erro 0,06 e U 0,1301."""
+    from app.core.certificado_gerar import montar_contexto_avulso
+
+    ctx = montar_contexto_avulso(db_session, {
+        "calib_teste1": "0.16", "calib_teste2": "0.16", "calib_teste3": "0.16",
+        "calib_teste4": "0.16", "calib_teste5": "0.16",
+    })
+    assert ctx["erro1"] == "0,06"
+    assert ctx["erro2"] == "0,06"
+    assert ctx["erro3"] == "0,06"
+    assert ctx["erro4"] == "0,06"
+    assert ctx["erro5"] == "0,06"
+    assert ctx["mediamedicoes"] == "0,16"
+    assert ctx["incertezaexpandida"] == "0,1301"
+    assert ctx["fatork"] == "2"
+
+
+def test_avulso_com_cilindro_vigente_preenche_padrao_e_drygasppm(db_session):
+    """O cilindro do avulso e resolvido pela DATA DE CALIBRACAO digitada (nao ha OS
+    com padrao_id gravado). Assercao de nao-vazio explicita — "" == "" passaria
+    vazio e nao provaria nada, essa armadilha ja pegou um teste nesta branch."""
+    from app.models import CertificadoPadrao
+    from app.core.certificado_gerar import montar_contexto_avulso
+
+    padrao = CertificadoPadrao(
+        numero_cilindro="CC747704", numero_certificado="202231419",
+        concentracao=100.1, incerteza_concentracao=2.0, unidade="µmol/mol",
+        vigencia_inicio=date(2020, 1, 1), vigencia_fim=None, ativo=True,
+    )
+    db_session.add(padrao)
+    db_session.commit()
+
+    ctx = montar_contexto_avulso(db_session, {"data_calibracao": date(2026, 7, 14)})
+    assert ctx["padraocilindro"] == "CC747704"
+    assert ctx["padraocertificado"] == "202231419"
+    assert ctx["padraoconcentracao"] == "100,1"
+    assert ctx["padraoconcentracao"] != ""
+    assert ctx["drygasppm"] == ctx["padraoconcentracao"]
+    assert ctx["drygasppm"] != ""
+
+
+def test_avulso_sem_cilindro_para_a_data_deixa_campos_vazios_sem_erro(db_session):
+    """Sem cilindro cobrindo a data (ou sem data digitada), os campos do cilindro
+    saem vazios — nao e um caso de erro, e o comportamento correto."""
+    from app.core.certificado_gerar import montar_contexto_avulso
+
+    ctx = montar_contexto_avulso(db_session, {"data_calibracao": date(2026, 7, 14)})
+    assert ctx["padraocilindro"] == ""
+    assert ctx["padraocertificado"] == ""
+    assert ctx["drygasppm"] == ""
+
+    ctx_sem_data = montar_contexto_avulso(db_session, {})
+    assert ctx_sem_data["padraocilindro"] == ""
+    assert ctx_sem_data["drygasppm"] == ""
+
+
+def test_avulso_traz_tecnico_e_campos_de_config_nao_da_os(db_session):
+    """tecnico, cargo, equipamentos auxiliares, margem de temperatura e limites
+    vem da CONFIG do laboratorio, nao da OS — nao ha razao para saírem vazios."""
+    from app.core.certificado_config import obter_config
+    from app.core.certificado_gerar import montar_contexto_avulso
+
+    config = obter_config(db_session)
+    config.equipamentos_auxiliares = "TESTO 622"
+    db_session.commit()
+
+    ctx = montar_contexto_avulso(db_session, {})
+    assert ctx["tecnico"] == "Walbert Santos"
+    assert ctx["tecnicocargo"] == "Técnico em Metrologia"
+    assert ctx["equipamentosauxiliares"] == "TESTO 622"
+    assert ctx["margemtemp"] == "20 ºC ~ 24 ºC"
+    assert ctx["limitemin"] == "0,15"
+    assert ctx["limitemax"] == "0,19"
+
+
 def test_os_com_padrao_preenche_cilindro_e_espelha_drygasppm(db_session, os_base):
     """drygasppm e a PROPRIA concentracao do padrao (na planilha, A82 = $D$72).
 

@@ -1,6 +1,7 @@
 """Motor de preenchimento do certificado: monta o contexto a partir da OS e
 substitui os campos [token] no HTML do modelo."""
 import re
+from collections.abc import Sequence
 from datetime import date, datetime, timezone
 from html import escape as _html_escape
 
@@ -205,20 +206,22 @@ def modelo_marca(db: Session, equipamento_id: int | None) -> tuple[str, str]:
     return cat.descricao or "", marca
 
 
-def _calcular_para_os(db: Session, ordem) -> dict[str, str]:
-    """Bloco calculado do certificado: erros, incerteza, padrao e textos da config.
+def _bloco_certificado(db: Session, medicoes: Sequence[str | None], padrao) -> dict[str, str]:
+    """Bloco calculado do certificado: erros, incerteza, padrao (cilindro) e textos
+    da config. Regra UNICA compartilhada pelos tres caminhos (OS, avulso, venda) —
+    cada um resolve `medicoes` e `padrao` do proprio jeito e delega o calculo aqui.
+
+    `padrao` e um `CertificadoPadrao` ja resolvido pelo chamador, ou `None`; este modulo
+    nao decide COMO o cilindro e encontrado (padrao_id gravado na OS vs. data digitada
+    no avulso/venda), so o que fazer com ele uma vez resolvido.
 
     Os valores NAO sao persistidos: entram no HTML gerado, que ja e o snapshot do
     documento emitido. Persistir numero calculado criaria uma segunda verdade.
     """
     from app.core.certificado_config import obter_config, parametros_de
-    from app.models import CertificadoPadrao
 
     config = obter_config(db)
-    medicoes = [getattr(ordem, f"calib_teste{i}", None) for i in range(1, 6)]
     resultado = calcular(medicoes, parametros_de(config))
-
-    padrao = db.get(CertificadoPadrao, ordem.padrao_id) if ordem.padrao_id else None
 
     bloco = {
         "mediamedicoes": formatar_numero(resultado.media),
@@ -245,6 +248,17 @@ def _calcular_para_os(db: Session, ordem) -> dict[str, str]:
     for i, erro in enumerate(resultado.erros, start=1):
         bloco[f"erro{i}"] = formatar_numero(erro)
     return bloco
+
+
+def _calcular_para_os(db: Session, ordem) -> dict[str, str]:
+    """Bloco calculado do certificado a partir da OS: le as 5 medicoes gravadas na
+    ordem e o cilindro pelo `padrao_id` gravado, e delega o calculo a `_bloco_certificado`.
+    """
+    from app.models import CertificadoPadrao
+
+    medicoes = [getattr(ordem, f"calib_teste{i}", None) for i in range(1, 6)]
+    padrao = db.get(CertificadoPadrao, ordem.padrao_id) if ordem.padrao_id else None
+    return _bloco_certificado(db, medicoes, padrao)
 
 
 def montar_contexto(db: Session, ordem) -> dict[str, str]:
@@ -295,10 +309,18 @@ def montar_contexto_avulso(db: Session, valores: dict) -> dict[str, str]:
     Exceto `modelo`/`marca`, que saem do catalogo do aparelho do template (o laboratorio
     nao os digita), e `patrimonio`, que nao existe para um aparelho de POC.
 
+    Sem OS gravada, o cilindro (padrao) e resolvido pela DATA DE CALIBRACAO digitada —
+    `padrao_vigente` devolve `None` quando a data esta ausente ou nenhum cilindro a cobre,
+    e o bloco calculado sai com os campos do cilindro vazios, sem levantar erro.
+
     Delega ao mesmo `_montar_contexto` do fluxo da OS — e por isso emite exatamente o
     mesmo conjunto de chaves, sem risco de um token vazar como [token] no PDF.
     """
+    from app.core.certificado_config import padrao_vigente
+
     modelo, marca = modelo_marca(db, valores.get("equipamento"))
+    medicoes = [valores.get(f"calib_teste{i}") for i in range(1, 6)]
+    padrao = padrao_vigente(db, valores.get("data_calibracao"))
     return _montar_contexto(
         nomecli=valores.get("nomecli") or "",
         cnpj=valores.get("cnpj") or "",
@@ -316,6 +338,9 @@ def montar_contexto_avulso(db: Session, valores: dict) -> dict[str, str]:
         t1=valores.get("calib_teste1") or "",
         t2=valores.get("calib_teste2") or "",
         t3=valores.get("calib_teste3") or "",
+        t4=valores.get("calib_teste4") or "",
+        t5=valores.get("calib_teste5") or "",
+        calc=_bloco_certificado(db, medicoes, padrao),
         media=valores.get("calib_teste_media") or "",
         situ=valores.get("calib_situacao") or "",
     )
@@ -328,9 +353,19 @@ def montar_contexto_venda(db: Session, ec, valores: dict) -> dict[str, str]:
     modal) sobrepoe o que for informado, permitindo corrigir na hora sem alterar o
     cadastro. `modelo`/`marca` vem sempre do catalogo — sao atributo do aparelho.
 
+    Sem OS gravada, o cilindro (padrao) e resolvido pela DATA DE CALIBRACAO digitada,
+    igual ao avulso.
+
+    As 5 medicoes vem de `valores`, caindo no que ja esta gravado na frota
+    (`ec.calib_teste1`..`ec.calib_teste5`) quando nao digitadas — o mesmo valor
+    resolvido alimenta tanto o token exibido (`calibtesteN`) quanto o bloco
+    calculado, para que o erro exibido corresponda ao numero exibido.
+
     Delega ao mesmo `_montar_contexto` da OS e do avulso: e o que garante que o
     conjunto de chaves seja identico e nenhum token vaze como [token] no PDF.
     """
+    from app.core.certificado_config import padrao_vigente
+
     cli = ec.cliente_rel
     modelo, marca = modelo_marca(db, ec.equipamento)
 
@@ -341,6 +376,9 @@ def montar_contexto_venda(db: Session, ec, valores: dict) -> dict[str, str]:
     # Nao ha "data de recebimento" numa venda: usa a data de compra do cadastro,
     # caindo em hoje quando o cadastro nao tem.
     dataentr = _fmt(ec.datacompra) if ec.datacompra else _fmt(date.today())
+
+    medicoes = [_v(f"calib_teste{i}", getattr(ec, f"calib_teste{i}", None) or "") for i in range(1, 6)]
+    padrao = padrao_vigente(db, valores.get("data_calibracao"))
 
     return _montar_contexto(
         nomecli=_v("nomecli", (cli.nome if cli else "") or ""),
@@ -359,9 +397,12 @@ def montar_contexto_venda(db: Session, ec, valores: dict) -> dict[str, str]:
         dataentr=dataentr,
         temp=_v("calib_temp"),
         pressao=_v("calib_pressao"),
-        t1=_v("calib_teste1"),
-        t2=_v("calib_teste2"),
-        t3=_v("calib_teste3"),
+        t1=medicoes[0],
+        t2=medicoes[1],
+        t3=medicoes[2],
+        t4=medicoes[3],
+        t5=medicoes[4],
+        calc=_bloco_certificado(db, medicoes, padrao),
         media=_v("calib_teste_media"),
         situ=_v("calib_situacao"),
     )

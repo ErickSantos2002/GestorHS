@@ -53,6 +53,8 @@ def campos(item_id: int, db: Session = Depends(get_db), _: Usuario = Depends(get
         calib_teste1=ec.calib_teste1,
         calib_teste2=ec.calib_teste2,
         calib_teste3=ec.calib_teste3,
+        calib_teste4=ec.calib_teste4,
+        calib_teste5=ec.calib_teste5,
         calib_teste_media=ec.calib_teste_media,
         calib_situacao=ec.calib_situacao or SITUACAO_PADRAO_VENDA,
         ja_gerado=cv is not None,

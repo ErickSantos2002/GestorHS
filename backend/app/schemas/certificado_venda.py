@@ -22,6 +22,8 @@ class CertificadoVendaCamposOut(BaseModel):
     calib_teste1: Optional[str] = None
     calib_teste2: Optional[str] = None
     calib_teste3: Optional[str] = None
+    calib_teste4: Optional[str] = None
+    calib_teste5: Optional[str] = None
     calib_teste_media: Optional[str] = None
     calib_situacao: Optional[str] = None
     ja_gerado: bool = False           # o front usa para dizer "Gerar" ou "Regerar"
@@ -44,6 +46,8 @@ class CertificadoVendaIn(BaseModel):
     calib_teste1: Optional[str] = None
     calib_teste2: Optional[str] = None
     calib_teste3: Optional[str] = None
+    calib_teste4: Optional[str] = None
+    calib_teste5: Optional[str] = None
     calib_teste_media: Optional[str] = None
     calib_situacao: Optional[str] = None
 
