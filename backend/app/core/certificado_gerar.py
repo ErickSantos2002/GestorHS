@@ -56,11 +56,21 @@ CAMPOS: list[tuple[str, str]] = [
     ("tecnicocargo", "Cargo do técnico"),
     ("equipamentosauxiliares", "Equipamentos auxiliares"),
     ("margemtemp", "Margem de temperatura padrão"),
+    ("qrcertificados", "QR dos certificados auxiliares (gás, termohigrômetro, barômetro)"),
     ("pulapagina", "Quebra de página (impressão)"),
 ]
 
 # Quebra de página para impressão — HTML estrutural (não é dado, não escapar).
 _PAGE_BREAK = '<div style="page-break-after: always;"></div>'
+
+# Tokens cujo valor e HTML que NOS geramos — nao dado digitado — e por isso entra sem
+# escapar. Todo o resto do contexto e escapado, e e o que impede um nome de cliente com
+# <script> de virar HTML executavel no certificado.
+#
+# Os dois funcionam diferente: `pulapagina` NAO esta no contexto (seu valor e a
+# constante _PAGE_BREAK); `qrcertificados` esta, porque muda a cada certificado.
+# Este conjunto so decide quem escapa do escape.
+_TOKENS_ESTRUTURAIS = frozenset({"pulapagina", "qrcertificados"})
 
 
 def _fmt(d) -> str:
@@ -116,6 +126,7 @@ _CHAVES_CALCULADAS = (
     "drygasppm", "limitemin", "limitemax",
     "padraocilindro", "padraocertificado", "padraoconcentracao", "padraoincerteza",
     "tecnico", "tecnicocargo", "equipamentosauxiliares", "margemtemp",
+    "qrcertificados",
 )
 
 
@@ -218,7 +229,8 @@ def _bloco_certificado(db: Session, medicoes: Sequence[str | None], padrao) -> d
     Os valores NAO sao persistidos: entram no HTML gerado, que ja e o snapshot do
     documento emitido. Persistir numero calculado criaria uma segunda verdade.
     """
-    from app.core.certificado_config import obter_config, parametros_de
+    from app.core.certificado_config import documentos_qr, obter_config, parametros_de
+    from app.core.certificado_qr import bloco_qr
 
     config = obter_config(db)
     resultado = calcular(medicoes, parametros_de(config))
@@ -251,6 +263,7 @@ def _bloco_certificado(db: Session, medicoes: Sequence[str | None], padrao) -> d
         "tecnicocargo": config.tecnico_cargo or "",
         "equipamentosauxiliares": config.equipamentos_auxiliares or "",
         "margemtemp": config.margem_temperatura or "",
+        "qrcertificados": bloco_qr(documentos_qr(db, config)),
     }
     # DRY GAS PPM e a propria concentracao do padrao (na planilha, A82 = $D$72)
     bloco["drygasppm"] = bloco["padraoconcentracao"]
@@ -429,8 +442,11 @@ def preencher(html: str, contexto: dict[str, str]) -> str:
     if not html:
         return html or ""
     for campo, valor in contexto.items():
+        if campo in _TOKENS_ESTRUTURAIS:
+            continue
         html = html.replace(f"[{campo}]", _html_escape(valor or "", quote=True))
-    # token estrutural (quebra de página): HTML confiável, inserido sem escapar
+    # Estruturais, sem escapar.
+    html = html.replace("[qrcertificados]", contexto.get("qrcertificados") or "")
     html = html.replace("[pulapagina]", _PAGE_BREAK)
     return html
 

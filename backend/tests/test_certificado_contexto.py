@@ -239,3 +239,31 @@ def test_os_com_padrao_preenche_cilindro_e_espelha_drygasppm(db_session, os_base
     assert ctx["padraoincerteza"] == "2"
     assert ctx["drygasppm"] == ctx["padraoconcentracao"]
     assert ctx["drygasppm"] != ""
+
+
+def test_contexto_da_os_emite_a_chave_do_qr(db_session, os_base):
+    ordem = _os_com_dados(db_session, os_base)
+    ctx = montar_contexto(db_session, ordem)
+    # Sem nenhum documento configurado o valor e vazio — mas a CHAVE tem de existir,
+    # senao o token sai literalmente escrito no certificado.
+    assert "qrcertificados" in ctx
+    assert ctx["qrcertificados"] == ""
+
+
+def test_contexto_com_documento_configurado_traz_o_bloco(db_session, os_base, monkeypatch):
+    from app.core import certificado_geral_link
+    from app.core.certificado_config import obter_config
+    from app.models import CertificadoGeral
+    monkeypatch.setattr(certificado_geral_link.settings, "CERT_PUBLIC_BASE_URL", "https://x.com")
+
+    doc = CertificadoGeral(nome="Gás", arquivo="g.pdf")
+    db_session.add(doc)
+    db_session.commit()
+    cfg = obter_config(db_session)
+    cfg.doc_gas_id = doc.id
+    db_session.commit()
+
+    ordem = _os_com_dados(db_session, os_base)
+    ctx = montar_contexto(db_session, ordem)
+    assert "Certificado do Gás" in ctx["qrcertificados"]
+    assert "<img" in ctx["qrcertificados"]

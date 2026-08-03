@@ -92,3 +92,26 @@ def test_montar_contexto_override_vazio_mantem_derivado(db_session):
     db_session.add(o); db_session.commit(); db_session.refresh(o)
     ctx = montar_contexto(db_session, o)
     assert ctx["nomecli"] == "ACME LTDA"
+
+
+def test_preencher_nao_escapa_o_token_estrutural_do_qr():
+    from app.core.certificado_gerar import preencher
+    bloco = '<table><tr><td><img src="data:image/svg+xml,abc" /></td></tr></table>'
+    html = preencher("<p>[qrcertificados]</p>", {"qrcertificados": bloco})
+    # HTML que NOS geramos entra inteiro; escapado sairia "&lt;table&gt;" impresso no PDF
+    assert bloco in html
+    assert "&lt;table&gt;" not in html
+
+
+def test_preencher_continua_escapando_dado_do_usuario():
+    from app.core.certificado_gerar import preencher
+    html = preencher("<p>[nomecli]</p>", {"nomecli": "<script>x</script>", "qrcertificados": ""})
+    assert "<script>" not in html
+    assert "&lt;script&gt;" in html
+
+
+def test_preencher_sem_documentos_nao_deixa_o_token_no_html():
+    from app.core.certificado_gerar import preencher
+    html = preencher("<p>[qrcertificados]</p>", {"qrcertificados": ""})
+    # Token nao substituido sai LITERALMENTE escrito no PDF do cliente
+    assert "[qrcertificados]" not in html
