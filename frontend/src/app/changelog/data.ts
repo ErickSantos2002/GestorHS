@@ -23,6 +23,16 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.37.0',
+    data: '31/07/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'Certificado de calibração no formato EPS-LAB-002: cinco medições, erro por medição e incerteza expandida (k = 2, 95% de confiança).' },
+      { tipo: 'novidade', texto: 'Nova aba Configurações em Certificados: parâmetros do cálculo, técnico responsável e cadastro dos cilindros de gás com vigência.' },
+      { tipo: 'melhoria', texto: 'O modal de gerar certificado destaca medição fora da faixa e mostra o cálculo antes de gerar.' },
+      { tipo: 'melhoria', texto: 'A OS grava qual cilindro foi usado, para que regerar um certificado antigo mantenha a rastreabilidade correta.' },
+    ],
+  },
+  {
     versao: '1.36.0',
     data: '31/07/2026',
     itens: [
