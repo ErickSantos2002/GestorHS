@@ -28,6 +28,8 @@ class EquipamentoCliente(Base):
     calib_teste1 = Column(String(50), nullable=True)
     calib_teste2 = Column(String(50), nullable=True)
     calib_teste3 = Column(String(50), nullable=True)
+    calib_teste4 = Column(String(50), nullable=True)
+    calib_teste5 = Column(String(50), nullable=True)
     calib_teste_media = Column(String(50), nullable=True)
     calib_situacao = Column(String(50), nullable=True)
 
