@@ -41,6 +41,27 @@ def test_gerar_avulso_salva_e_preenche_o_html(client, usuario_lab, os_base, db_s
     assert av.data_geracao is not None
 
 
+def test_avulso_salva_teste4_e_teste5_e_calcula_o_erro(client, usuario_lab, os_base, db_session):
+    """Blindagem contra o modo de falha do schema: um campo ausente do `In` e
+    silenciosamente descartado pelo Pydantic, sem erro — o laboratorio digitaria a
+    medicao e ela sumiria sem sinal nenhum."""
+    _modelo(db_session, os_base, texto="<p>[calibteste4] [calibteste5] [erro4] [erro5]</p>")
+    h = _headers(client, "lab@hs.com", "senha123")
+    r = client.post("/certificados-avulsos",
+                    json=_payload(os_base, calib_teste4="0,15", calib_teste5="0,17"), headers=h)
+    assert r.status_code == 201
+
+    from app.models import CertificadoAvulso
+    av = db_session.query(CertificadoAvulso).filter(CertificadoAvulso.id == r.json()["id"]).first()
+    assert "0,15" in av.html and "0,17" in av.html
+    assert "[" not in av.html
+    # valor_referencia default e 0,1 (config criada sob demanda com os defaults do
+    # modelo) -> erro = medicao - referencia. Sem isto, um [erro4]/[erro5] em branco
+    # tambem passaria nas duas asserts acima.
+    assert "0,05" in av.html   # erro4: 0,15 - 0,1
+    assert "0,07" in av.html   # erro5: 0,17 - 0,1
+
+
 def test_modelo_e_marca_vem_do_catalogo_e_nao_sao_digitados(client, usuario_lab, os_base, db_session):
     """[modelo]/[marca] saem do cadastro do aparelho do template — como no fluxo da OS.
 

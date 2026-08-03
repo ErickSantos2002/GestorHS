@@ -8,6 +8,7 @@ from app.models import Usuario, Ordem, OSCertificado
 from app.api.deps import get_current_usuario, require_funcao
 from app.api.ordens_acoes import agora, concluir_laboratorio, registrar_log
 from app.core import os_workflow as wf
+from app.core.certificado_config import padrao_vigente
 from app.core.certificado_gerar import gerar_certificados, tipos_para, tipos_sem_modelo, montar_contexto
 from app.core.certificado_pdf import html_para_pdf
 from app.schemas.ordens import GerarCertificadoIn, CertificadoCamposOut
@@ -19,7 +20,8 @@ _gerar = require_funcao("Laboratório", "Administrador")
 
 _CAMPOS_CALIB = (
     "calib_cert", "calib_temp", "calib_pressao",
-    "calib_teste1", "calib_teste2", "calib_teste3", "calib_teste_media", "calib_situacao",
+    "calib_teste1", "calib_teste2", "calib_teste3", "calib_teste4", "calib_teste5",
+    "calib_teste_media", "calib_situacao",
 )
 
 _CAMPOS_OVERRIDE = ("nomecli", "cnpj", "endcli", "modelo", "marca", "serie", "patrimonio", "datacompra")
@@ -49,6 +51,7 @@ def certificado_campos(ordem_id: int, db: Session = Depends(get_db), _: Usuario 
         patrimonio=ctx.get("patrimonio", ""), datacompra=ctx.get("datacompra", ""),
         calib_cert=ordem.calib_cert, calib_temp=ordem.calib_temp, calib_pressao=ordem.calib_pressao,
         calib_teste1=ordem.calib_teste1, calib_teste2=ordem.calib_teste2, calib_teste3=ordem.calib_teste3,
+        calib_teste4=ordem.calib_teste4, calib_teste5=ordem.calib_teste5,
         calib_teste_media=ordem.calib_teste_media, calib_situacao=ordem.calib_situacao,
         data_calibracao=ordem.data_calibracao.date() if ordem.data_calibracao else None,
     )
@@ -79,11 +82,24 @@ def gerar(ordem_id: int, dados: GerarCertificadoIn | None = None, db: Session = 
                 dados.data_calibracao.year, dados.data_calibracao.month, dados.data_calibracao.day,
                 tzinfo=timezone.utc,
             )
-        elif ordem.data_calibracao is None:
-            ordem.data_calibracao = agora()
         overrides = {k: getattr(dados, k) for k in _CAMPOS_OVERRIDE if getattr(dados, k)}
         ordem.cert_overrides = overrides or None
-        db.flush()
+    if ordem.data_calibracao is None:
+        ordem.data_calibracao = agora()
+    # Congela o cilindro usado NESTA calibracao. Sem isso, regerar o certificado
+    # meses depois apontaria para o cilindro vigente naquele momento — rastreabilidade
+    # falsa num documento da Qualidade. Roda em toda chamada (com ou sem corpo) para que
+    # o caminho sem corpo tambem congele o padrao ao concluir o laboratorio.
+    #
+    # A re-resolucao so pode SOBRESCREVER o que ja esta gravado quando encontra um
+    # cilindro. Se nao encontra — o cilindro foi desativado, teve a vigencia corrigida
+    # ou foi removido — mantem o registrado: apagar o padrao_id faria a regeracao sair
+    # com a secao 8 (rastreabilidade) em branco, exatamente o que congelar evita.
+    data_ref = ordem.data_calibracao.date() if ordem.data_calibracao else None
+    padrao = padrao_vigente(db, data_ref)
+    if padrao is not None or ordem.padrao_id is None:
+        ordem.padrao_id = padrao.id if padrao else None
+    db.flush()
     gerados = gerar_certificados(db, ordem, tipos_para(ordem))
     if ordem.fase == wf.FASE_LABORATORIO and ordem.desfecho_lab == wf.DESFECHO_PENDENTE:
         concluir_laboratorio(db, ordem)

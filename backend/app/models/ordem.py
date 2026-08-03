@@ -34,6 +34,8 @@ class Ordem(Base):
     calib_teste1 = Column(String(50), nullable=True)
     calib_teste2 = Column(String(50), nullable=True)
     calib_teste3 = Column(String(50), nullable=True)
+    calib_teste4 = Column(String(50), nullable=True)
+    calib_teste5 = Column(String(50), nullable=True)
     calib_teste_media = Column(String(50), nullable=True)
     calib_situacao = Column(String(50), nullable=True)
     pdf_certificado = Column(String(50), nullable=True)
@@ -41,6 +43,9 @@ class Ordem(Base):
     nota_fiscal_numero = Column(String(50), nullable=True)   # numero da NF
     certificado = Column(Text, nullable=True)
     cert_overrides = Column(JSON, nullable=True)
+    # cilindro de gas usado nesta calibracao — gravado na geracao para que regerar
+    # o certificado no futuro nao troque o padrao pelo que estiver vigente entao
+    padrao_id = Column(Integer, ForeignKey("certificado_padrao.id"), nullable=True)
     # financeiro (fora do v1)
     valor = Column(Numeric(10, 2), nullable=False, default=0)
     frete_envio = Column(Numeric(10, 2), nullable=False, default=0)

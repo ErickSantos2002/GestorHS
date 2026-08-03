@@ -53,3 +53,24 @@ def test_excluir_remove(client, usuario_lab, db_session):
                       files={"arquivo": _pdf()}, headers=h).json()["id"]
     assert client.delete(f"/certificados-gerais/{cid}", headers=h).status_code == 200
     assert db_session.query(CertificadoGeral).count() == 0
+
+
+def test_excluir_documento_em_uso_na_config_409(client, usuario_lab, db_session):
+    """certificado_config.doc_*_id e FK sem ON DELETE: sem essa guarda, apagar um
+    documento selecionado como anexo do certificado estouraria IntegrityError (500)
+    no Postgres. Criado direto via ORM (sem upload) para nao depender do storage."""
+    from app.core.certificado_config import obter_config
+    from app.models import CertificadoGeral
+    h = _headers(client, "lab@hs.com", "senha123")
+    doc = CertificadoGeral(nome="Gas", arquivo="g.pdf")
+    db_session.add(doc); db_session.commit(); db_session.refresh(doc)
+
+    cfg = obter_config(db_session)
+    cfg.doc_gas_id = doc.id
+    db_session.commit()
+
+    r = client.delete(f"/certificados-gerais/{doc.id}", headers=h)
+    assert r.status_code == 409
+    assert "Configurações" in r.json()["detail"]
+    # nao pode ter sido excluido: o QR do certificado depende dele
+    assert db_session.query(CertificadoGeral).count() == 1

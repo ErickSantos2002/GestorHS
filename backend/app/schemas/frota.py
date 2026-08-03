@@ -60,6 +60,8 @@ class EquipamentoClienteOut(BaseModel):
     calib_teste1: Optional[str] = None
     calib_teste2: Optional[str] = None
     calib_teste3: Optional[str] = None
+    calib_teste4: Optional[str] = None
+    calib_teste5: Optional[str] = None
     calib_teste_media: Optional[str] = None
     calib_situacao: Optional[str] = None
     modulo_instalado: Optional[EloModuloOut] = None

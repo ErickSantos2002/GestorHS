@@ -91,6 +91,96 @@ def test_contexto_venda_valores_do_modal_sobrepoem_o_cadastro(db_session):
     assert ctx["nomecli"] == "ACME Filial"
 
 
+def test_venda_calcula_erro_e_incerteza_da_planilha(db_session):
+    """O venda agora calcula o bloco EPS-LAB-002 igual a OS — mesma planilha,
+    mesmos numeros: cinco medicoes de 0,16 dao erro 0,06 e U 0,1301."""
+    from app.core.certificado_gerar import montar_contexto_venda
+    ec = _aparelho(db_session)
+    ctx = montar_contexto_venda(db_session, ec, _valores(
+        calib_teste1="0.16", calib_teste2="0.16", calib_teste3="0.16",
+        calib_teste4="0.16", calib_teste5="0.16",
+    ))
+    assert ctx["erro1"] == "0,060"
+    assert ctx["erro5"] == "0,060"
+    assert ctx["mediamedicoes"] == "0,160"
+    assert ctx["incertezaexpandida"] == "0,1301"
+
+
+def test_venda_com_cilindro_vigente_preenche_padrao_e_drygasppm(db_session):
+    """Assercao de nao-vazio explicita: "" == "" passaria vazio e nao provaria nada."""
+    from app.models import CertificadoPadrao
+    from app.core.certificado_gerar import montar_contexto_venda
+
+    padrao = CertificadoPadrao(
+        numero_cilindro="CC747704", numero_certificado="202231419",
+        concentracao=100.1, incerteza_concentracao=2.0, unidade="µmol/mol",
+        vigencia_inicio=date(2020, 1, 1), vigencia_fim=None, ativo=True,
+    )
+    db_session.add(padrao)
+    db_session.commit()
+
+    ec = _aparelho(db_session)
+    ctx = montar_contexto_venda(db_session, ec, _valores())
+    assert ctx["padraocilindro"] == "CC747704"
+    assert ctx["padraocilindro"] != ""
+    assert ctx["drygasppm"] == ctx["padraoconcentracao"]
+    assert ctx["drygasppm"] != ""
+
+
+def test_venda_sem_cilindro_para_a_data_deixa_campos_vazios_sem_erro(db_session):
+    from app.core.certificado_gerar import montar_contexto_venda
+    ec = _aparelho(db_session)
+    ctx = montar_contexto_venda(db_session, ec, _valores())
+    assert ctx["padraocilindro"] == ""
+    assert ctx["drygasppm"] == ""
+
+
+def test_venda_teste4_e_teste5_do_payload_chegam_ao_contexto(db_session):
+    from app.core.certificado_gerar import montar_contexto_venda
+    ec = _aparelho(db_session)
+    ctx = montar_contexto_venda(db_session, ec, _valores(calib_teste4="0,15", calib_teste5="0,17"))
+    assert ctx["calibteste4"] == "0,15"
+    assert ctx["calibteste5"] == "0,17"
+
+
+def test_venda_teste4_e_teste5_caem_no_fallback_da_frota_quando_nao_digitados(db_session):
+    """Sem teste4/teste5 no payload, o valor ja gravado na frota (equipamento_cliente)
+    alimenta tanto o token exibido quanto o calculo do erro."""
+    from app.core.certificado_gerar import montar_contexto_venda
+    ec = _aparelho(db_session)
+    ec.calib_teste4 = "0,20"
+    ec.calib_teste5 = "0,21"
+    db_session.commit()
+
+    ctx = montar_contexto_venda(db_session, ec, _valores())   # sem teste4/5 no payload
+    assert ctx["calibteste4"] == "0,20"
+    assert ctx["calibteste5"] == "0,21"
+    # valor_referencia default e 0,1 -> confirma que o fallback da frota tambem
+    # alimenta o CALCULO (erro = medicao - referencia), nao so o token exibido.
+    assert ctx["erro4"] == "0,100"
+    assert ctx["erro5"] == "0,110"
+
+
+def test_venda_traz_tecnico_e_campos_de_config_nao_da_os(db_session):
+    """tecnico, cargo, equipamentos auxiliares, margem de temperatura e limites
+    vem da CONFIG do laboratorio — nao ha razao para sairem vazios."""
+    from app.core.certificado_config import obter_config
+    from app.core.certificado_gerar import montar_contexto_venda
+
+    config = obter_config(db_session)
+    config.equipamentos_auxiliares = "TESTO 622"
+    db_session.commit()
+
+    ec = _aparelho(db_session)
+    ctx = montar_contexto_venda(db_session, ec, _valores())
+    assert ctx["tecnico"] == "Walbert Santos"
+    assert ctx["tecnicocargo"] == "Técnico em Metrologia"
+    assert ctx["equipamentosauxiliares"] == "TESTO 622"
+    assert ctx["margemtemp"] == "20 ºC ~ 24 ºC"
+    assert ctx["limitemin"] == "0,150"
+    assert ctx["limitemax"] == "0,190"
+
+
 def test_nenhum_token_vaza_no_html_de_venda(db_session):
     """Template usando TODOS os tokens nao pode deixar nenhum [token] literal."""
     from app.core.certificado_gerar import CAMPOS, montar_contexto_venda, preencher

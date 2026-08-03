@@ -65,6 +65,8 @@ export interface AvulsoPayload {
   calib_teste1?: string | null
   calib_teste2?: string | null
   calib_teste3?: string | null
+  calib_teste4?: string | null
+  calib_teste5?: string | null
   calib_teste_media?: string | null
   calib_situacao?: string | null
 }
@@ -89,11 +91,77 @@ export const CAMPOS_CERTIFICADO: { campo: string; desc: string }[] = [
   { campo: '[calibteste1]', desc: 'Teste 1' },
   { campo: '[calibteste2]', desc: 'Teste 2' },
   { campo: '[calibteste3]', desc: 'Teste 3' },
+  { campo: '[calibteste4]', desc: 'Teste 4' },
+  { campo: '[calibteste5]', desc: 'Teste 5' },
   { campo: '[calibtestemedia]', desc: 'Média dos testes' },
   { campo: '[situcalib]', desc: 'Situação' },
   { campo: '[dataemissao]', desc: 'Data de emissão' },
+  { campo: '[erro1]', desc: 'Erro da medição 1' },
+  { campo: '[erro2]', desc: 'Erro da medição 2' },
+  { campo: '[erro3]', desc: 'Erro da medição 3' },
+  { campo: '[erro4]', desc: 'Erro da medição 4' },
+  { campo: '[erro5]', desc: 'Erro da medição 5' },
+  { campo: '[mediamedicoes]', desc: 'Média das medições (calculada)' },
+  { campo: '[incertezaexpandida]', desc: 'Incerteza expandida (U)' },
+  { campo: '[fatork]', desc: 'Fator de abrangência (k)' },
+  { campo: '[drygasppm]', desc: 'Dry gas ppm (concentração do padrão)' },
+  { campo: '[limitemin]', desc: 'Limite mínimo' },
+  { campo: '[limitemax]', desc: 'Limite máximo' },
+  { campo: '[padraocilindro]', desc: 'Nº do cilindro' },
+  { campo: '[padraocertificado]', desc: 'Nº do certificado do cilindro' },
+  { campo: '[padraoconcentracao]', desc: 'Concentração do padrão' },
+  { campo: '[padraoincerteza]', desc: 'Incerteza da concentração do padrão' },
+  { campo: '[tecnico]', desc: 'Técnico responsável' },
+  { campo: '[tecnicocargo]', desc: 'Cargo do técnico' },
+  { campo: '[equipamentosauxiliares]', desc: 'Equipamentos auxiliares' },
+  { campo: '[margemtemp]', desc: 'Margem de temperatura padrão' },
+  { campo: '[qrcertificados]', desc: 'QR dos certificados auxiliares (gás, termohigrômetro, barômetro)' },
   { campo: '[pulapagina]', desc: 'Quebra de página (impressão)' },
 ]
+
+export interface CertificadoConfig {
+  id: number
+  valor_referencia: string | null
+  limite_minimo: string | null
+  limite_maximo: string | null
+  resolucao_instrumento: string | null
+  incerteza_padrao_temp: string | null
+  resolucao_pressao: string | null
+  incerteza_padrao_pressao: string | null
+  fator_k: string | null
+  tecnico_nome: string | null
+  tecnico_cargo: string | null
+  equipamentos_auxiliares: string | null
+  margem_temperatura: string | null
+  doc_gas_id: number | null
+  doc_termohigrometro_id: number | null
+  doc_barometro_id: number | null
+}
+
+export interface CertificadoPadrao {
+  id: number
+  numero_cilindro: string
+  numero_certificado: string | null
+  concentracao: string | null
+  incerteza_concentracao: string | null
+  unidade: string | null
+  vigencia_inicio: string | null
+  vigencia_fim: string | null
+  ativo: boolean
+}
+
+/** Tudo em texto ja formatado pelo backend: a tela exibe, nao recalcula. */
+export interface CalculoPrevia {
+  erros: string[]
+  media: string
+  desvio_padrao: string
+  incerteza_combinada: string
+  incerteza_expandida: string
+  fator_k: string
+  limite_minimo: string
+  limite_maximo: string
+  fora_da_faixa: boolean[]
+}
 
 export const certificadosApi = {
   listarModelos: (params: { q?: string } = {}): Promise<{ items: ModeloItem[] }> => {
@@ -158,4 +226,35 @@ export const certificadosApi = {
     a.remove()
     URL.revokeObjectURL(url)
   },
+
+  config: (): Promise<CertificadoConfig> => apiJson<CertificadoConfig>('/certificado-config'),
+
+  salvarConfig: (dados: Partial<CertificadoConfig>): Promise<CertificadoConfig> =>
+    apiJson<CertificadoConfig>('/certificado-config', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dados),
+    }),
+
+  padroes: (): Promise<CertificadoPadrao[]> => apiJson<CertificadoPadrao[]>('/certificado-padroes'),
+
+  criarPadrao: (dados: Omit<CertificadoPadrao, 'id'>): Promise<CertificadoPadrao> =>
+    apiJson<CertificadoPadrao>('/certificado-padroes', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dados),
+    }),
+
+  /** Alteração parcial do cilindro — é como se aposenta um padrão: informar a
+   *  `vigencia_fim` (ou `ativo: false`) em vez de excluir, que o backend recusa
+   *  com 409 quando alguma OS já o usou. */
+  atualizarPadrao: (id: number, dados: Partial<Omit<CertificadoPadrao, 'id'>>): Promise<CertificadoPadrao> =>
+    apiJson<CertificadoPadrao>(`/certificado-padroes/${id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dados),
+    }),
+
+  excluirPadrao: (id: number): Promise<void> =>
+    apiVoid(`/certificado-padroes/${id}`, { method: 'DELETE' }),
+
+  calculoPrevia: (medicoes: (string | null)[]): Promise<CalculoPrevia> =>
+    apiJson<CalculoPrevia>('/certificado-calculo-previa', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ medicoes }),
+    }),
 }

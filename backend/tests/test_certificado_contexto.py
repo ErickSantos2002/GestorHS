@@ -78,3 +78,192 @@ def test_pulapagina_continua_virando_quebra_de_pagina(db_session):
     saida = preencher("<p>a</p>[pulapagina]<p>b</p>", montar_contexto_avulso(db_session, {}))
     assert "page-break-after" in saida
     assert "[pulapagina]" not in saida
+
+
+def test_contexto_da_os_traz_todos_os_tokens_de_CAMPOS(db_session, os_base):
+    ordem = _os_com_dados(db_session, os_base)
+    ctx = montar_contexto(db_session, ordem)
+    # Token que falta no contexto sai LITERALMENTE escrito no PDF do cliente.
+    # `pulapagina` fica de fora de proposito: preencher() o trata fora do laco.
+    faltando = [nome for nome, _ in CAMPOS if nome not in ctx and nome != "pulapagina"]
+    assert faltando == []
+
+
+def test_contexto_do_avulso_traz_as_mesmas_chaves_do_da_os(db_session, os_base):
+    ordem = _os_com_dados(db_session, os_base)
+    assert set(montar_contexto(db_session, ordem)) == set(montar_contexto_avulso(db_session, {}))
+
+
+def test_contexto_calcula_o_erro_e_a_incerteza_da_planilha(db_session, os_base):
+    ordem = _os_com_dados(db_session, os_base)
+    for i in range(1, 6):
+        setattr(ordem, f"calib_teste{i}", "0.16")
+    db_session.commit()
+    ctx = montar_contexto(db_session, ordem)
+    assert ctx["erro1"] == "0,060"
+    assert ctx["erro5"] == "0,060"
+    assert ctx["mediamedicoes"] == "0,160"
+    assert ctx["incertezaexpandida"] == "0,1301"
+    assert ctx["fatork"] == "2"
+
+
+def test_os_antiga_com_tres_medicoes_deixa_erro4_e_erro5_em_branco(db_session, os_base):
+    ordem = _os_com_dados(db_session, os_base)   # nasce com 3 medicoes, sem teste4/5
+    for i in range(1, 4):
+        setattr(ordem, f"calib_teste{i}", "0.16")
+    ordem.calib_teste4 = None
+    ordem.calib_teste5 = None
+    db_session.commit()
+    ctx = montar_contexto(db_session, ordem)
+    assert ctx["erro1"] == "0,060"
+    # nao inventa medicao: erro em branco, nao "-0,1"
+    assert ctx["erro4"] == ""
+    assert ctx["erro5"] == ""
+    assert ctx["calibteste4"] == ""
+
+
+def test_os_sem_padrao_deixa_os_campos_do_cilindro_vazios(db_session, os_base):
+    ordem = _os_com_dados(db_session, os_base)
+    ordem.padrao_id = None
+    db_session.commit()
+    ctx = montar_contexto(db_session, ordem)
+    assert ctx["padraocilindro"] == ""
+    assert ctx["padraocertificado"] == ""
+    assert ctx["drygasppm"] == ""
+
+
+def test_avulso_calcula_erro_e_incerteza_da_planilha(db_session):
+    """O avulso agora calcula o bloco EPS-LAB-002 igual a OS — mesma planilha,
+    mesmos numeros: cinco medicoes de 0,16 dao erro 0,06 e U 0,1301."""
+    from app.core.certificado_gerar import montar_contexto_avulso
+
+    ctx = montar_contexto_avulso(db_session, {
+        "calib_teste1": "0.16", "calib_teste2": "0.16", "calib_teste3": "0.16",
+        "calib_teste4": "0.16", "calib_teste5": "0.16",
+    })
+    assert ctx["erro1"] == "0,060"
+    assert ctx["erro2"] == "0,060"
+    assert ctx["erro3"] == "0,060"
+    assert ctx["erro4"] == "0,060"
+    assert ctx["erro5"] == "0,060"
+    assert ctx["mediamedicoes"] == "0,160"
+    assert ctx["incertezaexpandida"] == "0,1301"
+    assert ctx["fatork"] == "2"
+
+
+def test_avulso_com_cilindro_vigente_preenche_padrao_e_drygasppm(db_session):
+    """O cilindro do avulso e resolvido pela DATA DE CALIBRACAO digitada (nao ha OS
+    com padrao_id gravado). Assercao de nao-vazio explicita — "" == "" passaria
+    vazio e nao provaria nada, essa armadilha ja pegou um teste nesta branch."""
+    from app.models import CertificadoPadrao
+    from app.core.certificado_gerar import montar_contexto_avulso
+
+    padrao = CertificadoPadrao(
+        numero_cilindro="CC747704", numero_certificado="202231419",
+        concentracao=100.1, incerteza_concentracao=2.0, unidade="µmol/mol",
+        vigencia_inicio=date(2020, 1, 1), vigencia_fim=None, ativo=True,
+    )
+    db_session.add(padrao)
+    db_session.commit()
+
+    ctx = montar_contexto_avulso(db_session, {"data_calibracao": date(2026, 7, 14)})
+    assert ctx["padraocilindro"] == "CC747704"
+    assert ctx["padraocertificado"] == "202231419"
+    assert ctx["padraoconcentracao"] == "100,1"
+    assert ctx["padraoconcentracao"] != ""
+    assert ctx["drygasppm"] == ctx["padraoconcentracao"]
+    assert ctx["drygasppm"] != ""
+
+
+def test_avulso_sem_cilindro_para_a_data_deixa_campos_vazios_sem_erro(db_session):
+    """Sem cilindro cobrindo a data (ou sem data digitada), os campos do cilindro
+    saem vazios — nao e um caso de erro, e o comportamento correto."""
+    from app.core.certificado_gerar import montar_contexto_avulso
+
+    ctx = montar_contexto_avulso(db_session, {"data_calibracao": date(2026, 7, 14)})
+    assert ctx["padraocilindro"] == ""
+    assert ctx["padraocertificado"] == ""
+    assert ctx["drygasppm"] == ""
+
+    ctx_sem_data = montar_contexto_avulso(db_session, {})
+    assert ctx_sem_data["padraocilindro"] == ""
+    assert ctx_sem_data["drygasppm"] == ""
+
+
+def test_avulso_traz_tecnico_e_campos_de_config_nao_da_os(db_session):
+    """tecnico, cargo, equipamentos auxiliares, margem de temperatura e limites
+    vem da CONFIG do laboratorio, nao da OS — nao ha razao para saírem vazios."""
+    from app.core.certificado_config import obter_config
+    from app.core.certificado_gerar import montar_contexto_avulso
+
+    config = obter_config(db_session)
+    config.equipamentos_auxiliares = "TESTO 622"
+    db_session.commit()
+
+    ctx = montar_contexto_avulso(db_session, {})
+    assert ctx["tecnico"] == "Walbert Santos"
+    assert ctx["tecnicocargo"] == "Técnico em Metrologia"
+    assert ctx["equipamentosauxiliares"] == "TESTO 622"
+    assert ctx["margemtemp"] == "20 ºC ~ 24 ºC"
+    assert ctx["limitemin"] == "0,150"
+    assert ctx["limitemax"] == "0,190"
+
+
+def test_os_com_padrao_preenche_cilindro_e_espelha_drygasppm(db_session, os_base):
+    """drygasppm e a PROPRIA concentracao do padrao (na planilha, A82 = $D$72).
+
+    Os outros testes deste arquivo nunca vinculam um padrao a OS, entao essa igualdade
+    so era exercitada com os dois lados vazios ("" == "") — prova vazia. Aqui o padrao
+    tem valores reais, e o teste checa que drygasppm nao so bate com padraoconcentracao
+    como tambem NAO esta vazio, o que descarta um calculo a partir de outro campo.
+    """
+    from datetime import date
+    from app.models import CertificadoPadrao
+
+    padrao = CertificadoPadrao(
+        numero_cilindro="CC747704", numero_certificado="202231419",
+        concentracao=100.1, incerteza_concentracao=2.0, unidade="µmol/mol",
+        vigencia_inicio=date(2020, 1, 1), vigencia_fim=None, ativo=True,
+    )
+    db_session.add(padrao)
+    db_session.commit()
+
+    ordem = _os_com_dados(db_session, os_base)
+    ordem.padrao_id = padrao.id
+    db_session.commit()
+
+    ctx = montar_contexto(db_session, ordem)
+    assert ctx["padraocilindro"] == "CC747704"
+    assert ctx["padraocertificado"] == "202231419"
+    assert ctx["padraoconcentracao"] == "100,1"
+    assert ctx["padraoincerteza"] == "2"
+    assert ctx["drygasppm"] == ctx["padraoconcentracao"]
+    assert ctx["drygasppm"] != ""
+
+
+def test_contexto_da_os_emite_a_chave_do_qr(db_session, os_base):
+    ordem = _os_com_dados(db_session, os_base)
+    ctx = montar_contexto(db_session, ordem)
+    # Sem nenhum documento configurado o valor e vazio — mas a CHAVE tem de existir,
+    # senao o token sai literalmente escrito no certificado.
+    assert "qrcertificados" in ctx
+    assert ctx["qrcertificados"] == ""
+
+
+def test_contexto_com_documento_configurado_traz_o_bloco(db_session, os_base, monkeypatch):
+    from app.core import certificado_geral_link
+    from app.core.certificado_config import obter_config
+    from app.models import CertificadoGeral
+    monkeypatch.setattr(certificado_geral_link.settings, "CERT_PUBLIC_BASE_URL", "https://x.com")
+
+    doc = CertificadoGeral(nome="Gás", arquivo="g.pdf")
+    db_session.add(doc)
+    db_session.commit()
+    cfg = obter_config(db_session)
+    cfg.doc_gas_id = doc.id
+    db_session.commit()
+
+    ordem = _os_com_dados(db_session, os_base)
+    ctx = montar_contexto(db_session, ordem)
+    assert "Certificado do Gás" in ctx["qrcertificados"]
+    assert "<img" in ctx["qrcertificados"]

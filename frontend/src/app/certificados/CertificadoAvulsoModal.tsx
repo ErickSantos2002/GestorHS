@@ -4,10 +4,12 @@ import { Input } from '../../components/ui/Input'
 import { Select } from '../../components/ui/Select'
 import { Spinner } from '../../components/ui/Spinner'
 import { ApiError } from '../../lib/api'
-import { mediaTestes } from '../../lib/calibragem'
+import { mediaTestesPreenchidas } from '../../lib/calibragem'
 import { certificadosApi, type ModeloItem, type AvulsoPayload } from './api'
 import { hojeISO } from '../../lib/datas'
 import { formatarDocumento, soDigitos } from '../../lib/documento'
+import { PainelCalculoCertificado } from './PainelCalculoCertificado'
+import { useCalculoCertificado } from './useCalculoCertificado'
 
 export function CertificadoAvulsoModal({ onClose, onGerado }: {
   onClose: () => void
@@ -24,7 +26,7 @@ export function CertificadoAvulsoModal({ onClose, onGerado }: {
   const [datacompra, setDatacompra] = useState('')
   const [os, setOs] = useState('XXXX')
   const [dataRecebimento, setDataRecebimento] = useState(hojeISO())
-  const [dataCalib, setDataCalib] = useState('')
+  const [dataCalib, setDataCalib] = useState(hojeISO())
   const [cert, setCert] = useState('')
   const [situacao, setSituacao] = useState('')
   const [temp, setTemp] = useState('')
@@ -32,10 +34,19 @@ export function CertificadoAvulsoModal({ onClose, onGerado }: {
   const [t1, setT1] = useState('')
   const [t2, setT2] = useState('')
   const [t3, setT3] = useState('')
+  const [t4, setT4] = useState('')
+  const [t5, setT5] = useState('')
   const [media, setMedia] = useState('')
   const [mediaEditada, setMediaEditada] = useState(false)
   const [erro, setErro] = useState('')
   const [enviando, setEnviando] = useState(false)
+
+  const setTeste = [setT1, setT2, setT3, setT4, setT5]
+  const testes = [t1, t2, t3, t4, t5]
+  // Previa do calculo (EPS-LAB-002) e cilindro vigente — mesmo bloco que a OS e a
+  // venda mostram, via o mesmo hook (`useCalculoCertificado`) para nao duplicar a
+  // logica de debounce/resolucao de cilindro.
+  const { previa, padroes, padrao } = useCalculoCertificado(testes, dataCalib)
 
   useEffect(() => {
     let ativo = true
@@ -48,9 +59,11 @@ export function CertificadoAvulsoModal({ onClose, onGerado }: {
 
   useEffect(() => {
     if (mediaEditada) return
+    // Media sobre as medicoes PREENCHIDAS — mesma regra da OS e da venda (nem toda
+    // POC digita as cinco).
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMedia(mediaTestes(t1, t2, t3))
-  }, [t1, t2, t3, mediaEditada])
+    setMedia(mediaTestesPreenchidas(t1, t2, t3, t4, t5))
+  }, [t1, t2, t3, t4, t5, mediaEditada])
 
   async function submeter(e: FormEvent) {
     e.preventDefault()
@@ -74,6 +87,8 @@ export function CertificadoAvulsoModal({ onClose, onGerado }: {
       calib_teste1: t1.trim() || null,
       calib_teste2: t2.trim() || null,
       calib_teste3: t3.trim() || null,
+      calib_teste4: t4.trim() || null,
+      calib_teste5: t5.trim() || null,
       calib_teste_media: media.trim() || null,
       calib_situacao: situacao.trim() || null,
     }
@@ -164,12 +179,18 @@ export function CertificadoAvulsoModal({ onClose, onGerado }: {
               <Input id="temp" label="Temperatura" value={temp} onChange={(e) => setTemp(e.target.value)} />
               <Input id="pressao" label="Pressão" value={pressao} onChange={(e) => setPressao(e.target.value)} />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <Input id="t1" label="Teste 1" value={t1} onChange={(e) => setT1(e.target.value)} />
-              <Input id="t2" label="Teste 2" value={t2} onChange={(e) => setT2(e.target.value)} />
-              <Input id="t3" label="Teste 3" value={t3} onChange={(e) => setT3(e.target.value)} />
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              {testes.map((valor, i) => {
+                const fora = previa?.fora_da_faixa[i] ?? false
+                return (
+                  <Input key={i} id={`t${i + 1}`} label={`Teste ${i + 1}`} value={valor}
+                    className={fora ? 'border-red-500 focus:border-red-500' : undefined}
+                    onChange={(e) => setTeste[i](e.target.value)} />
+                )
+              })}
             </div>
             <Input id="media" label="Média dos testes" value={media} onChange={(e) => { setMediaEditada(true); setMedia(e.target.value) }} />
+            <PainelCalculoCertificado previa={previa} padroes={padroes} padrao={padrao} />
           </div>
 
           {erro && <div className="rounded-lg bg-danger/10 border border-danger/20 px-3 py-2.5 text-sm text-danger">{erro}</div>}

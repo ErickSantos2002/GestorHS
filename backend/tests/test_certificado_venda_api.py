@@ -39,6 +39,43 @@ def test_campos_vem_preenchidos_do_cadastro(client, usuario_lab, os_base, db_ses
     assert body["ja_gerado"] is False
 
 
+def test_campos_expoe_teste4_e_teste5_para_prefill(client, usuario_lab, os_base, db_session):
+    from app.models import EquipamentoCliente
+    ec = db_session.get(EquipamentoCliente, os_base["equipamento_cliente"])
+    ec.calib_teste4 = "0,20"
+    ec.calib_teste5 = "0,21"
+    db_session.commit()
+
+    h = _headers(client, "lab@hs.com", "senha123")
+    r = client.get(f"/equipamentos-cliente/{os_base['equipamento_cliente']}/certificado-venda-campos", headers=h)
+    body = r.json()
+    assert body["calib_teste4"] == "0,20"
+    assert body["calib_teste5"] == "0,21"
+
+
+def test_gerar_salva_teste4_e_teste5_e_espelha_na_frota(client, usuario_lab, os_base, db_session):
+    """Blindagem contra o modo de falha do schema: um campo ausente do `In` e
+    silenciosamente descartado pelo Pydantic, sem erro — a medicao digitada sumiria
+    sem sinal nenhum."""
+    _modelo(db_session, os_base["equipamento"],
+            texto="<p>[calibteste4] [calibteste5] [erro4] [erro5]</p>")
+    h = _headers(client, "lab@hs.com", "senha123")
+    r = client.post(f"/equipamentos-cliente/{os_base['equipamento_cliente']}/certificado-venda",
+                    json=_payload(calib_teste4="0,15", calib_teste5="0,17"), headers=h)
+    assert r.status_code == 201
+
+    from app.models import CertificadoVenda, EquipamentoCliente
+    cv = db_session.query(CertificadoVenda).filter(
+        CertificadoVenda.equipamento_cliente == os_base["equipamento_cliente"]).first()
+    assert "0,15" in cv.html and "0,17" in cv.html
+    assert "[" not in cv.html
+
+    ec = db_session.get(EquipamentoCliente, os_base["equipamento_cliente"])
+    db_session.refresh(ec)
+    assert ec.calib_teste4 == "0,15"
+    assert ec.calib_teste5 == "0,17"
+
+
 def test_gerar_salva_preenche_o_html_e_espelha_na_frota(client, usuario_lab, os_base, db_session):
     _modelo(db_session, os_base["equipamento"])
     h = _headers(client, "lab@hs.com", "senha123")

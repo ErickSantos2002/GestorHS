@@ -1,11 +1,13 @@
 """Motor de preenchimento do certificado: monta o contexto a partir da OS e
 substitui os campos [token] no HTML do modelo."""
 import re
+from collections.abc import Sequence
 from datetime import date, datetime, timezone
 from html import escape as _html_escape
 
 from sqlalchemy.orm import Session
 
+from app.core.certificado_calculo import CASAS_MEDICAO, calcular, formatar_numero
 from app.models import Equipamento, Marca, TipoCalibragem, CertificadoModelo, OSCertificado
 
 # Campos suportados (expostos no editor de modelos). Os nomes batem com os
@@ -30,14 +32,45 @@ CAMPOS: list[tuple[str, str]] = [
     ("calibteste1", "Teste 1"),
     ("calibteste2", "Teste 2"),
     ("calibteste3", "Teste 3"),
+    ("calibteste4", "Teste 4"),
+    ("calibteste5", "Teste 5"),
     ("calibtestemedia", "Média dos testes"),
     ("situcalib", "Situação"),
     ("dataemissao", "Data de emissão"),
+    ("erro1", "Erro da medição 1"),
+    ("erro2", "Erro da medição 2"),
+    ("erro3", "Erro da medição 3"),
+    ("erro4", "Erro da medição 4"),
+    ("erro5", "Erro da medição 5"),
+    ("mediamedicoes", "Média das medições (calculada)"),
+    ("incertezaexpandida", "Incerteza expandida (U)"),
+    ("fatork", "Fator de abrangência (k)"),
+    ("drygasppm", "Dry gas ppm (concentração do padrão)"),
+    ("limitemin", "Limite mínimo"),
+    ("limitemax", "Limite máximo"),
+    ("padraocilindro", "Nº do cilindro"),
+    ("padraocertificado", "Nº do certificado do cilindro"),
+    ("padraoconcentracao", "Concentração do padrão"),
+    ("padraoincerteza", "Incerteza da concentração do padrão"),
+    ("tecnico", "Técnico responsável"),
+    ("tecnicocargo", "Cargo do técnico"),
+    ("equipamentosauxiliares", "Equipamentos auxiliares"),
+    ("margemtemp", "Margem de temperatura padrão"),
+    ("qrcertificados", "QR dos certificados auxiliares (gás, termohigrômetro, barômetro)"),
     ("pulapagina", "Quebra de página (impressão)"),
 ]
 
 # Quebra de página para impressão — HTML estrutural (não é dado, não escapar).
 _PAGE_BREAK = '<div style="page-break-after: always;"></div>'
+
+# Tokens cujo valor e HTML que NOS geramos — nao dado digitado — e por isso entra sem
+# escapar. Todo o resto do contexto e escapado, e e o que impede um nome de cliente com
+# <script> de virar HTML executavel no certificado.
+#
+# Os dois funcionam diferente: `pulapagina` NAO esta no contexto (seu valor e a
+# constante _PAGE_BREAK); `qrcertificados` esta, porque muda a cada certificado.
+# Este conjunto so decide quem escapa do escape.
+_TOKENS_ESTRUTURAIS = frozenset({"pulapagina", "qrcertificados"})
 
 
 def _fmt(d) -> str:
@@ -85,6 +118,24 @@ def _endereco(cli) -> str:
     return ", ".join(p for p in partes if p)
 
 
+# Chaves calculadas/derivadas do certificado EPS-LAB-002. Declaradas em UM lugar para
+# que os tres caminhos (OS, avulso, venda) emitam exatamente o mesmo conjunto.
+_CHAVES_CALCULADAS = (
+    "erro1", "erro2", "erro3", "erro4", "erro5",
+    "mediamedicoes", "incertezaexpandida", "fatork",
+    "drygasppm", "limitemin", "limitemax",
+    "padraocilindro", "padraocertificado", "padraoconcentracao", "padraoincerteza",
+    "tecnico", "tecnicocargo", "equipamentosauxiliares", "margemtemp",
+    "qrcertificados",
+)
+
+
+def _bloco_calculado(calc: dict[str, str] | None) -> dict[str, str]:
+    """Completa com string vazia toda chave calculada que o caminho nao informou."""
+    calc = calc or {}
+    return {chave: calc.get(chave, "") for chave in _CHAVES_CALCULADAS}
+
+
 def _montar_contexto(
     *,
     nomecli: str = "", cnpj: str = "", endcli: str = "",
@@ -93,6 +144,8 @@ def _montar_contexto(
     proxcalibragem: str = "", tipocalibragem: str = "",
     datacali: str = "", dataentr: str = "",
     temp: str = "", pressao: str = "", t1: str = "", t2: str = "", t3: str = "",
+    t4: str = "", t5: str = "",
+    calc: dict[str, str] | None = None,
     media: str = "", situ: str = "",
 ) -> dict[str, str]:
     """Fonte UNICA do conjunto de chaves do certificado.
@@ -136,6 +189,11 @@ def _montar_contexto(
         "teste3": t3,
         "media": media,
         "situacao": situ,
+        "calibteste4": t4,
+        "calibteste5": t5,
+        # bloco calculado + padrao + config; vazio quando o caminho nao tem calibracao
+        # (avulso e venda). Nunca AUSENTE — token ausente sai literalmente escrito no PDF.
+        **_bloco_calculado(calc),
         "datacli": hoje,
     }
 
@@ -157,6 +215,72 @@ def modelo_marca(db: Session, equipamento_id: int | None) -> tuple[str, str]:
         m = db.get(Marca, cat.marca)
         marca = (m.descricao if m else "") or ""
     return cat.descricao or "", marca
+
+
+def _bloco_certificado(db: Session, medicoes: Sequence[str | None], padrao) -> dict[str, str]:
+    """Bloco calculado do certificado: erros, incerteza, padrao (cilindro) e textos
+    da config. Regra UNICA compartilhada pelos tres caminhos (OS, avulso, venda) —
+    cada um resolve `medicoes` e `padrao` do proprio jeito e delega o calculo aqui.
+
+    `padrao` e um `CertificadoPadrao` ja resolvido pelo chamador, ou `None`; este modulo
+    nao decide COMO o cilindro e encontrado (padrao_id gravado na OS vs. data digitada
+    no avulso/venda), so o que fazer com ele uma vez resolvido.
+
+    Os valores NAO sao persistidos: entram no HTML gerado, que ja e o snapshot do
+    documento emitido. Persistir numero calculado criaria uma segunda verdade.
+    """
+    from app.core.certificado_config import documentos_qr, obter_config, parametros_de
+    from app.core.certificado_qr import bloco_qr
+
+    config = obter_config(db)
+    resultado = calcular(medicoes, parametros_de(config))
+
+    bloco = {
+        # Media, erros e limites saem com CASAS_MEDICAO fixas: num certificado de
+        # calibracao "0,160" e "0,16" declaram precisoes diferentes, e a Qualidade
+        # exige as tres casas. U fica com mais casas por ser a incerteza.
+        "mediamedicoes": formatar_numero(resultado.media, casas=CASAS_MEDICAO, cortar_zeros=False),
+        "incertezaexpandida": formatar_numero(resultado.incerteza_expandida),
+        "fatork": formatar_numero(resultado.fator_k, casas=2),
+        "limitemin": formatar_numero(
+            None if config.limite_minimo is None else float(config.limite_minimo),
+            casas=CASAS_MEDICAO, cortar_zeros=False,
+        ),
+        "limitemax": formatar_numero(
+            None if config.limite_maximo is None else float(config.limite_maximo),
+            casas=CASAS_MEDICAO, cortar_zeros=False,
+        ),
+        "padraocilindro": (padrao.numero_cilindro if padrao else "") or "",
+        "padraocertificado": (padrao.numero_certificado if padrao else "") or "",
+        "padraoconcentracao": formatar_numero(
+            None if (padrao is None or padrao.concentracao is None) else float(padrao.concentracao)
+        ),
+        "padraoincerteza": formatar_numero(
+            None if (padrao is None or padrao.incerteza_concentracao is None)
+            else float(padrao.incerteza_concentracao)
+        ),
+        "tecnico": config.tecnico_nome or "",
+        "tecnicocargo": config.tecnico_cargo or "",
+        "equipamentosauxiliares": config.equipamentos_auxiliares or "",
+        "margemtemp": config.margem_temperatura or "",
+        "qrcertificados": bloco_qr(documentos_qr(db, config)),
+    }
+    # DRY GAS PPM e a propria concentracao do padrao (na planilha, A82 = $D$72)
+    bloco["drygasppm"] = bloco["padraoconcentracao"]
+    for i, erro in enumerate(resultado.erros, start=1):
+        bloco[f"erro{i}"] = formatar_numero(erro, casas=CASAS_MEDICAO, cortar_zeros=False)
+    return bloco
+
+
+def _calcular_para_os(db: Session, ordem) -> dict[str, str]:
+    """Bloco calculado do certificado a partir da OS: le as 5 medicoes gravadas na
+    ordem e o cilindro pelo `padrao_id` gravado, e delega o calculo a `_bloco_certificado`.
+    """
+    from app.models import CertificadoPadrao
+
+    medicoes = [getattr(ordem, f"calib_teste{i}", None) for i in range(1, 6)]
+    padrao = db.get(CertificadoPadrao, ordem.padrao_id) if ordem.padrao_id else None
+    return _bloco_certificado(db, medicoes, padrao)
 
 
 def montar_contexto(db: Session, ordem) -> dict[str, str]:
@@ -187,11 +311,19 @@ def montar_contexto(db: Session, ordem) -> dict[str, str]:
         t1=ordem.calib_teste1 or "",
         t2=ordem.calib_teste2 or "",
         t3=ordem.calib_teste3 or "",
+        t4=ordem.calib_teste4 or "",
+        t5=ordem.calib_teste5 or "",
+        calc=_calcular_para_os(db, ordem),
         media=ordem.calib_teste_media or "",
         situ=ordem.calib_situacao or "",
     )
     for chave, valor in (ordem.cert_overrides or {}).items():
-        if valor:
+        # cert_overrides e JSON livre; hoje so `certificados_os.py` grava nele, restrito
+        # a `_CAMPOS_OVERRIDE`, que nao inclui tokens estruturais — mas essa garantia mora
+        # num arquivo diferente. Barrar aqui tambem impede que um token cujo valor entra
+        # sem escapar em `preencher` (ex.: qrcertificados) vire injecao de HTML se algum
+        # dia alguem ampliar aquela lista copiando de CAMPOS sem notar a diferenca.
+        if valor and chave not in _TOKENS_ESTRUTURAIS:
             ctx[chave] = valor
     # o override do CNPJ e digitado a mao — mascara aqui tambem, senao sai cru no PDF
     ctx["cnpj"] = _fmt_doc(ctx["cnpj"])
@@ -204,10 +336,18 @@ def montar_contexto_avulso(db: Session, valores: dict) -> dict[str, str]:
     Exceto `modelo`/`marca`, que saem do catalogo do aparelho do template (o laboratorio
     nao os digita), e `patrimonio`, que nao existe para um aparelho de POC.
 
+    Sem OS gravada, o cilindro (padrao) e resolvido pela DATA DE CALIBRACAO digitada —
+    `padrao_vigente` devolve `None` quando a data esta ausente ou nenhum cilindro a cobre,
+    e o bloco calculado sai com os campos do cilindro vazios, sem levantar erro.
+
     Delega ao mesmo `_montar_contexto` do fluxo da OS — e por isso emite exatamente o
     mesmo conjunto de chaves, sem risco de um token vazar como [token] no PDF.
     """
+    from app.core.certificado_config import padrao_vigente
+
     modelo, marca = modelo_marca(db, valores.get("equipamento"))
+    medicoes = [valores.get(f"calib_teste{i}") for i in range(1, 6)]
+    padrao = padrao_vigente(db, valores.get("data_calibracao"))
     return _montar_contexto(
         nomecli=valores.get("nomecli") or "",
         cnpj=valores.get("cnpj") or "",
@@ -225,6 +365,9 @@ def montar_contexto_avulso(db: Session, valores: dict) -> dict[str, str]:
         t1=valores.get("calib_teste1") or "",
         t2=valores.get("calib_teste2") or "",
         t3=valores.get("calib_teste3") or "",
+        t4=valores.get("calib_teste4") or "",
+        t5=valores.get("calib_teste5") or "",
+        calc=_bloco_certificado(db, medicoes, padrao),
         media=valores.get("calib_teste_media") or "",
         situ=valores.get("calib_situacao") or "",
     )
@@ -237,19 +380,37 @@ def montar_contexto_venda(db: Session, ec, valores: dict) -> dict[str, str]:
     modal) sobrepoe o que for informado, permitindo corrigir na hora sem alterar o
     cadastro. `modelo`/`marca` vem sempre do catalogo — sao atributo do aparelho.
 
+    Sem OS gravada, o cilindro (padrao) e resolvido pela DATA DE CALIBRACAO digitada,
+    igual ao avulso.
+
+    As 5 medicoes vem de `valores`, caindo no que ja esta gravado na frota
+    (`ec.calib_teste1`..`ec.calib_teste5`) quando nao digitadas — o mesmo valor
+    resolvido alimenta tanto o token exibido (`calibtesteN`) quanto o bloco
+    calculado, para que o erro exibido corresponda ao numero exibido.
+
+    Consequencia aceita: como `espelhar_calibracao_valores` so grava quando o
+    valor nao e `None`, LIMPAR uma medicao no modal de venda e um no-op — a frota
+    mantem o valor anterior e o certificado o imprime, em vez de sair em branco.
+    Nao e bug; se precisar zerar de verdade, o ajuste tem que ser feito na frota.
+
     Delega ao mesmo `_montar_contexto` da OS e do avulso: e o que garante que o
     conjunto de chaves seja identico e nenhum token vaze como [token] no PDF.
     """
+    from app.core.certificado_config import padrao_vigente
+
     cli = ec.cliente_rel
     modelo, marca = modelo_marca(db, ec.equipamento)
 
-    def _v(chave, padrao=""):
+    def _v(chave, padrao_valor=""):
         valor = valores.get(chave)
-        return valor if valor not in (None, "") else padrao
+        return valor if valor not in (None, "") else padrao_valor
 
     # Nao ha "data de recebimento" numa venda: usa a data de compra do cadastro,
     # caindo em hoje quando o cadastro nao tem.
     dataentr = _fmt(ec.datacompra) if ec.datacompra else _fmt(date.today())
+
+    medicoes = [_v(f"calib_teste{i}", getattr(ec, f"calib_teste{i}", None) or "") for i in range(1, 6)]
+    padrao = padrao_vigente(db, valores.get("data_calibracao"))
 
     return _montar_contexto(
         nomecli=_v("nomecli", (cli.nome if cli else "") or ""),
@@ -268,9 +429,12 @@ def montar_contexto_venda(db: Session, ec, valores: dict) -> dict[str, str]:
         dataentr=dataentr,
         temp=_v("calib_temp"),
         pressao=_v("calib_pressao"),
-        t1=_v("calib_teste1"),
-        t2=_v("calib_teste2"),
-        t3=_v("calib_teste3"),
+        t1=medicoes[0],
+        t2=medicoes[1],
+        t3=medicoes[2],
+        t4=medicoes[3],
+        t5=medicoes[4],
+        calc=_bloco_certificado(db, medicoes, padrao),
         media=_v("calib_teste_media"),
         situ=_v("calib_situacao"),
     )
@@ -283,8 +447,11 @@ def preencher(html: str, contexto: dict[str, str]) -> str:
     if not html:
         return html or ""
     for campo, valor in contexto.items():
+        if campo in _TOKENS_ESTRUTURAIS:
+            continue
         html = html.replace(f"[{campo}]", _html_escape(valor or "", quote=True))
-    # token estrutural (quebra de página): HTML confiável, inserido sem escapar
+    # Estruturais, sem escapar.
+    html = html.replace("[qrcertificados]", contexto.get("qrcertificados") or "")
     html = html.replace("[pulapagina]", _PAGE_BREAK)
     return html
 

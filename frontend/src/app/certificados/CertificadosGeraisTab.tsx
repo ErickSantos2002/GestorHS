@@ -5,6 +5,7 @@ import { Spinner } from '../../components/ui/Spinner'
 import { useAuth } from '../../auth/AuthContext'
 import { podeGerenciarCertificadosGerais } from '../../auth/roles'
 import { ApiError } from '../../lib/api'
+import { mensagemDeErro } from './erros'
 
 export function CertificadosGeraisTab() {
   const { user } = useAuth()
@@ -46,7 +47,7 @@ export function CertificadosGeraisTab() {
   async function onExcluir(id: number) {
     if (!window.confirm('Excluir este certificado?')) return
     try { await certificadosApi.excluirGeral(id); recarregar() }
-    catch { setErro('Falha ao excluir') }
+    catch (err) { setErro(mensagemDeErro(err, 'Falha ao excluir')) }
   }
 
   return (

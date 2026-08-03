@@ -23,6 +23,18 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.37.0',
+    data: '03/08/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'Certificado de calibração no formato EPS-LAB-002: cinco medições, erro por medição e incerteza expandida (k = 2, 95% de confiança).' },
+      { tipo: 'novidade', texto: 'Nova aba Configurações em Certificados: parâmetros do cálculo, técnico responsável e cadastro dos cilindros de gás com vigência.' },
+      { tipo: 'novidade', texto: 'O certificado em branco e o de venda também passam a ter as cinco medições e o cálculo de incerteza, iguais aos da OS.' },
+      { tipo: 'melhoria', texto: 'Os modais de certificado destacam medição fora da faixa, mostram o cálculo e informam qual cilindro de gás será registrado antes de gerar.' },
+      { tipo: 'melhoria', texto: 'A OS grava qual cilindro foi usado, para que regerar um certificado antigo mantenha a rastreabilidade correta.' },
+      { tipo: 'novidade', texto: 'O certificado de calibração passa a trazer QR codes dos certificados do gás, do termohigrômetro e do barômetro — não é mais preciso enviá-los impressos junto. Os documentos são escolhidos em Certificados › Configurações.' },
+    ],
+  },
+  {
     versao: '1.36.0',
     data: '31/07/2026',
     itens: [
