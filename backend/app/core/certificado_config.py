@@ -57,6 +57,9 @@ def padrao_vigente(db: Session, data: date | None) -> CertificadoPadrao | None:
             CertificadoPadrao.vigencia_inicio <= data,
             (CertificadoPadrao.vigencia_fim.is_(None)) | (CertificadoPadrao.vigencia_fim >= data),
         )
-        .order_by(CertificadoPadrao.vigencia_inicio.desc())
+        # id como criterio de desempate: sem ele, dois cilindros com a mesma
+        # vigencia_inicio devolvem um resultado arbitrario do banco, e a tela
+        # (padraoVigente.ts, que espelha esta regra) nao teria como acertar qual.
+        .order_by(CertificadoPadrao.vigencia_inicio.desc(), CertificadoPadrao.id.desc())
         .first()
     )

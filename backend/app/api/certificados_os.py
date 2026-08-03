@@ -90,9 +90,15 @@ def gerar(ordem_id: int, dados: GerarCertificadoIn | None = None, db: Session = 
     # meses depois apontaria para o cilindro vigente naquele momento — rastreabilidade
     # falsa num documento da Qualidade. Roda em toda chamada (com ou sem corpo) para que
     # o caminho sem corpo tambem congele o padrao ao concluir o laboratorio.
+    #
+    # A re-resolucao so pode SOBRESCREVER o que ja esta gravado quando encontra um
+    # cilindro. Se nao encontra — o cilindro foi desativado, teve a vigencia corrigida
+    # ou foi removido — mantem o registrado: apagar o padrao_id faria a regeracao sair
+    # com a secao 8 (rastreabilidade) em branco, exatamente o que congelar evita.
     data_ref = ordem.data_calibracao.date() if ordem.data_calibracao else None
     padrao = padrao_vigente(db, data_ref)
-    ordem.padrao_id = padrao.id if padrao else None
+    if padrao is not None or ordem.padrao_id is None:
+        ordem.padrao_id = padrao.id if padrao else None
     db.flush()
     gerados = gerar_certificados(db, ordem, tipos_para(ordem))
     if ordem.fase == wf.FASE_LABORATORIO and ordem.desfecho_lab == wf.DESFECHO_PENDENTE:

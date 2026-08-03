@@ -154,3 +154,48 @@ def test_previa_marca_medicao_fora_da_faixa(client_lab):
     assert r.json()["fora_da_faixa"] == [False, True, False, False, False]
     # medicao em branco nao e "fora da faixa" — e ausencia de medicao
     assert r.json()["erros"][2] == ""
+
+
+def test_excluir_padrao_em_uso_por_os_devolve_409(client_admin, db_session):
+    """ordens.padrao_id e FK sem ON DELETE: sem a guarda, o Postgres estoura
+    IntegrityError e o admin recebe um 500 sem explicacao."""
+    from app.models import Cliente, EquipamentoCliente, Equipamento, Ordem
+
+    r = client_admin.post("/certificado-padroes", json={
+        "numero_cilindro": "CC747704", "vigencia_inicio": "2025-01-01", "ativo": True,
+    })
+    padrao_id = r.json()["id"]
+
+    cat = Equipamento(descricao="Mark X"); db_session.add(cat); db_session.flush()
+    cli = Cliente(nome="ACME"); db_session.add(cli); db_session.flush()
+    ec = EquipamentoCliente(cliente=cli.id, equipamento=cat.id, serie="S1")
+    db_session.add(ec); db_session.flush()
+    db_session.add(Ordem(cliente=cli.id, equipamento_cliente=ec.id, fase=5,
+                         situacao="E", tipo_servico="C", padrao_id=padrao_id))
+    db_session.commit()
+
+    r = client_admin.delete(f"/certificado-padroes/{padrao_id}")
+    assert r.status_code == 409
+    assert "vigência fim" in r.json()["detail"]
+    # e o cilindro continua la — a rastreabilidade dos certificados emitidos depende dele
+    assert len(client_admin.get("/certificado-padroes").json()) == 1
+
+
+def test_atualizar_padrao_negado_para_nao_admin(client_lab):
+    r = client_lab.patch("/certificado-padroes/1", json={"vigencia_fim": "2026-12-31"})
+    assert r.status_code == 403
+
+
+def test_excluir_padrao_negado_para_nao_admin(client_lab):
+    r = client_lab.delete("/certificado-padroes/1")
+    assert r.status_code == 403
+
+
+def test_padrao_vigente_desempata_pelo_id_quando_a_vigencia_inicio_empata(db_session):
+    """Dois cilindros abertos com a mesma data de inicio: vence o cadastrado por
+    ultimo. O desempate precisa ser deterministico porque a tela (padraoVigente.ts)
+    espelha esta regra para dizer qual cilindro esta em uso."""
+    primeiro = _padrao(db_session, numero_cilindro="A", vigencia_inicio=date(2025, 1, 1))
+    segundo = _padrao(db_session, numero_cilindro="B", vigencia_inicio=date(2025, 1, 1))
+    assert primeiro.id < segundo.id
+    assert padrao_vigente(db_session, date(2026, 1, 1)).id == segundo.id

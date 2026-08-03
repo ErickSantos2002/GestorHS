@@ -311,3 +311,41 @@ def test_certificado_campos_devolve_as_cinco_medicoes(client, usuario_admin, db_
     corpo = client.get(f"/ordens/{oid}/certificado-campos", headers=h).json()
     assert "calib_teste4" in corpo
     assert "calib_teste5" in corpo
+
+
+def test_regerar_mantem_o_padrao_gravado_quando_o_cilindro_e_desativado(client, usuario_admin, db_session):
+    """Desativar um cilindro que acabou e a coisa natural a fazer. Se a regeracao
+    re-resolvesse o padrao e gravasse None, o certificado sairia com a secao de
+    rastreabilidade em branco — justamente o que congelar o padrao existe para evitar."""
+    from datetime import date
+    from app.models import CertificadoPadrao, Ordem
+
+    h = _headers(client, "admin@hs.com", "senha123")
+    oid = _os_com_modelo(client, db_session, h, tipos=("C",), tipo_servico="C")
+
+    padrao = CertificadoPadrao(
+        numero_cilindro="CC747704", numero_certificado="202231419",
+        concentracao=100.1, incerteza_concentracao=2.0, unidade="µmol/mol",
+        vigencia_inicio=date(2020, 1, 1), vigencia_fim=None, ativo=True,
+    )
+    db_session.add(padrao)
+    db_session.commit()
+
+    r = client.post(f"/ordens/{oid}/gerar-certificado", headers=h, json={
+        "data_calibracao": "2026-07-31", "calib_teste1": "0.16",
+    })
+    assert r.status_code == 200
+    ordem = db_session.query(Ordem).filter(Ordem.id == oid).first()
+    assert ordem.padrao_id == padrao.id
+
+    # cilindro acabou e o admin o desativa
+    padrao.ativo = False
+    db_session.commit()
+
+    r = client.post(f"/ordens/{oid}/gerar-certificado", headers=h, json={
+        "data_calibracao": "2026-07-31", "calib_teste1": "0.16",
+    })
+    assert r.status_code == 200
+    db_session.expire_all()
+    ordem = db_session.query(Ordem).filter(Ordem.id == oid).first()
+    assert ordem.padrao_id == padrao.id

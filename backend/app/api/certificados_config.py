@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_usuario, require_funcao
 from app.core.certificado_calculo import calcular, formatar_numero
 from app.core.certificado_config import obter_config, parametros_de
-from app.models import CertificadoPadrao, Usuario
+from app.models import CertificadoPadrao, Ordem, Usuario
 from app.models.database import get_db
 from app.schemas.certificado_config import (
     CalculoPreviaIn,
@@ -85,7 +85,20 @@ def atualizar_padrao(padrao_id: int, dados: CertificadoPadraoUpdate,
 @router.delete("/certificado-padroes/{padrao_id}", status_code=status.HTTP_204_NO_CONTENT)
 def excluir_padrao(padrao_id: int, db: Session = Depends(get_db),
                    _: Usuario = Depends(_escrita)):
-    db.delete(_padrao_ou_404(db, padrao_id))
+    obj = _padrao_ou_404(db, padrao_id)
+    # ordens.padrao_id e FK sem ON DELETE: no Postgres, apagar um cilindro ja usado
+    # estoura IntegrityError e vira 500. Alem disso, apagar destruiria a rastreabilidade
+    # dos certificados ja emitidos com ele — quem quer aposentar um cilindro encerra a
+    # vigencia, nao apaga o registro.
+    em_uso = db.query(Ordem).filter(Ordem.padrao_id == padrao_id).count()
+    if em_uso:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Este cilindro está em uso por {em_uso} ordem(ns) de serviço e não pode "
+                   f"ser excluído. Para aposentá-lo, informe a vigência fim ou marque-o "
+                   f"como inativo.",
+        )
+    db.delete(obj)
     db.commit()
 
 
