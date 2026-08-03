@@ -10,6 +10,9 @@ import { certificadosApi, type CertificadoConfig, type CertificadoPadrao } from 
 
 const secao = 'text-xs font-semibold text-slate-500 uppercase tracking-wide'
 
+/** Campo de edição dentro da linha da tabela — enxuto para caber na coluna. */
+const campoLinha = 'w-full min-w-0 rounded bg-background-elevated border border-slate-700 px-1.5 py-0.5 text-xs text-slate-200'
+
 /** Campos numericos do calculo. Um array em vez de JSX repetido: sao oito campos
  *  com o mesmo comportamento, e a lista e o que garante que nenhum fique de fora. */
 const CAMPOS_NUMERICOS = [
@@ -49,6 +52,9 @@ export function ConfiguracoesTab() {
   const [adicionando, setAdicionando] = useState(false)
   const [excluindoId, setExcluindoId] = useState<number | null>(null)
   const [encerrandoId, setEncerrandoId] = useState<number | null>(null)
+  const [editandoId, setEditandoId] = useState<number | null>(null)
+  const [edicao, setEdicao] = useState({ ...PADRAO_NOVO })
+  const [salvandoEdicao, setSalvandoEdicao] = useState(false)
   const [aviso, setAviso] = useState('')
 
   // O vigente sai da LISTA, nao de cada linha isolada: entre os cilindros que cobrem
@@ -127,6 +133,50 @@ export function ConfiguracoesTab() {
     }
   }
 
+  function abrirEdicao(p: CertificadoPadrao) {
+    setAviso('')
+    setEditandoId(p.id)
+    setEdicao({
+      numero_cilindro: p.numero_cilindro,
+      numero_certificado: p.numero_certificado ?? '',
+      concentracao: p.concentracao ?? '',
+      incerteza_concentracao: p.incerteza_concentracao ?? '',
+      unidade: p.unidade ?? '',
+      vigencia_inicio: p.vigencia_inicio ?? '',
+      vigencia_fim: p.vigencia_fim ?? '',
+      ativo: p.ativo,
+    })
+  }
+
+  /** Grava a edição do cilindro.
+   *
+   *  Editar um cilindro JÁ usado por OS é intencional e desejado: é como se corrige um
+   *  nº de certificado digitado errado, e o certificado regerado passa a sair certo.
+   *  A OS guarda `padrao_id`, não uma cópia dos dados, então a correção alcança o
+   *  histórico em vez de deixar o documento antigo errado para sempre. */
+  async function salvarEdicao(id: number) {
+    setSalvandoEdicao(true)
+    setAviso('')
+    try {
+      const atualizado = await certificadosApi.atualizarPadrao(id, {
+        ...edicao,
+        // campo vazio significa "não informado", não string vazia
+        numero_certificado: edicao.numero_certificado || null,
+        concentracao: edicao.concentracao || null,
+        incerteza_concentracao: edicao.incerteza_concentracao || null,
+        vigencia_inicio: edicao.vigencia_inicio || null,
+        vigencia_fim: edicao.vigencia_fim || null,
+      })
+      setPadroes((atual) => atual.map((p) => (p.id === id ? atualizado : p)))
+      setEditandoId(null)
+      setAviso('Cilindro atualizado.')
+    } catch (err) {
+      setAviso(mensagemDeErro(err, 'Falha ao atualizar o cilindro.'))
+    } finally {
+      setSalvandoEdicao(false)
+    }
+  }
+
   if (!config) return <p className="text-sm text-slate-500">Carregando…</p>
 
   return (
@@ -190,27 +240,79 @@ export function ConfiguracoesTab() {
           <tbody>
             {padroes.map((p) => (
               <tr key={p.id} className="border-t border-slate-800">
-                <td className="py-1.5">{p.numero_cilindro}</td>
-                <td>{p.numero_certificado ?? '—'}</td>
-                <td>{p.concentracao ?? '—'} {p.unidade ?? ''}</td>
-                <td>{p.vigencia_inicio ?? '—'} → {p.vigencia_fim ?? 'vigente'}</td>
-                <td>{p.id === idVigente
-                  ? <span className="text-emerald-400 text-xs font-medium">Em uso</span>
-                  : <span className="text-slate-500 text-xs">—</span>}</td>
-                <td className="text-right space-x-3">
-                  {podeEditar && p.vigencia_fim === null && (
-                    <button onClick={() => encerrarVigencia(p.id)} disabled={encerrandoId === p.id}
-                      className="text-xs text-amber-400 hover:text-amber-300 disabled:opacity-60 disabled:cursor-not-allowed">
-                      {encerrandoId === p.id ? 'Encerrando…' : 'Encerrar vigência'}
-                    </button>
-                  )}
-                  {podeEditar && (
-                    <button onClick={() => excluirPadrao(p.id)} disabled={excluindoId === p.id}
-                      className="text-xs text-red-400 hover:text-red-300 disabled:opacity-60 disabled:cursor-not-allowed">
-                      {excluindoId === p.id ? 'Excluindo…' : 'Excluir'}
-                    </button>
-                  )}
-                </td>
+                {editandoId === p.id ? (
+                  <>
+                    <td className="py-1.5 pr-2">
+                      <input aria-label="Editar cilindro" className={campoLinha} value={edicao.numero_cilindro}
+                        onChange={(e) => setEdicao({ ...edicao, numero_cilindro: e.target.value })} />
+                    </td>
+                    <td className="pr-2">
+                      <input aria-label="Editar certificado" className={campoLinha} value={edicao.numero_certificado}
+                        onChange={(e) => setEdicao({ ...edicao, numero_certificado: e.target.value })} />
+                    </td>
+                    <td className="pr-2 flex gap-1">
+                      <input aria-label="Editar concentração" className={campoLinha} value={edicao.concentracao}
+                        onChange={(e) => setEdicao({ ...edicao, concentracao: e.target.value })} />
+                      <input aria-label="Editar incerteza" className={campoLinha} value={edicao.incerteza_concentracao}
+                        onChange={(e) => setEdicao({ ...edicao, incerteza_concentracao: e.target.value })} />
+                      <input aria-label="Editar unidade" className={campoLinha} value={edicao.unidade}
+                        onChange={(e) => setEdicao({ ...edicao, unidade: e.target.value })} />
+                    </td>
+                    <td className="pr-2 flex gap-1">
+                      <input aria-label="Editar vigência início" type="date" className={campoLinha} value={edicao.vigencia_inicio}
+                        onChange={(e) => setEdicao({ ...edicao, vigencia_inicio: e.target.value })} />
+                      <input aria-label="Editar vigência fim" type="date" className={campoLinha} value={edicao.vigencia_fim ?? ''}
+                        onChange={(e) => setEdicao({ ...edicao, vigencia_fim: e.target.value })} />
+                    </td>
+                    <td>
+                      <label className="text-xs text-slate-400 flex items-center gap-1">
+                        <input type="checkbox" aria-label="Editar ativo" checked={edicao.ativo}
+                          onChange={(e) => setEdicao({ ...edicao, ativo: e.target.checked })} />
+                        Ativo
+                      </label>
+                    </td>
+                    <td className="text-right space-x-3 whitespace-nowrap">
+                      <button onClick={() => salvarEdicao(p.id)} disabled={salvandoEdicao || !edicao.numero_cilindro.trim()}
+                        className="text-xs text-emerald-400 hover:text-emerald-300 disabled:opacity-60 disabled:cursor-not-allowed">
+                        {salvandoEdicao ? 'Salvando…' : 'Salvar cilindro'}
+                      </button>
+                      <button onClick={() => setEditandoId(null)} disabled={salvandoEdicao}
+                        className="text-xs text-slate-400 hover:text-slate-300 disabled:opacity-60">
+                        Cancelar
+                      </button>
+                    </td>
+                  </>
+                ) : (
+                  <>
+                    <td className="py-1.5">{p.numero_cilindro}</td>
+                    <td>{p.numero_certificado ?? '—'}</td>
+                    <td>{p.concentracao ?? '—'} {p.unidade ?? ''}</td>
+                    <td>{p.vigencia_inicio ?? '—'} → {p.vigencia_fim ?? 'vigente'}</td>
+                    <td>{p.id === idVigente
+                      ? <span className="text-emerald-400 text-xs font-medium">Em uso</span>
+                      : <span className="text-slate-500 text-xs">—</span>}</td>
+                    <td className="text-right space-x-3 whitespace-nowrap">
+                      {podeEditar && (
+                        <button onClick={() => abrirEdicao(p)}
+                          className="text-xs text-primary hover:opacity-80">
+                          Editar
+                        </button>
+                      )}
+                      {podeEditar && p.vigencia_fim === null && (
+                        <button onClick={() => encerrarVigencia(p.id)} disabled={encerrandoId === p.id}
+                          className="text-xs text-amber-400 hover:text-amber-300 disabled:opacity-60 disabled:cursor-not-allowed">
+                          {encerrandoId === p.id ? 'Encerrando…' : 'Encerrar vigência'}
+                        </button>
+                      )}
+                      {podeEditar && (
+                        <button onClick={() => excluirPadrao(p.id)} disabled={excluindoId === p.id}
+                          className="text-xs text-red-400 hover:text-red-300 disabled:opacity-60 disabled:cursor-not-allowed">
+                          {excluindoId === p.id ? 'Excluindo…' : 'Excluir'}
+                        </button>
+                      )}
+                    </td>
+                  </>
+                )}
               </tr>
             ))}
             {padroes.length === 0 && (

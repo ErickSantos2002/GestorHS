@@ -103,4 +103,56 @@ describe('ConfiguracoesTab', () => {
     await waitFor(() => expect(screen.getByText('CC747704')).toBeInTheDocument())
     expect(screen.queryByRole('button', { name: /encerrar vig/i })).not.toBeInTheDocument()
   })
+
+  it('edita o cilindro pela API e mostra o resultado na linha', async () => {
+    vi.mocked(certificadosApi.atualizarPadrao).mockResolvedValue({
+      ...CILINDRO, numero_cilindro: 'CC999999', numero_certificado: '202299999',
+    })
+    render(<ConfiguracoesTab />)
+    await waitFor(() => expect(screen.getByText('CC747704')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: /^editar$/i }))
+    fireEvent.change(screen.getByLabelText('Editar cilindro'), { target: { value: 'CC999999' } })
+    fireEvent.change(screen.getByLabelText('Editar certificado'), { target: { value: '202299999' } })
+    fireEvent.click(screen.getByRole('button', { name: /^salvar cilindro$/i }))
+
+    await waitFor(() => expect(certificadosApi.atualizarPadrao).toHaveBeenCalledTimes(1))
+    const [id, dados] = vi.mocked(certificadosApi.atualizarPadrao).mock.calls[0]
+    expect(id).toBe(7)
+    expect(dados).toMatchObject({ numero_cilindro: 'CC999999', numero_certificado: '202299999' })
+    // a linha passa a mostrar o valor novo, sem precisar recarregar a aba
+    await waitFor(() => expect(screen.getByText('CC999999')).toBeInTheDocument())
+  })
+
+  it('cancelar a edicao nao chama a API nem altera a linha', async () => {
+    render(<ConfiguracoesTab />)
+    await waitFor(() => expect(screen.getByText('CC747704')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: /^editar$/i }))
+    fireEvent.change(screen.getByLabelText('Editar cilindro'), { target: { value: 'NAO DEVE GRAVAR' } })
+    fireEvent.click(screen.getByRole('button', { name: /^cancelar$/i }))
+
+    expect(certificadosApi.atualizarPadrao).not.toHaveBeenCalled()
+    expect(screen.getByText('CC747704')).toBeInTheDocument()
+  })
+
+  it('campo vazio na edicao vira nulo, nao string vazia', async () => {
+    vi.mocked(certificadosApi.atualizarPadrao).mockResolvedValue(CILINDRO)
+    render(<ConfiguracoesTab />)
+    await waitFor(() => expect(screen.getByText('CC747704')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: /^editar$/i }))
+    fireEvent.change(screen.getByLabelText('Editar certificado'), { target: { value: '' } })
+    fireEvent.click(screen.getByRole('button', { name: /^salvar cilindro$/i }))
+
+    await waitFor(() => expect(certificadosApi.atualizarPadrao).toHaveBeenCalledTimes(1))
+    expect(vi.mocked(certificadosApi.atualizarPadrao).mock.calls[0][1].numero_certificado).toBeNull()
+  })
+
+  it('nao oferece editar para nao-admin', async () => {
+    authState.user = { funcao: 'Laboratório' }
+    render(<ConfiguracoesTab />)
+    await waitFor(() => expect(screen.getByText('CC747704')).toBeInTheDocument())
+    expect(screen.queryByRole('button', { name: /^editar$/i })).not.toBeInTheDocument()
+  })
 })
