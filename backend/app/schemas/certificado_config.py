@@ -1,18 +1,46 @@
 from datetime import date
 from decimal import Decimal
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
+
+
+def _numero_ptbr(valor):
+    """Aceita o numero no MESMO formato que a tela exibe: virgula decimal, e campo
+    vazio como ausencia de valor.
+
+    O sistema inteiro imprime numero em pt-BR — `formatar_numero` devolve "0,1301" —
+    entao o laboratorio digita virgula. Recusar isso com 422 seria culpar o usuario
+    por seguir o formato do proprio app. E o formulario manda '' no campo que ficou
+    em branco, nao null: '' nao e Decimal valido, mas significa "nao informado".
+    """
+    if isinstance(valor, str):
+        texto = valor.strip().replace(",", ".")
+        return texto or None
+    return valor
+
+
+def _data_opcional(valor):
+    """Campo de data em branco chega como '' do formulario — trata como ausente."""
+    if isinstance(valor, str) and not valor.strip():
+        return None
+    return valor
+
+
+# Decimal e date que aceitam o que o formulario realmente manda.
+NumeroPtBr = Annotated[Decimal | None, BeforeValidator(_numero_ptbr)]
+DataOpcional = Annotated[date | None, BeforeValidator(_data_opcional)]
 
 
 class CertificadoConfigIn(BaseModel):
-    valor_referencia: Decimal | None = None
-    limite_minimo: Decimal | None = None
-    limite_maximo: Decimal | None = None
-    resolucao_instrumento: Decimal | None = None
-    incerteza_padrao_temp: Decimal | None = None
-    resolucao_pressao: Decimal | None = None
-    incerteza_padrao_pressao: Decimal | None = None
-    fator_k: Decimal | None = None
+    valor_referencia: NumeroPtBr = None
+    limite_minimo: NumeroPtBr = None
+    limite_maximo: NumeroPtBr = None
+    resolucao_instrumento: NumeroPtBr = None
+    incerteza_padrao_temp: NumeroPtBr = None
+    resolucao_pressao: NumeroPtBr = None
+    incerteza_padrao_pressao: NumeroPtBr = None
+    fator_k: NumeroPtBr = None
     tecnico_nome: str | None = None
     tecnico_cargo: str | None = None
     equipamentos_auxiliares: str | None = None
@@ -27,22 +55,22 @@ class CertificadoConfigOut(CertificadoConfigIn):
 class CertificadoPadraoIn(BaseModel):
     numero_cilindro: str = Field(min_length=1)
     numero_certificado: str | None = None
-    concentracao: Decimal | None = None
-    incerteza_concentracao: Decimal | None = None
+    concentracao: NumeroPtBr = None
+    incerteza_concentracao: NumeroPtBr = None
     unidade: str | None = "µmol/mol"
-    vigencia_inicio: date | None = None
-    vigencia_fim: date | None = None
+    vigencia_inicio: DataOpcional = None
+    vigencia_fim: DataOpcional = None
     ativo: bool = True
 
 
 class CertificadoPadraoUpdate(BaseModel):
     numero_cilindro: str | None = None
     numero_certificado: str | None = None
-    concentracao: Decimal | None = None
-    incerteza_concentracao: Decimal | None = None
+    concentracao: NumeroPtBr = None
+    incerteza_concentracao: NumeroPtBr = None
     unidade: str | None = None
-    vigencia_inicio: date | None = None
-    vigencia_fim: date | None = None
+    vigencia_inicio: DataOpcional = None
+    vigencia_fim: DataOpcional = None
     ativo: bool | None = None
 
 

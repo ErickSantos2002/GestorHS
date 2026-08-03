@@ -199,3 +199,42 @@ def test_padrao_vigente_desempata_pelo_id_quando_a_vigencia_inicio_empata(db_ses
     segundo = _padrao(db_session, numero_cilindro="B", vigencia_inicio=date(2025, 1, 1))
     assert primeiro.id < segundo.id
     assert padrao_vigente(db_session, date(2026, 1, 1)).id == segundo.id
+
+
+# --- entrada em formato pt-BR ---------------------------------------------------
+# O app IMPRIME numero com virgula (formatar_numero devolve "0,1301"), entao o
+# laboratorio digita com virgula. Recusar isso com 422 e culpar o usuario por
+# seguir o formato do proprio sistema.
+
+def test_criar_padrao_aceita_virgula_decimal(client_admin):
+    r = client_admin.post("/certificado-padroes", json={
+        "numero_cilindro": "CC747704", "numero_certificado": "202231419",
+        "concentracao": "100,1", "incerteza_concentracao": "2,0",
+        "unidade": "µmol/mol", "vigencia_inicio": "2025-01-01",
+        "vigencia_fim": None, "ativo": True,
+    })
+    assert r.status_code == 201
+    assert float(r.json()["concentracao"]) == 100.1
+    assert float(r.json()["incerteza_concentracao"]) == 2.0
+
+
+def test_criar_padrao_aceita_numerico_e_data_em_branco(client_admin):
+    # o formulario manda '' no campo que o usuario deixou vazio, nao null
+    r = client_admin.post("/certificado-padroes", json={
+        "numero_cilindro": "CC000001", "numero_certificado": "",
+        "concentracao": "", "incerteza_concentracao": "",
+        "unidade": "µmol/mol", "vigencia_inicio": "", "vigencia_fim": "",
+        "ativo": True,
+    })
+    assert r.status_code == 201
+    assert r.json()["concentracao"] is None
+    assert r.json()["vigencia_inicio"] is None
+
+
+def test_gravar_config_aceita_virgula_decimal(client_admin):
+    r = client_admin.put("/certificado-config", json={
+        "valor_referencia": "0,17", "resolucao_instrumento": "0,01",
+    })
+    assert r.status_code == 200
+    assert float(r.json()["valor_referencia"]) == 0.17
+    assert float(r.json()["resolucao_instrumento"]) == 0.01

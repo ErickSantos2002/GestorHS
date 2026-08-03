@@ -28,6 +28,16 @@ const PADRAO_NOVO = {
   unidade: 'µmol/mol', vigencia_inicio: hojeISO(), vigencia_fim: null as string | null, ativo: true,
 }
 
+/** Mostra o que o backend disse, e não um genérico.
+ *
+ *  O 409 de cilindro em uso explica o que fazer ("encerre a vigência"), e o 422 diz
+ *  qual campo recusou — engolir isso deixa o admin sem saída, tendo que pedir para
+ *  alguém ler o log para descobrir o que ele digitou de errado. Foi exatamente o que
+ *  aconteceu em 03/08/2026 com "Falha ao cadastrar o cilindro.". */
+function mensagemDeErro(err: unknown, generica: string): string {
+  return err instanceof ApiError && err.message ? err.message : generica
+}
+
 export function ConfiguracoesTab() {
   const { user } = useAuth()
   const podeEditar = podeEditarConfigCertificado(user)
@@ -63,8 +73,8 @@ export function ConfiguracoesTab() {
     try {
       setConfig(await certificadosApi.salvarConfig(config))
       setAviso('Configuração salva.')
-    } catch {
-      setAviso('Falha ao salvar a configuração.')
+    } catch (err) {
+      setAviso(mensagemDeErro(err, 'Falha ao salvar a configuração.'))
     } finally {
       setSalvando(false)
     }
@@ -79,8 +89,8 @@ export function ConfiguracoesTab() {
       setPadroes((atual) => [criado, ...atual])
       setNovo({ ...PADRAO_NOVO })
       setAviso('Cilindro cadastrado.')
-    } catch {
-      setAviso('Falha ao cadastrar o cilindro.')
+    } catch (err) {
+      setAviso(mensagemDeErro(err, 'Falha ao cadastrar o cilindro.'))
     } finally {
       setAdicionando(false)
     }
@@ -96,8 +106,8 @@ export function ConfiguracoesTab() {
       const atualizado = await certificadosApi.atualizarPadrao(id, { vigencia_fim: hojeISO() })
       setPadroes((atual) => atual.map((p) => (p.id === id ? atualizado : p)))
       setAviso('Vigência encerrada.')
-    } catch {
-      setAviso('Falha ao encerrar a vigência do cilindro.')
+    } catch (err) {
+      setAviso(mensagemDeErro(err, 'Falha ao encerrar a vigência do cilindro.'))
     } finally {
       setEncerrandoId(null)
     }
@@ -111,9 +121,7 @@ export function ConfiguracoesTab() {
       setPadroes((atual) => atual.filter((p) => p.id !== id))
       setAviso('Cilindro excluído.')
     } catch (err) {
-      // O 409 de cilindro em uso explica o que fazer ("encerre a vigência"); engolir a
-      // mensagem do backend deixaria o admin sem saída.
-      setAviso(err instanceof ApiError ? err.message : 'Falha ao excluir o cilindro.')
+      setAviso(mensagemDeErro(err, 'Falha ao excluir o cilindro.'))
     } finally {
       setExcluindoId(null)
     }
