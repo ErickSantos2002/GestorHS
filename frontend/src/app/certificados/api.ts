@@ -235,6 +235,14 @@ export const certificadosApi = {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dados),
     }),
 
+  /** Alteração parcial do cilindro — é como se aposenta um padrão: informar a
+   *  `vigencia_fim` (ou `ativo: false`) em vez de excluir, que o backend recusa
+   *  com 409 quando alguma OS já o usou. */
+  atualizarPadrao: (id: number, dados: Partial<Omit<CertificadoPadrao, 'id'>>): Promise<CertificadoPadrao> =>
+    apiJson<CertificadoPadrao>(`/certificado-padroes/${id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dados),
+    }),
+
   excluirPadrao: (id: number): Promise<void> =>
     apiVoid(`/certificado-padroes/${id}`, { method: 'DELETE' }),
 

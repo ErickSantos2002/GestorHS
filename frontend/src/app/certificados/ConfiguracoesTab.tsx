@@ -3,7 +3,9 @@ import { Input } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
 import { useAuth } from '../../auth/AuthContext'
 import { podeEditarConfigCertificado } from '../../auth/roles'
+import { ApiError } from '../../lib/api'
 import { hojeISO } from './valoresCertificado'
+import { padraoVigente } from './padraoVigente'
 import { certificadosApi, type CertificadoConfig, type CertificadoPadrao } from './api'
 
 const secao = 'text-xs font-semibold text-slate-500 uppercase tracking-wide'
@@ -26,14 +28,6 @@ const PADRAO_NOVO = {
   unidade: 'µmol/mol', vigencia_inicio: hojeISO(), vigencia_fim: null as string | null, ativo: true,
 }
 
-/** Um cilindro esta vigente se esta ativo e hoje cai dentro da vigencia.
- *  Espelha padrao_vigente() em backend/app/core/certificado_config.py. */
-function estaVigente(p: CertificadoPadrao): boolean {
-  const hoje = hojeISO()
-  if (!p.ativo || !p.vigencia_inicio) return false
-  return p.vigencia_inicio <= hoje && (p.vigencia_fim === null || p.vigencia_fim >= hoje)
-}
-
 export function ConfiguracoesTab() {
   const { user } = useAuth()
   const podeEditar = podeEditarConfigCertificado(user)
@@ -44,7 +38,14 @@ export function ConfiguracoesTab() {
   const [salvando, setSalvando] = useState(false)
   const [adicionando, setAdicionando] = useState(false)
   const [excluindoId, setExcluindoId] = useState<number | null>(null)
+  const [encerrandoId, setEncerrandoId] = useState<number | null>(null)
   const [aviso, setAviso] = useState('')
+
+  // O vigente sai da LISTA, nao de cada linha isolada: entre os cilindros que cobrem
+  // hoje, o backend escolhe um so — o de vigencia_inicio mais recente. Avaliar linha a
+  // linha marcava "Em uso" nos dois no fluxo esperado (cadastrar o novo, deixar o
+  // antigo em aberto), justamente quando a tela precisa ser inequivoca.
+  const idVigente = padraoVigente(padroes, hojeISO())?.id ?? null
 
   useEffect(() => {
     certificadosApi.config().then(setConfig).catch(() => setAviso('Falha ao carregar a configuração.'))
@@ -85,6 +86,23 @@ export function ConfiguracoesTab() {
     }
   }
 
+  /** Aposenta o cilindro sem apagá-lo: a rastreabilidade dos certificados já emitidos
+   *  depende do registro continuar existindo. Encerra HOJE — as calibrações feitas
+   *  hoje ainda saem com este cilindro. */
+  async function encerrarVigencia(id: number) {
+    setEncerrandoId(id)
+    setAviso('')
+    try {
+      const atualizado = await certificadosApi.atualizarPadrao(id, { vigencia_fim: hojeISO() })
+      setPadroes((atual) => atual.map((p) => (p.id === id ? atualizado : p)))
+      setAviso('Vigência encerrada.')
+    } catch {
+      setAviso('Falha ao encerrar a vigência do cilindro.')
+    } finally {
+      setEncerrandoId(null)
+    }
+  }
+
   async function excluirPadrao(id: number) {
     setExcluindoId(id)
     setAviso('')
@@ -92,8 +110,10 @@ export function ConfiguracoesTab() {
       await certificadosApi.excluirPadrao(id)
       setPadroes((atual) => atual.filter((p) => p.id !== id))
       setAviso('Cilindro excluído.')
-    } catch {
-      setAviso('Falha ao excluir o cilindro.')
+    } catch (err) {
+      // O 409 de cilindro em uso explica o que fazer ("encerre a vigência"); engolir a
+      // mensagem do backend deixaria o admin sem saída.
+      setAviso(err instanceof ApiError ? err.message : 'Falha ao excluir o cilindro.')
     } finally {
       setExcluindoId(null)
     }
@@ -166,10 +186,16 @@ export function ConfiguracoesTab() {
                 <td>{p.numero_certificado ?? '—'}</td>
                 <td>{p.concentracao ?? '—'} {p.unidade ?? ''}</td>
                 <td>{p.vigencia_inicio ?? '—'} → {p.vigencia_fim ?? 'vigente'}</td>
-                <td>{estaVigente(p)
+                <td>{p.id === idVigente
                   ? <span className="text-emerald-400 text-xs font-medium">Em uso</span>
                   : <span className="text-slate-500 text-xs">—</span>}</td>
-                <td className="text-right">
+                <td className="text-right space-x-3">
+                  {podeEditar && p.vigencia_fim === null && (
+                    <button onClick={() => encerrarVigencia(p.id)} disabled={encerrandoId === p.id}
+                      className="text-xs text-amber-400 hover:text-amber-300 disabled:opacity-60 disabled:cursor-not-allowed">
+                      {encerrandoId === p.id ? 'Encerrando…' : 'Encerrar vigência'}
+                    </button>
+                  )}
                   {podeEditar && (
                     <button onClick={() => excluirPadrao(p.id)} disabled={excluindoId === p.id}
                       className="text-xs text-red-400 hover:text-red-300 disabled:opacity-60 disabled:cursor-not-allowed">

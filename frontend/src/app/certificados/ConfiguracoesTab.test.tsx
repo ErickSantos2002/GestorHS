@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { ConfiguracoesTab } from './ConfiguracoesTab'
 
 vi.mock('./api', () => ({
@@ -8,6 +8,7 @@ vi.mock('./api', () => ({
     salvarConfig: vi.fn(),
     padroes: vi.fn(),
     criarPadrao: vi.fn(),
+    atualizarPadrao: vi.fn(),
     excluirPadrao: vi.fn(),
   },
 }))
@@ -30,15 +31,18 @@ const CONFIG = {
   equipamentos_auxiliares: 'TESTO 622', margem_temperatura: '20 ºC ~ 24 ºC',
 }
 
+const CILINDRO = {
+  id: 7, numero_cilindro: 'CC747704', numero_certificado: '202231419',
+  concentracao: '100.1000', incerteza_concentracao: '2.0000',
+  unidade: 'µmol/mol', vigencia_inicio: '2025-01-01', vigencia_fim: null as string | null, ativo: true,
+}
+
 describe('ConfiguracoesTab', () => {
   beforeEach(() => {
     authState.user = { funcao: 'Administrador' }
     vi.mocked(certificadosApi.config).mockResolvedValue(CONFIG)
-    vi.mocked(certificadosApi.padroes).mockResolvedValue([{
-      id: 7, numero_cilindro: 'CC747704', numero_certificado: '202231419',
-      concentracao: '100.1000', incerteza_concentracao: '2.0000',
-      unidade: 'µmol/mol', vigencia_inicio: '2025-01-01', vigencia_fim: null, ativo: true,
-    }])
+    vi.mocked(certificadosApi.padroes).mockResolvedValue([{ ...CILINDRO }])
+    vi.mocked(certificadosApi.atualizarPadrao).mockReset()
   })
 
   it('carrega e mostra os parametros do calculo', async () => {
@@ -62,5 +66,41 @@ describe('ConfiguracoesTab', () => {
     expect(screen.queryByRole('button', { name: /salvar/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /adicionar/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /excluir/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /encerrar vig/i })).not.toBeInTheDocument()
+  })
+
+  it('marca um so cilindro como Em uso quando dois estao em aberto', async () => {
+    // Fluxo esperado da troca de gás: cadastra-se o cilindro novo e o antigo fica
+    // sem vigência fim. O backend (padrao_vigente) escolhe o de início mais recente —
+    // a tabela tem de dizer a mesma coisa, e uma só vez.
+    vi.mocked(certificadosApi.padroes).mockResolvedValue([
+      { ...CILINDRO, id: 8, numero_cilindro: 'NOVO', vigencia_inicio: '2026-01-01' },
+      { ...CILINDRO, id: 7, numero_cilindro: 'ANTIGO', vigencia_inicio: '2025-01-01' },
+    ])
+    render(<ConfiguracoesTab />)
+    await waitFor(() => expect(screen.getByText('NOVO')).toBeInTheDocument())
+
+    expect(screen.getAllByText('Em uso')).toHaveLength(1)
+    const linhaNovo = screen.getByText('NOVO').closest('tr')!
+    expect(linhaNovo).toHaveTextContent('Em uso')
+  })
+
+  it('encerra a vigencia do cilindro pela API', async () => {
+    vi.mocked(certificadosApi.atualizarPadrao).mockResolvedValue({ ...CILINDRO, vigencia_fim: '2026-08-03' })
+    render(<ConfiguracoesTab />)
+    await waitFor(() => expect(screen.getByText('CC747704')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: /encerrar vig/i }))
+    await waitFor(() => expect(certificadosApi.atualizarPadrao).toHaveBeenCalledTimes(1))
+    expect(vi.mocked(certificadosApi.atualizarPadrao).mock.calls[0][0]).toBe(7)
+    expect(vi.mocked(certificadosApi.atualizarPadrao).mock.calls[0][1]).toHaveProperty('vigencia_fim')
+    await waitFor(() => expect(screen.getByText('Vigência encerrada.')).toBeInTheDocument())
+  })
+
+  it('nao oferece encerrar vigencia em cilindro que ja tem fim', async () => {
+    vi.mocked(certificadosApi.padroes).mockResolvedValue([{ ...CILINDRO, vigencia_fim: '2025-12-31' }])
+    render(<ConfiguracoesTab />)
+    await waitFor(() => expect(screen.getByText('CC747704')).toBeInTheDocument())
+    expect(screen.queryByRole('button', { name: /encerrar vig/i })).not.toBeInTheDocument()
   })
 })
