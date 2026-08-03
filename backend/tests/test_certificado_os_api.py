@@ -266,6 +266,32 @@ def test_gerar_grava_as_cinco_medicoes_e_o_padrao_vigente(client, usuario_admin,
     assert ordem.padrao_id == padrao.id
 
 
+def test_gerar_sem_corpo_tambem_congela_o_padrao_vigente(client, usuario_admin, db_session):
+    """A chamada sem corpo (o path que so conclui o laboratorio) e legitima e testada em
+    test_gerar_calibracao. Ela tambem precisa congelar o cilindro: sem isso, uma OS
+    concluida sem corpo ficaria com padrao_id sempre None."""
+    from datetime import date
+    from app.models import CertificadoPadrao, Ordem
+
+    h = _headers(client, "admin@hs.com", "senha123")
+    oid = _os_com_modelo(client, db_session, h, tipos=("C",), tipo_servico="C")
+
+    padrao = CertificadoPadrao(
+        numero_cilindro="CC747704", numero_certificado="202231419",
+        concentracao=100.1, incerteza_concentracao=2.0, unidade="µmol/mol",
+        vigencia_inicio=date(2020, 1, 1), vigencia_fim=None, ativo=True,
+    )
+    db_session.add(padrao)
+    db_session.commit()
+
+    r = client.post(f"/ordens/{oid}/gerar-certificado", headers=h)
+    assert r.status_code == 200
+
+    ordem = db_session.query(Ordem).filter(Ordem.id == oid).first()
+    assert ordem.padrao_id == padrao.id
+    assert ordem.data_calibracao is not None
+
+
 def test_gerar_sem_padrao_cadastrado_grava_none_e_nao_falha(client, usuario_admin, db_session):
     from app.models import Ordem
     h = _headers(client, "admin@hs.com", "senha123")

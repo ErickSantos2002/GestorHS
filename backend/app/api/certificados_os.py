@@ -82,17 +82,18 @@ def gerar(ordem_id: int, dados: GerarCertificadoIn | None = None, db: Session = 
                 dados.data_calibracao.year, dados.data_calibracao.month, dados.data_calibracao.day,
                 tzinfo=timezone.utc,
             )
-        elif ordem.data_calibracao is None:
-            ordem.data_calibracao = agora()
-        # Congela o cilindro usado NESTA calibracao. Sem isso, regerar o certificado
-        # meses depois apontaria para o cilindro vigente naquele momento — rastreabilidade
-        # falsa num documento da Qualidade.
-        data_ref = ordem.data_calibracao.date() if ordem.data_calibracao else None
-        padrao = padrao_vigente(db, data_ref)
-        ordem.padrao_id = padrao.id if padrao else None
         overrides = {k: getattr(dados, k) for k in _CAMPOS_OVERRIDE if getattr(dados, k)}
         ordem.cert_overrides = overrides or None
-        db.flush()
+    if ordem.data_calibracao is None:
+        ordem.data_calibracao = agora()
+    # Congela o cilindro usado NESTA calibracao. Sem isso, regerar o certificado
+    # meses depois apontaria para o cilindro vigente naquele momento — rastreabilidade
+    # falsa num documento da Qualidade. Roda em toda chamada (com ou sem corpo) para que
+    # o caminho sem corpo tambem congele o padrao ao concluir o laboratorio.
+    data_ref = ordem.data_calibracao.date() if ordem.data_calibracao else None
+    padrao = padrao_vigente(db, data_ref)
+    ordem.padrao_id = padrao.id if padrao else None
+    db.flush()
     gerados = gerar_certificados(db, ordem, tipos_para(ordem))
     if ordem.fase == wf.FASE_LABORATORIO and ordem.desfecho_lab == wf.DESFECHO_PENDENTE:
         concluir_laboratorio(db, ordem)
