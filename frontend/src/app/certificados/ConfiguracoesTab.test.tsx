@@ -72,6 +72,10 @@ describe('ConfiguracoesTab', () => {
     await waitFor(() => expect(screen.getByText('CC747704')).toBeInTheDocument())
 
     expect(screen.getByLabelText(/valor de refer/i)).toBeDisabled()
+    // Os selects de documento tambem: sao o que decide qual PDF o cliente baixa pelo QR
+    expect(screen.getByLabelText(/certificado do g.s/i)).toBeDisabled()
+    expect(screen.getByLabelText(/termohigr/i)).toBeDisabled()
+    expect(screen.getByLabelText(/bar.metro/i)).toBeDisabled()
     expect(screen.queryByRole('button', { name: /salvar/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /adicionar/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /excluir/i })).not.toBeInTheDocument()
