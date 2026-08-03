@@ -1171,16 +1171,39 @@ Em `certificado_campos`, acrescentar ao `CertificadoCamposOut(...)`, junto dos o
         calib_teste4=ordem.calib_teste4, calib_teste5=ordem.calib_teste5,
 ```
 
-Em `gerar`, dentro do bloco `if dados is not None:`, logo depois do `elif ordem.data_calibracao is None: ordem.data_calibracao = agora()` e antes do `overrides = ...`:
+Em `gerar`, reestruturar para que **em toda chamada** — com corpo ou sem — a data de calibração seja resolvida e o cilindro congelado. Escrever `_CAMPOS_CALIB` e `cert_overrides` continua dentro do `if dados is not None:`, porque esses vêm mesmo do formulário; o default da data e o congelamento saem:
 
 ```python
-        # Congela o cilindro usado NESTA calibracao. Sem isso, regerar o certificado
-        # meses depois apontaria para o cilindro vigente naquele momento — rastreabilidade
-        # falsa num documento da Qualidade.
-        data_ref = ordem.data_calibracao.date() if ordem.data_calibracao else None
-        padrao = padrao_vigente(db, data_ref)
-        ordem.padrao_id = padrao.id if padrao else None
+    if dados is not None:
+        for campo in _CAMPOS_CALIB:
+            setattr(ordem, campo, getattr(dados, campo))
+        if dados.data_calibracao is not None:
+            ordem.data_calibracao = datetime(
+                dados.data_calibracao.year, dados.data_calibracao.month, dados.data_calibracao.day,
+                tzinfo=timezone.utc,
+            )
+        overrides = {k: getattr(dados, k) for k in _CAMPOS_OVERRIDE if getattr(dados, k)}
+        ordem.cert_overrides = overrides or None
+    # Fora do bloco de proposito: o endpoint aceita chamada SEM corpo (e o
+    # test_gerar_calibracao usa esse caminho para concluir o laboratorio). Se o default
+    # da data e o congelamento ficassem dentro do `if`, uma conclusao sem corpo emitiria
+    # certificado sem data e sem rastreabilidade do cilindro.
+    if ordem.data_calibracao is None:
+        ordem.data_calibracao = agora()
+    # Congela o cilindro usado NESTA calibracao. Sem isso, regerar o certificado
+    # meses depois apontaria para o cilindro vigente naquele momento — rastreabilidade
+    # falsa num documento da Qualidade. Ancorado na data da calibracao, nao em "agora",
+    # entao recalcular e idempotente.
+    data_ref = ordem.data_calibracao.date() if ordem.data_calibracao else None
+    padrao = padrao_vigente(db, data_ref)
+    ordem.padrao_id = padrao.id if padrao else None
+    db.flush()
 ```
+
+> ⚠️ Corrigido em 03/08/2026 após a revisão da Task 4. A versão original deste passo
+> mandava pôr o congelamento **dentro** do `if dados is not None:` — o que deixava
+> `padrao_id` e `data_calibracao` nulos na chamada sem corpo. Decisão do Erick: a finding
+> governa, o plano estava errado.
 
 Em `backend/app/api/ordens_acoes.py`, trocar `_CAMPOS_CALIB` por:
 
