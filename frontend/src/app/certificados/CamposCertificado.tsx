@@ -1,9 +1,10 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Input } from '../../components/ui/Input'
 import { Select } from '../../components/ui/Select'
-import { mediaTestes } from '../../lib/calibragem'
+import { mediaTestesPreenchidas } from '../../lib/calibragem'
 import { formatarDocumento, soDigitos } from '../../lib/documento'
-import { certificadosApi, type CalculoPrevia } from './api'
+import { certificadosApi, type CalculoPrevia, type CertificadoPadrao } from './api'
+import { padraoVigente } from './padraoVigente'
 import type { ValoresCertificado } from './valoresCertificado'
 
 const secao = 'text-xs font-semibold text-slate-500 uppercase tracking-wide'
@@ -28,9 +29,18 @@ export function CamposCertificado({ valores, onChange, extra, medicoes = 3 }: {
   const valoresMedicoes = chaves.map((c) => valores[c])
   const chaveMedicoes = valoresMedicoes.join('|')
 
+  // Media que ja veio gravada do backend e as medicoes com que ela chegou. Enquanto
+  // as medicoes nao mudarem, a media preenchida NAO pode ser recalculada: o efeito
+  // roda na montagem e sobrescreveria em silencio o valor gravado na OS.
+  const mediaInicial = useRef(valores.media.trim())
+  const medicoesIniciais = useRef(chaveMedicoes)
+
   useEffect(() => {
     if (mediaEditada) return
-    onChange({ media: mediaTestes(...valoresMedicoes) })
+    if (mediaInicial.current !== '' && chaveMedicoes === medicoesIniciais.current) return
+    // Media sobre as medicoes PREENCHIDAS — mesma regra do backend. Exigir as cinco
+    // apagaria a media de toda OS anterior a este formato, que tem so tres.
+    onChange({ media: mediaTestesPreenchidas(...valoresMedicoes) })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chaveMedicoes, mediaEditada])
 
@@ -51,6 +61,21 @@ export function CamposCertificado({ valores, onChange, extra, medicoes = 3 }: {
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chaveMedicoes, medicoes])
+
+  // Cilindro que sera gravado nesta geracao. So no modo de 5 medicoes: e o unico
+  // fluxo que grava padrao_id. A lista vem inteira e a resolucao roda aqui porque a
+  // data de calibracao e editavel no proprio formulario.
+  const [padroes, setPadroes] = useState<CertificadoPadrao[] | null>(null)
+  useEffect(() => {
+    if (medicoes !== 5) return
+    let ativo = true
+    certificadosApi.padroes()
+      .then((lista) => { if (ativo) setPadroes(lista) })
+      // informativo: falhar aqui nao pode travar a geracao do certificado
+      .catch(() => { if (ativo) setPadroes(null) })
+    return () => { ativo = false }
+  }, [medicoes])
+  const padrao = padroes ? padraoVigente(padroes, valores.dataCalib) : null
 
   return (
     <>
@@ -104,6 +129,24 @@ export function CamposCertificado({ valores, onChange, extra, medicoes = 3 }: {
           })}
         </div>
         <Input id="media" label="Média dos testes" value={valores.media} onChange={(e) => { setMediaEditada(true); onChange({ media: e.target.value }) }} />
+        {medicoes === 5 && padroes !== null && (
+          // Rastreabilidade (seção 8 do EPS-LAB-002): o operador precisa ver o cilindro
+          // que sairá no documento. NAO bloqueia a geração — mesmo princípio do aviso de
+          // medição fora da faixa: um certificado que precisa sair, sai.
+          <p className="text-xs text-slate-400">
+            {padrao ? (
+              <>
+                Cilindro que será gravado: <strong className="text-slate-200">{padrao.numero_cilindro}</strong>
+                {' '}· certificado {padrao.numero_certificado ?? '—'}
+                {' '}· {padrao.concentracao ?? '—'} {padrao.unidade ?? ''}
+              </>
+            ) : (
+              <span className="text-amber-400">
+                Nenhum cilindro cadastrado cobre esta data — a seção de padrões sairá em branco.
+              </span>
+            )}
+          </p>
+        )}
         {previa && (
           <div className="rounded-lg border border-slate-700 bg-background-elevated p-3 space-y-2">
             <p className={secao}>Cálculo (somente leitura)</p>

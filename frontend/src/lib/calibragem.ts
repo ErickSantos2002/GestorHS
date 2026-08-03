@@ -17,3 +17,18 @@ export function mediaTestes(...valores: string[]): string {
     .replace(/\.$/, '')   // e o ponto solto, se sobrar (1,000 → 1)
   return media.replace('.', ',')
 }
+
+/** Média das medições PREENCHIDAS, ignorando as vazias.
+ *
+ * É o que o certificado EPS-LAB-002 precisa: o backend calcula a média sobre as
+ * medições que existirem (`statistics.fmean` sobre a lista já filtrada, em
+ * `core/certificado_calculo.py`), então a tela tem de fazer o mesmo. Com a regra
+ * do `mediaTestes` — vazio se QUALQUER medição estiver em branco — toda OS anterior
+ * a este formato, que tem só 3 das 5 medições, teria a média apagada ao abrir o modal.
+ * Sem nenhuma medição preenchida devolve '' (não há o que calcular).
+ */
+export function mediaTestesPreenchidas(...valores: string[]): string {
+  const preenchidos = valores.filter((v) => v.trim() !== '')
+  if (preenchidos.length === 0) return ''
+  return mediaTestes(...preenchidos)
+}

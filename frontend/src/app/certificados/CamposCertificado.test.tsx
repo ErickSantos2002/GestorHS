@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { CamposCertificado } from './CamposCertificado'
 import { valoresIniciais, type ValoresCertificado } from './valoresCertificado'
@@ -7,17 +7,32 @@ import { valoresIniciais, type ValoresCertificado } from './valoresCertificado'
 vi.mock('./api', () => ({
   certificadosApi: {
     calculoPrevia: vi.fn(),
+    padroes: vi.fn(),
   },
 }))
 
 import { certificadosApi } from './api'
 
-function Harness({ extra }: { extra?: React.ReactNode }) {
-  const [v, setV] = useState<ValoresCertificado>(valoresIniciais())
-  return <CamposCertificado valores={v} onChange={(p) => setV((a) => ({ ...a, ...p }))} extra={extra} />
+function Harness({ extra, medicoes, iniciais }: {
+  extra?: React.ReactNode
+  medicoes?: 3 | 5
+  iniciais?: Partial<ValoresCertificado>
+}) {
+  const [v, setV] = useState<ValoresCertificado>({ ...valoresIniciais(), ...iniciais })
+  return <CamposCertificado valores={v} onChange={(p) => setV((a) => ({ ...a, ...p }))} extra={extra} medicoes={medicoes} />
+}
+
+const CILINDRO = {
+  id: 7, numero_cilindro: 'CC747704', numero_certificado: '202231419',
+  concentracao: '100.1000', incerteza_concentracao: '2.0000', unidade: 'µmol/mol',
+  vigencia_inicio: '2020-01-01', vigencia_fim: null, ativo: true,
 }
 
 describe('CamposCertificado', () => {
+  beforeEach(() => {
+    vi.mocked(certificadosApi.padroes).mockResolvedValue([])
+  })
+
   it('mostra as tres secoes do formulario', () => {
     render(<Harness />)
     expect(screen.getByText('Cliente')).toBeInTheDocument()
@@ -52,11 +67,12 @@ describe('CamposCertificado', () => {
     limite_minimo: '0,15', limite_maximo: '0,19', fora_da_faixa: [false, false, false, false, false],
   }
 
-  it('mostra cinco campos de medicao quando medicoes=5', () => {
+  it('mostra cinco campos de medicao quando medicoes=5', async () => {
     render(<CamposCertificado valores={valoresIniciais()} onChange={() => {}} medicoes={5} />)
     expect(screen.getByLabelText('Teste 1')).toBeInTheDocument()
     expect(screen.getByLabelText('Teste 4')).toBeInTheDocument()
     expect(screen.getByLabelText('Teste 5')).toBeInTheDocument()
+    await screen.findByText(/Nenhum cilindro cadastrado cobre esta data/i)   // assenta a busca de cilindros
   })
 
   it('fica em tres campos por padrao — venda e avulso nao aceitam cinco', () => {
@@ -86,6 +102,48 @@ describe('CamposCertificado', () => {
     const valores = { ...valoresIniciais(), t1: '0.16', t2: '0.16', t3: '0.16', t4: '0.16', t5: '0.16' }
     render(<CamposCertificado valores={valores} onChange={() => {}} medicoes={5} />)
     await waitFor(() => expect(screen.getByText('0,1301')).toBeInTheDocument())
+  })
+
+  it('calcula a media so com as medicoes preenchidas — OS antiga nao perde a media', async () => {
+    // Regressao: com medicoes=5 e t4/t5 em branco (toda OS anterior ao EPS-LAB-002),
+    // a media era zerada na montagem do modal e o Gerar apagava calib_teste_media no banco.
+    render(<Harness medicoes={5} />)
+    fireEvent.change(screen.getByLabelText('Teste 1'), { target: { value: '0,10' } })
+    fireEvent.change(screen.getByLabelText('Teste 2'), { target: { value: '0,20' } })
+    fireEvent.change(screen.getByLabelText('Teste 3'), { target: { value: '0,30' } })
+    const media = screen.getByLabelText('Média dos testes') as HTMLInputElement
+    expect(media.value).toBe('0,2')
+    expect(media.value).not.toBe('')
+    await screen.findByText(/Nenhum cilindro cadastrado cobre esta data/i)   // assenta a busca de cilindros
+  })
+
+  it('nao apaga a media que veio gravada antes de o usuario mexer nas medicoes', async () => {
+    render(<Harness medicoes={5} iniciais={{ t1: '0,16', t2: '0,16', t3: '0,16', media: '0,163' }} />)
+    expect((screen.getByLabelText('Média dos testes') as HTMLInputElement).value).toBe('0,163')
+    await screen.findByText(/Nenhum cilindro cadastrado cobre esta data/i)
+  })
+
+  it('mostra o cilindro que sera gravado no certificado', async () => {
+    vi.mocked(certificadosApi.padroes).mockResolvedValue([CILINDRO])
+    render(<Harness medicoes={5} iniciais={{ dataCalib: '2026-07-31' }} />)
+    await waitFor(() => expect(screen.getByText('CC747704')).toBeInTheDocument())
+    expect(screen.getByText(/certificado 202231419/)).toBeInTheDocument()
+  })
+
+  it('avisa quando nenhum cilindro cobre a data da calibracao, sem bloquear', async () => {
+    vi.mocked(certificadosApi.padroes).mockResolvedValue([
+      { ...CILINDRO, vigencia_inicio: '2026-01-01', vigencia_fim: '2026-06-30' },
+    ])
+    render(<Harness medicoes={5} iniciais={{ dataCalib: '2026-07-31' }} />)
+    await waitFor(() => expect(screen.getByText(/Nenhum cilindro cadastrado cobre esta data/i)).toBeInTheDocument())
+    expect(screen.getByLabelText('Teste 1')).not.toBeDisabled()
+  })
+
+  it('nao busca os cilindros quando esta em tres medicoes', async () => {
+    vi.mocked(certificadosApi.padroes).mockClear()
+    render(<Harness />)
+    await new Promise((r) => setTimeout(r, 50))
+    expect(certificadosApi.padroes).not.toHaveBeenCalled()
   })
 
   it('nao chama a previa quando esta em tres medicoes', async () => {

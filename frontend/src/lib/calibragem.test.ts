@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { mediaTestes } from './calibragem'
+import { mediaTestes, mediaTestesPreenchidas } from './calibragem'
 
 describe('mediaTestes', () => {
   it('média com 3 casas decimais (caso do certificado)', () => {
@@ -21,5 +21,23 @@ describe('mediaTestes', () => {
 
   it('vazio quando algum teste não é número', () => {
     expect(mediaTestes('0,186', 'abc', '0,183')).toBe('')
+  })
+})
+
+describe('mediaTestesPreenchidas', () => {
+  it('ignora as medições em branco — OS antiga com 3 das 5 continua tendo média', () => {
+    expect(mediaTestesPreenchidas('0,10', '0,20', '0,30', '', '')).toBe('0,2')
+  })
+
+  it('usa as cinco quando as cinco estão preenchidas', () => {
+    expect(mediaTestesPreenchidas('0,16', '0,16', '0,16', '0,16', '0,16')).toBe('0,16')
+  })
+
+  it('vazio quando não há nenhuma medição', () => {
+    expect(mediaTestesPreenchidas('', '', '', '', '')).toBe('')
+  })
+
+  it('vazio quando uma das preenchidas não é número', () => {
+    expect(mediaTestesPreenchidas('0,16', 'abc', '', '', '')).toBe('')
   })
 })
