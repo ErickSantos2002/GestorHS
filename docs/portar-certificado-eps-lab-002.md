@@ -50,8 +50,10 @@ Todos são **acréscimos ou trocas pontuais**. Nenhum apaga conteúdo existente,
 ### Seção 9 — Resultados
 
 - [ ] **4. Limites** → `[limitemin]mg/L` e `[limitemax]mg/L` no lugar de `0,15mg/L` / `0,19mg/L`.
-- [ ] **5. Testes 4 e 5** — a tabela passa de 4 para 6 colunas: `Teste 1..5` + `Média`.
-- [ ] **6. Linha "Erro de medição"** — cabeçalho com `colspan="6"` e a linha de valores `[erro1]`..`[erro5]` + célula vazia.
+- [ ] **5. Testes 4 e 5, e SAI a coluna Média** — a tabela fica com **5 colunas**: `Teste 1` a `Teste 5`.
+  A Qualidade pediu (04/08/2026) para tirar a média do certificado impresso. **Ela continua no sistema**: o modal segue calculando e gravando `calib_teste_media`, e o valor continua espelhado na frota — só não vai mais para o papel. O token `[calibtestemedia]` continua existindo para quem precisar.
+- [ ] **6. Linha "Erro de medição"** — cabeçalho com `colspan="5"` e a linha de valores `[erro1]`..`[erro5]`.
+  ⚠️ Se você partir de um modelo que ainda tem a Média, são **quatro** edições ligadas: tirar o cabeçalho `Média`, tirar a célula `[calibtestemedia]`, baixar o `colspan` de 6 para 5 e tirar a célula `&nbsp;` do fim da linha de erros. Esquecer o `colspan` desalinha a tabela inteira.
 - [ ] **7. Tabela da Incerteza Expandida**, logo abaixo da tabela de testes:
   ```
   Incerteza Expandida (U) | [incertezaexpandida] mg/L
@@ -77,6 +79,7 @@ Todos são **acréscimos ou trocas pontuais**. Nenhum apaga conteúdo existente,
 - [ ] **Conferir os 5 campos de identidade** da tabela do topo, incluindo as **duas ocorrências** do código e do título.
 - [ ] **Olhar as notas** — se saírem em negrito, o bloco ficou dentro do `<strong>` (item 8).
 - [ ] **Conferir se apareceram os 3 QR** com os rótulos por cima.
+- [ ] **Conferir que a tabela de testes tem 5 colunas alinhadas** e que a faixa "Erro de medição" atravessa a largura toda — se o `colspan` ficou em 6, a tabela sai torta (item 6).
 
 ---
 
@@ -90,6 +93,8 @@ Não são parte da portabilidade, mas vale saber que estão lá e não vêm da C
 
 ---
 
-## Pendência para a Qualidade
+## Sobre o código do método
 
-O template do iBlow10 PRO declara **`Método: FLX-LAB-001`**, mas a planilha `docs/Certificado Iblow.xlsx`, que originou este formato, diz **`FLX-LAB-002`**. Um dos dois está errado e não é decisão de quem porta o template — confirmar com o Walbert antes de replicar o código do método nos demais aparelhos.
+A planilha `docs/Certificado Iblow.xlsx`, que originou este formato, escreve `FLX-LAB-002` no método — mas o **template está correto**: o iBlow10 PRO é `FLX-LAB-001` (confirmado pelo Erick em 04/08/2026). A planilha é a especificação do **conteúdo**, não a fonte do código do método; cada aparelho tem o seu, e ele vem do template existente.
+
+Ou seja: ao portar, **mantenha o código do método que já está no modelo do aparelho** e não copie o da referência.
