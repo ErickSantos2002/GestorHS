@@ -10,16 +10,29 @@ from html import escape as _html_escape
 
 import segno
 
-# Escala do QR. 3 da ~90px de lado no PDF: grande o bastante para a camera de um celular
-# pegar e pequeno o bastante para os tres caberem lado a lado no rodape da pagina 2 —
-# que e o requisito, porque o pedido nasceu de economizar papel.
-_ESCALA = 3
+# Escala do SVG gerado pelo segno. Nao decide o tamanho impresso — quem decide e o
+# width/height do <img> abaixo, porque SVG e vetorial. Fica alta so para o arquivo nao
+# nascer minusculo e depender de upscale em algum leitor de PDF menos cuidadoso.
+_ESCALA = 5
 
-# Lado da imagem no HTML, em px. E SVG, entao reamostragem nao e o problema — o que
-# importa e o tamanho: pequeno o bastante para os tres QRs caberem lado a lado no
-# rodape sem empurrar o certificado para uma terceira pagina, que e o ponto de toda
-# a funcionalidade (parar de imprimir os documentos auxiliares separados).
-_LADO_PX = 90
+# Lado da imagem no HTML, em px. E ISTO que define o tamanho impresso.
+#
+# 04/08/2026: subiu de 90 para 200 porque um celular do laboratorio nao conseguiu ler.
+# A conta que importa e o tamanho FISICO de cada modulo do QR, nao o numero de px.
+# A URL de producao gera um simbolo de 49 modulos (versao 6, nivel L). Medido no PDF
+# renderizado: 35,4 mm de lado / 49 modulos = ~0,72 mm por modulo.
+# Com 90 px dava 0,39 mm, abaixo do minimo pratico (~0,6 mm) para camera de celular.
+# Para remedir depois de qualquer mudanca: renderizar o PDF, `pdftoppm -r 300`, e ler o
+# tamanho do simbolo com um decodificador — a olho nao da para saber se encolheu.
+#
+# Nao subir o nivel de correcao para M achando que ajuda a LER: M leva o simbolo a 57
+# modulos, o que deixa cada modulo MENOR no mesmo espaco. M protege contra sujeira e
+# dobra no papel, nao contra modulo pequeno.
+#
+# Teto: os tres QRs tem de caber lado a lado sem empurrar o certificado para uma
+# terceira pagina — trocar tres documentos impressos por uma folha a mais em todo
+# certificado comeria parte do ganho que motivou a funcionalidade.
+_LADO_PX = 200
 
 
 def qr_data_uri(url: str) -> str:
