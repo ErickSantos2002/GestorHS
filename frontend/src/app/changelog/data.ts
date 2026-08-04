@@ -32,6 +32,7 @@ export const CHANGELOG: VersaoChangelog[] = [
       { tipo: 'melhoria', texto: 'Os modais de certificado destacam medição fora da faixa, mostram o cálculo e informam qual cilindro de gás será registrado antes de gerar.' },
       { tipo: 'melhoria', texto: 'A OS grava qual cilindro foi usado, para que regerar um certificado antigo mantenha a rastreabilidade correta.' },
       { tipo: 'novidade', texto: 'O certificado de calibração passa a trazer QR codes dos certificados do gás, do termohigrômetro e do barômetro — não é mais preciso enviá-los impressos junto. Os documentos são escolhidos em Certificados › Configurações.' },
+      { tipo: 'melhoria', texto: 'O Laboratório passa a editar a aba Configurações: parâmetros do cálculo, técnico, documentos anexos e o cadastro de cilindros. Excluir cilindro continua só com o Administrador — para aposentar um cilindro, use "Encerrar vigência".' },
     ],
   },
   {
