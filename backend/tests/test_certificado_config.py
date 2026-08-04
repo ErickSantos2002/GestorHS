@@ -99,8 +99,15 @@ def test_put_config_grava_e_continua_singleton(client_admin, db_session):
     assert db_session.query(CertificadoConfig).count() == 1
 
 
-def test_put_config_negado_para_nao_admin(client_lab):
+def test_laboratorio_grava_a_config(client_lab):
+    # O Laboratorio opera a calibracao e sabe qual gas esta na bancada — edita tudo
+    # aqui, menos excluir cilindro (ver test_excluir_padrao_negado_para_o_laboratorio).
     r = client_lab.put("/certificado-config", json={"tecnico_nome": "X"})
+    assert r.status_code == 200
+
+
+def test_put_config_negado_para_funcao_de_fora(client_com):
+    r = client_com.put("/certificado-config", json={"tecnico_nome": "X"})
     assert r.status_code == 403
 
 
@@ -129,8 +136,13 @@ def test_crud_de_padroes(client_admin):
     assert client_admin.get("/certificado-padroes").json() == []
 
 
-def test_criar_padrao_negado_para_nao_admin(client_lab):
+def test_laboratorio_cadastra_cilindro(client_lab):
     r = client_lab.post("/certificado-padroes", json={"numero_cilindro": "X"})
+    assert r.status_code == 201
+
+
+def test_criar_padrao_negado_para_funcao_de_fora(client_com):
+    r = client_com.post("/certificado-padroes", json={"numero_cilindro": "X"})
     assert r.status_code == 403
 
 
@@ -183,9 +195,29 @@ def test_excluir_padrao_em_uso_por_os_devolve_409(client_admin, db_session):
     assert len(client_admin.get("/certificado-padroes").json()) == 1
 
 
-def test_atualizar_padrao_negado_para_nao_admin(client_lab):
-    r = client_lab.patch("/certificado-padroes/1", json={"vigencia_fim": "2026-12-31"})
+def test_laboratorio_encerra_a_vigencia_do_cilindro(client_lab):
+    criado = client_lab.post("/certificado-padroes", json={
+        "numero_cilindro": "CC747704", "vigencia_inicio": "2025-01-01", "ativo": True,
+    }).json()
+    r = client_lab.patch(f"/certificado-padroes/{criado['id']}", json={"vigencia_fim": "2026-12-31"})
+    assert r.status_code == 200
+
+
+def test_atualizar_padrao_negado_para_funcao_de_fora(client_com):
+    r = client_com.patch("/certificado-padroes/1", json={"vigencia_fim": "2026-12-31"})
     assert r.status_code == 403
+
+
+def test_excluir_padrao_negado_para_o_laboratorio(client_lab):
+    """Excluir cilindro e irreversivel e leva junto a rastreabilidade dos certificados
+    emitidos com ele. O laboratorio pediu para ficar so com o Administrador, para nao
+    clicar sem querer — aposentar um cilindro se faz encerrando a vigencia."""
+    criado = client_lab.post("/certificado-padroes", json={
+        "numero_cilindro": "CC747704", "vigencia_inicio": "2025-01-01", "ativo": True,
+    }).json()
+    assert client_lab.delete(f"/certificado-padroes/{criado['id']}").status_code == 403
+    # e o cilindro continua la
+    assert len(client_lab.get("/certificado-padroes").json()) == 1
 
 
 def test_excluir_padrao_negado_para_nao_admin(client_lab):

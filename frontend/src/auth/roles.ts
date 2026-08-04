@@ -95,8 +95,18 @@ export function podeDesfaturarProposta(user: User | null): boolean {
   return isAdmin(user)
 }
 
-// Espelha require_funcao("Administrador") em backend/app/api/certificados_config.py —
-// mudou la, mude aqui. Sao os numeros que definem a incerteza de todo certificado emitido.
+// Espelha require_funcao("Administrador", "Laboratório") em
+// backend/app/api/certificados_config.py — mudou la, mude aqui.
+// O Laboratorio edita a configuracao e cadastra/altera cilindro: e quem opera a
+// calibracao e sabe qual gas esta na bancada.
 export function podeEditarConfigCertificado(user: User | null): boolean {
+  return isAdmin(user) || user?.funcao === FUNCAO_LABORATORIO
+}
+
+// EXCLUIR cilindro fica so com o Administrador, a pedido do proprio laboratorio: apagar
+// e irreversivel e leva junto a rastreabilidade dos certificados emitidos com aquele
+// cilindro. Para aposentar um cilindro existe "encerrar vigencia".
+// Espelha _excluir em backend/app/api/certificados_config.py.
+export function podeExcluirCilindro(user: User | null): boolean {
   return isAdmin(user)
 }

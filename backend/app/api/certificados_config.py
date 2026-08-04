@@ -25,7 +25,15 @@ from app.schemas.certificado_config import (
 router = APIRouter(tags=["certificado-config"])
 
 # Espelhado em podeEditarConfigCertificado, frontend/src/auth/roles.ts — mudou aqui, mude la.
-_escrita = require_funcao("Administrador")
+# O Laboratorio edita a configuracao e cadastra/altera cilindro: e quem opera a
+# calibracao e sabe qual gas esta na bancada.
+_escrita = require_funcao("Administrador", "Laboratório")
+
+# EXCLUIR cilindro fica so com o Administrador, a pedido do laboratorio: apagar um
+# cilindro e irreversivel e leva junto a rastreabilidade dos certificados emitidos com
+# ele. Para aposentar um cilindro existe "encerrar vigencia", que o Laboratorio pode usar.
+# Espelhado em podeExcluirCilindro, frontend/src/auth/roles.ts.
+_excluir = require_funcao("Administrador")
 
 
 @router.get("/certificado-config", response_model=CertificadoConfigOut)
@@ -98,7 +106,7 @@ def atualizar_padrao(padrao_id: int, dados: CertificadoPadraoUpdate,
 
 @router.delete("/certificado-padroes/{padrao_id}", status_code=status.HTTP_204_NO_CONTENT)
 def excluir_padrao(padrao_id: int, db: Session = Depends(get_db),
-                   _: Usuario = Depends(_escrita)):
+                   _: Usuario = Depends(_excluir)):
     obj = _padrao_ou_404(db, padrao_id)
     # ordens.padrao_id e FK sem ON DELETE: no Postgres, apagar um cilindro ja usado
     # estoura IntegrityError e vira 500. Alem disso, apagar destruiria a rastreabilidade

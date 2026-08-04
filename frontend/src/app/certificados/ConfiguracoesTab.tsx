@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Input } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
 import { useAuth } from '../../auth/AuthContext'
-import { podeEditarConfigCertificado } from '../../auth/roles'
+import { podeEditarConfigCertificado, podeExcluirCilindro } from '../../auth/roles'
 import { hojeISO } from './valoresCertificado'
 import { padraoVigente } from './padraoVigente'
 import { mensagemDeErro } from './erros'
@@ -41,6 +41,7 @@ const PADRAO_NOVO = {
 export function ConfiguracoesTab() {
   const { user } = useAuth()
   const podeEditar = podeEditarConfigCertificado(user)
+  const podeExcluir = podeExcluirCilindro(user)
 
   const [config, setConfig] = useState<CertificadoConfig | null>(null)
   const [padroes, setPadroes] = useState<CertificadoPadrao[]>([])
@@ -182,7 +183,7 @@ export function ConfiguracoesTab() {
     <div className="space-y-8">
       {!podeEditar && (
         <p className="text-xs text-amber-400">
-          Somente o Administrador pode alterar estes valores — eles definem a incerteza de todo certificado emitido.
+          Somente o Administrador e o Laboratório podem alterar estes valores — eles definem a incerteza de todo certificado emitido.
         </p>
       )}
       {aviso && <p className="text-xs text-slate-400">{aviso}</p>}
@@ -323,7 +324,7 @@ export function ConfiguracoesTab() {
                           {encerrandoId === p.id ? 'Encerrando…' : 'Encerrar vigência'}
                         </button>
                       )}
-                      {podeEditar && (
+                      {podeExcluir && (
                         <button onClick={() => excluirPadrao(p.id)} disabled={excluindoId === p.id}
                           className="text-xs text-red-400 hover:text-red-300 disabled:opacity-60 disabled:cursor-not-allowed">
                           {excluindoId === p.id ? 'Excluindo…' : 'Excluir'}

@@ -66,8 +66,8 @@ describe('ConfiguracoesTab', () => {
     expect(screen.getByText('202231419')).toBeInTheDocument()
   })
 
-  it('esconde os controles de edicao e desabilita os campos para nao-admin', async () => {
-    authState.user = { funcao: 'Laboratório' }
+  it('esconde os controles de edicao e desabilita os campos para funcao de fora', async () => {
+    authState.user = { funcao: 'Comercial Pós-Vendas' }
     render(<ConfiguracoesTab />)
     await waitFor(() => expect(screen.getByText('CC747704')).toBeInTheDocument())
 
@@ -162,8 +162,8 @@ describe('ConfiguracoesTab', () => {
     expect(vi.mocked(certificadosApi.atualizarPadrao).mock.calls[0][1].numero_certificado).toBeNull()
   })
 
-  it('nao oferece editar para nao-admin', async () => {
-    authState.user = { funcao: 'Laboratório' }
+  it('nao oferece editar para funcao de fora', async () => {
+    authState.user = { funcao: 'Comercial Pós-Vendas' }
     render(<ConfiguracoesTab />)
     await waitFor(() => expect(screen.getByText('CC747704')).toBeInTheDocument())
     expect(screen.queryByRole('button', { name: /^editar$/i })).not.toBeInTheDocument()
@@ -209,5 +209,28 @@ describe('ConfiguracoesTab', () => {
 
     await waitFor(() => expect(certificadosApi.salvarConfig).toHaveBeenCalledTimes(1))
     expect(vi.mocked(certificadosApi.salvarConfig).mock.calls[0][0].doc_gas_id).toBeNull()
+  })
+
+  it('laboratorio edita tudo mas NAO ve o botao de excluir cilindro', async () => {
+    // Pedido do proprio laboratorio: apagar cilindro e irreversivel e leva junto a
+    // rastreabilidade dos certificados emitidos com ele — melhor nao ter o botao ali
+    // para nao clicar sem querer. Aposentar se faz encerrando a vigencia.
+    authState.user = { funcao: 'Laboratório' }
+    render(<ConfiguracoesTab />)
+    await waitFor(() => expect(screen.getByText('CC747704')).toBeInTheDocument())
+
+    expect(screen.getByLabelText(/valor de refer/i)).not.toBeDisabled()
+    expect(screen.getByLabelText(/certificado do g.s/i)).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: /^salvar$/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^editar$/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /encerrar vig/i })).toBeInTheDocument()
+
+    expect(screen.queryByRole('button', { name: /^excluir$/i })).not.toBeInTheDocument()
+  })
+
+  it('administrador continua vendo o botao de excluir cilindro', async () => {
+    render(<ConfiguracoesTab />)
+    await waitFor(() => expect(screen.getByText('CC747704')).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: /^excluir$/i })).toBeInTheDocument()
   })
 })
