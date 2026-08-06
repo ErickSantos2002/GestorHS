@@ -167,3 +167,52 @@ def test_quadro_finalizada_respeita_filtro_cliente(
     col8 = next(c for c in colunas if c["fase"] == 8)
     assert col8["total"] == 1
     assert len(col8["ordens"]) == 1
+
+
+# --- filtro por data de chegada ---------------------------------------------------
+
+def _com_chegada(db_session, os_base, quando):
+    return _ordem(db_session, os_base["cliente"], os_base["equipamento_cliente"], 5,
+                  data_chegada=quando)
+
+
+def test_lista_filtra_por_faixa_de_data_de_chegada(client, usuario_admin, fases_seed, os_base, db_session):
+    from datetime import datetime, timezone
+    antes = _com_chegada(db_session, os_base, datetime(2026, 7, 31, tzinfo=timezone.utc))
+    dentro = _com_chegada(db_session, os_base, datetime(2026, 8, 3, tzinfo=timezone.utc))
+    depois = _com_chegada(db_session, os_base, datetime(2026, 8, 10, tzinfo=timezone.utc))
+    h = _headers(client, "admin@hs.com", "senha123")
+
+    r = client.get("/ordens?chegada_de=2026-08-01&chegada_ate=2026-08-05", headers=h)
+    ids = [i["id"] for i in r.json()["items"]]
+    assert ids == [dentro.id]
+    assert antes.id not in ids and depois.id not in ids
+
+
+def test_ultimo_dia_da_faixa_entra_inteiro(client, usuario_admin, fases_seed, os_base, db_session):
+    """A OS que chegou as 14h do ultimo dia tem de entrar. Com um `<=` ingenuo sobre
+    a data ela ficaria de fora, porque o horario a joga depois da meia-noite."""
+    from datetime import datetime, timezone
+    tarde = _com_chegada(db_session, os_base, datetime(2026, 8, 5, 14, 30, tzinfo=timezone.utc))
+    h = _headers(client, "admin@hs.com", "senha123")
+
+    r = client.get("/ordens?chegada_de=2026-08-01&chegada_ate=2026-08-05", headers=h)
+    assert [i["id"] for i in r.json()["items"]] == [tarde.id]
+
+
+def test_faixa_aberta_de_um_lado_so(client, usuario_admin, fases_seed, os_base, db_session):
+    from datetime import datetime, timezone
+    velha = _com_chegada(db_session, os_base, datetime(2026, 7, 1, tzinfo=timezone.utc))
+    nova = _com_chegada(db_session, os_base, datetime(2026, 8, 20, tzinfo=timezone.utc))
+    h = _headers(client, "admin@hs.com", "senha123")
+
+    assert [i["id"] for i in client.get("/ordens?chegada_de=2026-08-01", headers=h).json()["items"]] == [nova.id]
+    assert [i["id"] for i in client.get("/ordens?chegada_ate=2026-08-01", headers=h).json()["items"]] == [velha.id]
+
+
+def test_sem_filtro_de_data_traz_tudo_inclusive_sem_chegada(client, usuario_admin, fases_seed, os_base, db_session):
+    from datetime import datetime, timezone
+    _com_chegada(db_session, os_base, datetime(2026, 8, 3, tzinfo=timezone.utc))
+    _ordem(db_session, os_base["cliente"], os_base["equipamento_cliente"], 5)  # sem data_chegada
+    h = _headers(client, "admin@hs.com", "senha123")
+    assert client.get("/ordens", headers=h).json()["total"] == 2

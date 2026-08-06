@@ -5,6 +5,7 @@ import { Badge } from '../../components/ui/Badge'
 import { Spinner } from '../../components/ui/Spinner'
 import { SearchBar } from '../../components/ui/SearchBar'
 import { PaginationOffset } from '../../components/ui/Pagination'
+import { Input } from '../../components/ui/Input'
 import { Select } from '../../components/ui/Select'
 import { cn } from '../../lib/utils'
 import { ApiError } from '../../lib/api'
@@ -142,9 +143,53 @@ function Quadro({ clienteId, onAbrir }: { clienteId?: number; onAbrir: (id: numb
   )
 }
 
+/** Períodos prontos do filtro de chegada. Devolvem a faixa [de, até] em ISO, ou
+ *  `null` quando não há faixa a aplicar (Todos) — o backend trata cada ponta como
+ *  opcional, então "sem faixa" é simplesmente não enviar os parâmetros. */
+const PERIODOS = [
+  { valor: '', label: 'Todo o período' },
+  { valor: 'hoje', label: 'Hoje' },
+  { valor: '7', label: 'Últimos 7 dias' },
+  { valor: '30', label: 'Últimos 30 dias' },
+  { valor: 'mes', label: 'Este mês' },
+  { valor: 'mes-1', label: 'Mês passado' },
+  { valor: 'custom', label: 'Personalizado…' },
+] as const
+
+function iso(d: Date): string {
+  // Local, não UTC: `toISOString` devolveria o dia anterior à noite no Brasil.
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function faixaDoPeriodo(valor: string): { de?: string; ate?: string } {
+  const hoje = new Date()
+  switch (valor) {
+    case 'hoje':
+      return { de: iso(hoje), ate: iso(hoje) }
+    case '7':
+    case '30': {
+      const de = new Date(hoje)
+      de.setDate(de.getDate() - (Number(valor) - 1))   // inclui hoje na contagem
+      return { de: iso(de), ate: iso(hoje) }
+    }
+    case 'mes':
+      return { de: iso(new Date(hoje.getFullYear(), hoje.getMonth(), 1)), ate: iso(hoje) }
+    case 'mes-1': {
+      const de = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1)
+      const ate = new Date(hoje.getFullYear(), hoje.getMonth(), 0)   // dia 0 = último do mês anterior
+      return { de: iso(de), ate: iso(ate) }
+    }
+    default:
+      return {}
+  }
+}
+
 function Lista({ clienteId, faseInicial, onAbrir }: { clienteId?: number; faseInicial?: string; onAbrir: (id: number) => void }) {
   const [fase, setFase] = useState(faseInicial ?? '')
   const [tipo, setTipo] = useState('')
+  const [periodo, setPeriodo] = useState('')
+  const [de, setDe] = useState('')
+  const [ate, setAte] = useState('')
   const [termo, setTermo] = useState('')
   const [busca, setBusca] = useState('')
   const [offset, setOffset] = useState(0)
@@ -152,13 +197,17 @@ function Lista({ clienteId, faseInicial, onAbrir }: { clienteId?: number; faseIn
   const [total, setTotal] = useState(0)
   const [erro, setErro] = useState('')
 
+  // Personalizado usa os dois campos de data; os demais derivam do período escolhido.
+  const faixa = periodo === 'custom' ? { de: de || undefined, ate: ate || undefined } : faixaDoPeriodo(periodo)
+
   useEffect(() => {
     let ativo = true
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setItens(null)
     setErro('')
     ordensApi
-      .listar({ fase: fase ? Number(fase) : undefined, cliente: clienteId, tipo: tipo || undefined, q: busca || undefined, offset, limit: LIMITE })
+      .listar({ fase: fase ? Number(fase) : undefined, cliente: clienteId, tipo: tipo || undefined, q: busca || undefined,
+                chegadaDe: faixa.de, chegadaAte: faixa.ate, offset, limit: LIMITE })
       .then((p) => {
         if (!ativo) return
         setItens(p.items)
@@ -172,7 +221,7 @@ function Lista({ clienteId, faseInicial, onAbrir }: { clienteId?: number; faseIn
     return () => {
       ativo = false
     }
-  }, [fase, tipo, busca, clienteId, offset])
+  }, [fase, tipo, busca, clienteId, offset, faixa.de, faixa.ate])
 
   function onBuscar(e: FormEvent) {
     e.preventDefault()
@@ -203,6 +252,24 @@ function Lista({ clienteId, faseInicial, onAbrir }: { clienteId?: number; faseIn
                 <option value="A">Ambas</option>
               </Select>
             </div>
+            <div className="w-48">
+              <Select id="periodo" label="Chegada" value={periodo}
+                onChange={(e) => { setOffset(0); setPeriodo(e.target.value) }}>
+                {PERIODOS.map((p) => <option key={p.valor} value={p.valor}>{p.label}</option>)}
+              </Select>
+            </div>
+            {periodo === 'custom' && (
+              <>
+                <div className="w-40">
+                  <Input id="chegada-de" label="De" type="date" value={de}
+                    onChange={(e) => { setOffset(0); setDe(e.target.value) }} />
+                </div>
+                <div className="w-40">
+                  <Input id="chegada-ate" label="Até" type="date" value={ate}
+                    onChange={(e) => { setOffset(0); setAte(e.target.value) }} />
+                </div>
+              </>
+            )}
           </>
         }
       />

@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status as http_status, Query
 from sqlalchemy import or_
@@ -31,6 +31,8 @@ def listar(
     cliente: int | None = None,
     tipo: str | None = None,
     q: str | None = None,
+    chegada_de: date | None = None,
+    chegada_ate: date | None = None,
     offset: int = 0,
     limit: int = Query(25, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -43,6 +45,16 @@ def listar(
         query = query.filter(Ordem.cliente == cliente)
     if tipo:
         query = query.filter(Ordem.tipo_servico == tipo)
+    # Faixa de data de chegada, INCLUSIVA nas duas pontas. `data_chegada` e um
+    # DateTime: uma data digitada no recebimento fica em 00:00 UTC, mas a que o
+    # sistema preenche sozinho carrega a hora. Por isso o fim da faixa e "< dia
+    # seguinte" em vez de "<= o dia" — senao uma OS chegada as 14h do ultimo dia
+    # ficaria de fora do proprio filtro que a inclui.
+    if chegada_de is not None:
+        query = query.filter(Ordem.data_chegada >= datetime.combine(chegada_de, datetime.min.time(), tzinfo=timezone.utc))
+    if chegada_ate is not None:
+        limite = datetime.combine(chegada_ate, datetime.min.time(), tzinfo=timezone.utc) + timedelta(days=1)
+        query = query.filter(Ordem.data_chegada < limite)
     if q:
         if q.strip().isdigit():
             query = query.filter(Ordem.id == int(q.strip()))

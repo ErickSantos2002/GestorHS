@@ -201,6 +201,9 @@ export interface OrdensParams {
   cliente?: number
   tipo?: string
   q?: string
+  /** Faixa de data de chegada, em ISO (AAAA-MM-DD). Inclusiva nas duas pontas. */
+  chegadaDe?: string
+  chegadaAte?: string
   offset?: number
   limit?: number
 }
@@ -336,6 +339,8 @@ export const ordensApi = {
     if (params.cliente != null) sp.set('cliente', String(params.cliente))
     if (params.tipo) sp.set('tipo', params.tipo)
     if (params.q) sp.set('q', params.q)
+    if (params.chegadaDe) sp.set('chegada_de', params.chegadaDe)
+    if (params.chegadaAte) sp.set('chegada_ate', params.chegadaAte)
     sp.set('offset', String(params.offset ?? 0))
     sp.set('limit', String(params.limit ?? 25))
     return apiJson<OrdemPage>(`/ordens?${sp.toString()}`)

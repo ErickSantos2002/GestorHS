@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.37.1',
+    data: '04/08/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'A lista de Ordens ganhou filtro por data de chegada, com períodos prontos (hoje, últimos 7 e 30 dias, este mês, mês passado) e faixa personalizada de uma data até outra.' },
+    ],
+  },
+  {
     versao: '1.37.0',
     data: '03/08/2026',
     itens: [
