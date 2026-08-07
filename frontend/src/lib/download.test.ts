@@ -20,6 +20,10 @@ function handleFalso() {
   }
 }
 
+function abaFalsa() {
+  return { close: vi.fn(), location: { href: '' } }
+}
+
 afterEach(() => { semJanela(); vi.restoreAllMocks() })
 
 describe('baixarPdfComEscolhaDePasta', () => {
@@ -27,6 +31,9 @@ describe('baixarPdfComEscolhaDePasta', () => {
     const { handle, escrito, close } = handleFalso()
     const abrir = vi.fn().mockResolvedValue(handle)
     comJanela(abrir)
+    vi.spyOn(window, 'open').mockReturnValue(abaFalsa() as unknown as Window)
+    URL.createObjectURL = vi.fn().mockReturnValue('blob:x')
+    URL.revokeObjectURL = vi.fn()
 
     await baixarPdfComEscolhaDePasta('certificado-1-calibracao.pdf', async () => PDF)
 
@@ -43,18 +50,25 @@ describe('baixarPdfComEscolhaDePasta', () => {
     const ordem: string[] = []
     const { handle } = handleFalso()
     comJanela(vi.fn().mockImplementation(async () => { ordem.push('janela'); return handle }))
+    vi.spyOn(window, 'open').mockReturnValue(abaFalsa() as unknown as Window)
+    URL.createObjectURL = vi.fn().mockReturnValue('blob:x')
+    URL.revokeObjectURL = vi.fn()
 
     await baixarPdfComEscolhaDePasta('x.pdf', async () => { ordem.push('busca'); return PDF })
 
     expect(ordem).toEqual(['janela', 'busca'])
   })
 
-  it('cancelar a janela nao lanca e nao busca o PDF', async () => {
+  it('cancelar a janela nao lanca, nao busca o PDF e fecha a aba reservada', async () => {
     const obterBlob = vi.fn()
+    const aba = abaFalsa()
+    vi.spyOn(window, 'open').mockReturnValue(aba as unknown as Window)
     comJanela(vi.fn().mockRejectedValue(new DOMException('cancelou', 'AbortError')))
 
     await expect(baixarPdfComEscolhaDePasta('x.pdf', obterBlob)).resolves.toBeUndefined()
     expect(obterBlob).not.toHaveBeenCalled()
+    // sem isso o usuario fica com uma aba em branco toda vez que desiste
+    expect(aba.close).toHaveBeenCalled()
   })
 
   it('sem a janela no navegador, baixa direto', async () => {
@@ -71,11 +85,42 @@ describe('baixarPdfComEscolhaDePasta', () => {
     expect(click).toHaveBeenCalled()
   })
 
-  it('erro ao buscar o PDF sobe para o chamador', async () => {
+  it('erro ao buscar o PDF sobe para o chamador e fecha a aba', async () => {
     const { handle } = handleFalso()
+    const aba = abaFalsa()
+    vi.spyOn(window, 'open').mockReturnValue(aba as unknown as Window)
     comJanela(vi.fn().mockResolvedValue(handle))
     await expect(
       baixarPdfComEscolhaDePasta('x.pdf', async () => { throw new Error('500') }),
     ).rejects.toThrow('500')
+    expect(aba.close).toHaveBeenCalled()
+  })
+
+  it('abre o PDF salvo numa aba, porque a janela nao gera entrada em downloads', async () => {
+    const { handle } = handleFalso()
+    const aba = abaFalsa()
+    const open = vi.spyOn(window, 'open').mockReturnValue(aba as unknown as Window)
+    comJanela(vi.fn().mockResolvedValue(handle))
+    URL.createObjectURL = vi.fn().mockReturnValue('blob:pdf-salvo')
+    URL.revokeObjectURL = vi.fn()
+
+    await baixarPdfComEscolhaDePasta('x.pdf', async () => PDF)
+
+    expect(open).toHaveBeenCalledWith('', '_blank')
+    expect(aba.location.href).toBe('blob:pdf-salvo')
+    expect(aba.close).not.toHaveBeenCalled()
+  })
+
+  it('reserva a aba ANTES de abrir a janela de salvar', async () => {
+    // Escolher a pasta demora; abrir aba depois disso e barrado como pop-up.
+    const ordem: string[] = []
+    const { handle } = handleFalso()
+    vi.spyOn(window, 'open').mockImplementation(() => { ordem.push('aba'); return abaFalsa() as unknown as Window })
+    comJanela(vi.fn().mockImplementation(async () => { ordem.push('janela'); return handle }))
+    URL.createObjectURL = vi.fn().mockReturnValue('blob:x')
+    URL.revokeObjectURL = vi.fn()
+
+    await baixarPdfComEscolhaDePasta('x.pdf', async () => PDF)
+    expect(ordem).toEqual(['aba', 'janela'])
   })
 })
