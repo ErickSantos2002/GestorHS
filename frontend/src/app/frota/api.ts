@@ -1,5 +1,6 @@
 import { apiJson, apiFetch, ApiError } from '../../lib/api'
 import type { OrdemListItem } from '../ordens/api'
+import { baixarPdfComEscolhaDePasta } from '../../lib/download'
 
 export type StatusCalibracao = 'em_dia' | 'vencendo' | 'vencido' | 'sem_data'
 
@@ -204,17 +205,11 @@ export const equipamentosClienteApi = {
   gerarCertificadoVenda: (id: number, body: CertificadoVendaPayload): Promise<unknown> =>
     apiJson<unknown>(`/equipamentos-cliente/${id}/certificado-venda`, { method: 'POST', body: JSON.stringify(body) }),
   baixarCertificadoVendaPdf: async (id: number): Promise<void> => {
-    const res = await apiFetch(`/equipamentos-cliente/${id}/certificado-venda/pdf`)
-    if (!res.ok) throw new ApiError(res.status, 'Falha ao baixar PDF')
-    const blob = await res.blob()
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `certificado-venda-${id}.pdf`
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    URL.revokeObjectURL(url)
+    await baixarPdfComEscolhaDePasta(`certificado-venda-${id}.pdf`, async () => {
+      const res = await apiFetch(`/equipamentos-cliente/${id}/certificado-venda/pdf`)
+      if (!res.ok) throw new ApiError(res.status, 'Falha ao baixar PDF')
+      return res.blob()
+    })
   },
   transferencias: (id: number): Promise<Transferencia[]> => apiJson<Transferencia[]>(`/equipamentos-cliente/${id}/transferencias`),
   transferir: (id: number, body: { cliente: number; obs?: string | null }): Promise<EquipamentoCliente> =>

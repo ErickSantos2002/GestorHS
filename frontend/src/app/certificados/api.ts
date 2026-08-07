@@ -1,4 +1,5 @@
 import { apiJson, apiFetch, ApiError } from '../../lib/api'
+import { baixarPdfComEscolhaDePasta } from '../../lib/download'
 
 async function apiVoid(path: string, options: RequestInit = {}): Promise<void> {
   const res = await apiFetch(path, options)
@@ -214,17 +215,11 @@ export const certificadosApi = {
   // corrigido nesta base). Forca download via link com atributo `download`, como
   // ordensApi.baixarCertificadoPdf.
   baixarAvulsoPdf: async (id: number): Promise<void> => {
-    const res = await apiFetch(`/certificados-avulsos/${id}/pdf`)
-    if (!res.ok) throw new ApiError(res.status, 'Falha ao baixar PDF')
-    const blob = await res.blob()
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `certificado-avulso-${id}.pdf`
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    URL.revokeObjectURL(url)
+    await baixarPdfComEscolhaDePasta(`certificado-avulso-${id}.pdf`, async () => {
+      const res = await apiFetch(`/certificados-avulsos/${id}/pdf`)
+      if (!res.ok) throw new ApiError(res.status, 'Falha ao baixar PDF')
+      return res.blob()
+    })
   },
 
   config: (): Promise<CertificadoConfig> => apiJson<CertificadoConfig>('/certificado-config'),

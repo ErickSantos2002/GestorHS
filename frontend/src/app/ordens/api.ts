@@ -1,5 +1,6 @@
 import { apiJson, apiFetch, ApiError } from '../../lib/api'
 import { formatData } from '../../lib/utils'
+import { baixarPdfComEscolhaDePasta } from '../../lib/download'
 
 export type TipoServico = 'C' | 'M' | 'A'
 
@@ -370,18 +371,12 @@ export const ordensApi = {
       : { method: 'POST' }),
   certificadoCampos: (id: number): Promise<CertificadoCampos> => apiJson<CertificadoCampos>(`/ordens/${id}/certificado-campos`),
   baixarCertificadoPdf: async (id: number, tipo: 'C' | 'M'): Promise<void> => {
-    const res = await apiFetch(`/ordens/${id}/certificado/${tipo}/pdf`)
-    if (!res.ok) throw new ApiError(res.status, 'Falha ao baixar PDF')
-    const blob = await res.blob()
-    const url = URL.createObjectURL(blob)
     const nome = tipo === 'C' ? 'calibracao' : 'manutencao'
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `certificado-${id}-${nome}.pdf`
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    URL.revokeObjectURL(url)
+    await baixarPdfComEscolhaDePasta(`certificado-${id}-${nome}.pdf`, async () => {
+      const res = await apiFetch(`/ordens/${id}/certificado/${tipo}/pdf`)
+      if (!res.ok) throw new ApiError(res.status, 'Falha ao baixar PDF')
+      return res.blob()
+    })
   },
   enviarNotaFiscal: async (ordemId: number, file: File, numero: string): Promise<void> => {
     const fd = new FormData()

@@ -27,6 +27,7 @@ export const CHANGELOG: VersaoChangelog[] = [
     data: '04/08/2026',
     itens: [
       { tipo: 'novidade', texto: 'A lista de Ordens ganhou filtro por data de chegada, com períodos prontos (hoje, últimos 7 e 30 dias, este mês, mês passado) e faixa personalizada de uma data até outra.' },
+      { tipo: 'melhoria', texto: 'Ao baixar um certificado, o sistema pergunta em qual pasta salvar em vez de mandar direto para Downloads. Vale para o certificado da OS, o de venda e o em branco.' },
     ],
   },
   {
