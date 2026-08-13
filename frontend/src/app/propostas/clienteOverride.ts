@@ -42,6 +42,43 @@ export function valorDoCadastro(campo: CampoOverride, cliente?: Cliente | null):
   }
 }
 
+/**
+ * O que o rascunho do painel viraria no override da proposta.
+ *
+ * Guarda SO o que diverge do cadastro: o painel abre pre-preenchido, entao
+ * gravar tudo marcaria a proposta como "Dados editados" sem nada divergir de
+ * fato. Campo em branco tambem fica de fora — em branco significa "usa o
+ * cadastro", e e' assim que o PDF resolve cada campo.
+ *
+ * Vive aqui, e nao no modal, porque duas telas precisam da MESMA resposta:
+ * a que aplica o rascunho e a que decide se ha edicao pendente ao fechar.
+ */
+export function overrideDoRascunho(
+  rascunho: Partial<Record<CampoOverride, string>>,
+  cliente?: Cliente | null,
+): Record<string, string> | null {
+  const limpo: Record<string, string> = {}
+  CAMPOS_OVERRIDE.forEach((campo) => {
+    const v = rascunho[campo]
+    if (v == null || v.trim() === '') return
+    if (mesmoValorDoCadastro(campo, v, cliente)) return
+    limpo[campo] = v.trim()
+  })
+  return Object.keys(limpo).length ? limpo : null
+}
+
+/** Dois overrides com o mesmo conteudo, independente da ordem das chaves.
+ *  A ordem importa porque um vem do servidor e o outro e' montado aqui. */
+export function mesmoOverride(
+  a?: Record<string, unknown> | null,
+  b?: Record<string, unknown> | null,
+): boolean {
+  const ea = Object.entries(a ?? {}).sort(([x], [y]) => x.localeCompare(y))
+  const eb = Object.entries(b ?? {}).sort(([x], [y]) => x.localeCompare(y))
+  return ea.length === eb.length
+    && ea.every(([k, v], i) => k === eb[i][0] && String(v ?? '') === String(eb[i][1] ?? ''))
+}
+
 export interface CampoAlterado {
   campo: CampoOverride
   rotulo: string

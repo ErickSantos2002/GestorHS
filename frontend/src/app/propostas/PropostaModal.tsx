@@ -13,6 +13,7 @@ import { useAuth } from '../../auth/AuthContext'
 import { ApiError } from '../../lib/api'
 import { hojeISO } from '../../lib/datas'
 import { formatarDocumento, soDigitos, mascararCEP } from '../../lib/documento'
+import { cn } from '../../lib/utils'
 import { descreverVencimento } from './aparelhosFrota'
 import { clientesApi, type Cliente, type ClienteListItem } from '../clientes/api'
 import { STATUS_CALIBRACAO, type StatusCalibracao } from '../frota/api'
@@ -23,7 +24,8 @@ import {
 import { buildDefaultOtherItems, buildPhoebusOtherItems, DEFAULT_NOTES } from './propostaDefaults'
 import { htmlTemTexto, validarProposta } from './validacao'
 import {
-  camposAlterados, CAMPOS_OVERRIDE, mesmoValorDoCadastro, ROTULOS_OVERRIDE,
+  camposAlterados, CAMPOS_OVERRIDE, mesmoValorDoCadastro, mesmoOverride,
+  overrideDoRascunho, ROTULOS_OVERRIDE,
   temOverride as overrideTemDados, type CampoOverride,
 } from './clienteOverride'
 import {
@@ -386,26 +388,49 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
   const camposEditados = camposAlterados(form.cliente_override, clienteSelecionado)
 
   function abrirOverride() {
+    // O override guarda SO o que diverge do cadastro (ver salvarOverride), entao
+    // reabrir precisa RECOMPOR: cadastro por baixo, override por cima. Antes o
+    // painel so era pre-preenchido quando nao havia override — reabrindo, os
+    // campos nao editados voltavam em BRANCO mesmo o cliente tendo o dado, e o
+    // que aparecia na tela nao batia com o que a proposta imprime (o PDF sempre
+    // caiu no cadastro campo a campo).
+    const draft: Partial<Record<CampoOverride, string>> = {
+      nome: clienteSelecionado?.nome ?? '',
+      documento: soDigitos(clienteSelecionado?.cgc || clienteSelecionado?.cpf || ''),
+      endereco: clienteSelecionado?.endereco ?? '',
+      municipio: clienteSelecionado?.municipio ?? '',
+      estado: clienteSelecionado?.estado ?? '',
+      cep: soDigitos(clienteSelecionado?.cep ?? ''),
+      email: clienteSelecionado?.email ?? '',
+      telefone: clienteSelecionado?.celular || clienteSelecionado?.whatsapp || clienteSelecionado?.telefones || '',
+      contato: form.contato ?? '',
+    }
     const atual = form.cliente_override
     if (overrideTemDados(atual)) {
-      const draft: Partial<Record<CampoOverride, string>> = {}
-      CAMPOS_OVERRIDE.forEach((k) => { draft[k] = String(atual?.[k] ?? '') })
-      setOverrideDraft(draft)
-    } else {
-      setOverrideDraft({
-        nome: clienteSelecionado?.nome ?? '',
-        documento: soDigitos(clienteSelecionado?.cgc || clienteSelecionado?.cpf || ''),
-        endereco: clienteSelecionado?.endereco ?? '',
-        municipio: clienteSelecionado?.municipio ?? '',
-        estado: clienteSelecionado?.estado ?? '',
-        cep: soDigitos(clienteSelecionado?.cep ?? ''),
-        email: clienteSelecionado?.email ?? '',
-        telefone: clienteSelecionado?.celular || clienteSelecionado?.whatsapp || clienteSelecionado?.telefones || '',
-        contato: form.contato ?? '',
+      CAMPOS_OVERRIDE.forEach((k) => {
+        const v = String(atual?.[k] ?? '').trim()
+        if (v) draft[k] = v
       })
     }
+    setOverrideDraft(draft)
     limparBusca()
     setMostrarOverride(true)
+  }
+
+  /** Campo mostrando o valor do cadastro, sem edicao propria desta proposta.
+   *
+   * Derivado do rascunho a cada render em vez de guardado em estado: assim que o
+   * usuario digita algo diferente, o campo deixa de ser herdado sozinho — e o que
+   * ele ve bate exatamente com a regra que `salvarOverride` usa para decidir o
+   * que vira override. */
+  function herdadoDoCadastro(campo: CampoOverride): boolean {
+    const v = overrideDraft[campo] ?? ''
+    return v.trim() !== '' && mesmoValorDoCadastro(campo, v, clienteSelecionado)
+  }
+
+  /** Estilo do campo herdado: apagado e em italico, para distinguir do editado. */
+  function classeOverride(campo: CampoOverride, extra?: string): string {
+    return cn(extra, herdadoDoCadastro(campo) && 'italic text-slate-400')
   }
 
   function definirOverride(campo: CampoOverride, valor: string) {
@@ -470,17 +495,27 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
   }
 
   function salvarOverride() {
-    const limpo: Record<string, string> = {}
-    CAMPOS_OVERRIDE.forEach((k) => {
-      const v = overrideDraft[k]
-      if (v == null || v.trim() === '') return
-      // Campo identico ao cadastro nao vira override: o painel abre
-      // pre-preenchido, entao gravar tudo marcaria a proposta como
-      // "Dados editados" sem nada divergir de fato.
-      if (mesmoValorDoCadastro(k, v, clienteSelecionado)) return
-      limpo[k] = v.trim()
-    })
-    setField('cliente_override', Object.keys(limpo).length ? limpo : null)
+    setField('cliente_override', overrideDoRascunho(overrideDraft, clienteSelecionado))
+    limparBusca()
+    setMostrarOverride(false)
+  }
+
+  /** Sair do painel sem clicar em Aplicar JOGA FORA o que foi digitado.
+   *
+   * Existiam tres saidas (o X, o Cancelar e o Aplicar) e as duas primeiras
+   * descartavam calado — com o erro vermelho de uma busca falha logo acima dos
+   * botoes, dava para perder o CNPJ recem-digitado sem perceber e sair achando
+   * que a proposta tinha salvado. Agora so descarta com confirmacao, e so
+   * quando ha de fato algo diferente do que ja esta aplicado. */
+  function fecharOverride() {
+    const pendente = !mesmoOverride(
+      overrideDoRascunho(overrideDraft, clienteSelecionado),
+      form.cliente_override,
+    )
+    if (pendente && !window.confirm(
+      'Você editou os dados desta proposta e ainda não clicou em Aplicar.\n\n'
+      + 'Fechar agora descarta o que foi digitado. Descartar mesmo assim?',
+    )) return
     limparBusca()
     setMostrarOverride(false)
   }
@@ -694,29 +729,33 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
             )}
 
             {mostrarOverride && (
-              <div className="space-y-3 rounded-lg border border-warning/40 bg-warning/5 p-4">
+              <div data-testid="painel-override" className="space-y-3 rounded-lg border border-warning/40 bg-warning/5 p-4">
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-semibold uppercase tracking-wide text-warning">Editar dados nesta proposta</p>
-                  <IconButton label="Fechar" tone="neutro" onClick={() => setMostrarOverride(false)}><IconX className="w-4 h-4" /></IconButton>
+                  <IconButton label="Fechar" tone="neutro" onClick={fecharOverride}><IconX className="w-4 h-4" /></IconButton>
                 </div>
-                <p className="text-xs text-slate-500">Estes dados valem só para esta proposta e não alteram o cadastro do cliente. Campos em branco usam os dados do cadastro.</p>
+                <p className="text-xs text-slate-500">
+                  Estes dados valem só para esta proposta e não alteram o cadastro do cliente.
+                  Os campos em <span className="italic text-slate-400">cinza e itálico</span> vêm do cadastro do cliente;
+                  ao alterar um deles, ele passa a valer só aqui. Apagar um campo devolve o valor do cadastro.
+                </p>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <Input id="ov-nome" label="Razão social / Nome" value={overrideDraft.nome ?? ''} onChange={(e) => definirOverride('nome', e.target.value)} className="sm:col-span-2" />
+                  <Input id="ov-nome" label="Razão social / Nome" value={overrideDraft.nome ?? ''} onChange={(e) => definirOverride('nome', e.target.value)} className={classeOverride('nome', 'sm:col-span-2')} />
                   <ComLupa aoBuscar={buscarPorCnpj} carregando={buscando === 'cnpj'} desabilitado={buscando !== null} rotulo="Buscar dados pelo CNPJ">
-                    <Input id="ov-documento" label="CNPJ / Documento" value={formatarDocumento(overrideDraft.documento ?? '')} onChange={(e) => definirOverride('documento', soDigitos(e.target.value))} />
+                    <Input id="ov-documento" label="CNPJ / Documento" value={formatarDocumento(overrideDraft.documento ?? '')} onChange={(e) => definirOverride('documento', soDigitos(e.target.value))} className={classeOverride('documento')} />
                   </ComLupa>
                   <ComLupa aoBuscar={buscarPorCep} carregando={buscando === 'cep'} desabilitado={buscando !== null} rotulo="Buscar endereço pelo CEP">
-                    <Input id="ov-cep" label="CEP" value={mascararCEP(overrideDraft.cep ?? '')} onChange={(e) => definirOverride('cep', soDigitos(e.target.value))} />
+                    <Input id="ov-cep" label="CEP" value={mascararCEP(overrideDraft.cep ?? '')} onChange={(e) => definirOverride('cep', soDigitos(e.target.value))} className={classeOverride('cep')} />
                   </ComLupa>
-                  <Input id="ov-endereco" label="Endereço" value={overrideDraft.endereco ?? ''} onChange={(e) => definirOverride('endereco', e.target.value)} className="sm:col-span-2" />
-                  <Input id="ov-municipio" label="Município" value={overrideDraft.municipio ?? ''} onChange={(e) => definirOverride('municipio', e.target.value)} />
-                  <Select id="ov-estado" label="Estado (UF)" value={overrideDraft.estado ?? ''} onChange={(e) => definirOverride('estado', e.target.value)}>
+                  <Input id="ov-endereco" label="Endereço" value={overrideDraft.endereco ?? ''} onChange={(e) => definirOverride('endereco', e.target.value)} className={classeOverride('endereco', 'sm:col-span-2')} />
+                  <Input id="ov-municipio" label="Município" value={overrideDraft.municipio ?? ''} onChange={(e) => definirOverride('municipio', e.target.value)} className={classeOverride('municipio')} />
+                  <Select id="ov-estado" label="Estado (UF)" value={overrideDraft.estado ?? ''} onChange={(e) => definirOverride('estado', e.target.value)} className={classeOverride('estado')}>
                     <option value="">—</option>
                     {UFS.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
                   </Select>
-                  <Input id="ov-telefone" label="Telefone" value={overrideDraft.telefone ?? ''} onChange={(e) => definirOverride('telefone', e.target.value)} />
-                  <Input id="ov-email" label="E-mail" value={overrideDraft.email ?? ''} onChange={(e) => definirOverride('email', e.target.value)} />
-                  <Input id="ov-contato" label="Contato (aos cuidados de)" value={overrideDraft.contato ?? ''} onChange={(e) => definirOverride('contato', e.target.value)} className="sm:col-span-2" />
+                  <Input id="ov-telefone" label="Telefone" value={overrideDraft.telefone ?? ''} onChange={(e) => definirOverride('telefone', e.target.value)} className={classeOverride('telefone')} />
+                  <Input id="ov-email" label="E-mail" value={overrideDraft.email ?? ''} onChange={(e) => definirOverride('email', e.target.value)} className={classeOverride('email')} />
+                  <Input id="ov-contato" label="Contato (aos cuidados de)" value={overrideDraft.contato ?? ''} onChange={(e) => definirOverride('contato', e.target.value)} className={classeOverride('contato', 'sm:col-span-2')} />
                 </div>
                 {erroBusca && (
                   <p className="text-xs font-medium text-danger">{erroBusca}</p>
@@ -739,7 +778,7 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
                 <div className="flex items-center justify-between border-t border-warning/20 pt-3">
                   <Button type="button" variant="ghost" onClick={restaurarOverride}>Restaurar do cadastro</Button>
                   <div className="flex gap-2">
-                    <Button type="button" variant="secondary" onClick={() => setMostrarOverride(false)}>Cancelar</Button>
+                    <Button type="button" variant="secondary" onClick={fecharOverride}>Cancelar</Button>
                     <Button type="button" variant="primary" onClick={salvarOverride}>Aplicar</Button>
                   </div>
                 </div>

@@ -53,6 +53,7 @@ vi.mock('./buscaEndereco', async (orig) => {
   return { ...real, buscaApi: { cep: (...a: unknown[]) => buscarCep(...a), cnpj: (...a: unknown[]) => buscarCnpj(...a) } }
 })
 
+import { ApiError } from '../../lib/api'
 import { PropostaModal } from './PropostaModal'
 import { descreverVencimento } from './aparelhosFrota'
 
@@ -70,6 +71,17 @@ const APARELHO_COMUM = {
 const APARELHO_PHOEBUS = {
   id: 43, cliente: 5, cliente_nome: 'Cliente Teste', equipamento: 2, equipamento_descricao: 'Phoebus 3000',
   serie: 'PH-777', patrimonio: null, prox_calibragem: null, ativo: true, status: 'A', status_calibracao: 'vencido',
+}
+
+/** Proposta ja salva, do jeito que `propostasApi.obter` devolve. */
+const PROPOSTA_BASE = {
+  id: 900, numero: 10, cliente: 5, contato: null, vendedor: 'Erick Santos', data: '2026-07-24',
+  intro: null, outros_itens: null, desconto: 0, frete: 0, forma_envio: null, forma_frete: null,
+  transportador: null, condicao_pagamento: null, validade_dias: 30, data_entrega: null,
+  descricao_entrega: null, endereco_entrega_diferente: false, endereco_entrega: null,
+  cliente_override: null, observacoes: null, assinatura: null, itens: [], aparelhos: [],
+  total_itens: 0, total: 0, cliente_nome: 'Cliente Teste', cliente_documento: '36312056000552',
+  created_at: null, updated_at: null,
 }
 
 beforeEach(() => {
@@ -309,6 +321,107 @@ describe('PropostaModal', () => {
 
     await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
     expect(propostasCriar.mock.calls[0][0].cliente_override.documento).toBe('36312056000552')
+  })
+
+  it('REPRO proposta 99: troca o CNPJ numa proposta que ja tem override e salva', async () => {
+    // Dados reais da proposta 99: cliente RUMO (cgc 02502844000166) com override
+    // de email/telefone/contato ja gravado. O usuario troca o documento para o
+    // CNPJ da filial e salva.
+    clientesObter.mockResolvedValue({ ...CLIENTE_COMPLETO, cgc: '02502844000166' })
+    propostasObter.mockResolvedValue({
+      ...PROPOSTA_BASE,
+      outros_itens: '<p>servicos</p>',
+      cliente_override: { email: 'Tatiane.kava@rumolog.com', telefone: '+55 41 9710-1221', contato: 'Tatiane' },
+    })
+    propostasAtualizar.mockResolvedValue({ id: 900 })
+
+    render(<PropostaModal propostaId={900} onClose={vi.fn()} />)
+    await screen.findByText(/CNPJ\/CPF:/)
+    fireEvent.click(screen.getByLabelText('Editar dados nesta proposta'))
+
+    fireEvent.change(screen.getByLabelText('CNPJ / Documento'), { target: { value: '01.258.944/0005-50' } })
+
+    // Sequencia real: ele clicou na lupa ANTES de aplicar, e a busca falhou.
+    buscarCnpj.mockRejectedValue(new ApiError(502, 'servico de consulta indisponivel'))
+    fireEvent.click(screen.getByLabelText('Buscar dados pelo CNPJ'))
+    await screen.findByText(/indisponível/i)
+
+    fireEvent.click(screen.getByText('Aplicar'))
+    fireEvent.click(screen.getByText('Salvar Alterações'))
+
+    await waitFor(() => expect(propostasAtualizar).toHaveBeenCalled())
+    const payload = propostasAtualizar.mock.calls[0][1]
+    expect(payload.cliente_override.documento).toBe('01258944000550')
+    // os campos que ja existiam nao podem sumir na troca
+    expect(payload.cliente_override.email).toBe('Tatiane.kava@rumolog.com')
+  })
+
+  it('fechar o painel com edicao pendente avisa antes de descartar', async () => {
+    // Foi assim que o CNPJ da proposta 99 se perdeu: com o erro da busca logo
+    // acima dos botoes, o X e o Cancelar jogavam fora o que tinha sido digitado
+    // sem dizer nada, e a proposta salvava com o override antigo.
+    const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    render(<PropostaModal onClose={vi.fn()} />)
+    await selecionarCliente()
+    fireEvent.click(screen.getByLabelText('Editar dados nesta proposta'))
+
+    fireEvent.change(screen.getByLabelText('CNPJ / Documento'), { target: { value: '01.258.944/0005-50' } })
+    fireEvent.click(within(screen.getByTestId('painel-override')).getByText('Cancelar'))
+
+    expect(confirmar).toHaveBeenCalled()
+    // Recusou descartar: o painel continua aberto com o que foi digitado.
+    expect((screen.getByLabelText('CNPJ / Documento') as HTMLInputElement).value).toBe('01.258.944/0005-50')
+
+    confirmar.mockReturnValue(true)
+    fireEvent.click(within(screen.getByTestId('painel-override')).getByText('Cancelar'))
+    await waitFor(() => expect(screen.queryByLabelText('CNPJ / Documento')).not.toBeInTheDocument())
+    confirmar.mockRestore()
+  })
+
+  it('fechar o painel sem ter mudado nada nao pergunta nada', async () => {
+    const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    render(<PropostaModal onClose={vi.fn()} />)
+    await selecionarCliente()
+    fireEvent.click(screen.getByLabelText('Editar dados nesta proposta'))
+
+    fireEvent.click(within(screen.getByTestId('painel-override')).getByText('Cancelar'))
+    expect(confirmar).not.toHaveBeenCalled()
+    confirmar.mockRestore()
+  })
+
+  it('reabrir uma proposta com override recompoe os campos nao editados a partir do cadastro', async () => {
+    // O override guarda SO o que diverge do cadastro. Antes, reabrir mostrava os
+    // demais campos EM BRANCO — mesmo o cliente tendo o dado e o PDF imprimindo
+    // o do cadastro. Foi o que fez o usuario achar que a edicao nao salvava.
+    propostasObter.mockResolvedValue({
+      ...PROPOSTA_BASE,
+      cliente_override: { email: 'contato@filial.com', telefone: '41999990000', contato: 'Tatiane' },
+    })
+
+    render(<PropostaModal propostaId={900} onClose={vi.fn()} />)
+    // Espera o CADASTRO do cliente chegar: e' dele que os campos nao editados
+    // sao herdados, e o botao do painel aparece antes disso.
+    await screen.findByText('CNPJ/CPF: 36.312.056/0005-52')
+    fireEvent.click(screen.getByLabelText('Editar dados nesta proposta'))
+
+    // Editado nesta proposta: vem do override.
+    expect((screen.getByLabelText('E-mail') as HTMLInputElement).value).toBe('contato@filial.com')
+    // Nao editado: vem do cadastro, em vez de aparecer em branco.
+    expect((screen.getByLabelText('CNPJ / Documento') as HTMLInputElement).value).toBe('36.312.056/0005-52')
+    expect((screen.getByLabelText('Razão social / Nome') as HTMLInputElement).value).toBe('Cliente Teste')
+    expect((screen.getByLabelText('Endereço') as HTMLInputElement).value).toBe('Rua X, 10')
+  })
+
+  it('campo herdado do cadastro fica marcado; editado perde a marcacao na hora', async () => {
+    render(<PropostaModal onClose={vi.fn()} />)
+    await selecionarCliente()
+    fireEvent.click(screen.getByLabelText('Editar dados nesta proposta'))
+
+    const nome = screen.getByLabelText('Razão social / Nome')
+    expect(nome.className).toMatch(/italic/)
+
+    fireEvent.change(nome, { target: { value: 'Filial Recife' } })
+    expect(nome.className).not.toMatch(/italic/)
   })
 
   it('override de documento nasce mascarado com o CNPJ do cadastro e guarda so digitos', async () => {

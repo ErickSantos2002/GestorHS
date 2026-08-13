@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { camposAlterados, temOverride, valorDoCadastro, mesmoValorDoCadastro } from './clienteOverride'
+import {
+  camposAlterados, temOverride, valorDoCadastro, mesmoValorDoCadastro,
+  overrideDoRascunho, mesmoOverride,
+} from './clienteOverride'
 import type { Cliente } from '../clientes/api'
 
 const CLIENTE = {
@@ -107,5 +110,36 @@ describe('mesmoValorDoCadastro', () => {
 
   it('sem cliente carregado nada e igual ao cadastro', () => {
     expect(mesmoValorDoCadastro('nome', 'Cliente Teste', null)).toBe(false)
+  })
+})
+
+describe('overrideDoRascunho', () => {
+  it('grava so o que diverge do cadastro e ignora branco', () => {
+    const r = overrideDoRascunho(
+      { nome: 'Cliente Teste', documento: '01258944000550', email: '  ', telefone: '41999990000' },
+      CLIENTE,
+    )
+    expect(r).toEqual({ documento: '01258944000550', telefone: '41999990000' })
+  })
+
+  it('rascunho todo igual ao cadastro nao vira override', () => {
+    expect(overrideDoRascunho({ nome: CLIENTE.nome ?? '', documento: CLIENTE.cgc ?? '' }, CLIENTE)).toBeNull()
+  })
+
+  it('documento comparado por digitos: mascara nao cria override falso', () => {
+    expect(overrideDoRascunho({ documento: '36.312.056/0005-52' }, CLIENTE)).toBeNull()
+  })
+})
+
+describe('mesmoOverride', () => {
+  it('ordem das chaves nao importa — um vem do servidor, outro e montado aqui', () => {
+    expect(mesmoOverride({ email: 'a@b.com', documento: '1' }, { documento: '1', email: 'a@b.com' })).toBe(true)
+  })
+
+  it('detecta campo a mais, a menos e valor diferente', () => {
+    expect(mesmoOverride({ documento: '1' }, { documento: '1', email: 'a@b.com' })).toBe(false)
+    expect(mesmoOverride({ documento: '1' }, { documento: '2' })).toBe(false)
+    expect(mesmoOverride(null, {})).toBe(true)
+    expect(mesmoOverride(null, { documento: '1' })).toBe(false)
   })
 })
