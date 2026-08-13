@@ -23,6 +23,15 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.38.0',
+    data: '13/08/2026',
+    itens: [
+      { tipo: 'correcao', texto: 'Em Propostas, fechar “Editar dados nesta proposta” sem clicar em Aplicar descartava em silêncio tudo o que tinha sido digitado — dava para trocar o CNPJ, salvar a proposta e o valor antigo continuar lá. Agora o sistema avisa antes de descartar.' },
+      { tipo: 'correcao', texto: 'Ao reabrir uma proposta que já tinha dados editados, os campos não alterados apareciam em branco mesmo o cliente tendo o dado no cadastro. Agora vêm preenchidos, em cinza e itálico, indicando que valem do cadastro; alterar um deles passa a valer só naquela proposta.' },
+      { tipo: 'melhoria', texto: 'A busca de CNPJ e CEP na proposta diferencia “muitas consultas seguidas” de “serviço fora do ar”: quando é só limite de consultas, o sistema tenta de novo sozinho e avisa que basta esperar alguns segundos.' },
+    ],
+  },
+  {
     versao: '1.37.1',
     data: '04/08/2026',
     itens: [
