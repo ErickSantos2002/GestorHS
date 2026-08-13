@@ -41,6 +41,20 @@ class ProvedorIndisponivel(Exception):
     """Falha de rede ou erro do provedor."""
 
 
+class LimiteExcedido(ProvedorIndisponivel):
+    """O provedor recusou por cota (HTTP 429), nao por estar fora do ar.
+
+    Herda de ProvedorIndisponivel de proposito: quem so quer saber "a consulta
+    falhou" (o fallback do CEP, por exemplo) continua funcionando sem mudanca.
+    Quem precisa distinguir captura esta antes — e a diferenca importa, porque
+    cota estourada passa sozinha em segundos e vale a pena pedir para tentar de
+    novo, enquanto provedor fora do ar nao.
+
+    A cota da BrasilAPI conta por IP, e em producao o IP e' um so para todo o
+    sistema — entao ela estoura muito mais facil la do que numa maquina isolada.
+    """
+
+
 def so_digitos(v) -> str:
     return re.sub(r"\D", "", str(v or ""))
 

@@ -20,6 +20,11 @@ def _executar(fn, valor: str) -> dict:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except enderecos.NaoEncontrado as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+    # Antes de ProvedorIndisponivel: LimiteExcedido herda dele. Cota estourada
+    # nao e' o servico fora do ar — passa em segundos, e o usuario precisa saber
+    # que vale tentar de novo em vez de achar que a busca quebrou.
+    except enderecos.LimiteExcedido as e:
+        raise HTTPException(status_code=429, detail="muitas consultas seguidas") from e
     except enderecos.ProvedorIndisponivel as e:
         raise HTTPException(status_code=502, detail="servico de consulta indisponivel") from e
 

@@ -65,3 +65,18 @@ def test_provedor_fora_vira_502(client_admin, fingir_busca):
 
 def test_exige_autenticacao(client):
     assert client.get("/integracoes/cep/50030230").status_code == 401
+
+
+def test_cota_estourada_vira_429(client_admin, fingir_busca):
+    """Cota nao e' o servico fora do ar: 429 diz ao usuario que vale tentar de novo.
+
+    Precisa vir de um teste proprio porque LimiteExcedido herda de
+    ProvedorIndisponivel — trocar a ordem dos except no endpoint faria este
+    caso voltar a sair como 502 sem quebrar nenhum outro teste.
+    """
+    def _estourou(v):
+        raise enderecos.LimiteExcedido("cota do provedor excedida")
+
+    fingir_busca(cnpj=_estourou)
+    r = client_admin.get("/integracoes/cnpj/36312056000552")
+    assert r.status_code == 429

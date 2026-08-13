@@ -145,3 +145,47 @@ def test_buscar_cep_com_corpo_invalido_levanta_indisponivel(monkeypatch):
     with pytest.raises(enderecos.ProvedorIndisponivel):
         enderecos_client._get_json(enderecos_client.URL_BRASILAPI_CEP.format(cep="50030230"))
     assert len(chamadas) == 1
+
+
+# ── Cota estourada (HTTP 429) ────────────────────────────────────────────────
+# A cota da BrasilAPI conta por IP e passa sozinha em segundos, entao vale uma
+# segunda tentativa — diferente de provedor fora do ar, onde insistir so demora.
+
+@pytest.fixture(autouse=True)
+def _sem_pausa(monkeypatch):
+    """Zera a pausa entre tentativas: o teste nao pode esperar de verdade."""
+    monkeypatch.setattr(enderecos_client.time, "sleep", lambda _: None)
+
+
+def test_buscar_cnpj_tenta_de_novo_quando_a_cota_estoura(monkeypatch):
+    dados = {"cnpj": "36312056000552", "razao_social": "ACME LTDA", "municipio": "RECIFE",
+             "uf": "PE", "cep": "50030230"}
+    respostas = [RespostaFake(429), RespostaFake(200, dados)]
+    chamadas = _fingir(monkeypatch, lambda url: respostas.pop(0))
+    assert enderecos_client.buscar_cnpj("36312056000552")["nome"] == "Acme Ltda"
+    assert len(chamadas) == 2
+
+
+def test_buscar_cnpj_com_cota_estourada_duas_vezes_levanta_limite_excedido(monkeypatch):
+    chamadas = _fingir(monkeypatch, lambda url: RespostaFake(429))
+    with pytest.raises(enderecos.LimiteExcedido):
+        enderecos_client.buscar_cnpj("36312056000552")
+    assert len(chamadas) == 2, "tenta de novo uma vez so, nao entra em loop"
+
+
+def test_buscar_cnpj_com_provedor_fora_nao_tenta_de_novo(monkeypatch):
+    """Erro de rede nao passa sozinho: insistir so faria o usuario esperar o dobro."""
+    def _fora(url):
+        raise httpx.ConnectError("sem rede")
+    chamadas = _fingir(monkeypatch, _fora)
+    with pytest.raises(enderecos.ProvedorIndisponivel):
+        enderecos_client.buscar_cnpj("36312056000552")
+    assert len(chamadas) == 1
+
+
+def test_buscar_cep_cai_no_viacep_quando_a_cota_da_brasilapi_estoura(monkeypatch):
+    """LimiteExcedido herda de ProvedorIndisponivel, entao o fallback do CEP pega."""
+    def _rotear(url):
+        return RespostaFake(429) if "brasilapi" in url else RespostaFake(200, CEP_VIACEP)
+    _fingir(monkeypatch, _rotear)
+    assert enderecos_client.buscar_cep("50030230") == ESPERADO_CEP

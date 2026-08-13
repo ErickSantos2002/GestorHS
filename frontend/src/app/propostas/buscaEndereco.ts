@@ -62,6 +62,10 @@ export function mensagemErroBusca(e: unknown, tipo: 'CEP' | 'CNPJ'): string {
   if (e instanceof ApiError) {
     if (e.status === 404) return `${tipo} não encontrado.`
     if (e.status === 400) return `${tipo} inválido.`
+    // Cota do provedor, contada pelo IP do servidor — ou seja, compartilhada por
+    // todo mundo do sistema. Passa em segundos, e a mensagem precisa deixar claro
+    // que e' so esperar, senao o usuario acha que a busca quebrou.
+    if (e.status === 429) return `Muitas consultas de ${tipo} seguidas. Espere alguns segundos e tente de novo.`
     if (e.status === 502) return 'Serviço de consulta indisponível. Tente de novo em instantes.'
   }
   return `Falha ao consultar o ${tipo}.`

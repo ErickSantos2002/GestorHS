@@ -68,6 +68,12 @@ describe('mensagemErroBusca', () => {
     expect(mensagemErroBusca(new ApiError(502, 'x'), 'CEP')).toMatch(/indisponível/i)
   })
 
+  it('cota estourada (429) manda esperar, nao diz que o servico caiu', () => {
+    const msg = mensagemErroBusca(new ApiError(429, 'x'), 'CNPJ')
+    expect(msg).toMatch(/espere alguns segundos/i)
+    expect(msg).not.toMatch(/indisponível/i)
+  })
+
   it('erro desconhecido vira mensagem generica com o tipo', () => {
     expect(mensagemErroBusca(new Error('boom'), 'CEP')).toMatch(/Falha ao consultar o CEP/)
   })
