@@ -1,6 +1,6 @@
 from datetime import date, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status as http_status, Query
+from fastapi import APIRouter, Depends, HTTPException, status as http_status, Query, Response
 from sqlalchemy import or_, func
 from sqlalchemy.orm import Session
 
@@ -8,7 +8,7 @@ from app.models.database import get_db
 from app.models import Usuario, EquipamentoCliente, HistoricoEquipamento, Ordem, OSCertificado, Cliente, TransferenciaEquipamento, CertificadoVenda, Equipamento, Marca
 from app.api.deps import get_current_usuario, require_funcao, GESTOR_CADASTRO, EDITOR_CADASTRO
 from app.api.cadastros_common import excluir_protegido
-from app.api.exportar_common import resposta_xlsx
+from app.api.exportar_common import carregar_ate_o_teto, resposta_xlsx
 from app.core.exportacoes import COLUNAS_FROTA, linha_frota
 from app.api.ordens_acoes import agora
 from app.core import os_workflow as wf
@@ -122,7 +122,7 @@ def listar(
     return FrotaPage(items=[FrotaListOut.model_validate(e) for e in items], total=total)
 
 
-@router.get("/exportar")
+@router.get("/exportar", response_class=Response)
 def exportar(
     cliente: int | None = None,
     status: str | None = None,
@@ -131,7 +131,7 @@ def exportar(
     db: Session = Depends(get_db),
     _: Usuario = Depends(get_current_usuario),
 ):
-    itens = _query_frota(db, cliente=cliente, status=status, ativo=ativo, q=q).all()
+    itens = carregar_ate_o_teto(_query_frota(db, cliente=cliente, status=status, ativo=ativo, q=q))
 
     # `marca` nao tem property no modelo — e' FK de `equipamentos` para `marcas`.
     # Uma consulta so' para todas as marcas em jogo evita N+1 sem mexer no modelo.
@@ -148,10 +148,18 @@ def exportar(
     for e in itens:
         e._marca_nome = marcas.get(e.equipamento)
 
+    # O rodape existe para identificar a exportacao parcial — mostrar o id cru do
+    # filtro nao diz nada pra quem abre o arquivo por e-mail; resolve o nome so'
+    # quando o filtro de cliente veio preenchido.
+    cliente_nome = cliente
+    if cliente is not None:
+        nome = db.query(Cliente.nome).filter(Cliente.id == cliente).scalar()
+        cliente_nome = nome if nome is not None else cliente
+
     return resposta_xlsx(
         "equipamentos", "Equipamentos", COLUNAS_FROTA,
         [linha_frota(e) for e in itens],
-        {"Cliente": cliente, "Status": status,
+        {"Cliente": cliente_nome, "Status": status,
          "Aparelhos": None if ativo is None else ("Ativos" if ativo else "Inativos"),
          "Busca": q},
     )

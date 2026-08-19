@@ -1,6 +1,6 @@
 import re
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
@@ -8,7 +8,7 @@ from app.models.database import get_db
 from app.models import Usuario, Cliente
 from app.api.deps import get_current_usuario, require_funcao, GESTOR_CADASTRO, EDITOR_CADASTRO
 from app.api.cadastros_common import excluir_protegido
-from app.api.exportar_common import resposta_xlsx
+from app.api.exportar_common import carregar_ate_o_teto, resposta_xlsx
 from app.core.exportacoes import COLUNAS_CLIENTES, linha_cliente
 from app.schemas.clientes import ClienteListOut, ClientesPage, ClienteOut, ClienteCreate, ClienteUpdate
 
@@ -45,13 +45,13 @@ def listar(
     return ClientesPage(items=[ClienteListOut.model_validate(c) for c in items], total=total)
 
 
-@router.get("/exportar")
+@router.get("/exportar", response_class=Response)
 def exportar(
     q: str | None = None,
     db: Session = Depends(get_db),
     _: Usuario = Depends(get_current_usuario),
 ):
-    itens = _query_clientes(db, q=q).all()
+    itens = carregar_ate_o_teto(_query_clientes(db, q=q))
     return resposta_xlsx(
         "clientes", "Clientes", COLUNAS_CLIENTES,
         [linha_cliente(c) for c in itens], {"Busca": q},

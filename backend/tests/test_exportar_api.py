@@ -83,6 +83,10 @@ def test_exportar_frota_traz_a_marca_e_o_cnpj_do_cliente(client, usuario_admin, 
     assert "11222333000144" in valores
 
 
+def test_exportar_clientes_exige_token(client):
+    assert client.get("/clientes/exportar").status_code == 401
+
+
 def test_exportar_clientes_respeita_a_busca(client, usuario_admin, db_session):
     from app.models import Cliente
     db_session.add_all([Cliente(nome="Alfa Industria"), Cliente(nome="Beta Comercio")])
@@ -92,11 +96,27 @@ def test_exportar_clientes_respeita_a_busca(client, usuario_admin, db_session):
     assert "Beta Comercio" not in valores
 
 
+def test_exportar_frota_filtrando_por_cliente_mostra_o_nome_no_rodape(client, usuario_admin, db_session):
+    """O rodape existe pra dizer com que filtro a planilha saiu — mostrar so' o id
+    do cliente nao ajuda quem recebe o arquivo por e-mail."""
+    from app.models import EquipamentoCliente
+    cid, eid = _base(db_session)
+    db_session.add(EquipamentoCliente(cliente=cid, equipamento=eid, serie="COMFILTRO"))
+    db_session.commit()
+    valores = _series(client.get(f"/equipamentos-cliente/exportar?cliente={cid}", headers=_headers(client)))
+    assert any("Cliente Export" in v for v in valores)
+    assert not any(v == f"Cliente: {cid}" for v in valores)
+
+
 def test_exportar_clientes_nao_colide_com_a_rota_de_id(client, usuario_admin, db_session):
     """Se /exportar for declarado depois de /{cliente_id}, o FastAPI tenta converter
     "exportar" para int e devolve 422 em vez do arquivo."""
     r = client.get("/clientes/exportar", headers=_headers(client))
     assert r.status_code == 200, r.text
+
+
+def test_exportar_ordens_exige_token(client):
+    assert client.get("/ordens/exportar").status_code == 401
 
 
 def test_exportar_ordens_respeita_o_filtro_de_fase(client, usuario_admin, db_session, fases_seed):
