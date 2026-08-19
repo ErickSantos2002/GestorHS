@@ -136,6 +136,29 @@ def test_exportar_ordens_nao_colide_com_a_rota_de_id(client, usuario_admin):
     assert client.get("/ordens/exportar", headers=_headers(client)).status_code == 200
 
 
+def test_carregar_ate_o_teto_corta_no_banco(client, usuario_admin, db_session, monkeypatch):
+    """Prova que o corte acontece na QUERY, nao so' no gerar_xlsx.
+
+    Sem este teste, trocar `carregar_ate_o_teto(...)` de volta por `.all()` nos endpoints
+    passaria despercebido: o guard de `gerar_xlsx` continuaria devolvendo 400 e a suite
+    ficaria verde, enquanto a base inteira voltaria a ser hidratada na memoria.
+    """
+    from app.models import EquipamentoCliente
+    import app.core.planilha as planilha
+    from app.api.exportar_common import carregar_ate_o_teto
+    from app.api.equipamentos_cliente import _query_frota
+
+    cid, eid = _base(db_session)
+    db_session.add_all([
+        EquipamentoCliente(cliente=cid, equipamento=eid, serie=f"S{i}") for i in range(10)
+    ])
+    db_session.commit()
+
+    monkeypatch.setattr(planilha, "LIMITE_LINHAS", 3)
+    itens = carregar_ate_o_teto(_query_frota(db_session))
+    assert len(itens) == 4, "o helper deve trazer no maximo teto + 1, nao a tabela inteira"
+
+
 def test_acima_do_teto_devolve_400(client, usuario_admin, db_session, monkeypatch):
     from app.models import EquipamentoCliente
     import app.core.planilha as planilha
