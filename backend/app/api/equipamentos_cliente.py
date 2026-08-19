@@ -1,13 +1,15 @@
 from datetime import date, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status as http_status, Query
+from fastapi import APIRouter, Depends, HTTPException, status as http_status, Query, Response
 from sqlalchemy import or_, func
 from sqlalchemy.orm import Session
 
 from app.models.database import get_db
-from app.models import Usuario, EquipamentoCliente, HistoricoEquipamento, Ordem, OSCertificado, Cliente, TransferenciaEquipamento, CertificadoVenda
+from app.models import Usuario, EquipamentoCliente, HistoricoEquipamento, Ordem, OSCertificado, Cliente, TransferenciaEquipamento, CertificadoVenda, Equipamento, Marca
 from app.api.deps import get_current_usuario, require_funcao, GESTOR_CADASTRO, EDITOR_CADASTRO
 from app.api.cadastros_common import excluir_protegido
+from app.api.exportar_common import carregar_ate_o_teto, resposta_xlsx
+from app.core.exportacoes import COLUNAS_FROTA, linha_frota
 from app.api.ordens_acoes import agora
 from app.core import os_workflow as wf
 from app.core.config import settings
@@ -73,17 +75,10 @@ def _anotar_elo(db: Session, obj) -> None:
         obj.em_estoque = True
 
 
-@router.get("", response_model=FrotaPage)
-def listar(
-    cliente: int | None = None,
-    status: str | None = None,
-    ativo: bool | None = None,
-    q: str | None = None,
-    offset: int = 0,
-    limit: int = Query(25, ge=1, le=100),
-    db: Session = Depends(get_db),
-    _: Usuario = Depends(get_current_usuario),
-):
+def _query_frota(db: Session, cliente: int | None = None, status: str | None = None,
+                 ativo: bool | None = None, q: str | None = None):
+    """Filtros da frota. Usado por listar() e por exportar() — ter um lugar so'
+    impede que a planilha ignore um filtro novo em silencio."""
     query = db.query(EquipamentoCliente)
     if cliente is not None:
         query = query.filter(EquipamentoCliente.cliente == cliente)
@@ -105,10 +100,69 @@ def listar(
             query = query.filter(EquipamentoCliente.prox_calibragem.is_(None))
     if q:
         termo = f"%{q}%"
-        query = query.filter(or_(EquipamentoCliente.serie.ilike(termo), EquipamentoCliente.patrimonio.ilike(termo)))
+        query = query.filter(or_(EquipamentoCliente.serie.ilike(termo),
+                                 EquipamentoCliente.patrimonio.ilike(termo)))
+    return query.order_by(EquipamentoCliente.id)
+
+
+@router.get("", response_model=FrotaPage)
+def listar(
+    cliente: int | None = None,
+    status: str | None = None,
+    ativo: bool | None = None,
+    q: str | None = None,
+    offset: int = 0,
+    limit: int = Query(25, ge=1, le=100),
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(get_current_usuario),
+):
+    query = _query_frota(db, cliente=cliente, status=status, ativo=ativo, q=q)
     total = query.count()
-    items = query.order_by(EquipamentoCliente.id).offset(offset).limit(limit).all()
+    items = query.offset(offset).limit(limit).all()
     return FrotaPage(items=[FrotaListOut.model_validate(e) for e in items], total=total)
+
+
+@router.get("/exportar", response_class=Response)
+def exportar(
+    cliente: int | None = None,
+    status: str | None = None,
+    ativo: bool | None = None,
+    q: str | None = None,
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(get_current_usuario),
+):
+    itens = carregar_ate_o_teto(_query_frota(db, cliente=cliente, status=status, ativo=ativo, q=q))
+
+    # `marca` nao tem property no modelo — e' FK de `equipamentos` para `marcas`.
+    # Uma consulta so' para todas as marcas em jogo evita N+1 sem mexer no modelo.
+    ids_equip = {e.equipamento for e in itens if e.equipamento is not None}
+    marcas = {}
+    if ids_equip:
+        linhas = (
+            db.query(Equipamento.id, Marca.descricao)
+            .outerjoin(Marca, Equipamento.marca == Marca.id)
+            .filter(Equipamento.id.in_(ids_equip))
+            .all()
+        )
+        marcas = {eid: desc for eid, desc in linhas}
+    for e in itens:
+        e._marca_nome = marcas.get(e.equipamento)
+
+    # O rodape existe para identificar a exportacao parcial — mostrar o id cru do
+    # filtro nao diz nada pra quem abre o arquivo por e-mail; resolve o nome so'
+    # quando o filtro de cliente veio preenchido.
+    cliente_nome = cliente
+    if cliente is not None:
+        nome = db.query(Cliente.nome).filter(Cliente.id == cliente).scalar()
+        cliente_nome = nome if nome is not None else cliente
+
+    return resposta_xlsx(
+        "equipamentos", "Equipamentos", COLUNAS_FROTA,
+        [linha_frota(e) for e in itens],
+        {"Cliente": cliente_nome, "Status": status,
+         "Aparelhos": None if ativo is None else ("Ativos" if ativo else "Inativos"),
+         "Busca": q},
+    )
 
 
 @router.get("/{item_id}", response_model=EquipamentoClienteOut)

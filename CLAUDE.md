@@ -61,6 +61,13 @@ Verificação completa antes de commitar frontend: `npm run lint && npx tsc -b -
 ### Docker
 `docker compose up -d` na raiz sobe **só a API** com hot-reload (o PostgreSQL é remoto, configurado em `backend/.env`).
 
+> ℹ️ **`openpyxl` entrou no `requirements.txt` em ago/2026** (exportação para Excel). O deploy
+> no EasyPanel builda a partir do Dockerfile, então a dependência entra sozinha: mexer no
+> `requirements.txt` invalida o cache da camada de `pip install`. **Efeito colateral a esperar:**
+> a camada seguinte é o `playwright install --with-deps chromium`, que também perde o cache e
+> baixa o Chromium de novo — esse deploy demora bem mais que o normal. Em fluxo que só faça
+> `pull` de imagem pronta + restart, aí sim seria preciso reconstruir à mão.
+
 ## Arquitetura
 
 ### O ciclo de negócio e o workflow da OS
@@ -88,6 +95,9 @@ A geração de certificado é o subsistema mais elaborado:
 - [certificado_pdf.py](backend/app/core/certificado_pdf.py) gera o PDF; [storage.py](backend/app/core/storage.py) lida com upload de imagens/PDF (limite 10 MB; `UPLOAD_DIR` em config).
 
 `status_calibracao()` em [calibracao.py](backend/app/core/calibracao.py) classifica a próxima calibração (`sem_data`/`vencido`/`vencendo`/`em_dia`, janela padrão 90 dias) — reutilize-o em vez de recalcular.
+
+### Exportação para Excel
+A exportação para Excel tem o motor puro em [backend/app/core/planilha.py](backend/app/core/planilha.py) (formatação do xlsx, sem domínio) e as colunas de cada planilha em [backend/app/core/exportacoes.py](backend/app/core/exportacoes.py). Cada endpoint `GET .../exportar` reaproveita o mesmo helper `_query_*` da listagem correspondente — é o que impede a planilha de divergir da tela. No frontend, o componente compartilhado é [frontend/src/components/ui/BotaoExportar.tsx](frontend/src/components/ui/BotaoExportar.tsx).
 
 ### Integracao com o TaskHS
 A cada abrir/avancar/cancelar de OS, o GestorHS espelha a OS como um card no board `Servico` do TaskHS ([app/core/taskhs.py](backend/app/core/taskhs.py) puro + [app/integrations/taskhs_client.py](backend/app/integrations/taskhs_client.py) I/O, disparado via `BackgroundTasks` best-effort). Nasce desligada: sem `TASKHS_BASE_URL`/`TASKHS_API_KEY` eh no-op. Backfill: `python -m app.scripts.sincronizar_taskhs`.

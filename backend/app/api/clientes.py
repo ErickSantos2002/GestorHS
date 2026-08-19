@@ -1,6 +1,6 @@
 import re
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
@@ -8,10 +8,27 @@ from app.models.database import get_db
 from app.models import Usuario, Cliente
 from app.api.deps import get_current_usuario, require_funcao, GESTOR_CADASTRO, EDITOR_CADASTRO
 from app.api.cadastros_common import excluir_protegido
+from app.api.exportar_common import carregar_ate_o_teto, resposta_xlsx
+from app.core.exportacoes import COLUNAS_CLIENTES, linha_cliente
 from app.schemas.clientes import ClienteListOut, ClientesPage, ClienteOut, ClienteCreate, ClienteUpdate
 
 router = APIRouter(prefix="/clientes", tags=["clientes"])
 ADMIN = "Administrador"
+
+
+def _query_clientes(db: Session, q: str | None = None):
+    """Filtros da lista de clientes. Usado por listar() e por exportar() —
+    ter um lugar so' impede que a planilha ignore um filtro novo em silencio."""
+    query = db.query(Cliente)
+    if q:
+        termo = f"%{q}%"
+        filtros = [Cliente.nome.ilike(termo), Cliente.municipio.ilike(termo)]
+        digitos = re.sub(r"\D", "", q)
+        if digitos:
+            termo_doc = f"%{digitos}%"
+            filtros += [Cliente.cgc.ilike(termo_doc), Cliente.cpf.ilike(termo_doc)]
+        query = query.filter(or_(*filtros))
+    return query.order_by(Cliente.nome)
 
 
 @router.get("", response_model=ClientesPage)
@@ -22,18 +39,23 @@ def listar(
     db: Session = Depends(get_db),
     _: Usuario = Depends(get_current_usuario),
 ):
-    query = db.query(Cliente)
-    if q:
-        termo = f"%{q}%"
-        filtros = [Cliente.nome.ilike(termo), Cliente.municipio.ilike(termo)]
-        digitos = re.sub(r"\D", "", q)
-        if digitos:
-            termo_doc = f"%{digitos}%"
-            filtros += [Cliente.cgc.ilike(termo_doc), Cliente.cpf.ilike(termo_doc)]
-        query = query.filter(or_(*filtros))
+    query = _query_clientes(db, q=q)
     total = query.count()
-    items = query.order_by(Cliente.nome).offset(offset).limit(limit).all()
+    items = query.offset(offset).limit(limit).all()
     return ClientesPage(items=[ClienteListOut.model_validate(c) for c in items], total=total)
+
+
+@router.get("/exportar", response_class=Response)
+def exportar(
+    q: str | None = None,
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(get_current_usuario),
+):
+    itens = carregar_ate_o_teto(_query_clientes(db, q=q))
+    return resposta_xlsx(
+        "clientes", "Clientes", COLUNAS_CLIENTES,
+        [linha_cliente(c) for c in itens], {"Busca": q},
+    )
 
 
 @router.get("/{cliente_id}", response_model=ClienteOut)

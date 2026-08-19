@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
-import { baixarPdfComEscolhaDePasta } from './download'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { baixarPdfComEscolhaDePasta, baixarPlanilha } from './download'
 
 const PDF = new Blob(['%PDF-1.4'], { type: 'application/pdf' })
 
@@ -122,5 +122,63 @@ describe('baixarPdfComEscolhaDePasta', () => {
 
     await baixarPdfComEscolhaDePasta('x.pdf', async () => PDF)
     expect(ordem).toEqual(['aba', 'janela'])
+  })
+})
+
+describe('baixarPlanilha', () => {
+  beforeEach(() => {
+    URL.createObjectURL = vi.fn(() => 'blob:fake')
+    URL.revokeObjectURL = vi.fn()
+  })
+
+  afterEach(() => {
+    delete (window as unknown as { showSaveFilePicker?: unknown }).showSaveFilePicker
+    vi.restoreAllMocks()
+  })
+
+  it('sem showSaveFilePicker cai no download direto', async () => {
+    const blob = new Blob(['x'])
+    const clique = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    await baixarPlanilha('lista.xlsx', async () => blob)
+    expect(clique).toHaveBeenCalled()
+    expect(URL.createObjectURL).toHaveBeenCalledWith(blob)
+  })
+
+  it('com showSaveFilePicker grava pela janela nativa', async () => {
+    const write = vi.fn(async () => {})
+    const close = vi.fn(async () => {})
+    const abrir = vi.fn(async () => ({ createWritable: async () => ({ write, close }) }))
+    ;(window as unknown as { showSaveFilePicker: unknown }).showSaveFilePicker = abrir
+
+    const blob = new Blob(['x'])
+    await baixarPlanilha('lista.xlsx', async () => blob)
+
+    expect(abrir).toHaveBeenCalledWith(
+      expect.objectContaining({ suggestedName: 'lista.xlsx' }),
+    )
+    expect(write).toHaveBeenCalledWith(blob)
+    expect(close).toHaveBeenCalled()
+  })
+
+  it('cancelar a janela nao lanca e nao busca o arquivo', async () => {
+    const abrir = vi.fn(async () => {
+      throw new DOMException('cancelado', 'AbortError')
+    })
+    ;(window as unknown as { showSaveFilePicker: unknown }).showSaveFilePicker = abrir
+    const obterBlob = vi.fn(async () => new Blob(['x']))
+
+    await expect(baixarPlanilha('lista.xlsx', obterBlob)).resolves.toBeUndefined()
+    expect(obterBlob).not.toHaveBeenCalled()
+  })
+
+  it('erro ao buscar o arquivo propaga para o chamador mostrar', async () => {
+    const abrir = vi.fn(async () => ({
+      createWritable: async () => ({ write: async () => {}, close: async () => {} }),
+    }))
+    ;(window as unknown as { showSaveFilePicker: unknown }).showSaveFilePicker = abrir
+
+    await expect(
+      baixarPlanilha('lista.xlsx', async () => { throw new Error('500') }),
+    ).rejects.toThrow('500')
   })
 })

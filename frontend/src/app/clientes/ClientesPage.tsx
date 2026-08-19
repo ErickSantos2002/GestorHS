@@ -12,6 +12,7 @@ import { useAuth } from '../../auth/AuthContext'
 import { podeGerenciarCadastros } from '../../auth/roles'
 import { clientesApi, type ClienteListItem } from './api'
 import { PageContainer } from '../../components/ui/Page'
+import { BotaoExportar } from '../../components/ui/BotaoExportar'
 
 const LIMITE = 25
 
@@ -57,7 +58,10 @@ export function ClientesPage() {
     <PageContainer>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-extrabold text-slate-100">Clientes</h1>
-        {podeGerenciarCadastros(user) && <Button onClick={() => navigate('/app/clientes/novo')}>Novo cliente</Button>}
+        <div className="flex items-start gap-2">
+          <BotaoExportar caminho="/clientes/exportar" params={{ q: busca }} nome="clientes" />
+          {podeGerenciarCadastros(user) && <Button onClick={() => navigate('/app/clientes/novo')}>Novo cliente</Button>}
+        </div>
       </div>
 
       <SearchBar

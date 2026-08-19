@@ -23,6 +23,15 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.39.0',
+    data: '19/08/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'As listas de Clientes, Equipamentos e Ordens ganharam o botão “Exportar Excel”. A planilha sai com todas as linhas que batem com os filtros da tela — não só as 25 que aparecem — e com mais colunas do que a lista mostra: no aparelho, por exemplo, vêm CNPJ do cliente, marca, patrimônio, data da compra e número do certificado.' },
+      { tipo: 'novidade', texto: 'Nova aba “Emitidos” em Certificados: escolhe o período e baixa a relação de todos os certificados já gerados, tanto os que saíram de uma OS quanto os de venda, no mesmo arquivo.' },
+      { tipo: 'melhoria', texto: 'As planilhas já vêm prontas para trabalhar: cabeçalho fixo ao rolar, filtro em cada coluna, datas e valores como data e número de verdade (dá para ordenar e somar) e, no rodapé, o registro de quais filtros geraram o arquivo.' },
+    ],
+  },
+  {
     versao: '1.38.0',
     data: '13/08/2026',
     itens: [
