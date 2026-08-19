@@ -14,6 +14,8 @@ from app.core.garantia import garantias as _calc_garantias
 from app.core.certificado_gerar import tipos_para, tipos_sem_modelo
 from app.core.os_workflow import FASE_FINALIZADA
 from app.api.caixas import sincronizar_principal
+from app.api.exportar_common import resposta_xlsx
+from app.core.exportacoes import COLUNAS_ORDENS, linha_ordem
 from app.api.espelhamento import agendar_espelhamento_caixa
 from app.schemas.ordens import (
     OrdemListOut, OrdemPage, QuadroColuna, OrdemOut, LogOut, OrdemAbrirIn, OrdemEditarIn,
@@ -102,6 +104,27 @@ def quadro(cliente: int | None = None, db: Session = Depends(get_db),
             ordens=[OrdemListOut.model_validate(o) for o in ordens],
         ))
     return colunas
+
+
+@router.get("/exportar")
+def exportar(
+    fase: int | None = None,
+    cliente: int | None = None,
+    tipo: str | None = None,
+    q: str | None = None,
+    chegada_de: date | None = None,
+    chegada_ate: date | None = None,
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(get_current_usuario),
+):
+    itens = _query_ordens(db, fase=fase, cliente=cliente, tipo=tipo, q=q,
+                          chegada_de=chegada_de, chegada_ate=chegada_ate).all()
+    return resposta_xlsx(
+        "ordens", "Ordens de servico", COLUNAS_ORDENS,
+        [linha_ordem(o) for o in itens],
+        {"Fase": fase, "Cliente": cliente, "Tipo": tipo, "Busca": q,
+         "Chegada de": chegada_de, "Chegada ate": chegada_ate},
+    )
 
 
 def _anotar_modelos_faltantes(db: Session, ordem) -> None:

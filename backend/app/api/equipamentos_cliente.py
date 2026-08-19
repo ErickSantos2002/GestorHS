@@ -5,9 +5,11 @@ from sqlalchemy import or_, func
 from sqlalchemy.orm import Session
 
 from app.models.database import get_db
-from app.models import Usuario, EquipamentoCliente, HistoricoEquipamento, Ordem, OSCertificado, Cliente, TransferenciaEquipamento, CertificadoVenda
+from app.models import Usuario, EquipamentoCliente, HistoricoEquipamento, Ordem, OSCertificado, Cliente, TransferenciaEquipamento, CertificadoVenda, Equipamento, Marca
 from app.api.deps import get_current_usuario, require_funcao, GESTOR_CADASTRO, EDITOR_CADASTRO
 from app.api.cadastros_common import excluir_protegido
+from app.api.exportar_common import resposta_xlsx
+from app.core.exportacoes import COLUNAS_FROTA, linha_frota
 from app.api.ordens_acoes import agora
 from app.core import os_workflow as wf
 from app.core.config import settings
@@ -118,6 +120,41 @@ def listar(
     total = query.count()
     items = query.offset(offset).limit(limit).all()
     return FrotaPage(items=[FrotaListOut.model_validate(e) for e in items], total=total)
+
+
+@router.get("/exportar")
+def exportar(
+    cliente: int | None = None,
+    status: str | None = None,
+    ativo: bool | None = None,
+    q: str | None = None,
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(get_current_usuario),
+):
+    itens = _query_frota(db, cliente=cliente, status=status, ativo=ativo, q=q).all()
+
+    # `marca` nao tem property no modelo — e' FK de `equipamentos` para `marcas`.
+    # Uma consulta so' para todas as marcas em jogo evita N+1 sem mexer no modelo.
+    ids_equip = {e.equipamento for e in itens if e.equipamento is not None}
+    marcas = {}
+    if ids_equip:
+        linhas = (
+            db.query(Equipamento.id, Marca.descricao)
+            .outerjoin(Marca, Equipamento.marca == Marca.id)
+            .filter(Equipamento.id.in_(ids_equip))
+            .all()
+        )
+        marcas = {eid: desc for eid, desc in linhas}
+    for e in itens:
+        e._marca_nome = marcas.get(e.equipamento)
+
+    return resposta_xlsx(
+        "equipamentos", "Equipamentos", COLUNAS_FROTA,
+        [linha_frota(e) for e in itens],
+        {"Cliente": cliente, "Status": status,
+         "Aparelhos": None if ativo is None else ("Ativos" if ativo else "Inativos"),
+         "Busca": q},
+    )
 
 
 @router.get("/{item_id}", response_model=EquipamentoClienteOut)

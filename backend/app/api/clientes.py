@@ -8,6 +8,8 @@ from app.models.database import get_db
 from app.models import Usuario, Cliente
 from app.api.deps import get_current_usuario, require_funcao, GESTOR_CADASTRO, EDITOR_CADASTRO
 from app.api.cadastros_common import excluir_protegido
+from app.api.exportar_common import resposta_xlsx
+from app.core.exportacoes import COLUNAS_CLIENTES, linha_cliente
 from app.schemas.clientes import ClienteListOut, ClientesPage, ClienteOut, ClienteCreate, ClienteUpdate
 
 router = APIRouter(prefix="/clientes", tags=["clientes"])
@@ -41,6 +43,19 @@ def listar(
     total = query.count()
     items = query.offset(offset).limit(limit).all()
     return ClientesPage(items=[ClienteListOut.model_validate(c) for c in items], total=total)
+
+
+@router.get("/exportar")
+def exportar(
+    q: str | None = None,
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(get_current_usuario),
+):
+    itens = _query_clientes(db, q=q).all()
+    return resposta_xlsx(
+        "clientes", "Clientes", COLUNAS_CLIENTES,
+        [linha_cliente(c) for c in itens], {"Busca": q},
+    )
 
 
 @router.get("/{cliente_id}", response_model=ClienteOut)

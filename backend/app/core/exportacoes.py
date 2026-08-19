@@ -158,3 +158,6 @@ def montar_rodape(filtros: dict, gerado_em: datetime) -> str:
 
 def nome_arquivo(base: str, hoje: date) -> str:
     return f"{base}-{hoje.isoformat()}.xlsx"
+
+
+MIME_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
