@@ -5,7 +5,7 @@ devolve os bytes de um .xlsx. Existe para que TODA exportacao do GestorHS saia c
 mesmo acabamento — se o cabecalho muda aqui, muda em todas de uma vez.
 """
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, tzinfo as TzInfo
 from decimal import Decimal
 from io import BytesIO
 from typing import Any, Literal, Sequence
@@ -13,6 +13,8 @@ from typing import Any, Literal, Sequence
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
+
+from app.core.agendamento import TZ_SP
 
 Formato = Literal["texto", "data", "datahora", "numero", "inteiro", "sim_nao"]
 
@@ -43,7 +45,7 @@ class Coluna:
     formato: Formato = "texto"
 
 
-def _valor_da_celula(bruto: Any, formato: Formato) -> Any:
+def _valor_da_celula(bruto: Any, formato: Formato, fuso: TzInfo) -> Any:
     if bruto is None:
         # Celula VAZIA, nunca o "—" que a tela usa: quem recebe a planilha filtra e
         # soma em cima dela, e um travessao transforma a coluna inteira em texto.
@@ -51,11 +53,15 @@ def _valor_da_celula(bruto: Any, formato: Formato) -> Any:
     if formato == "sim_nao":
         return "Sim" if bruto else "Nao"
     if formato == "datahora" and isinstance(bruto, datetime):
-        # O Excel nao tem conceito de fuso e o openpyxl recusa datetime aware.
-        # As datas do sistema sao UTC; guardamos o instante sem o rotulo.
-        return bruto.replace(tzinfo=None)
+        # O Excel nao tem conceito de fuso e o openpyxl recusa datetime aware. As
+        # datas do sistema sao UTC; convertemos para o fuso de exibicao (o mesmo da
+        # tela) antes de descartar o rotulo — senao o instante sai adiantado.
+        return bruto.astimezone(fuso).replace(tzinfo=None)
     if formato == "data" and isinstance(bruto, datetime):
-        return bruto.date()
+        # `.date()` de um datetime aware tira o dia do UTC, nao do fuso local: perto
+        # da virada, a tela e a planilha discordariam sobre QUE DIA foi. Converte
+        # primeiro pelo mesmo motivo do datahora acima.
+        return bruto.astimezone(fuso).date()
     if formato in ("numero", "inteiro") and isinstance(bruto, Decimal):
         return float(bruto)
     return bruto
@@ -66,9 +72,15 @@ def gerar_xlsx(
     colunas: Sequence[Coluna],
     linhas: Sequence[dict],
     rodape: str,
+    fuso: TzInfo = TZ_SP,
 ) -> bytes:
     """Monta a planilha e devolve os bytes. `linhas` sao dicionarios; a chave usada
-    de cada uma e' o `campo` da Coluna, e chave ausente vale o mesmo que None."""
+    de cada uma e' o `campo` da Coluna, e chave ausente vale o mesmo que None.
+
+    `fuso` e' o fuso de exibicao usado para converter `datahora`/`data` antes de
+    escrever na celula — o mesmo fuso que a tela usa, para a planilha nunca discordar
+    dela. Default e' o de operacao da Health Safety (`TZ_SP`, ja usado no job mensal
+    em `core/agendamento.py`)."""
     if len(linhas) > LIMITE_LINHAS:
         raise PlanilhaGrandeDemais(len(linhas))
 
@@ -85,7 +97,7 @@ def gerar_xlsx(
         aba.column_dimensions[get_column_letter(i)].width = coluna.largura
 
     for linha in linhas:
-        aba.append([_valor_da_celula(linha.get(c.campo), c.formato) for c in colunas])
+        aba.append([_valor_da_celula(linha.get(c.campo), c.formato, fuso) for c in colunas])
 
     for i, coluna in enumerate(colunas, start=1):
         formato_numerico = _FORMATO_NUMERICO.get(coluna.formato)

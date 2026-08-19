@@ -4,6 +4,7 @@ import { Spinner } from './Spinner'
 import { IconDownload } from './icons'
 import { apiFetch } from '../../lib/api'
 import { baixarPlanilha } from '../../lib/download'
+import { hojeISO } from '../../lib/datas'
 
 type Valor = string | number | boolean | null | undefined
 
@@ -35,7 +36,7 @@ export function BotaoExportar({ caminho, params, nome, desabilitado }: Props) {
     setErro('')
     setGerando(true)
     try {
-      const hoje = new Date().toISOString().slice(0, 10)
+      const hoje = hojeISO()
       await baixarPlanilha(`${nome}-${hoje}.xlsx`, async () => {
         const res = await apiFetch(`${caminho}${montarQuery(params)}`)
         if (!res.ok) {

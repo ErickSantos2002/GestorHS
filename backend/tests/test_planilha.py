@@ -49,12 +49,24 @@ def test_tipos_das_celulas_sao_reais_nao_texto():
     assert aba["F2"].value == "Sim"
 
 
-def test_datahora_com_fuso_perde_o_tzinfo():
-    """Excel nao guarda fuso; openpyxl recusa datetime aware. A conversao e' nossa."""
-    linha = {"criado": datetime(2021, 5, 2, 14, 30, tzinfo=timezone.utc)}
+def test_datahora_aware_e_convertida_para_o_fuso_de_exibicao_antes_de_perder_o_tzinfo():
+    """Excel nao guarda fuso; openpyxl recusa datetime aware. Mas nao basta descartar
+    o rotulo: o sistema grava UTC e a tela mostra hora local (America/Sao_Paulo), entao
+    a celula tem que trazer o instante CONVERTIDO — 23:30 UTC vira 20:30 na planilha,
+    nao 23:30 sem tzinfo."""
+    linha = {"criado": datetime(2021, 5, 2, 23, 30, tzinfo=timezone.utc)}
     aba = _abrir(gerar_xlsx("X", COLUNAS, [linha], "sem filtros"))
-    assert aba["D2"].value == datetime(2021, 5, 2, 14, 30)
+    assert aba["D2"].value == datetime(2021, 5, 2, 20, 30)
     assert aba["D2"].value.tzinfo is None
+
+
+def test_data_aware_perto_da_virada_segue_o_dia_local_nao_o_utc():
+    """2026-08-20 01:00 UTC ainda e' 19/08 as 22h em Sao Paulo: a coluna `data` (sem
+    hora) tem que trazer o dia LOCAL — senao a planilha e a tela discordam sobre que
+    dia foi, exatamente nas horas de virada."""
+    linha = {"nasc": datetime(2026, 8, 20, 1, 0, tzinfo=timezone.utc)}
+    aba = _abrir(gerar_xlsx("X", COLUNAS, [linha], "sem filtros"))
+    assert aba["C2"].value == datetime(2026, 8, 19)
 
 
 def test_nulo_vira_celula_vazia_nunca_travessao():
