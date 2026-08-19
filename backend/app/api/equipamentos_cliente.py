@@ -73,17 +73,10 @@ def _anotar_elo(db: Session, obj) -> None:
         obj.em_estoque = True
 
 
-@router.get("", response_model=FrotaPage)
-def listar(
-    cliente: int | None = None,
-    status: str | None = None,
-    ativo: bool | None = None,
-    q: str | None = None,
-    offset: int = 0,
-    limit: int = Query(25, ge=1, le=100),
-    db: Session = Depends(get_db),
-    _: Usuario = Depends(get_current_usuario),
-):
+def _query_frota(db: Session, cliente: int | None = None, status: str | None = None,
+                 ativo: bool | None = None, q: str | None = None):
+    """Filtros da frota. Usado por listar() e por exportar() — ter um lugar so'
+    impede que a planilha ignore um filtro novo em silencio."""
     query = db.query(EquipamentoCliente)
     if cliente is not None:
         query = query.filter(EquipamentoCliente.cliente == cliente)
@@ -105,9 +98,25 @@ def listar(
             query = query.filter(EquipamentoCliente.prox_calibragem.is_(None))
     if q:
         termo = f"%{q}%"
-        query = query.filter(or_(EquipamentoCliente.serie.ilike(termo), EquipamentoCliente.patrimonio.ilike(termo)))
+        query = query.filter(or_(EquipamentoCliente.serie.ilike(termo),
+                                 EquipamentoCliente.patrimonio.ilike(termo)))
+    return query.order_by(EquipamentoCliente.id)
+
+
+@router.get("", response_model=FrotaPage)
+def listar(
+    cliente: int | None = None,
+    status: str | None = None,
+    ativo: bool | None = None,
+    q: str | None = None,
+    offset: int = 0,
+    limit: int = Query(25, ge=1, le=100),
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(get_current_usuario),
+):
+    query = _query_frota(db, cliente=cliente, status=status, ativo=ativo, q=q)
     total = query.count()
-    items = query.order_by(EquipamentoCliente.id).offset(offset).limit(limit).all()
+    items = query.offset(offset).limit(limit).all()
     return FrotaPage(items=[FrotaListOut.model_validate(e) for e in items], total=total)
 
 

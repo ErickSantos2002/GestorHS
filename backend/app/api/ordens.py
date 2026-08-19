@@ -25,19 +25,11 @@ router = APIRouter(prefix="/ordens", tags=["ordens"])
 LIMITE_FINALIZADAS_QUADRO = 300
 
 
-@router.get("", response_model=OrdemPage)
-def listar(
-    fase: int | None = None,
-    cliente: int | None = None,
-    tipo: str | None = None,
-    q: str | None = None,
-    chegada_de: date | None = None,
-    chegada_ate: date | None = None,
-    offset: int = 0,
-    limit: int = Query(25, ge=1, le=100),
-    db: Session = Depends(get_db),
-    _: Usuario = Depends(get_current_usuario),
-):
+def _query_ordens(db: Session, fase: int | None = None, cliente: int | None = None,
+                  tipo: str | None = None, q: str | None = None,
+                  chegada_de: date | None = None, chegada_ate: date | None = None):
+    """Filtros da lista de OS. Usado por listar() e por exportar() — ter um lugar
+    so' impede que a planilha ignore um filtro novo em silencio."""
     query = db.query(Ordem)
     if fase is not None:
         query = query.filter(Ordem.fase == fase)
@@ -63,8 +55,26 @@ def listar(
             query = query.join(Cliente, Ordem.cliente == Cliente.id).filter(
                 or_(Ordem.etiqueta.ilike(termo), Cliente.nome.ilike(termo))
             )
+    return query.order_by(Ordem.id.desc())
+
+
+@router.get("", response_model=OrdemPage)
+def listar(
+    fase: int | None = None,
+    cliente: int | None = None,
+    tipo: str | None = None,
+    q: str | None = None,
+    chegada_de: date | None = None,
+    chegada_ate: date | None = None,
+    offset: int = 0,
+    limit: int = Query(25, ge=1, le=100),
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(get_current_usuario),
+):
+    query = _query_ordens(db, fase=fase, cliente=cliente, tipo=tipo, q=q,
+                          chegada_de=chegada_de, chegada_ate=chegada_ate)
     total = query.count()
-    items = query.order_by(Ordem.id.desc()).offset(offset).limit(limit).all()
+    items = query.offset(offset).limit(limit).all()
     return OrdemPage(items=[OrdemListOut.model_validate(o) for o in items], total=total)
 
 

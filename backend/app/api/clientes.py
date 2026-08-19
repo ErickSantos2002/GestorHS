@@ -14,14 +14,9 @@ router = APIRouter(prefix="/clientes", tags=["clientes"])
 ADMIN = "Administrador"
 
 
-@router.get("", response_model=ClientesPage)
-def listar(
-    q: str | None = None,
-    offset: int = 0,
-    limit: int = Query(25, ge=1, le=100),
-    db: Session = Depends(get_db),
-    _: Usuario = Depends(get_current_usuario),
-):
+def _query_clientes(db: Session, q: str | None = None):
+    """Filtros da lista de clientes. Usado por listar() e por exportar() —
+    ter um lugar so' impede que a planilha ignore um filtro novo em silencio."""
     query = db.query(Cliente)
     if q:
         termo = f"%{q}%"
@@ -31,8 +26,20 @@ def listar(
             termo_doc = f"%{digitos}%"
             filtros += [Cliente.cgc.ilike(termo_doc), Cliente.cpf.ilike(termo_doc)]
         query = query.filter(or_(*filtros))
+    return query.order_by(Cliente.nome)
+
+
+@router.get("", response_model=ClientesPage)
+def listar(
+    q: str | None = None,
+    offset: int = 0,
+    limit: int = Query(25, ge=1, le=100),
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(get_current_usuario),
+):
+    query = _query_clientes(db, q=q)
     total = query.count()
-    items = query.order_by(Cliente.nome).offset(offset).limit(limit).all()
+    items = query.offset(offset).limit(limit).all()
     return ClientesPage(items=[ClienteListOut.model_validate(c) for c in items], total=total)
 
 
