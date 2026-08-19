@@ -105,3 +105,46 @@ export async function baixarPdfComEscolhaDePasta(
   // A aba ainda precisa da URL: revogar na hora deixaria a página em branco.
   setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
+
+const MIME_XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
+/**
+ * Salva uma planilha deixando o usuário escolher a pasta, quando o navegador permite.
+ *
+ * Mesma janela nativa do certificado, com duas diferenças de propósito:
+ * - `obterBlob` continua sendo FUNÇÃO: a janela precisa abrir ainda dentro do clique,
+ *   e a geração da planilha no servidor pode demorar mais que o crédito do clique.
+ * - Não reabre o arquivo numa aba no fim. Isso existe no PDF porque o laboratório
+ *   imprime o certificado logo depois; navegador nenhum renderiza xlsx, então aqui
+ *   uma aba só mostraria tela em branco ou um segundo download.
+ */
+export async function baixarPlanilha(
+  nomeSugerido: string,
+  obterBlob: () => Promise<Blob>,
+): Promise<void> {
+  const abrir = janelaSalvar()
+  if (!abrir) {
+    salvarDireto(await obterBlob(), nomeSugerido)
+    return
+  }
+
+  let handle: HandleGravavel
+  try {
+    handle = await abrir({
+      suggestedName: nomeSugerido,
+      types: [{ description: 'Planilha do Excel', accept: { [MIME_XLSX]: ['.xlsx'] } }],
+    })
+  } catch (e) {
+    if (cancelado(e)) return
+    salvarDireto(await obterBlob(), nomeSugerido)
+    return
+  }
+
+  // A partir daqui o arquivo já existe no disco, vazio. Se a busca falhar sobra um
+  // arquivo de 0 byte — é o preço de abrir a janela antes de buscar, e o erro sobe
+  // para o botão mostrar ao usuário.
+  const blob = await obterBlob()
+  const escrita = await handle.createWritable()
+  await escrita.write(blob)
+  await escrita.close()
+}
