@@ -5,9 +5,10 @@ import { ImagensTab } from './ImagensTab'
 import { AvulsosTab } from './AvulsosTab'
 import { CertificadosGeraisTab } from './CertificadosGeraisTab'
 import { ConfiguracoesTab } from './ConfiguracoesTab'
+import { EmitidosTab } from './EmitidosTab'
 import { PageContainer } from '../../components/ui/Page'
 
-const ABAS = ['Modelos', 'Imagens', 'Em branco', 'Gerais', 'Configurações'] as const
+const ABAS = ['Modelos', 'Imagens', 'Em branco', 'Gerais', 'Emitidos', 'Configurações'] as const
 type Aba = (typeof ABAS)[number]
 
 export function CertificadosPage() {
@@ -16,7 +17,7 @@ export function CertificadosPage() {
     <PageContainer>
       <div>
         <h1 className="text-2xl font-extrabold text-slate-100">Certificados</h1>
-        <p className="text-sm text-slate-500 mt-0.5">Modelos de certificado por aparelho, biblioteca de imagens e certificados em branco.</p>
+        <p className="text-sm text-slate-500 mt-0.5">Modelos de certificado por aparelho, biblioteca de imagens, certificados em branco e a relação dos certificados já emitidos.</p>
       </div>
       <div className="flex gap-2">
         {ABAS.map((a) => (
@@ -31,6 +32,7 @@ export function CertificadosPage() {
         : aba === 'Imagens' ? <ImagensTab />
         : aba === 'Em branco' ? <AvulsosTab />
         : aba === 'Gerais' ? <CertificadosGeraisTab />
+        : aba === 'Emitidos' ? <EmitidosTab />
         : <ConfiguracoesTab />}
     </PageContainer>
   )
