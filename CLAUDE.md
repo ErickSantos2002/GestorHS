@@ -61,10 +61,12 @@ Verificação completa antes de commitar frontend: `npm run lint && npx tsc -b -
 ### Docker
 `docker compose up -d` na raiz sobe **só a API** com hot-reload (o PostgreSQL é remoto, configurado em `backend/.env`).
 
-> ⚠️ **A exportação para Excel usa `openpyxl`.** Ele entrou no `requirements.txt` em
-> ago/2026 — subir essa versão exige **reconstruir a imagem** (`docker compose build`),
-> não só `pull` + restart. Sem isso a API sobe e só quebra quando alguém clica em
-> "Exportar Excel".
+> ℹ️ **`openpyxl` entrou no `requirements.txt` em ago/2026** (exportação para Excel). O deploy
+> no EasyPanel builda a partir do Dockerfile, então a dependência entra sozinha: mexer no
+> `requirements.txt` invalida o cache da camada de `pip install`. **Efeito colateral a esperar:**
+> a camada seguinte é o `playwright install --with-deps chromium`, que também perde o cache e
+> baixa o Chromium de novo — esse deploy demora bem mais que o normal. Em fluxo que só faça
+> `pull` de imagem pronta + restart, aí sim seria preciso reconstruir à mão.
 
 ## Arquitetura
 
