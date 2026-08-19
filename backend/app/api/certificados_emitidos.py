@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_usuario
-from app.api.exportar_common import resposta_xlsx
+from app.api.exportar_common import carregar_ate_o_teto, resposta_xlsx
 from app.core.exportacoes import COLUNAS_CERTIFICADOS, TIPO_CERTIFICADO_POR_EXTENSO
 from app.models import (CertificadoVenda, Cliente, Equipamento, EquipamentoCliente,
                         Ordem, OSCertificado, Usuario)
@@ -56,7 +56,7 @@ def _linhas_de_os(db: Session, cliente, de, ate) -> list[dict]:
             # `os_certificados` nao guarda quem gerou — so' os de venda guardam.
             "usuario_nome": None,
         }
-        for cert, ordem, cli, ec, equip in q.all()
+        for cert, ordem, cli, ec, equip in carregar_ate_o_teto(q)
     ]
 
 
@@ -88,7 +88,7 @@ def _linhas_de_venda(db: Session, cliente, de, ate) -> list[dict]:
             "data_geracao": cert.data_geracao,
             "usuario_nome": usr.nome if usr else None,
         }
-        for cert, ec, cli, equip, usr in q.all()
+        for cert, ec, cli, equip, usr in carregar_ate_o_teto(q)
     ]
 
 
