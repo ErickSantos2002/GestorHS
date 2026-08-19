@@ -2,7 +2,8 @@ from datetime import date, datetime
 
 from app.core.exportacoes import (
     COLUNAS_CERTIFICADOS, COLUNAS_CLIENTES, COLUNAS_FROTA, COLUNAS_ORDENS,
-    linha_cliente, linha_frota, linha_ordem, montar_rodape, nome_arquivo,
+    linha_certificado_os, linha_certificado_venda, linha_cliente, linha_frota,
+    linha_ordem, montar_rodape, nome_arquivo,
 )
 
 
@@ -75,6 +76,36 @@ def test_linha_ordem_traz_os_campos_das_colunas():
     for coluna in COLUNAS_ORDENS:
         assert coluna.campo in linha, coluna.campo
     assert linha["tipo_servico"] == "Calibracao"
+
+
+def test_linha_certificado_os_traz_os_campos_das_colunas():
+    cert = _Fake(tipo="C", data_geracao=datetime(2026, 3, 11, 9, 0))
+    ordem = _Fake(id=42, calib_cert="CERT-OS-1", data_calibracao=datetime(2026, 3, 10, 9, 0))
+    cli = _Fake(nome="ACME", cgc="11222333000144")
+    ec = _Fake(serie="S1")
+    equip = _Fake(descricao="Alcotest")
+    linha = linha_certificado_os(cert, ordem, cli, ec, equip)
+    for coluna in COLUNAS_CERTIFICADOS:
+        assert coluna.campo in linha, coluna.campo
+    assert linha["origem"] == "OS"
+    assert linha["tipo"] == "Calibracao"
+    assert linha["os"] == 42
+    assert linha["usuario_nome"] is None
+
+
+def test_linha_certificado_venda_traz_os_campos_das_colunas():
+    cert = _Fake(calib_cert="CERT-VENDA-1", data_calibracao=date(2025, 1, 5),
+                 data_geracao=datetime(2025, 1, 6, 9, 0))
+    ec = _Fake(serie="S2")
+    cli = _Fake(nome="ACME", cgc="11222333000144")
+    equip = _Fake(descricao="Alcotest")
+    usr = _Fake(nome="Fulano")
+    linha = linha_certificado_venda(cert, ec, cli, equip, usr)
+    for coluna in COLUNAS_CERTIFICADOS:
+        assert coluna.campo in linha, coluna.campo
+    assert linha["origem"] == "Venda"
+    assert linha["os"] is None
+    assert linha["usuario_nome"] == "Fulano"
 
 
 def test_rodape_lista_os_filtros_usados_e_a_hora():

@@ -28,7 +28,7 @@ COLUNAS_CLIENTES = [
     Coluna("CPF", "cpf", 16),
     Coluna("Inscr. estadual", "insc_est", 18),
     Coluna("Endereco", "endereco", 40),
-    Coluna("Numero", "numero", 10),
+    Coluna("Numero", "numero", 10, "inteiro"),
     Coluna("Complemento", "complemento", 20),
     Coluna("Bairro", "bairro", 22),
     Coluna("Municipio", "municipio", 24),
@@ -147,6 +147,33 @@ def linha_ordem(o) -> dict:
         "valor": o.valor, "frete_envio": o.frete_envio,
         "frete_retorno": o.frete_retorno, "pago": o.pago, "caixa": o.caixa,
         "garantia": o.garantia,
+    }
+
+
+def linha_certificado_os(cert, ordem, cli, ec, equip) -> dict:
+    return {
+        "cliente_nome": cli.nome, "cliente_cnpj": cli.cgc,
+        "equipamento_descricao": equip.descricao if equip else None,
+        "serie": ec.serie if ec else None,
+        "origem": "OS", "os": ordem.id,
+        "tipo": TIPO_CERTIFICADO_POR_EXTENSO.get(cert.tipo, cert.tipo),
+        "calib_cert": ordem.calib_cert, "data_calibracao": ordem.data_calibracao,
+        "data_geracao": cert.data_geracao,
+        # `os_certificados` nao guarda quem gerou — so' os de venda guardam.
+        "usuario_nome": None,
+    }
+
+
+def linha_certificado_venda(cert, ec, cli, equip, usr) -> dict:
+    return {
+        "cliente_nome": cli.nome, "cliente_cnpj": cli.cgc,
+        "equipamento_descricao": equip.descricao if equip else None,
+        "serie": ec.serie,
+        "origem": "Venda", "os": None,
+        "tipo": TIPO_CERTIFICADO_POR_EXTENSO.get("C", "C"),
+        "calib_cert": cert.calib_cert, "data_calibracao": cert.data_calibracao,
+        "data_geracao": cert.data_geracao,
+        "usuario_nome": usr.nome if usr else None,
     }
 
 

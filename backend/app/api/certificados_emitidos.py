@@ -7,12 +7,13 @@ duas origens viram um conjunto unico, ordenado por data de geracao.
 """
 from datetime import date, datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_usuario
 from app.api.exportar_common import carregar_ate_o_teto, resposta_xlsx
-from app.core.exportacoes import COLUNAS_CERTIFICADOS, TIPO_CERTIFICADO_POR_EXTENSO
+from app.core.exportacoes import (COLUNAS_CERTIFICADOS, linha_certificado_os,
+                                  linha_certificado_venda)
 from app.models import (CertificadoVenda, Cliente, Equipamento, EquipamentoCliente,
                         Ordem, OSCertificado, Usuario)
 from app.models.database import get_db
@@ -42,20 +43,7 @@ def _linhas_de_os(db: Session, cliente, de, ate) -> list[dict]:
         # ficaria de fora do proprio filtro que o inclui.
         q = q.filter(OSCertificado.data_geracao < _inicio(ate) + timedelta(days=1))
     return [
-        {
-            "cliente_nome": cli.nome,
-            "cliente_cnpj": cli.cgc,
-            "equipamento_descricao": equip.descricao if equip else None,
-            "serie": ec.serie if ec else None,
-            "origem": "OS",
-            "os": ordem.id,
-            "tipo": TIPO_CERTIFICADO_POR_EXTENSO.get(cert.tipo, cert.tipo),
-            "calib_cert": ordem.calib_cert,
-            "data_calibracao": ordem.data_calibracao,
-            "data_geracao": cert.data_geracao,
-            # `os_certificados` nao guarda quem gerou — so' os de venda guardam.
-            "usuario_nome": None,
-        }
+        linha_certificado_os(cert, ordem, cli, ec, equip)
         for cert, ordem, cli, ec, equip in carregar_ate_o_teto(q)
     ]
 
@@ -75,24 +63,12 @@ def _linhas_de_venda(db: Session, cliente, de, ate) -> list[dict]:
     if ate is not None:
         q = q.filter(CertificadoVenda.data_geracao < _inicio(ate) + timedelta(days=1))
     return [
-        {
-            "cliente_nome": cli.nome,
-            "cliente_cnpj": cli.cgc,
-            "equipamento_descricao": equip.descricao if equip else None,
-            "serie": ec.serie,
-            "origem": "Venda",
-            "os": None,
-            "tipo": TIPO_CERTIFICADO_POR_EXTENSO.get("C", "C"),
-            "calib_cert": cert.calib_cert,
-            "data_calibracao": cert.data_calibracao,
-            "data_geracao": cert.data_geracao,
-            "usuario_nome": usr.nome if usr else None,
-        }
+        linha_certificado_venda(cert, ec, cli, equip, usr)
         for cert, ec, cli, equip, usr in carregar_ate_o_teto(q)
     ]
 
 
-@router.get("/exportar")
+@router.get("/exportar", response_class=Response)
 def exportar(
     cliente: int | None = None,
     de: date | None = None,

@@ -115,6 +115,13 @@ def test_exportar_clientes_nao_colide_com_a_rota_de_id(client, usuario_admin, db
     assert r.status_code == 200, r.text
 
 
+def test_exportar_frota_nao_colide_com_a_rota_de_id(client, usuario_admin, db_session):
+    """Mesma armadilha da frota: se /exportar vier depois de /{item_id}, o FastAPI
+    tenta converter "exportar" para int e devolve 422 em vez do arquivo."""
+    r = client.get("/equipamentos-cliente/exportar", headers=_headers(client))
+    assert r.status_code == 200, r.text
+
+
 def test_exportar_ordens_exige_token(client):
     assert client.get("/ordens/exportar").status_code == 401
 
