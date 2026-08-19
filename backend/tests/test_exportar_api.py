@@ -100,18 +100,16 @@ def test_exportar_clientes_nao_colide_com_a_rota_de_id(client, usuario_admin, db
 
 
 def test_exportar_ordens_respeita_o_filtro_de_fase(client, usuario_admin, db_session, fases_seed):
-    # `etiqueta` nao esta em COLUNAS_ORDENS (Task 3) — usamos `nota_fiscal_numero`,
-    # que e' uma das colunas exportadas, como marcador para distinguir as OSs.
     from app.models import Ordem
     cid, eid = _base(db_session)
     db_session.add_all([
-        Ordem(cliente=cid, fase=4, nota_fiscal_numero="NF-RECEBIDO"),
-        Ordem(cliente=cid, fase=5, nota_fiscal_numero="NF-LAB"),
+        Ordem(cliente=cid, fase=4, etiqueta="ETIQ-RECEBIDO"),
+        Ordem(cliente=cid, fase=5, etiqueta="ETIQ-LAB"),
     ])
     db_session.commit()
     valores = _series(client.get("/ordens/exportar?fase=4", headers=_headers(client)))
-    assert "NF-RECEBIDO" in valores
-    assert "NF-LAB" not in valores
+    assert "ETIQ-RECEBIDO" in valores
+    assert "ETIQ-LAB" not in valores
 
 
 def test_exportar_ordens_nao_colide_com_a_rota_de_id(client, usuario_admin):

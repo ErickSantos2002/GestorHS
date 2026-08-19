@@ -63,6 +63,7 @@ COLUNAS_FROTA = [
 
 COLUNAS_ORDENS = [
     Coluna("OS", "id", 10, "inteiro"),
+    Coluna("Etiqueta", "etiqueta", 16),
     Coluna("Cliente", "cliente_nome", 34),
     Coluna("CNPJ do cliente", "cliente_cnpj", 20),
     Coluna("Aparelho", "equipamento_descricao", 30),
@@ -134,7 +135,8 @@ def linha_frota(e) -> dict:
 
 def linha_ordem(o) -> dict:
     return {
-        "id": o.id, "cliente_nome": o.cliente_nome, "cliente_cnpj": _cnpj_do_cliente(o),
+        "id": o.id, "etiqueta": o.etiqueta, "cliente_nome": o.cliente_nome,
+        "cliente_cnpj": _cnpj_do_cliente(o),
         "equipamento_descricao": o.equipamento_descricao,
         "equipamento_serie": o.equipamento_serie, "fase_descricao": o.fase_descricao,
         "tipo_servico": TIPO_SERVICO_POR_EXTENSO.get(o.tipo_servico, o.tipo_servico),

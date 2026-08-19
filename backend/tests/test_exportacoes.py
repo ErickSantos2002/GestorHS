@@ -63,7 +63,7 @@ def test_linha_frota_sem_cliente_rel_nao_quebra():
 
 
 def test_linha_ordem_traz_os_campos_das_colunas():
-    o = _Fake(id=99, cliente_nome="ACME", cliente_rel=_Fake(cgc="11222333000144"),
+    o = _Fake(id=99, etiqueta="ETIQ-1", cliente_nome="ACME", cliente_rel=_Fake(cgc="11222333000144"),
               equipamento_descricao="Alcotest", equipamento_serie="S1",
               fase_descricao="Laboratorio", tipo_servico="C",
               data_chegada=datetime(2026, 1, 2, 9, 0), data_calibracao=None,
