@@ -12,6 +12,7 @@ import { ApiError } from '../../lib/api'
 import { ordensApi, TIPO_SERVICO, FASES_FILTRO, formatData, type OrdemListItem } from './api'
 import { caixasApi, type QuadroCaixaColuna } from '../caixas/api'
 import { PageContainer } from '../../components/ui/Page'
+import { BotaoExportar } from '../../components/ui/BotaoExportar'
 
 const LIMITE = 25
 type Vista = 'quadro' | 'lista'
@@ -231,6 +232,21 @@ function Lista({ clienteId, faseInicial, onAbrir }: { clienteId?: number; faseIn
 
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">
+        <BotaoExportar
+          caminho="/ordens/exportar"
+          params={{
+            fase: fase ? Number(fase) : undefined,
+            cliente: clienteId,
+            tipo: tipo || undefined,
+            q: busca || undefined,
+            chegada_de: faixa.de,
+            chegada_ate: faixa.ate,
+          }}
+          nome="ordens"
+        />
+      </div>
+
       <SearchBar
         value={termo}
         onChange={setTermo}

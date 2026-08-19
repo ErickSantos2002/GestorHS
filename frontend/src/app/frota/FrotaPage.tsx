@@ -13,6 +13,7 @@ import { podeGerenciarCadastros } from '../../auth/roles'
 import { equipamentosClienteApi, STATUS_CALIBRACAO, type FrotaItem } from './api'
 import { PageContainer } from '../../components/ui/Page'
 import { cn } from '../../lib/utils'
+import { BotaoExportar } from '../../components/ui/BotaoExportar'
 
 const LIMITE = 25
 
@@ -78,15 +79,22 @@ export function FrotaPage() {
     <PageContainer>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-extrabold text-slate-100">Equipamentos</h1>
-        {podeGerenciarCadastros(user) && (
-          <Button
-            onClick={() => { if (clienteId) navigate(`/app/equipamentos/novo?cliente=${clienteId}`) }}
-            disabled={!clienteId}
-            title={clienteId ? undefined : 'Filtre por um cliente para adicionar'}
-          >
-            Novo aparelho
-          </Button>
-        )}
+        <div className="flex items-start gap-2">
+          <BotaoExportar
+            caminho="/equipamentos-cliente/exportar"
+            params={{ cliente: clienteId, status: statusFiltro, ativo: ativoFiltro, q: busca }}
+            nome="equipamentos"
+          />
+          {podeGerenciarCadastros(user) && (
+            <Button
+              onClick={() => { if (clienteId) navigate(`/app/equipamentos/novo?cliente=${clienteId}`) }}
+              disabled={!clienteId}
+              title={clienteId ? undefined : 'Filtre por um cliente para adicionar'}
+            >
+              Novo aparelho
+            </Button>
+          )}
+        </div>
       </div>
 
       {clienteId && (
