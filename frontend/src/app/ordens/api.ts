@@ -175,6 +175,7 @@ export interface OrdemDetalhe extends OrdemListItem {
   calib_situacao: string | null
   pdf_certificado: string | null
   nota_fiscal: string | null
+  nota_fiscal_xml: string | null
   nota_fiscal_numero: string | null
   /** Tipos ("C"/"M") sem modelo de certificado cadastrado para o aparelho. Vazio = pode gerar. */
   certificado_modelos_faltantes: string[]
@@ -378,9 +379,11 @@ export const ordensApi = {
       return res.blob()
     })
   },
-  enviarNotaFiscal: async (ordemId: number, file: File, numero: string): Promise<void> => {
+  // PDF e XML sempre juntos — e' o par que a contabilidade emite.
+  enviarNotaFiscal: async (ordemId: number, pdf: File, xml: File, numero: string): Promise<void> => {
     const fd = new FormData()
-    fd.append('file', file)
+    fd.append('arquivo_pdf', pdf)
+    fd.append('arquivo_xml', xml)
     fd.append('numero', numero)
     const res = await apiFetch(`/ordens/${ordemId}/nota-fiscal`, { method: 'POST', body: fd })
     if (!res.ok) {
@@ -393,8 +396,8 @@ export const ordensApi = {
   // executaria <script>). Forca download via link com atributo `download`, como o PDF do certificado.
   // `basename` (os.nota_fiscal) ja traz a extensao real — evita depender de Content-Disposition,
   // que so e legivel via JS em requisicoes cross-origin se o backend expor o header no CORS.
-  baixarNotaFiscal: async (ordemId: number, basename: string): Promise<void> => {
-    const res = await apiFetch(`/ordens/${ordemId}/nota-fiscal`)
+  baixarNotaFiscal: async (ordemId: number, basename: string, tipo: 'pdf' | 'xml' = 'pdf'): Promise<void> => {
+    const res = await apiFetch(`/ordens/${ordemId}/nota-fiscal${tipo === 'xml' ? '/xml' : ''}`)
     if (!res.ok) throw new ApiError(res.status, 'Falha ao baixar nota fiscal')
     const blob = await res.blob()
     const url = URL.createObjectURL(blob)

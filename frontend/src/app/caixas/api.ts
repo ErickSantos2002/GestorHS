@@ -73,7 +73,13 @@ export interface QuadroCaixaColuna {
   caixas: CaixaQuadroItem[]
 }
 
-export interface CaixaAvancarPayload { obs?: string | null; cod_retorno?: string | null; cliente_principal?: number | null }
+export interface CaixaAvancarPayload {
+  obs?: string | null
+  cod_retorno?: string | null
+  cliente_principal?: number | null
+  /** Dispensa a nota fiscal ao sair do Financeiro. O backend so aceita de Administrador. */
+  sem_nota_fiscal?: boolean
+}
 
 export const caixasApi = {
   listar: (params: CaixasParams = {}): Promise<CaixaPage> => {
@@ -108,11 +114,12 @@ export const caixasApi = {
   desfechoLab: (osId: number, payload: { desfecho: 'concluido' | 'sem_conserto' | 'liberado'; obs: string | null }): Promise<unknown> =>
     apiJson(`/ordens/${osId}/desfecho-lab`, { method: 'POST', body: JSON.stringify(payload) }),
   // Anexa a mesma nota fiscal para todas as OS ativas da caixa (evita anexar aparelho-por-aparelho).
-  // Mirror de ordensApi.enviarNotaFiscal em ../ordens/api.ts — mas o campo do arquivo é `arquivo`
-  // (não `file`), espelhando o Form do backend em app/api/notas_fiscais.py.
-  enviarNotaFiscalCaixa: async (id: number, arquivo: File, numero: string): Promise<CaixaDetalhe> => {
+  // Mirror de ordensApi.enviarNotaFiscal em ../ordens/api.ts. PDF e XML sempre
+  // juntos, espelhando o Form do backend em app/api/notas_fiscais.py.
+  enviarNotaFiscalCaixa: async (id: number, pdf: File, xml: File, numero: string): Promise<CaixaDetalhe> => {
     const fd = new FormData()
-    fd.append('arquivo', arquivo)
+    fd.append('arquivo_pdf', pdf)
+    fd.append('arquivo_xml', xml)
     fd.append('numero', numero)
     const res = await apiFetch(`/caixas/${id}/nota-fiscal`, { method: 'POST', body: fd })
     if (!res.ok) {

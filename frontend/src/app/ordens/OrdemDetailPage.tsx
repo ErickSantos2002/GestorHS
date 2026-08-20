@@ -211,11 +211,13 @@ export function OrdemDetailPage() {
     }
   }
 
-  async function onBaixarNotaFiscal() {
-    if (!os || !os.nota_fiscal) return
+  async function onBaixarNotaFiscal(tipo: 'pdf' | 'xml' = 'pdf') {
+    if (!os) return
+    const basename = tipo === 'xml' ? os.nota_fiscal_xml : os.nota_fiscal
+    if (!basename) return
     setErroNF('')
     try {
-      await ordensApi.baixarNotaFiscal(os.id, os.nota_fiscal)
+      await ordensApi.baixarNotaFiscal(os.id, basename, tipo)
     } catch (e) {
       setErroNF(e instanceof ApiError ? e.message : 'Falha ao baixar nota fiscal')
     }
@@ -525,12 +527,24 @@ export function OrdemDetailPage() {
           {os.nota_fiscal ? (
             <div className="flex items-center justify-between gap-3">
               <Campo label="Número" valor={os.nota_fiscal_numero} />
-              <button
-                onClick={onBaixarNotaFiscal}
-                className="text-xs font-semibold text-primary hover:underline"
-              >
-                Baixar
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => onBaixarNotaFiscal('pdf')}
+                  className="text-xs font-semibold text-primary hover:underline"
+                >
+                  Baixar PDF
+                </button>
+                {/* OS antigas foram anexadas quando havia um arquivo so, entao
+                    nem toda nota tem XML — o botao so aparece quando existe. */}
+                {os.nota_fiscal_xml && (
+                  <button
+                    onClick={() => onBaixarNotaFiscal('xml')}
+                    className="text-xs font-semibold text-primary hover:underline"
+                  >
+                    Baixar XML
+                  </button>
+                )}
+              </div>
             </div>
           ) : (
             <p className="text-sm text-slate-500">
