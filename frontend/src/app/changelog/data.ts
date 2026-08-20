@@ -23,6 +23,15 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.41.0',
+    data: '20/08/2026',
+    itens: [
+      { tipo: 'correcao', texto: 'Aparelho recém-calibrado continuava aparecendo como “Vencido”. A data da próxima calibração nunca era preenchida ao concluir o laboratório, e o aparelho ficava com a data do ciclo anterior. Agora ela é calculada sozinha: um ano após a calibração.' },
+      { tipo: 'correcao', texto: 'Foram corrigidos 232 aparelhos e 157 OS que já estavam com a data antiga — 123 aparelhos ativos deixaram de constar como vencidos no painel, nos alertas e nas cargas de cobrança.' },
+      { tipo: 'melhoria', texto: 'A tela da OS passa a mostrar a próxima calibração junto com a data da calibração, em vez de ficar em branco enquanto o aparelho exibia outra data.' },
+    ],
+  },
+  {
     versao: '1.40.0',
     data: '20/08/2026',
     itens: [
