@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 
 let mockUser = { funcao: 'Administrador' }
@@ -13,6 +13,7 @@ vi.mock('./api', async (orig) => {
   return { ...real, caixasApi: { ...real.caixasApi, obter, desvincularOrdem, avancar } }
 })
 
+import { ApiError } from '../../lib/api'
 import { CaixaDetailPage } from './CaixaDetailPage'
 
 const CAIXA = {
@@ -303,5 +304,74 @@ describe('CaixaDetailPage — cliente principal ao avancar Recebido multi-client
     fireEvent.click(btn)
     expect(screen.queryByText(/cliente principal/i)).toBeNull()
     expect(avancar).toHaveBeenCalledWith(8, { obs: null, cod_retorno: null })
+  })
+})
+
+// ── Dispensa da nota fiscal ao sair do Financeiro ───────────────────────────
+// Caixas do modelo antigo nao tem nota para anexar; sem isso o Administrador
+// ficava sem saida na fase Financeiro.
+
+describe('CaixaDetailPage — avancar sem nota fiscal', () => {
+  const CAIXA_FIN = {
+    id: 10, data: '2026-07-16', obs: null, total_os: 1, clientes: ['ACME'], fase: 10,
+    ordens: [
+      { id: 10, cliente: 1, cliente_nome: 'ACME', equipamento_descricao: 'Bafômetro', equipamento_serie: 'S1', fase: 10, fase_descricao: 'Financeiro', fase_cor: 'abc' },
+    ],
+  }
+
+  function telaFin() {
+    return render(
+      <MemoryRouter initialEntries={['/app/caixas/10']}>
+        <Routes><Route path="/app/caixas/:id" element={<CaixaDetailPage />} /></Routes>
+      </MemoryRouter>,
+    )
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    obter.mockResolvedValue(CAIXA_FIN)
+  })
+
+  it('admin que confirma reenvia o avanco com a dispensa', async () => {
+    const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    avancar
+      .mockRejectedValueOnce(new ApiError(409, 'anexe a nota fiscal da caixa antes de confirmar o pagamento'))
+      .mockResolvedValueOnce(CAIXA_FIN)
+    mockUser = { funcao: 'Administrador' }
+    telaFin()
+    await screen.findByText('Caixa #10')
+
+    fireEvent.click(screen.getByRole('button', { name: /avançar caixa/i }))
+    await waitFor(() => expect(avancar).toHaveBeenCalledTimes(2))
+    expect(avancar.mock.calls[0][1].sem_nota_fiscal).toBeUndefined()
+    expect(avancar.mock.calls[1][1].sem_nota_fiscal).toBe(true)
+    confirmar.mockRestore()
+  })
+
+  it('admin que recusa nao avanca e ve o erro', async () => {
+    const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    avancar.mockRejectedValue(new ApiError(409, 'anexe a nota fiscal da caixa antes de confirmar o pagamento'))
+    mockUser = { funcao: 'Administrador' }
+    telaFin()
+    await screen.findByText('Caixa #10')
+
+    fireEvent.click(screen.getByRole('button', { name: /avançar caixa/i }))
+    await screen.findByText(/anexe a nota fiscal/i)
+    expect(avancar).toHaveBeenCalledTimes(1)
+    confirmar.mockRestore()
+  })
+
+  it('Financeiro nem chega a ser perguntado — so ve o erro', async () => {
+    const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    avancar.mockRejectedValue(new ApiError(409, 'anexe a nota fiscal da caixa antes de confirmar o pagamento'))
+    mockUser = { funcao: 'Financeiro' }
+    telaFin()
+    await screen.findByText('Caixa #10')
+
+    fireEvent.click(screen.getByRole('button', { name: /avançar caixa/i }))
+    await screen.findByText(/anexe a nota fiscal/i)
+    expect(confirmar).not.toHaveBeenCalled()
+    expect(avancar).toHaveBeenCalledTimes(1)
+    confirmar.mockRestore()
   })
 })

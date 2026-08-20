@@ -6,7 +6,7 @@ import { Modal } from '../../components/ui/Modal'
 import { Input } from '../../components/ui/Input'
 import { Table, TH, TD } from '../../components/ui/Table'
 import { useAuth } from '../../auth/AuthContext'
-import { podeAbrirOS, podeAvancarCaixa, podeMarcarSemConserto, podeAnexarNotaFiscal } from '../../auth/roles'
+import { podeAbrirOS, podeAvancarCaixa, podeMarcarSemConserto, podeAnexarNotaFiscal, podeAvancarSemNotaFiscal } from '../../auth/roles'
 import { apiJson, ApiError } from '../../lib/api'
 import { cn } from '../../lib/utils'
 import { caixasApi, formatData, type CaixaDetalhe } from './api'
@@ -130,17 +130,32 @@ export function CaixaDetailPage() {
     }
   }
 
-  async function avancarCaixaDireto() {
+  async function avancarCaixaDireto(semNotaFiscal = false) {
     setAvancandoCaixa(true)
     setErroAcao('')
+    // A repeticao acontece FORA do try: chamar de dentro faria o `finally`
+    // limpar o "avancando" logo depois de a segunda tentativa comecar.
+    let repetirSemNota = false
     try {
-      await caixasApi.avancar(caixaId, { obs: null, cod_retorno: null })
+      await caixasApi.avancar(caixaId, { obs: null, cod_retorno: null, sem_nota_fiscal: semNotaFiscal || undefined })
       carregar()
     } catch (err) {
-      setErroAcao(err instanceof ApiError ? err.message : 'Falha ao avançar caixa')
+      // Caixa do modelo antigo, sem nota para anexar: em vez de deixar o
+      // Administrador travado, oferece a dispensa aqui — que fica registrada no
+      // historico da OS. Para as demais funcoes segue sendo so o erro.
+      repetirSemNota = err instanceof ApiError && err.status === 409 && !semNotaFiscal
+        && podeAvancarSemNotaFiscal(user)
+        && window.confirm(
+          'Esta caixa não tem nota fiscal anexada.\n\n'
+          + 'Como Administrador, você pode avançá-la mesmo assim — isso fica '
+          + 'registrado no histórico das OS. Avançar sem a nota?')
+      if (!repetirSemNota) {
+        setErroAcao(err instanceof ApiError ? err.message : 'Falha ao avançar caixa')
+      }
     } finally {
       setAvancandoCaixa(false)
     }
+    if (repetirSemNota) await avancarCaixaDireto(true)
   }
 
   function clicarAvancarCaixa() {

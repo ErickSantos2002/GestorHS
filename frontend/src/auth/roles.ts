@@ -32,6 +32,15 @@ export function podeAnexarNotaFiscal(user: User | null): boolean {
   return isAdmin(user) || user?.funcao === FUNCAO_FINANCEIRO
 }
 
+/** Avançar a caixa do Financeiro SEM anexar a nota fiscal.
+ *
+ * Só Administrador, espelhando o guard do backend em app/api/caixas.py. Existe
+ * para as caixas do modelo antigo, que não têm nota para anexar e ficariam
+ * travadas no Financeiro para sempre. */
+export function podeAvancarSemNotaFiscal(user: User | null): boolean {
+  return isAdmin(user)
+}
+
 export const FUNCAO_LABORATORIO = 'Laboratório'
 export const FUNCAO_QUALIDADE = 'Qualidade'
 
