@@ -1,10 +1,11 @@
-from datetime import datetime, timezone
+from datetime import datetime, time, timezone
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.models import Ordem, Fase, LogOS, Usuario
 from app.core import os_workflow as wf
+from app.core.calibracao import proxima_calibracao
 
 ADMIN = "Administrador"
 
@@ -50,18 +51,32 @@ def espelhar_calibracao_valores(db: Session, ec, valores: dict,
 
 
 def espelhar_calibracao(db: Session, ordem) -> None:
-    """Copia os resultados de calibração da OS para o equipamento_cliente."""
+    """Copia os resultados de calibração da OS para o equipamento_cliente.
+
+    Quando a OS nao traz a proxima calibracao, ela e CALCULADA (1 ano depois da
+    calibracao) e gravada tambem na OS. Sem isso o aparelho ficava com a data do
+    ciclo anterior e aparecia como "Vencido" recem-calibrado — era o caso de 150
+    das 156 OS concluidas desde o go-live.
+    """
     from app.models import EquipamentoCliente
     if not ordem.equipamento_cliente:
         return
     ec = db.query(EquipamentoCliente).filter(EquipamentoCliente.id == ordem.equipamento_cliente).first()
     if ec is None:
         return
+    ult = ordem.data_calibracao.date() if ordem.data_calibracao is not None else None
+    prox = ordem.prox_calibragem.date() if ordem.prox_calibragem is not None else None
+    if prox is None:
+        prox = proxima_calibracao(ult)
+        # Grava de volta na OS: a tela da OS mostra "Proxima calibracao", e
+        # deixar so no aparelho faria as duas telas discordarem de novo.
+        if prox is not None:
+            ordem.prox_calibragem = datetime.combine(prox, time.min, tzinfo=timezone.utc)
     espelhar_calibracao_valores(
         db, ec,
         {campo: getattr(ordem, campo) for campo in _CAMPOS_CALIB},
-        ult=ordem.data_calibracao.date() if ordem.data_calibracao is not None else None,
-        prox=ordem.prox_calibragem.date() if ordem.prox_calibragem is not None else None,
+        ult=ult,
+        prox=prox,
     )
 
 
