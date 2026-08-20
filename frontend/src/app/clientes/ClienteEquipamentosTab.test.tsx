@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, within, fireEvent } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 
 let mockUser: { funcao: string | null } | null = { funcao: 'Administrador' }
@@ -41,7 +41,7 @@ describe('ClienteEquipamentosTab', () => {
     ], total: 1 })
     renderTab()
     expect(await screen.findByText('Bafômetro X')).toBeInTheDocument()
-    expect(listar).toHaveBeenCalledWith({ cliente: 5 })
+    expect(listar).toHaveBeenCalledWith({ cliente: 5, offset: 0, limit: 25 })
   })
 
   it('mostra vazio quando não há aparelhos', async () => {
@@ -101,5 +101,51 @@ describe('ClienteEquipamentosTab', () => {
     renderTab()
     const badge = await screen.findByText('Vencido')
     expect(badge.className).not.toContain('text-danger')
+  })
+})
+
+describe('ClienteEquipamentosTab — paginacao', () => {
+  beforeEach(() => {
+    mockUser = { funcao: 'Administrador' }
+    listar.mockReset()
+  })
+
+  const aparelho = (id: number, serie: string) => ({
+    id, cliente: 5, cliente_nome: 'JSL S.A.', equipamento: 9, equipamento_descricao: 'Bafômetro X',
+    serie, patrimonio: null, prox_calibragem: null, ativo: true, status_calibracao: 'em_dia',
+  })
+
+  it('pede a primeira pagina com limite explicito', async () => {
+    listar.mockResolvedValue({ items: [aparelho(1, 'SN-1')], total: 1 })
+    renderTab()
+    await screen.findByText('SN-1')
+    expect(listar).toHaveBeenCalledWith({ cliente: 5, offset: 0, limit: 25 })
+  })
+
+  it('cliente com mais aparelhos que a pagina mostra o total e navega ate o resto', async () => {
+    // Caso real da JSL S.A. (cliente 1985): 27 aparelhos, e o F007214 era o 27o
+    // — ficava fora dos 25 que a tela buscava, sem nenhum aviso de que faltava.
+    const pagina1 = Array.from({ length: 25 }, (_, i) => aparelho(i + 1, `SN-${i + 1}`))
+    listar.mockResolvedValue({ items: pagina1, total: 27 })
+    renderTab()
+    await screen.findByText('SN-1')
+
+    // A contagem precisa deixar claro que existem 27, nao 25. Vem duas vezes:
+    // a paginacao desenha a versao de desktop e a de mobile, uma escondida por CSS.
+    expect(screen.getAllByText('27').length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Mostrando/).length).toBeGreaterThan(0)
+
+    listar.mockResolvedValue({ items: [aparelho(26, 'F'), aparelho(27, 'F007214')], total: 27 })
+    fireEvent.click(screen.getByText('Próxima'))
+
+    expect(await screen.findByText('F007214')).toBeInTheDocument()
+    expect(listar).toHaveBeenLastCalledWith({ cliente: 5, offset: 25, limit: 25 })
+  })
+
+  it('cabendo tudo numa pagina, nao aparece navegacao', async () => {
+    listar.mockResolvedValue({ items: [aparelho(1, 'SN-1')], total: 1 })
+    renderTab()
+    await screen.findByText('SN-1')
+    expect(screen.queryByText('Próxima')).not.toBeInTheDocument()
   })
 })
