@@ -235,9 +235,10 @@ def test_avancar_fora_do_lab_nao_agenda_growthhs(client_exp, caixa_recebido, mon
 
 
 def test_nf_caixa_replica_em_todas(client_fin, caixa_financeiro, upload_tmp):
-    arquivo = ("nf.pdf", b"%PDF-1.4 fake", "application/pdf")
+    pdf = ("nf.pdf", b"%PDF-1.4 fake", "application/pdf")
+    xml = ("nf.xml", b"<nfse/>", "application/xml")
     r = client_fin.post(f"/caixas/{caixa_financeiro}/nota-fiscal",
-                        data={"numero": "12345"}, files={"arquivo": arquivo})
+                        data={"numero": "12345"}, files={"arquivo_pdf": pdf, "arquivo_xml": xml})
     assert r.status_code == 200
     ordens = r.json()["ordens"]
     assert len(ordens) == 2
@@ -338,3 +339,40 @@ def test_abrir_inicia_fase_da_caixa_e_espelha_por_caixa(client_exp, os_base, db_
     assert det["fase"] == 4  # caixa nova inicializada em Recebido, nao mais None
 
     assert chamadas_caixa == [cx_id, cx_id]  # 1 espelhamento por caixa, por OS aberta
+
+
+# ── Dispensa da nota fiscal (so Administrador) ───────────────────────────────
+# Existe para as caixas do modelo antigo, que nao tem nota para anexar e ficariam
+# travadas no Financeiro para sempre.
+
+def test_admin_avanca_sem_nota_fiscal_quando_pede_dispensa(client_admin, caixa_financeiro, db_session):
+    from app.models import Ordem
+    r = client_admin.post(f"/caixas/{caixa_financeiro}/avancar", json={"sem_nota_fiscal": True})
+    assert r.status_code == 200
+    ordens = db_session.query(Ordem).filter(Ordem.caixa == caixa_financeiro).all()
+    assert all(o.fase == 7 for o in ordens)
+    assert all(o.pago for o in ordens), "dispensar a nota nao dispensa marcar como pago"
+
+
+def test_dispensa_fica_registrada_no_historico(client_admin, caixa_financeiro, db_session):
+    """E excecao administrativa: tem que dar para saber depois que passou sem nota."""
+    from app.models import Ordem, LogOS
+    client_admin.post(f"/caixas/{caixa_financeiro}/avancar", json={"sem_nota_fiscal": True})
+    ids = [o.id for o in db_session.query(Ordem).filter(Ordem.caixa == caixa_financeiro).all()]
+    textos = [l.texto for l in db_session.query(LogOS).filter(LogOS.os.in_(ids)).all()]
+    assert any("sem nota fiscal" in t for t in textos)
+
+
+def test_financeiro_nao_pode_dispensar_a_nota(client_fin, caixa_financeiro, db_session):
+    from app.models import Ordem
+    r = client_fin.post(f"/caixas/{caixa_financeiro}/avancar", json={"sem_nota_fiscal": True})
+    assert r.status_code == 403
+    ordens = db_session.query(Ordem).filter(Ordem.caixa == caixa_financeiro).all()
+    assert all(o.fase == 10 for o in ordens), "a caixa nao pode ter andado"
+
+
+def test_admin_sem_pedir_dispensa_continua_barrado(client_admin, caixa_financeiro):
+    """A dispensa e explicita: ser Administrador sozinho nao derruba a exigencia,
+    senao o admin passaria sem nota por engano no fluxo normal."""
+    r = client_admin.post(f"/caixas/{caixa_financeiro}/avancar", json={})
+    assert r.status_code == 409

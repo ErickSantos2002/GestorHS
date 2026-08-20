@@ -8,7 +8,7 @@ from app.models.database import get_db
 from app.models import Usuario, Caixa, Ordem, Fase
 from app.core import os_workflow as wf
 from app.core.caixa import cliente_unico, contar_outros, principal_valido
-from app.api.deps import get_current_usuario, require_funcao
+from app.api.deps import ADMIN, get_current_usuario, require_funcao
 from app.api.cadastros_common import excluir_protegido
 from app.schemas.caixas import (
     CaixaCreate, CaixaUpdate, CaixaOut, CaixaDetalhe, CaixaPage, VincularOrdemIn,
@@ -181,7 +181,8 @@ def _ordens_ativas(cx: Caixa) -> list[Ordem]:
     return [o for o in cx.ordens if wf.eh_ativa(o.fase)]
 
 
-def executar_avanco_caixa(db, cx, *, origem, destino, ativas, usuario, obs, cod_retorno, background_tasks):
+def executar_avanco_caixa(db, cx, *, origem, destino, ativas, usuario, obs, cod_retorno,
+                          background_tasks, sem_nota_fiscal: bool = False):
     """Aplica o efeito de avancar a caixa de `origem` para `destino` (fan-out por OS,
     log, espelhamento). Guards de entrada (funcao, pode_avancar, principal) ficam no chamador."""
     if origem == 7:  # Preparando -> Finalizada
@@ -195,7 +196,9 @@ def executar_avanco_caixa(db, cx, *, origem, destino, ativas, usuario, obs, cod_
             o.aceite = True
             o.data_aceite = agora()
         elif origem == 10:     # Financeiro -> Preparando
-            if not o.nota_fiscal:
+            # `sem_nota_fiscal` so chega aqui como True se o chamador ja conferiu
+            # que quem pediu e' Administrador (ver avancar_caixa).
+            if not o.nota_fiscal and not sem_nota_fiscal:
                 raise HTTPException(status_code=409, detail="anexe a nota fiscal da caixa antes de confirmar o pagamento")
             o.pago = True
             o.data_pagamento = agora()
@@ -205,6 +208,8 @@ def executar_avanco_caixa(db, cx, *, origem, destino, ativas, usuario, obs, cod_
             o.situacao = "F"
         o.fase = destino
         texto = f"Caixa #{cx.id}: {origem} -> {destino}"
+        if sem_nota_fiscal and origem == 10 and not o.nota_fiscal:
+            texto = f"{texto} (sem nota fiscal, dispensada pelo Administrador)"
         if obs and obs.strip():
             texto = f"{texto} - {obs.strip()}"
         registrar_log(db, o, usuario, texto)
@@ -249,9 +254,13 @@ def avancar_caixa(
             elif len(clientes_distintos) > 1:
                 raise HTTPException(status_code=409, detail="defina o cliente principal antes de avancar")
 
+    if dados.sem_nota_fiscal and usuario.funcao != ADMIN:
+        raise HTTPException(status_code=403, detail="só o Administrador pode avançar sem a nota fiscal")
+
     return executar_avanco_caixa(db, cx, origem=origem, destino=destino, ativas=ativas,
                                  usuario=usuario, obs=dados.obs, cod_retorno=dados.cod_retorno,
-                                 background_tasks=background_tasks)
+                                 background_tasks=background_tasks,
+                                 sem_nota_fiscal=dados.sem_nota_fiscal)
 
 
 @router.post("/{caixa_id}/cancelar", response_model=CaixaDetalhe)
