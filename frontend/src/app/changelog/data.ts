@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.39.1',
+    data: '20/08/2026',
+    itens: [
+      { tipo: 'correcao', texto: 'A aba Equipamentos do cliente mostrava só os 25 primeiros aparelhos e não avisava que havia mais — em clientes grandes o aparelho procurado simplesmente não aparecia, como se não estivesse cadastrado. Agora a lista tem paginação e informa o total. Eram 48 clientes afetados.' },
+    ],
+  },
+  {
     versao: '1.39.0',
     data: '19/08/2026',
     itens: [
