@@ -125,7 +125,8 @@ def test_upload_nota_fiscal_em_os_de_modulo_nao_espelha(client, usuario_financei
                       json={"email": "fin@hs.com", "senha": "senha123"}).json()
     h = {"Authorization": f"Bearer {tok['access_token']}"}
     r = client.post(f"/ordens/{os_id}/nota-fiscal",
-                    files={"file": ("nf.pdf", io.BytesIO(b"%PDF-1.4 x"), "application/pdf")},
+                    files={"arquivo_pdf": ("nf.pdf", io.BytesIO(b"%PDF-1.4 x"), "application/pdf"),
+                           "arquivo_xml": ("nf.xml", io.BytesIO(b"<nfse/>"), "application/xml")},
                     data={"numero": "123"}, headers=h)
     assert r.status_code == 200
     assert captura == []

@@ -15,7 +15,8 @@ def _os_com_nf(client, db_session, os_base, upload_tmp):
     db_session.add(o); db_session.commit(); db_session.refresh(o)
     h = _headers(client, "fin@hs.com", "senha123")
     client.post(f"/ordens/{o.id}/nota-fiscal",
-                files={"file": ("nf.pdf", io.BytesIO(b"%PDF-1.4 fake"), "application/pdf")},
+                files={"arquivo_pdf": ("nf.pdf", io.BytesIO(b"%PDF-1.4 fake"), "application/pdf"),
+                       "arquivo_xml": ("nf.xml", io.BytesIO(b"<nfse/>"), "application/xml")},
                 data={"numero": "999"}, headers=h)
     db_session.refresh(o)
     return o

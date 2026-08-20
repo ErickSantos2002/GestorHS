@@ -89,6 +89,7 @@ class OrdemOut(BaseModel):
     calib_situacao: str | None = None
     pdf_certificado: str | None = None
     nota_fiscal: str | None = None
+    nota_fiscal_xml: str | None = None
     nota_fiscal_numero: str | None = None
     # Tipos de certificado ("C"/"M") sem modelo cadastrado para o aparelho. Vazio = pode gerar.
     certificado_modelos_faltantes: list[str] = []

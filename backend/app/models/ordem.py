@@ -39,7 +39,8 @@ class Ordem(Base):
     calib_teste_media = Column(String(50), nullable=True)
     calib_situacao = Column(String(50), nullable=True)
     pdf_certificado = Column(String(50), nullable=True)
-    nota_fiscal = Column(String(50), nullable=True)          # basename do arquivo em disco
+    nota_fiscal = Column(String(50), nullable=True)          # basename do PDF em disco
+    nota_fiscal_xml = Column(String(50), nullable=True)      # basename do XML (sempre vem junto do PDF)
     nota_fiscal_numero = Column(String(50), nullable=True)   # numero da NF
     certificado = Column(Text, nullable=True)
     cert_overrides = Column(JSON, nullable=True)

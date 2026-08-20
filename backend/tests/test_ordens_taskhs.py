@@ -71,7 +71,8 @@ def test_upload_nota_fiscal_reagenda_card(client, usuario_financeiro, fases_seed
     h = _headers(client, "fin@hs.com", "senha123")
     captura.clear()
     r = client.post(f"/ordens/{o.id}/nota-fiscal",
-                     files={"file": ("nf.pdf", io.BytesIO(b"%PDF-1.4 fake"), "application/pdf")},
+                     files={"arquivo_pdf": ("nf.pdf", io.BytesIO(b"%PDF-1.4 fake"), "application/pdf"),
+                            "arquivo_xml": ("nf.xml", io.BytesIO(b"<nfse/>"), "application/xml")},
                      data={"numero": "555"}, headers=h)
     assert r.status_code == 200
     assert len(captura) == 1
