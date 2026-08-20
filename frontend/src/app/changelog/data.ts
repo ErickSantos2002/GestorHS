@@ -23,6 +23,15 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.40.0',
+    data: '20/08/2026',
+    itens: [
+      { tipo: 'melhoria', texto: 'Ao anexar a nota fiscal da caixa, agora existem dois campos separados — PDF e XML — e os dois são obrigatórios, já que sempre vêm juntos. Cada campo só aceita o seu tipo, então não dá mais para mandar o PDF duas vezes e o XML acabar não sendo enviado.' },
+      { tipo: 'novidade', texto: 'A tela da OS passa a ter os botões “Baixar PDF” e “Baixar XML” da nota fiscal. O botão do XML só aparece quando existe — notas antigas foram anexadas quando havia um arquivo só.' },
+      { tipo: 'novidade', texto: 'O Administrador pode avançar uma caixa do Financeiro sem anexar a nota fiscal, para as caixas do modelo antigo que não têm nota. O sistema pede confirmação e registra no histórico das OS que passou sem nota. As demais funções continuam obrigadas a anexar.' },
+    ],
+  },
+  {
     versao: '1.39.1',
     data: '20/08/2026',
     itens: [
