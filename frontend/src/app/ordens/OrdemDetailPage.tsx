@@ -9,8 +9,8 @@ import {
 } from '../../components/ui/icons'
 import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
-import { isAdmin, podeAbrirOS, podeMarcarSemConserto } from '../../auth/roles'
-import { ordensApi, fotosApi, TIPO_SERVICO, FLUXO_FASES, posicaoFase, posLaboratorio, formatData, garantiaBadge, garantiasAtivas, type OrdemDetalhe, type GarantiaItem, type LogOS, type Foto, type OSCertificado } from './api'
+import { isAdmin, podeAbrirOS, podeMarcarSemConserto, podeEditarTipoServico } from '../../auth/roles'
+import { ordensApi, fotosApi, TIPO_SERVICO, FLUXO_FASES, posicaoFase, posLaboratorio, formatData, garantiaBadge, garantiasAtivas, type OrdemDetalhe, type GarantiaItem, type LogOS, type Foto, type OSCertificado, type TipoServico } from './api'
 import { GerarCertificadoModal } from './GerarCertificadoModal'
 import { LiberarLabModal } from './LiberarLabModal'
 import { EditarOSModal } from './EditarOSModal'
@@ -110,6 +110,8 @@ export function OrdemDetailPage() {
   const [erroFoto, setErroFoto] = useState('')
   const [erroCert, setErroCert] = useState('')
   const [erroNF, setErroNF] = useState('')
+  const [salvandoTipo, setSalvandoTipo] = useState(false)
+  const [erroTipo, setErroTipo] = useState('')
   const [erroObs, setErroObs] = useState('')
   const [obsTexto, setObsTexto] = useState('')
   const [salvandoObs, setSalvandoObs] = useState(false)
@@ -223,6 +225,18 @@ export function OrdemDetailPage() {
     }
   }
 
+  async function onTrocarTipoServico(tipo: TipoServico) {
+    setErroTipo('')
+    setSalvandoTipo(true)
+    try {
+      setOs(await ordensApi.editarTipoServico(osId, tipo))
+    } catch (err) {
+      setErroTipo(err instanceof ApiError ? err.message : 'Falha ao alterar o tipo de serviço')
+    } finally {
+      setSalvandoTipo(false)
+    }
+  }
+
   async function onSalvarObs() {
     setErroObs('')
     setSalvandoObs(true)
@@ -329,7 +343,31 @@ export function OrdemDetailPage() {
       {/* Recebimento */}
       <Secao icon={<IconNote className="w-4 h-4" />} titulo="Recebimento">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-5">
-          <Campo label="Tipo de serviço" valor={tipo} />
+          <Campo
+            label="Tipo de serviço"
+            valor={
+              // O técnico corrige aqui quando encontra na bancada algo que a
+              // Expedição não tinha como ver na entrada. Fora do laboratório
+              // continua sendo só leitura.
+              podeEditarTipoServico(user, os.fase) ? (
+                <div className="space-y-1">
+                  <label htmlFor="os-tipo-servico" className="sr-only">Tipo de serviço</label>
+                  <select
+                    id="os-tipo-servico"
+                    value={os.tipo_servico ?? ''}
+                    disabled={salvandoTipo}
+                    onChange={(e) => onTrocarTipoServico(e.target.value as TipoServico)}
+                    className="w-full rounded-lg bg-background border border-border px-2 py-1 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-60"
+                  >
+                    {Object.entries(TIPO_SERVICO).map(([valor, { label }]) => (
+                      <option key={valor} value={valor}>{label}</option>
+                    ))}
+                  </select>
+                  {erroTipo && <p className="text-xs text-danger">{erroTipo}</p>}
+                </div>
+              ) : tipo
+            }
+          />
           <Campo label="Condição de chegada" valor={os.condicao_chegada ? <Badge tone="neutral">{os.condicao_chegada}</Badge> : '—'} />
           <Campo label="Data de chegada" valor={formatData(os.data_chegada)} />
           <Campo

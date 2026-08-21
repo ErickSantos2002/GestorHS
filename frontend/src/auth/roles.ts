@@ -92,6 +92,16 @@ export function podeMarcarSemConserto(user: User | null): boolean {
   return isAdmin(user) || user?.funcao === FUNCAO_LABORATORIO
 }
 
+/** Corrigir o tipo de serviço da OS, durante o laboratório.
+ *
+ * A Expedição registra o tipo na entrada pelo que vê por fora; quem descobre
+ * que o aparelho também precisa de manutenção é o técnico na bancada. Só na
+ * fase do Laboratório: depois dela a OS já emitiu certificado e seguiu para
+ * cobrança. Espelha o guard de app/api/ordens.py. */
+export function podeEditarTipoServico(user: User | null, fase: number | null): boolean {
+  return (isAdmin(user) || user?.funcao === FUNCAO_LABORATORIO) && fase === 5
+}
+
 // Espelha require_funcao("Financeiro", "Administrador") em
 // backend/app/api/propostas.py (POST /propostas/{id}/faturar) — mudou lá, mude aqui.
 export function podeFaturarProposta(user: User | null): boolean {

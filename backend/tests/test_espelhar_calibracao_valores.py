@@ -71,3 +71,63 @@ def test_espelhar_calibracao_da_os_continua_igual(db_session):
     assert ec.calib_temp == "21"
     assert ec.ult_calibragem == date(2026, 7, 20)
     assert ec.prox_calibragem == date(2027, 7, 20)
+
+
+# ── Proxima calibracao calculada ─────────────────────────────────────────────
+# Nada no GestorHS preenchia `prox_calibragem` da OS, entao o aparelho ficava com
+# a data do ciclo ANTERIOR e virava "Vencido" recem-calibrado (caso do aparelho
+# 7912 / OS 10905, 20/08/2026).
+
+def test_os_sem_proxima_calibracao_calcula_um_ano_e_nao_deixa_a_data_velha(db_session):
+    from app.api.ordens_acoes import espelhar_calibracao
+    from app.models import Ordem
+    ec = _aparelho(db_session)
+    ec.prox_calibragem = date(2026, 7, 25)   # ciclo anterior, ja no passado
+    db_session.commit()
+    _seed_fase_laboratorio(db_session)
+    ordem = Ordem(cliente=ec.cliente, equipamento_cliente=ec.id, situacao="E",
+                  tipo_servico="C", fase=5, calib_cert="HF00561",
+                  data_calibracao=datetime(2026, 7, 30, tzinfo=timezone.utc),
+                  prox_calibragem=None)
+    db_session.add(ordem); db_session.commit()
+
+    espelhar_calibracao(db_session, ordem)
+    db_session.commit(); db_session.refresh(ec); db_session.refresh(ordem)
+
+    assert ec.ult_calibragem == date(2026, 7, 30)
+    assert ec.prox_calibragem == date(2027, 7, 30), "a data do ciclo anterior nao pode sobreviver"
+    # A OS tambem passa a mostrar a proxima calibracao, senao as duas telas divergem.
+    assert ordem.prox_calibragem.date() == date(2027, 7, 30)
+
+
+def test_proxima_calibracao_informada_na_os_manda_sobre_o_calculo(db_session):
+    """O calculo e um default, nao uma imposicao: data explicita continua valendo."""
+    from app.api.ordens_acoes import espelhar_calibracao
+    from app.models import Ordem
+    ec = _aparelho(db_session)
+    _seed_fase_laboratorio(db_session)
+    ordem = Ordem(cliente=ec.cliente, equipamento_cliente=ec.id, situacao="E",
+                  tipo_servico="C", fase=5,
+                  data_calibracao=datetime(2026, 7, 30, tzinfo=timezone.utc),
+                  prox_calibragem=datetime(2026, 12, 1, tzinfo=timezone.utc))
+    db_session.add(ordem); db_session.commit()
+
+    espelhar_calibracao(db_session, ordem)
+    db_session.commit(); db_session.refresh(ec)
+    assert ec.prox_calibragem == date(2026, 12, 1)
+
+
+def test_os_sem_data_de_calibracao_nao_inventa_proxima(db_session):
+    from app.api.ordens_acoes import espelhar_calibracao
+    from app.models import Ordem
+    ec = _aparelho(db_session)
+    ec.prox_calibragem = date(2026, 7, 25)
+    db_session.commit()
+    _seed_fase_laboratorio(db_session)
+    ordem = Ordem(cliente=ec.cliente, equipamento_cliente=ec.id, situacao="E",
+                  tipo_servico="C", fase=5, data_calibracao=None, prox_calibragem=None)
+    db_session.add(ordem); db_session.commit()
+
+    espelhar_calibracao(db_session, ordem)
+    db_session.commit(); db_session.refresh(ec)
+    assert ec.prox_calibragem == date(2026, 7, 25), "sem calibracao, nada a recalcular"
