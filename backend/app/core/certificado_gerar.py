@@ -8,6 +8,7 @@ from html import escape as _html_escape
 from sqlalchemy.orm import Session
 
 from app.core.certificado_calculo import CASAS_MEDICAO, calcular, formatar_numero
+from app.core.manutencao import compor_problema
 from app.models import Equipamento, Marca, TipoCalibragem, CertificadoModelo, OSCertificado
 
 # Campos suportados (expostos no editor de modelos). Os nomes batem com os
@@ -58,6 +59,10 @@ CAMPOS: list[tuple[str, str]] = [
     ("margemtemp", "Margem de temperatura padrão"),
     ("qrcertificados", "QR dos certificados auxiliares (gás, termohigrômetro, barômetro)"),
     ("pulapagina", "Quebra de página (impressão)"),
+    ("manutnumero", "Numero do relatorio de manutencao — digitado pelo laboratorio."),
+    ("manutdata", "Data da manutencao."),
+    ("manutproblema", "Servicos executados, ja compostos em lista portuguesa."),
+    ("manutresumo", "Resumo do servico, ja composto e revisado."),
 ]
 
 # Quebra de página para impressão — HTML estrutural (não é dado, não escapar).
@@ -147,12 +152,15 @@ def _montar_contexto(
     t4: str = "", t5: str = "",
     calc: dict[str, str] | None = None,
     media: str = "", situ: str = "",
+    manutnumero: str = "", manutdata: str = "", manutproblema: str = "", manutresumo: str = "",
 ) -> dict[str, str]:
     """Fonte UNICA do conjunto de chaves do certificado.
 
-    Usado pelo fluxo da OS (`montar_contexto`) e pelo avulso (`montar_contexto_avulso`).
-    Manter os dois caminhos aqui impede que um token novo entre em um e falte no outro —
-    e um token que falta no contexto sai LITERALMENTE escrito no PDF.
+    Usado pelo fluxo da OS (`montar_contexto`), pelo avulso (`montar_contexto_avulso`) e
+    pelo de venda (`montar_contexto_venda`). Manter os tres caminhos aqui impede que um
+    token novo entre em um e falte nos outros — e um token que falta no contexto sai
+    LITERALMENTE escrito no PDF. Os tokens `manut*` so tem valor real no fluxo da OS
+    (avulso e venda nao tem manutencao associada — ficam vazios, como o bloco calculado).
     NAO inclui `pulapagina`: `preencher()` o trata fora do laco, sem escapar.
     """
     hoje = _fmt(date.today())
@@ -195,6 +203,10 @@ def _montar_contexto(
         # (avulso e venda). Nunca AUSENTE — token ausente sai literalmente escrito no PDF.
         **_bloco_calculado(calc),
         "datacli": hoje,
+        "manutnumero": manutnumero,
+        "manutdata": manutdata,
+        "manutproblema": manutproblema,
+        "manutresumo": manutresumo,
     }
 
 
@@ -291,6 +303,11 @@ def montar_contexto(db: Session, ordem) -> dict[str, str]:
     if ordem.tipo_calibragem:
         tc = db.get(TipoCalibragem, ordem.tipo_calibragem)
         tipocal = (tc.descricao if tc else "") or ""
+    # Campos do Relatorio de Manutencao. Ficam vazios quando a OS nao tem
+    # manutencao registrada; a geracao do tipo M e' recusada antes disso
+    # (ver certificados_os.gerar), entao vazio aqui so acontece no tipo C.
+    from app.api.manutencoes import manutencao_da_os
+    manut = manutencao_da_os(db, ordem.id)
     ctx = _montar_contexto(
         nomecli=(cli.nome if cli else "") or "",
         cnpj=((cli.cgc or cli.cpf) if cli else "") or "",
@@ -316,6 +333,11 @@ def montar_contexto(db: Session, ordem) -> dict[str, str]:
         calc=_calcular_para_os(db, ordem),
         media=ordem.calib_teste_media or "",
         situ=ordem.calib_situacao or "",
+        manutnumero=(manut.numero or "") if manut else "",
+        manutdata=_fmt(manut.data_manutencao) if manut and manut.data_manutencao else "",
+        manutproblema=compor_problema(
+            [i.servico_rel.descricao for i in manut.itens]) if manut else "",
+        manutresumo=(manut.resumo or "") if manut else "",
     )
     for chave, valor in (ordem.cert_overrides or {}).items():
         # cert_overrides e JSON livre; hoje so `certificados_os.py` grava nele, restrito
@@ -457,10 +479,35 @@ def preencher(html: str, contexto: dict[str, str]) -> str:
 
 
 def tipos_para(ordem) -> list[str]:
-    tipos = ["C"]
-    if ordem.tipo_servico in ("M", "A"):
-        tipos.append("M")
-    return tipos
+    """Documentos que a OS pede, conforme o tipo de servico.
+
+    C -> so calibracao · M -> so manutencao · A -> os dois · vazio -> calibracao.
+    OS antigas tem tipo_servico nulo e seguem no comportamento de sempre.
+    """
+    if ordem.tipo_servico == "M":
+        return ["M"]
+    if ordem.tipo_servico == "A":
+        return ["C", "M"]
+    return ["C"]
+
+
+def modelo_para(db: Session, equipamento_id, tipo: str):
+    """Modelo do aparelho; para MANUTENCAO, cai no generico quando nao houver.
+
+    O generico e' o registro com `equipamento` nulo. O fallback vale SO para o
+    tipo M de proposito: existe um registro tipo C com equipamento nulo — o
+    modelo "legado" mantido em julho — e um fallback amplo faria todo aparelho
+    sem modelo de calibracao gerar certificado com aquele modelo de teste, em
+    silencio.
+    """
+    especifico = db.query(CertificadoModelo).filter(
+        CertificadoModelo.equipamento == equipamento_id, CertificadoModelo.tipo == tipo
+    ).first()
+    if especifico is not None or tipo != "M":
+        return especifico
+    return db.query(CertificadoModelo).filter(
+        CertificadoModelo.equipamento.is_(None), CertificadoModelo.tipo == "M"
+    ).first()
 
 
 def tipos_sem_modelo(db: Session, ordem, tipos: list[str]) -> list[str]:
@@ -475,9 +522,7 @@ def tipos_sem_modelo(db: Session, ordem, tipos: list[str]) -> list[str]:
         return list(tipos)
     faltando = []
     for tipo in tipos:
-        modelo = db.query(CertificadoModelo).filter(
-            CertificadoModelo.equipamento == ec.equipamento, CertificadoModelo.tipo == tipo
-        ).first()
+        modelo = modelo_para(db, ec.equipamento, tipo)
         if modelo is None or not modelo.texto:
             faltando.append(tipo)
     return faltando
@@ -492,9 +537,7 @@ def gerar_certificados(db: Session, ordem, tipos: list[str]) -> list:
     contexto = montar_contexto(db, ordem)
     gerados = []
     for tipo in tipos:
-        modelo = db.query(CertificadoModelo).filter(
-            CertificadoModelo.equipamento == ec.equipamento, CertificadoModelo.tipo == tipo
-        ).first()
+        modelo = modelo_para(db, ec.equipamento, tipo)
         if modelo is None or not modelo.texto:
             continue
         html = preencher(modelo.texto, contexto)
