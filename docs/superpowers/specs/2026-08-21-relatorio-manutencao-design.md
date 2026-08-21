@@ -1,7 +1,7 @@
 # Relatório de Manutenção — design
 
 **Data:** 21/08/2026
-**Origem:** `docs/certificado-manutencao/` — formulário padrão `FORM-LAB-010` (docx) e três relatórios preenchidos em PDF.
+**Origem:** `docs/certificado-manutencao/` — formulário padrão `FORM-LAB-010` REV 02 (docx, é o que vale) e três relatórios antigos em PDF, usados só como exemplo de preenchimento.
 
 ## O problema
 
@@ -34,14 +34,37 @@ Os três exemplos usam `HF00711`, `HF00712` e `HF00714`. Esses mesmos números j
 
 **Decisão:** o número é campo livre, digitado. O sistema não gera nem valida sequência — não vai brigar com o controle que já existe fora dele.
 
-### Divergências nos arquivos de origem
+### A fonte é o docx (REV 02)
 
-Duas, a confirmar com a Qualidade — não bloqueiam a implementação:
+Os três PDFs são relatórios **antigos**, passados pela Qualidade como exemplo de preenchimento. Servem para entender que dado vai em cada campo — não para copiar o layout. O padrão vigente é o docx.
 
-- O docx se chama "REV 02", mas o cabeçalho dos três PDFs diz "Revisão: 00".
-- O texto de "Comentários" do docx é mais antigo. Os PDFs trazem dois parágrafos (política de peças + observação de que a calibração não é sistemática) que o docx não tem.
+Diferenças que vêm disso, e que o modelo deve seguir:
 
-**O modelo segue os PDFs**, que são o que está em uso.
+| | docx (vale) | PDFs (antigos) |
+|---|---|---|
+| Revisão no cabeçalho | `Revisão: 02` | `Revisão: 00` |
+| Classificação | `Classificação: C4` | ausente |
+| Comentários | um parágrafo (ver abaixo) | dois parágrafos |
+
+O cabeçalho do docx, na íntegra: `Formulários` · `FORM-LAB-010` · `Revisão: 02` · `Classificação: C4` · `Título: Relatório de Manutenção` · `Páginas: X de Y`.
+
+O texto de Comentários do REV 02 é:
+
+> Aparelho em Manutenção: cobertura das peças substituídas, caso ocorra, garantia de mão de obra de 90 dias.
+
+Ou seja, **não** entra a observação sobre calibração não sistemática que aparece nos PDFs antigos.
+
+### Imagens
+
+O docx traz quatro, com os mesmos papéis das dos certificados de calibração:
+
+| Arquivo | Tamanho | Papel |
+|---|---|---|
+| `image4.png` | 2639×764 | timbre do cabeçalho |
+| `image1.jpeg`, `image2.jpeg` | ~170×170 | os dois selos ISO |
+| `image3.png` | 332×94 | assinatura FIEMS / SENAI |
+
+Precisam ser extraídas do docx e enviadas ao acervo que já existe (`certificado-imagens`), e o modelo as referencia por URL — igual aos modelos de calibração. Não são embutidas no HTML.
 
 ## Modelo de dados
 
@@ -142,7 +165,7 @@ Novos, quatro:
 | `A` | Calibração e Manutenção |
 | vazio (OS antigas) | só Calibração |
 
-Hoje `M` ainda pede o certificado de calibração, o que faria o técnico emitir um documento de calibração que não realizou. Os próprios PDFs registram que *"a calibração não é realizada de forma sistemática em todas as manutenções"*.
+Hoje `M` ainda pede o certificado de calibração, o que faria o técnico emitir um documento de calibração que não realizou. Quando houver calibração junto, o tipo é "Ambas" — e desde a v1.42.0 o próprio Laboratório troca isso na fase dele.
 
 ### O que já funciona sem código novo
 
