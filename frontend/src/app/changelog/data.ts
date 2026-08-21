@@ -23,6 +23,14 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.42.0',
+    data: '21/08/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'O Laboratório agora corrige o tipo de serviço da OS enquanto ela está na fase dele — quando o técnico abre o aparelho e vê que, além da calibração, também precisa de manutenção. Antes só o Administrador conseguia alterar.' },
+      { tipo: 'melhoria', texto: 'A troca fica registrada no histórico da OS com o de-para (por exemplo, “Calibração → Manutenção”), já que quem informa o tipo na entrada é a Expedição e quem corrige é o Laboratório.' },
+    ],
+  },
+  {
     versao: '1.41.0',
     data: '20/08/2026',
     itens: [
