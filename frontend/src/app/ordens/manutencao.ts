@@ -1,4 +1,23 @@
-import { apiJson } from '../../lib/api'
+import { apiJson, apiFetch, ApiError } from '../../lib/api'
+
+// DELETE/204 não tem corpo — apiJson faz res.json() e quebraria. Mesmo padrão
+// usado em propostas/api.ts, caixas/api.ts e cadastros/api.ts.
+async function apiVoid(path: string, options: RequestInit = {}): Promise<void> {
+  const res = await apiFetch(path, {
+    ...options,
+    headers: { 'Content-Type': 'application/json', ...(options.headers as Record<string, string>) },
+  })
+  if (!res.ok) {
+    let detail = res.statusText
+    try {
+      const body = (await res.json()) as { detail?: string }
+      if (body.detail) detail = body.detail
+    } catch {
+      // sem corpo JSON
+    }
+    throw new ApiError(res.status, detail)
+  }
+}
 
 export interface ServicoManutencao {
   id: number
@@ -48,5 +67,5 @@ export const manutencaoApi = {
   atualizarServico: (id: number, dados: Partial<ServicoManutencao>): Promise<ServicoManutencao> =>
     apiJson<ServicoManutencao>(`/manutencao-servicos/${id}`, { method: 'PUT', body: JSON.stringify(dados) }),
   excluirServico: (id: number): Promise<void> =>
-    apiJson<void>(`/manutencao-servicos/${id}`, { method: 'DELETE' }),
+    apiVoid(`/manutencao-servicos/${id}`, { method: 'DELETE' }),
 }
