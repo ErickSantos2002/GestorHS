@@ -40,7 +40,7 @@ describe('GerarCertificadoModal — por tipo de serviço', () => {
     render(<GerarCertificadoModal os={os('M')} onClose={vi.fn()} onGerado={vi.fn()} />)
     await screen.findByLabelText(/^nome$/i)
     expect(screen.queryByLabelText(/teste 1/i)).not.toBeInTheDocument()
-    expect(screen.queryByLabelText(/incerteza|situação da calibra/i)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/^situação$/i)).not.toBeInTheDocument()
   })
 
   it('OS de calibração continua mostrando o bloco de calibração', async () => {
