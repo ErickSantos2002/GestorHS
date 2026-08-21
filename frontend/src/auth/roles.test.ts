@@ -7,6 +7,7 @@ import {
   podeGerenciarPropostas,
   podeAvancarCaixa,
   podeMarcarSemConserto,
+  podeEditarTipoServico,
   podeFaturarProposta,
   podeDesfaturarProposta,
   FUNCAO_RESPONSAVEL_POR_FASE,
@@ -172,4 +173,31 @@ describe('auth/roles — podeDesfaturarProposta', () => {
   it('Admin pode desfaturar', () => expect(podeDesfaturarProposta(u('Administrador'))).toBe(true))
   it('Financeiro não pode desfaturar', () => expect(podeDesfaturarProposta(u('Financeiro'))).toBe(false))
   it('null não pode desfaturar', () => expect(podeDesfaturarProposta(null)).toBe(false))
+})
+
+describe('auth/roles — podeEditarTipoServico', () => {
+  // So durante o laboratorio: depois dele a OS ja emitiu certificado e seguiu
+  // para cobranca, e trocar o tipo mudaria o que foi cobrado e o que foi emitido.
+  it('laboratório edita na fase 5', () => {
+    expect(podeEditarTipoServico({ funcao: 'Laboratório' } as never, 5)).toBe(true)
+  })
+
+  it('admin também edita na fase 5', () => {
+    expect(podeEditarTipoServico({ funcao: 'Administrador' } as never, 5)).toBe(true)
+  })
+
+  it('laboratório não edita fora da fase 5', () => {
+    for (const fase of [4, 6, 7, 8, 9]) {
+      expect(podeEditarTipoServico({ funcao: 'Laboratório' } as never, fase)).toBe(false)
+    }
+  })
+
+  it('outra função não edita nem na fase 5', () => {
+    expect(podeEditarTipoServico({ funcao: 'Financeiro' } as never, 5)).toBe(false)
+    expect(podeEditarTipoServico(null, 5)).toBe(false)
+  })
+
+  it('fase desconhecida não libera', () => {
+    expect(podeEditarTipoServico({ funcao: 'Laboratório' } as never, null)).toBe(false)
+  })
 })
