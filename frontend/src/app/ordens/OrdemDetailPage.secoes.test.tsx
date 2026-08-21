@@ -92,4 +92,18 @@ describe('OrdemDetailPage — seções de certificado', () => {
     expect(await screen.findByText('Certificado de calibração')).toBeInTheDocument()
     expect(screen.queryByText('Certificado de manutenção')).not.toBeInTheDocument()
   })
+
+  it('OS de manutenção sem modelo cadastrado mostra o aviso e o link, mesmo sem a seção de calibração', async () => {
+    obter.mockResolvedValue(baseOs({ tipo_servico: 'M', certificado_modelos_faltantes: ['M'] }))
+    tela()
+    expect(await screen.findByText(/não tem modelo de certificado de Manutenção cadastrado/)).toBeInTheDocument()
+    expect(screen.getByText('Cadastrar modelo de certificado')).toBeInTheDocument()
+  })
+
+  it('OS de manutenção liberada sem certificado mostra "Liberado sem certificado" e não manda registrar manutenção', async () => {
+    obter.mockResolvedValue(baseOs({ tipo_servico: 'M', desfecho_lab: 'liberado' }))
+    tela()
+    expect(await screen.findByText(/Liberado sem certificado/)).toBeInTheDocument()
+    expect(screen.queryByText(/Registre a manutenção antes de gerar/)).not.toBeInTheDocument()
+  })
 })

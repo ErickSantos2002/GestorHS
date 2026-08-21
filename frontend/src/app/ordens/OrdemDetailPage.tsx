@@ -515,6 +515,24 @@ export function OrdemDetailPage() {
       </Secao>
         </DetailMain>
         <DetailAside>
+      {/* O aviso ACOMPANHA as seções, nunca as substitui: o documento já emitido não pode
+          sumir da tela por falta de modelo de outro tipo. Vale para qualquer tipo de OS —
+          por isso fica acima das duas, não dentro de uma delas. */}
+      {semModelo && (
+        <div className="rounded-lg bg-warning/10 border border-warning/20 px-3 py-2.5 space-y-1.5">
+          <p className="text-sm text-warning">
+            Este aparelho não tem modelo de certificado de {modelosFaltantesLabel} cadastrado — por isso não é
+            possível gerar o documento.
+          </p>
+          <Link to="/app/certificados" className="inline-block text-xs font-semibold text-primary hover:underline">
+            Cadastrar modelo de certificado
+          </Link>
+        </div>
+      )}
+      {os.desfecho_lab === 'liberado' && (
+        <p className="text-sm text-slate-400">Liberado sem certificado{os.desfecho_lab_obs ? ` — ${os.desfecho_lab_obs}` : ''}.</p>
+      )}
+
       {/* Uma seção por documento: deixa explícito qual está sendo feito e onde. */}
       {tiposDaOS.includes('C') && (
         <Secao
@@ -526,22 +544,6 @@ export function OrdemDetailPage() {
             </Button>
           )}
         >
-          {/* O aviso ACOMPANHA a lista, nunca a substitui: o documento já emitido
-              não pode sumir da tela por falta de modelo de outro tipo. */}
-          {semModelo && (
-            <div className="rounded-lg bg-warning/10 border border-warning/20 px-3 py-2.5 space-y-1.5">
-              <p className="text-sm text-warning">
-                Este aparelho não tem modelo de certificado de {modelosFaltantesLabel} cadastrado — por isso não é
-                possível gerar o certificado.
-              </p>
-              <Link to="/app/certificados" className="inline-block text-xs font-semibold text-primary hover:underline">
-                Cadastrar modelo de certificado
-              </Link>
-            </div>
-          )}
-          {os.desfecho_lab === 'liberado' && (
-            <p className="text-sm text-slate-400">Liberado sem certificado{os.desfecho_lab_obs ? ` — ${os.desfecho_lab_obs}` : ''}.</p>
-          )}
           {certDe('C') ? (
             <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
               <span className="text-sm text-slate-200">
@@ -559,10 +561,12 @@ export function OrdemDetailPage() {
         <Secao
           icon={<IconCertificado className="w-4 h-4" />}
           titulo="Certificado de manutenção"
-          acao={podeRegistrarManutencao(user, os.fase) && (
+          acao={(
             <div className="flex gap-2">
-              <Button variant="secondary" onClick={() => setManutencaoAberta(true)}>Registrar manutenção</Button>
-              {!semModelo && (
+              {podeRegistrarManutencao(user, os.fase) && (
+                <Button variant="secondary" onClick={() => setManutencaoAberta(true)}>Registrar manutenção</Button>
+              )}
+              {podeGerarOuRegerar && !semModelo && (
                 <Button variant={certDe('M') ? 'secondary' : 'primary'} onClick={() => setAcao('gerar')}>
                   {certDe('M') ? 'Regerar relatório' : 'Gerar relatório'}
                 </Button>
@@ -579,7 +583,9 @@ export function OrdemDetailPage() {
             </div>
           ) : (
             <p className="text-sm text-slate-500">
-              Nenhum relatório de manutenção gerado. Registre a manutenção antes de gerar.
+              {/* "Registre a manutenção antes de gerar" enganaria numa OS liberada sem
+                  conserto — o aviso "Liberado sem certificado" acima já explica o caso. */}
+              Nenhum relatório de manutenção gerado.{os.desfecho_lab !== 'liberado' ? ' Registre a manutenção antes de gerar.' : ''}
             </p>
           )}
         </Secao>
