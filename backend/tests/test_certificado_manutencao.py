@@ -57,3 +57,43 @@ def test_calibracao_NAO_cai_no_generico(db_session):
     db_session.add(CertificadoModelo(equipamento=None, tipo="C", texto="<p>legado</p>"))
     db_session.commit()
     assert modelo_para(db_session, eq.id, "C") is None
+
+
+def _os_manutencao(db, os_base, fase=5):
+    from app.models import Ordem
+    o = Ordem(cliente=os_base["cliente"], equipamento_cliente=os_base["equipamento_cliente"],
+              fase=fase, tipo_servico="M", situacao="E")
+    db.add(o); db.commit(); db.refresh(o)
+    return o.id
+
+
+def test_gerar_sem_manutencao_registrada_recusa(client_lab, os_base, fases_seed, db_session, upload_tmp):
+    """Documento em branco nao deve sair: sem numero, data e servico o
+    relatorio nao tem conteudo."""
+    from app.models import CertificadoModelo
+    db_session.add(CertificadoModelo(equipamento=None, tipo="M", texto="<p>[manutnumero]</p>"))
+    db_session.commit()
+    oid = _os_manutencao(db_session, os_base)
+    r = client_lab.post(f"/ordens/{oid}/gerar-certificado")
+    assert r.status_code == 409
+    assert "manutenção" in r.json()["detail"].lower()
+
+
+def test_gerar_com_manutencao_registrada_produz_o_tipo_M(client_lab, os_base, fases_seed, db_session, upload_tmp):
+    from app.models import CertificadoModelo, OSCertificado
+    db_session.add(CertificadoModelo(equipamento=None, tipo="M", texto="<p>[manutnumero]</p>"))
+    db_session.commit()
+    oid = _os_manutencao(db_session, os_base)
+    sid = client_lab.post("/manutencao-servicos",
+                          json={"descricao": "Troca da placa mãe", "resumo_padrao": "Placa trocada."}).json()["id"]
+    client_lab.put(f"/ordens/{oid}/manutencao", json={
+        "numero": "HF00715", "data_manutencao": "2026-08-21",
+        "resumo": "Placa trocada.", "servicos": [sid]})
+
+    r = client_lab.post(f"/ordens/{oid}/gerar-certificado")
+    assert r.status_code == 200
+    db_session.expire_all()
+    tipos = [c.tipo for c in db_session.query(OSCertificado).filter(OSCertificado.os == oid).all()]
+    assert tipos == ["M"], "OS de manutencao pura nao emite certificado de calibracao"
+    gerado = db_session.query(OSCertificado).filter(OSCertificado.os == oid).first()
+    assert "HF00715" in gerado.html

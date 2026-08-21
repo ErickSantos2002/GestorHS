@@ -74,6 +74,17 @@ def gerar(ordem_id: int, dados: GerarCertificadoIn | None = None, db: Session = 
             detail=f"O aparelho {aparelho} não tem modelo de certificado de {nomes} cadastrado. "
                    f"Cadastre o modelo em Certificados antes de gerar.",
         )
+    # Relatorio de manutencao sem manutencao registrada sairia em branco.
+    # Mesma forma da recusa por falta de modelo: 409 com o caminho da solucao.
+    if "M" in tipos_para(ordem):
+        from app.api.manutencoes import manutencao_da_os
+        manut = manutencao_da_os(db, ordem.id)
+        if manut is None or not manut.itens:
+            raise HTTPException(
+                status_code=409,
+                detail="Registre a manutenção (número, data e ao menos um serviço) "
+                       "antes de gerar o relatório de manutenção.",
+            )
     if dados is not None:
         for campo in _CAMPOS_CALIB:
             setattr(ordem, campo, getattr(dados, campo))
