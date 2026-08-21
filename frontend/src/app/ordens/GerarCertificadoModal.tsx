@@ -17,6 +17,10 @@ export function GerarCertificadoModal({ os, onClose, onGerado }: {
   const [erro, setErro] = useState('')
   const [enviando, setEnviando] = useState(false)
 
+  // Manutencao pura nao tem medicao: mostrar o bloco de calibracao pediria
+  // dados de um ensaio que nao foi feito. Espelha tipos_para no backend.
+  const temCalibracao = os.tipo_servico !== 'M'
+
   function set(patch: Partial<ValoresCertificado>) {
     setV((atual) => ({ ...atual, ...patch }))
   }
@@ -93,7 +97,7 @@ export function GerarCertificadoModal({ os, onClose, onGerado }: {
         <div className="flex justify-center py-10"><Spinner className="w-7 h-7" /></div>
       ) : (
         <form id="form-gerar-cert" className="space-y-5" onSubmit={submeter}>
-          <CamposCertificado valores={v} onChange={set} medicoes={5} />
+          <CamposCertificado valores={v} onChange={set} medicoes={5} mostrarCalibracao={temCalibracao} />
           {erro && <div className="rounded-lg bg-danger/10 border border-danger/20 px-3 py-2.5 text-sm text-danger">{erro}</div>}
         </form>
       )}

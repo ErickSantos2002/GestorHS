@@ -14,7 +14,7 @@ const CHAVES_3 = ['t1', 't2', 't3'] as const
 
 /** Formulario de certificado compartilhado entre o fluxo da OS e o de venda.
  *  `extra` entra no fim da secao Calibracao (a venda usa para "Proxima calibracao"). */
-export function CamposCertificado({ valores, onChange, extra, medicoes = 3 }: {
+export function CamposCertificado({ valores, onChange, extra, medicoes = 3, mostrarCalibracao = true }: {
   valores: ValoresCertificado
   onChange: (patch: Partial<ValoresCertificado>) => void
   extra?: ReactNode
@@ -23,6 +23,9 @@ export function CamposCertificado({ valores, onChange, extra, medicoes = 3 }: {
    *  celulas de medicao no template (nao migrado pro EPS-LAB-002). O avulso tem
    *  formulario proprio e nao usa este componente. */
   medicoes?: 3 | 5
+  /** OS de manutencao pura nao tem medicao: esconde a secao de Calibracao.
+   *  Cliente e Aparelho continuam, pois valem para os dois documentos. */
+  mostrarCalibracao?: boolean
 }) {
   const chaves = medicoes === 5 ? CHAVES_5 : CHAVES_3
   const [mediaEditada, setMediaEditada] = useState(false)
@@ -73,37 +76,39 @@ export function CamposCertificado({ valores, onChange, extra, medicoes = 3 }: {
         </div>
       </div>
 
-      <div className="space-y-3">
-        <p className={secao}>Calibração</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Input id="data-calib" label="Data de calibração" type="date" value={valores.dataCalib} onChange={(e) => onChange({ dataCalib: e.target.value })} />
-          <Input id="cert" label="Nº do certificado" value={valores.cert} onChange={(e) => onChange({ cert: e.target.value })} />
+      {mostrarCalibracao && (
+        <div className="space-y-3">
+          <p className={secao}>Calibração</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input id="data-calib" label="Data de calibração" type="date" value={valores.dataCalib} onChange={(e) => onChange({ dataCalib: e.target.value })} />
+            <Input id="cert" label="Nº do certificado" value={valores.cert} onChange={(e) => onChange({ cert: e.target.value })} />
+          </div>
+          <Select id="situacao" label="Situação" value={valores.situacao} onChange={(e) => onChange({ situacao: e.target.value })}>
+            <option value="">— selecione —</option>
+            <option value="Aparelho subsequente">Aparelho subsequente</option>
+            <option value="Aparelho inicial">Aparelho inicial</option>
+          </Select>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input id="temp" label="Temperatura" value={valores.temp} onChange={(e) => onChange({ temp: e.target.value })} />
+            <Input id="pressao" label="Pressão" value={valores.pressao} onChange={(e) => onChange({ pressao: e.target.value })} />
+          </div>
+          <div className={medicoes === 5 ? 'grid grid-cols-2 sm:grid-cols-5 gap-3' : 'grid grid-cols-1 sm:grid-cols-3 gap-3'}>
+            {chaves.map((chave, i) => {
+              const fora = previa?.fora_da_faixa[i] ?? false
+              return (
+                <Input key={chave} id={chave} label={`Teste ${i + 1}`} value={valores[chave]}
+                  className={fora ? 'border-red-500 focus:border-red-500' : undefined}
+                  // chave computada a partir de uma uniao de literais: o TS infere
+                  // { [x: string]: string } e nao casa com Partial<ValoresCertificado>
+                  onChange={(e) => onChange({ [chave]: e.target.value } as Partial<ValoresCertificado>)} />
+              )
+            })}
+          </div>
+          <Input id="media" label="Média dos testes" value={valores.media} onChange={(e) => { setMediaEditada(true); onChange({ media: e.target.value }) }} />
+          <PainelCalculoCertificado previa={previa} padroes={padroes} padrao={padrao} />
+          {extra}
         </div>
-        <Select id="situacao" label="Situação" value={valores.situacao} onChange={(e) => onChange({ situacao: e.target.value })}>
-          <option value="">— selecione —</option>
-          <option value="Aparelho subsequente">Aparelho subsequente</option>
-          <option value="Aparelho inicial">Aparelho inicial</option>
-        </Select>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Input id="temp" label="Temperatura" value={valores.temp} onChange={(e) => onChange({ temp: e.target.value })} />
-          <Input id="pressao" label="Pressão" value={valores.pressao} onChange={(e) => onChange({ pressao: e.target.value })} />
-        </div>
-        <div className={medicoes === 5 ? 'grid grid-cols-2 sm:grid-cols-5 gap-3' : 'grid grid-cols-1 sm:grid-cols-3 gap-3'}>
-          {chaves.map((chave, i) => {
-            const fora = previa?.fora_da_faixa[i] ?? false
-            return (
-              <Input key={chave} id={chave} label={`Teste ${i + 1}`} value={valores[chave]}
-                className={fora ? 'border-red-500 focus:border-red-500' : undefined}
-                // chave computada a partir de uma uniao de literais: o TS infere
-                // { [x: string]: string } e nao casa com Partial<ValoresCertificado>
-                onChange={(e) => onChange({ [chave]: e.target.value } as Partial<ValoresCertificado>)} />
-            )
-          })}
-        </div>
-        <Input id="media" label="Média dos testes" value={valores.media} onChange={(e) => { setMediaEditada(true); onChange({ media: e.target.value }) }} />
-        <PainelCalculoCertificado previa={previa} padroes={padroes} padrao={padrao} />
-        {extra}
-      </div>
+      )}
     </>
   )
 }
