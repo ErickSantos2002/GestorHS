@@ -5,7 +5,7 @@ import sys
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, funcoes, usuarios, setores, marcas, grupos, categorias, equipamentos, clientes, funcionarios, equipamentos_cliente, fases, ordens, tipos_calibragem, alertas, portal, solicitacoes, usuarios_cliente, dashboard, fotos, certificados, caixas, certificados_modelo, certificados_os, publico, notas_fiscais, certificados_avulsos, certificados_gerais, certificados_venda, logs_integracao, servicos, produtos, propostas, integracao_growthhs, integracoes_externas, certificados_config, certificados_emitidos, manutencao_servicos
+from app.api import auth, funcoes, usuarios, setores, marcas, grupos, categorias, equipamentos, clientes, funcionarios, equipamentos_cliente, fases, ordens, tipos_calibragem, alertas, portal, solicitacoes, usuarios_cliente, dashboard, fotos, certificados, caixas, certificados_modelo, certificados_os, publico, notas_fiscais, certificados_avulsos, certificados_gerais, certificados_venda, logs_integracao, servicos, produtos, propostas, integracao_growthhs, integracoes_externas, certificados_config, certificados_emitidos, manutencao_servicos, manutencoes
 from app.core.config import settings
 from app.tarefas import vencendo
 
@@ -98,6 +98,7 @@ app.include_router(propostas.router)
 app.include_router(integracao_growthhs.router)
 app.include_router(integracoes_externas.router)
 app.include_router(manutencao_servicos.router)
+app.include_router(manutencoes.router)
 
 
 @app.get("/health", tags=["infra"])
