@@ -35,7 +35,10 @@ export function ManutencaoModal({ osId, onClose, onSalvo }: {
         setNumero(m.numero ?? '')
         setData(m.data_manutencao ?? '')
         setResumo(m.resumo ?? '')
-        setComposicao(m.resumo ?? '')
+        // A composicao que ESTES servicos gerariam — nao o texto salvo. Se o
+        // salvo bate com ela, foi automatico e segue acompanhando os servicos;
+        // se difere, foi editado a mao e fica congelado.
+        setComposicao(comporResumo(m.servicos.map((s) => s.resumo_padrao)))
         setEscolhidos(m.servicos.map((s) => s.servico))
       })
       .catch(() => { /* sem manutencao ainda */ })

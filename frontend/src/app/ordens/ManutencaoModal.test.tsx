@@ -75,6 +75,40 @@ describe('ManutencaoModal', () => {
     expect(onSalvo).toHaveBeenCalled()
   })
 
+  it('reabrir com resumo salvo igual a composicao continua acompanhando os servicos', async () => {
+    obter.mockReset()
+    obter.mockResolvedValue({
+      id: 1, os: 7, numero: 'HF1', data_manutencao: null,
+      resumo: 'Placa substituída.',
+      servicos: [{ servico: 1, descricao: 'Troca da placa mãe', resumo_padrao: 'Placa substituída.' }],
+    })
+    render(<ManutencaoModal osId={7} onClose={vi.fn()} onSalvo={vi.fn()} />)
+    const resumo = await screen.findByLabelText('Resumo do serviço') as HTMLTextAreaElement
+    await waitFor(() => expect(resumo.value).toBe('Placa substituída.'))
+
+    await userEvent.click(screen.getByLabelText('Troca da bateria'))
+
+    await waitFor(() => expect(resumo.value).toBe('Placa substituída. Bateria trocada.'))
+    expect(screen.queryByText(/não acompanha mais os serviços/i)).not.toBeInTheDocument()
+  })
+
+  it('reabrir com resumo salvo editado a mao continua congelado', async () => {
+    obter.mockReset()
+    obter.mockResolvedValue({
+      id: 1, os: 7, numero: 'HF1', data_manutencao: null,
+      resumo: 'Texto escrito à mão na vez anterior.',
+      servicos: [{ servico: 1, descricao: 'Troca da placa mãe', resumo_padrao: 'Placa substituída.' }],
+    })
+    render(<ManutencaoModal osId={7} onClose={vi.fn()} onSalvo={vi.fn()} />)
+    const resumo = await screen.findByLabelText('Resumo do serviço') as HTMLTextAreaElement
+    await waitFor(() => expect(resumo.value).toBe('Texto escrito à mão na vez anterior.'))
+
+    await userEvent.click(screen.getByLabelText('Troca da bateria'))
+
+    expect(resumo.value).toBe('Texto escrito à mão na vez anterior.')
+    expect(screen.getByText(/não acompanha mais os serviços/i)).toBeInTheDocument()
+  })
+
   it('sem serviço escolhido nao deixa salvar', async () => {
     render(<ManutencaoModal osId={7} onClose={vi.fn()} onSalvo={vi.fn()} />)
     await screen.findByLabelText('Troca da placa mãe')
