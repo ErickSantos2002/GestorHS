@@ -203,9 +203,11 @@ Os campos compartilhados gravam em `ordens.cert_overrides` — a mesma coluna do
 
 Gerar o relatório **exige a manutenção registrada** — sem número, data e ao menos um serviço, o endpoint recusa com 409 e mensagem explícita, no mesmo padrão da recusa por falta de modelo. Documento em branco não deve sair.
 
-### Cadastros — Serviços de manutenção
+### Certificados — aba "Serviços de manutenção"
 
-Painel novo em Cadastros, ao lado de Categorias, Equipamentos e Fases. Lista descrição, resumo padrão e ativo.
+Aba nova em **Certificados**, ao lado de Configurações. Lista descrição, resumo padrão e ativo.
+
+Não vai em Cadastros: aquela página inteira é fechada para Administrador (`if (!isAdmin(user))` em `CadastrosPage.tsx`), e o Laboratório precisa cadastrar serviço. Certificados não tem essa trava e já é onde o Laboratório edita Configurações desde a v1.37.0 — mesma decisão de acesso, mesmo lugar.
 
 ## Permissões
 
