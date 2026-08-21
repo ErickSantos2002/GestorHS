@@ -1,6 +1,4 @@
 """Certificado de manutencao: quais tipos a OS pede e de onde vem o modelo."""
-from datetime import date
-
 import pytest
 
 from app.core.certificado_gerar import tipos_para, modelo_para

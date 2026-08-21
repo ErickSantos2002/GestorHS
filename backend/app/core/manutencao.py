@@ -4,9 +4,13 @@ Puro, sem I/O. Duas saidas alimentam o documento:
 - "Tipo do Problema": os servicos escolhidos, em lista portuguesa;
 - "Resumo do Servico": as frases padrao desses servicos, emendadas.
 
-O resultado e' GRAVADO na manutencao, nunca recomposto na hora de imprimir —
-senao editar o catalogo amanha reescreveria relatorio ja emitido, e relatorio
-emitido e' documento.
+O Resumo do Servico e' GRAVADO na manutencao e fica congelado dali em diante —
+e' prosa editada a mao, e editar o catalogo amanha nao pode reescrever um
+resumo que alguem ja revisou.
+
+Ja a linha do Tipo do Problema NAO e' gravada: ela deriva dos servicos ligados
+a manutencao e e' recomposta a cada geracao do certificado, do mesmo jeito que
+o certificado ja rederiva dados de cliente e aparelho toda vez que e' regerado.
 """
 
 
