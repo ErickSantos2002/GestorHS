@@ -200,3 +200,7 @@ class TipoCalibragemOut(BaseModel):
 
 class ObservacoesIn(BaseModel):
     observacoes: str | None = None
+
+
+class TipoServicoIn(BaseModel):
+    tipo_servico: Literal["C", "M", "A"]

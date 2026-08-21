@@ -16,10 +16,12 @@ from app.core.os_workflow import FASE_FINALIZADA
 from app.api.caixas import sincronizar_principal
 from app.api.exportar_common import carregar_ate_o_teto, resposta_xlsx
 from app.core.exportacoes import COLUNAS_ORDENS, linha_ordem
-from app.api.espelhamento import agendar_espelhamento_caixa
+from app.api.espelhamento import agendar_espelhamento, agendar_espelhamento_caixa
+from app.core import taskhs
+from app.core.taskhs import TIPO_SERVICO_LABEL
 from app.schemas.ordens import (
     OrdemListOut, OrdemPage, QuadroColuna, OrdemOut, LogOut, OrdemAbrirIn, OrdemEditarIn,
-    AvancarIn, CancelarIn, DesfechoLabIn, ObservacoesIn,
+    AvancarIn, CancelarIn, DesfechoLabIn, ObservacoesIn, TipoServicoIn,
 )
 
 router = APIRouter(prefix="/ordens", tags=["ordens"])
@@ -310,6 +312,44 @@ def editar_observacoes(ordem_id: int, dados: ObservacoesIn, db: Session = Depend
                   "Observações editadas" if texto else "Observações apagadas")
     db.commit()
     db.refresh(ordem)
+    _anotar_modelos_faltantes(db, ordem)
+    return ordem
+
+
+@router.patch("/{ordem_id}/tipo-servico", response_model=OrdemOut)
+def editar_tipo_servico(ordem_id: int, dados: TipoServicoIn, background_tasks: BackgroundTasks,
+                        db: Session = Depends(get_db),
+                        usuario: Usuario = Depends(require_funcao("Laboratório", "Administrador"))):
+    """Corrige o tipo de servico DURANTE o laboratorio.
+
+    A Expedicao registra o tipo na entrada pelo que da para ver por fora; quem
+    descobre que o aparelho tambem precisa de manutencao e' o tecnico na bancada.
+
+    Endpoint proprio, e nao uma abertura do `/editar`: aquele e' de Administrador
+    e mexe tambem em checklist, datas e garantia. So na fase do laboratorio —
+    depois dela a OS ja emitiu certificado e seguiu para cobranca, e trocar o
+    tipo mudaria o que foi cobrado e o que foi emitido. Fora dessa janela o
+    Administrador continua com o `/editar`.
+    """
+    ordem = db.query(Ordem).filter(Ordem.id == ordem_id).first()
+    if ordem is None:
+        raise HTTPException(status_code=404, detail="OS não encontrada")
+    if ordem.fase != wf.FASE_LABORATORIO:
+        raise HTTPException(status_code=409,
+                            detail="o tipo de serviço só pode ser corrigido enquanto a OS está no Laboratório")
+    anterior = ordem.tipo_servico
+    if dados.tipo_servico == anterior:
+        return ordem
+    ordem.tipo_servico = dados.tipo_servico
+    registrar_log(db, ordem, usuario,
+                  f"Tipo de serviço alterado: {TIPO_SERVICO_LABEL.get(anterior, anterior or '—')}"
+                  f" -> {TIPO_SERVICO_LABEL[dados.tipo_servico]}")
+    db.commit()
+    db.refresh(ordem)
+    # O card do TaskHS mostra o tipo no cabecalho — sem reespelhar, ele ficaria
+    # com o valor antigo ate o proximo avanco de fase.
+    agendar_espelhamento(db, background_tasks, ordem,
+                         list_id=taskhs.list_id_da_fase(ordem.fase), arquivado=False)
     _anotar_modelos_faltantes(db, ordem)
     return ordem
 
