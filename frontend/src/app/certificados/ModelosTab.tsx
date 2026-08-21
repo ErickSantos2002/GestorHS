@@ -18,6 +18,7 @@ export function ModelosTab() {
   const [busca, setBusca] = useState('')
   const [itens, setItens] = useState<ModeloItem[] | null>(null)
   const [selecionado, setSelecionado] = useState<ModeloItem | null>(null)
+  const [generico, setGenerico] = useState(false)
   const [tipo, setTipo] = useState<'C' | 'M'>('C')
   const [texto, setTexto] = useState('')
   const [descricao, setDescricao] = useState('')
@@ -42,40 +43,61 @@ export function ModelosTab() {
       .finally(() => setCarregandoEd(false))
   }
 
-  function abrir(m: ModeloItem) { setSelecionado(m); setTipo('C'); carregar(m.equipamento, 'C') }
+  function abrir(m: ModeloItem) { setGenerico(false); setSelecionado(m); setTipo('C'); carregar(m.equipamento, 'C') }
+
+  function abrirGenerico() {
+    setSelecionado(null); setGenerico(true); setTipo('M')
+    setCarregandoEd(true); setErro('')
+    certificadosApi.obterModeloGenerico('M')
+      .then((c) => { setTexto(c.texto); setDescricao(c.descricao ?? '') })
+      .catch((e) => {
+        // ainda sem modelo cadastrado — comeca vazio, nao e erro
+        if (e instanceof ApiError && e.status === 404) { setTexto(''); setDescricao('') }
+        else setErro('Falha ao carregar o certificado')
+      })
+      .finally(() => setCarregandoEd(false))
+  }
+
+  function fechar() { setSelecionado(null); setGenerico(false) }
 
   function trocarTipo(t: 'C' | 'M') { setTipo(t); if (selecionado) carregar(selecionado.equipamento, t) }
 
   async function salvar() {
-    if (!selecionado) return
+    if (!selecionado && !generico) return
     setSalvando(true); setErro('')
     try {
-      await certificadosApi.salvarModelo(selecionado.equipamento, { descricao: descricao.trim() || null, texto }, tipo)
-      setItens((cur) => cur?.map((m) => m.equipamento === selecionado.equipamento
-        ? { ...m, tem_calibracao: tipo === 'C' ? true : m.tem_calibracao, tem_manutencao: tipo === 'M' ? true : m.tem_manutencao }
-        : m) ?? null)
+      if (generico) {
+        await certificadosApi.salvarModeloGenerico({ descricao: descricao.trim() || null, texto }, 'M')
+      } else if (selecionado) {
+        await certificadosApi.salvarModelo(selecionado.equipamento, { descricao: descricao.trim() || null, texto }, tipo)
+        setItens((cur) => cur?.map((m) => m.equipamento === selecionado.equipamento
+          ? { ...m, tem_calibracao: tipo === 'C' ? true : m.tem_calibracao, tem_manutencao: tipo === 'M' ? true : m.tem_manutencao }
+          : m) ?? null)
+      }
     } catch (e) {
       setErro(e instanceof ApiError ? e.message : 'Falha ao salvar')
     } finally { setSalvando(false) }
   }
 
-  if (selecionado) {
+  if (selecionado || generico) {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <button onClick={() => setSelecionado(null)} className="text-xs text-primary hover:underline">← Modelos</button>
-            <h2 className="text-lg font-bold text-slate-100">{selecionado.equipamento_descricao}</h2>
+            <button onClick={fechar} className="text-xs text-primary hover:underline">← Modelos</button>
+            <h2 className="text-lg font-bold text-slate-100">{generico ? 'Relatório de Manutenção' : selecionado?.equipamento_descricao}</h2>
           </div>
           <div className="flex items-center gap-3">
-            <div className="flex gap-1 rounded-lg bg-background-elevated p-1 w-fit">
-              {(['C', 'M'] as const).map((t) => (
-                <button key={t} type="button" onClick={() => trocarTipo(t)}
-                  className={'px-3 py-1 text-xs rounded-md transition-colors ' + (tipo === t ? 'bg-primary text-white' : 'text-slate-400 hover:text-slate-200')}>
-                  {t === 'C' ? 'Calibração' : 'Manutenção'}
-                </button>
-              ))}
-            </div>
+            {!generico && (
+              <div className="flex gap-1 rounded-lg bg-background-elevated p-1 w-fit">
+                {(['C', 'M'] as const).map((t) => (
+                  <button key={t} type="button" onClick={() => trocarTipo(t)}
+                    className={'px-3 py-1 text-xs rounded-md transition-colors ' + (tipo === t ? 'bg-primary text-white' : 'text-slate-400 hover:text-slate-200')}>
+                    {t === 'C' ? 'Calibração' : 'Manutenção'}
+                  </button>
+                ))}
+              </div>
+            )}
             {podeEditar && <Button onClick={salvar} disabled={salvando || carregandoEd}>{salvando ? 'Salvando…' : 'Salvar'}</Button>}
           </div>
         </div>
@@ -112,6 +134,15 @@ export function ModelosTab() {
         onSubmit={(e) => { e.preventDefault(); setPage(1); setBusca(q.trim()) }}
         placeholder="Buscar modelo — ex.: Mark X"
       />
+      {/* O relatório de manutenção é um só para todos os aparelhos: os
+          relatórios só diferem em marca, modelo e série, que são dados. */}
+      <div className="rounded-lg border border-border px-3 py-2.5 flex items-center justify-between">
+        <div>
+          <p className="text-sm text-slate-200">Relatório de Manutenção</p>
+          <p className="text-xs text-slate-500">Modelo único, usado por todos os aparelhos</p>
+        </div>
+        <Button variant="secondary" onClick={() => abrirGenerico()}>Editar código-fonte</Button>
+      </div>
       {itens === null ? <div className="py-10 flex justify-center"><Spinner className="w-7 h-7" /></div> : (
         <div className="rounded-xl border border-border divide-y divide-border overflow-hidden">
           {visiveis.map((m) => (

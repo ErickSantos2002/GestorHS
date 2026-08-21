@@ -17,7 +17,8 @@ class ModeloPage(BaseModel):
 
 class CertificadoModeloOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    equipamento: int
+    # Nulo = modelo GENERICO (sem aparelho) — ver CertificadoModelo.equipamento.
+    equipamento: int | None = None
     equipamento_descricao: str | None = None
     tipo: str = "C"
     descricao: str | None = None

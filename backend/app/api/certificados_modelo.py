@@ -49,6 +49,42 @@ def listar_modelos(
     return ModeloPage(items=items)
 
 
+@router.get("/certificados-modelo/generico", response_model=CertificadoModeloOut)
+def obter_modelo_generico(tipo: Literal["M"] = "M", db: Session = Depends(get_db),
+                          _: Usuario = Depends(get_current_usuario)):
+    """Modelo sem aparelho. So o tipo M — ver `modelo_para` em certificado_gerar."""
+    modelo = db.query(CertificadoModelo).filter(
+        CertificadoModelo.equipamento.is_(None), CertificadoModelo.tipo == tipo
+    ).first()
+    if modelo is None:
+        raise HTTPException(404, "modelo genérico não cadastrado")
+    return modelo
+
+
+@router.put("/certificados-modelo/generico", response_model=CertificadoModeloOut)
+def salvar_modelo_generico(dados: CertificadoModeloIn, tipo: Literal["M"] = "M",
+                           db: Session = Depends(get_db), _: Usuario = Depends(_escrita)):
+    """Cria ou atualiza o modelo sem aparelho.
+
+    Restrito ao tipo M de proposito: existe um registro tipo C com equipamento
+    nulo — o modelo "legado" de julho — e permitir gravar generico de C daria a
+    ele status de padrao para todo aparelho sem modelo proprio.
+    """
+    modelo = db.query(CertificadoModelo).filter(
+        CertificadoModelo.equipamento.is_(None), CertificadoModelo.tipo == tipo
+    ).first()
+    if modelo is None:
+        modelo = CertificadoModelo(equipamento=None, tipo=tipo)
+        db.add(modelo)
+    if dados.texto is not None:
+        modelo.texto = dados.texto
+    if dados.descricao is not None:
+        modelo.descricao = dados.descricao
+    db.commit()
+    db.refresh(modelo)
+    return modelo
+
+
 @router.get("/certificados-modelo/{equipamento_id}", response_model=CertificadoModeloOut)
 def obter_modelo(equipamento_id: int, tipo: Literal["C", "M"] = "C", db: Session = Depends(get_db), _: Usuario = Depends(get_current_usuario)):
     eq = _equipamento_ou_404(db, equipamento_id)
