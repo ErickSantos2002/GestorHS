@@ -102,6 +102,16 @@ export function podeEditarTipoServico(user: User | null, fase: number | null): b
   return (isAdmin(user) || user?.funcao === FUNCAO_LABORATORIO) && fase === 5
 }
 
+/** Registrar a manutenção e gerar o relatório.
+ *
+ * Laboratório e Administrador, do Laboratório em diante (fases 5–8) — a mesma
+ * janela do certificado de calibração, que permite regerar OS antiga sob
+ * demanda. Espelha FASES_PERMITIDAS em app/api/manutencoes.py. */
+export function podeRegistrarManutencao(user: User | null, fase: number | null): boolean {
+  return (isAdmin(user) || user?.funcao === FUNCAO_LABORATORIO)
+    && fase != null && [5, 6, 7, 8].includes(fase)
+}
+
 // Espelha require_funcao("Financeiro", "Administrador") em
 // backend/app/api/propostas.py (POST /propostas/{id}/faturar) — mudou lá, mude aqui.
 export function podeFaturarProposta(user: User | null): boolean {
