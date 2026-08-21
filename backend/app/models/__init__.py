@@ -32,6 +32,7 @@ from app.models.servico import Servico
 from app.models.produto import Produto
 from app.models.proposta import Proposta, PropostaItem, PropostaAparelho
 from app.models.proposta_versao import PropostaVersao
+from app.models.manutencao import Manutencao, ManutencaoServico, ManutencaoItem  # noqa: F401
 
 __all__ = [
     "Funcao", "Usuario", "UsuarioCliente", "Setor", "Categoria",
@@ -43,4 +44,5 @@ __all__ = [
     "CertificadoConfig", "CertificadoPadrao",
     "InstalacaoModulo", "LogIntegracao",
     "Servico", "Produto", "Proposta", "PropostaItem", "PropostaAparelho", "PropostaVersao",
+    "Manutencao", "ManutencaoServico", "ManutencaoItem",
 ]
