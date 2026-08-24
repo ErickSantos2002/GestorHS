@@ -59,10 +59,10 @@ CAMPOS: list[tuple[str, str]] = [
     ("margemtemp", "Margem de temperatura padrão"),
     ("qrcertificados", "QR dos certificados auxiliares (gás, termohigrômetro, barômetro)"),
     ("pulapagina", "Quebra de página (impressão)"),
-    ("manutnumero", "Numero do relatorio de manutencao — digitado pelo laboratorio."),
-    ("manutdata", "Data da manutencao."),
-    ("manutproblema", "Servicos executados, ja compostos em lista portuguesa."),
-    ("manutresumo", "Resumo do servico, ja composto e revisado."),
+    ("manutnumero", "Número do relatório de manutenção"),
+    ("manutdata", "Data da manutenção"),
+    ("manutproblema", "Serviços executados (tipo do problema)"),
+    ("manutresumo", "Resumo do serviço"),
 ]
 
 # Quebra de página para impressão — HTML estrutural (não é dado, não escapar).
