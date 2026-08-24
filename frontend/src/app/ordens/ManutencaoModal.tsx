@@ -23,6 +23,7 @@ export function ManutencaoModal({ osId, onClose, onSalvo }: {
   // resumo acompanha a escolha de servicos; assim que o tecnico edita, para de
   // acompanhar — senao acrescentar um servico apagaria o texto dele.
   const [composicao, setComposicao] = useState('')
+  const [busca, setBusca] = useState('')
   const [erro, setErro] = useState('')
   // Falha REAL ao ler a manutencao ja registrada (500, rede fora) — diferente do
   // 404, que so quer dizer "ainda nao existe". Com o modal vazio por falha, um
@@ -76,7 +77,16 @@ export function ManutencaoModal({ osId, onClose, onSalvo }: {
   // deixaria um serviço gravado sem checkbox — impossível de desmarcar, fora do
   // resumo composto e ainda assim impresso em "Tipo do Problema". Inativo que
   // ninguém escolheu continua fora, que é o ponto de desativar.
-  const visiveis = (servicos ?? []).filter((s) => s.ativo || escolhidos.includes(s.id))
+  // O Walbert passa os CODIGOS para o tecnico, nao os nomes — por isso a busca
+  // casa codigo e descricao, e o codigo aparece ao lado de cada item.
+  // Servico ja escolhido nunca some da lista, mesmo fora do filtro: sumir daria
+  // a impressao de que a escolha se perdeu, e nao haveria como desmarcar.
+  const termo = busca.trim().toLowerCase()
+  const visiveis = (servicos ?? [])
+    .filter((s) => s.ativo || escolhidos.includes(s.id))
+    .filter((s) => !termo || escolhidos.includes(s.id)
+      || (s.codigo ?? '').toLowerCase().includes(termo)
+      || s.descricao.toLowerCase().includes(termo))
 
   const resumoDesacoplado = resumo !== composicao && resumo.trim() !== ''
 
@@ -134,7 +144,18 @@ export function ManutencaoModal({ osId, onClose, onSalvo }: {
         </div>
 
         <div className="space-y-1.5">
-          <span className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">Serviços executados</span>
+          <div className="flex items-center justify-between gap-3">
+            <span className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">Serviços executados</span>
+            <Input
+              id="manut-busca-servico"
+              label=""
+              aria-label="Buscar serviço"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Buscar por código ou nome"
+              className="max-w-56"
+            />
+          </div>
           {servicos === null ? (
             <Spinner className="w-5 h-5" />
           ) : visiveis.length === 0 ? (
@@ -145,6 +166,7 @@ export function ManutencaoModal({ osId, onClose, onSalvo }: {
                 <label key={s.id} className="flex items-center gap-2 text-sm text-slate-200">
                   <input type="checkbox" aria-label={s.descricao}
                          checked={escolhidos.includes(s.id)} onChange={() => alternar(s)} />
+                  <span className="w-12 shrink-0 text-xs text-slate-500 tabular-nums">{s.codigo || '—'}</span>
                   {s.descricao}
                   {!s.ativo && (
                     <span className="text-xs text-warning">(serviço desativado — desmarque para tirar do relatório)</span>

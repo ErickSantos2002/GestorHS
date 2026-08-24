@@ -14,9 +14,9 @@ import { ApiError } from '../../lib/api'
 import { ManutencaoModal } from './ManutencaoModal'
 
 const SERVICOS = [
-  { id: 1, descricao: 'Troca da placa mãe', resumo_padrao: 'Placa substituída.', ativo: true },
-  { id: 2, descricao: 'Troca da bateria', resumo_padrao: 'Bateria trocada.', ativo: true },
-  { id: 3, descricao: 'Serviço aposentado', resumo_padrao: 'x.', ativo: false },
+  { id: 1, codigo: '226', descricao: 'Troca da placa mãe', resumo_padrao: 'Placa substituída.', ativo: true },
+  { id: 2, codigo: '380', descricao: 'Troca da bateria', resumo_padrao: 'Bateria trocada.', ativo: true },
+  { id: 3, codigo: '999', descricao: 'Serviço aposentado', resumo_padrao: 'x.', ativo: false },
 ]
 
 describe('ManutencaoModal', () => {
@@ -215,5 +215,40 @@ describe('ManutencaoModal', () => {
     await userEvent.click(screen.getByText('Salvar manutenção'))
     expect(await screen.findByText(/informe a data da manutenção/i)).toBeInTheDocument()
     expect(salvar).not.toHaveBeenCalled()
+  })
+
+  it('busca por código filtra a lista — é assim que o técnico recebe o serviço', async () => {
+    render(<ManutencaoModal osId={7} onClose={vi.fn()} onSalvo={vi.fn()} />)
+    await screen.findByLabelText(/Troca da placa mãe/)
+
+    fireEvent.change(screen.getByLabelText('Buscar serviço'), { target: { value: '380' } })
+
+    expect(screen.queryByLabelText(/Troca da placa mãe/)).not.toBeInTheDocument()
+    expect(screen.getByLabelText(/Troca da bateria/)).toBeInTheDocument()
+  })
+
+  it('busca também aceita a descrição', async () => {
+    render(<ManutencaoModal osId={7} onClose={vi.fn()} onSalvo={vi.fn()} />)
+    await screen.findByLabelText(/Troca da placa mãe/)
+
+    fireEvent.change(screen.getByLabelText('Buscar serviço'), { target: { value: 'bateria' } })
+
+    expect(screen.getByLabelText(/Troca da bateria/)).toBeInTheDocument()
+    expect(screen.queryByLabelText(/Troca da placa mãe/)).not.toBeInTheDocument()
+  })
+
+  it('o código aparece ao lado da descrição', async () => {
+    render(<ManutencaoModal osId={7} onClose={vi.fn()} onSalvo={vi.fn()} />)
+    expect(await screen.findByText('226')).toBeInTheDocument()
+  })
+
+  it('serviço já escolhido continua visível mesmo fora da busca', async () => {
+    // Senão, filtrar depois de marcar faria o técnico achar que perdeu a escolha.
+    render(<ManutencaoModal osId={7} onClose={vi.fn()} onSalvo={vi.fn()} />)
+    await userEvent.click(await screen.findByLabelText(/Troca da placa mãe/))
+
+    fireEvent.change(screen.getByLabelText('Buscar serviço'), { target: { value: '380' } })
+
+    expect(screen.getByLabelText(/Troca da placa mãe/)).toBeInTheDocument()
   })
 })
