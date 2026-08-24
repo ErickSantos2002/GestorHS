@@ -23,6 +23,15 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.43.0',
+    data: '21/08/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'O Relatório de Manutenção agora sai do sistema. O Laboratório registra o que foi feito na bancada — número, data e os serviços executados — e gera o relatório em PDF, com o mesmo formulário padrão FORM-LAB-010 que era preenchido à mão.' },
+      { tipo: 'novidade', texto: 'Os serviços saem de uma lista cadastrada em Certificados › Serviços de manutenção, e cada um traz um resumo padrão. Ao escolher os serviços, o resumo do relatório já vem escrito — o técnico só ajusta o que for específico daquele aparelho.' },
+      { tipo: 'melhoria', texto: 'Na tela da OS, a seção "Certificados" virou duas: "Certificado de calibração" e "Certificado de manutenção". Aparece só a que o tipo de serviço da OS pedir, e uma OS de manutenção pura deixa de pedir certificado de calibração.' },
+    ],
+  },
+  {
     versao: '1.42.0',
     data: '21/08/2026',
     itens: [
