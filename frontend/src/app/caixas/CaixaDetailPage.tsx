@@ -5,6 +5,7 @@ import { Spinner } from '../../components/ui/Spinner'
 import { Modal } from '../../components/ui/Modal'
 import { Input } from '../../components/ui/Input'
 import { Table, TH, TD } from '../../components/ui/Table'
+import { Badge } from '../../components/ui/Badge'
 import { useAuth } from '../../auth/AuthContext'
 import { podeAbrirOS, podeAvancarCaixa, podeMarcarSemConserto, podeAnexarNotaFiscal, podeAvancarSemNotaFiscal } from '../../auth/roles'
 import { apiJson, ApiError } from '../../lib/api'
@@ -16,6 +17,7 @@ import { ClientePrincipalModal } from './ClientePrincipalModal'
 import { SemConsertoModal } from './SemConsertoModal'
 import { NotaFiscalCaixaModal } from './NotaFiscalCaixaModal'
 import { TRANSICOES, faseAtiva } from '../ordens/api'
+import { STATUS_CALIBRACAO, type StatusCalibracao } from '../frota/api'
 import { PageContainer, DetailGrid, DetailMain, DetailAside } from '../../components/ui/Page'
 
 // Shape retornado por /equipamentos-cliente?q=...&limit=
@@ -25,6 +27,9 @@ interface EquipClientePicker {
   equipamento_descricao: string | null
   serie: string | null
   os_atual: number | null
+  // Já vêm no endpoint /equipamentos-cliente (FrotaListOut); usados na etiqueta do picker.
+  prox_calibragem: string | null
+  status_calibracao: StatusCalibracao
 }
 
 interface EquipPickerPage {
@@ -631,13 +636,28 @@ export function CaixaDetailPage() {
                       className="w-full text-left px-4 py-3 text-sm hover:bg-background-elevated transition-colors"
                       onClick={() => setEquipSelecionado(eq)}
                     >
-                      <span className="font-semibold text-slate-200">
-                        {eq.equipamento_descricao ?? 'Equipamento desconhecido'}
-                      </span>
-                      {eq.serie && <span className="text-slate-400 ml-2">· {eq.serie}</span>}
-                      {eq.cliente_nome && (
-                        <span className="block text-xs text-slate-500 mt-0.5">{eq.cliente_nome}</span>
-                      )}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <span className="font-semibold text-slate-200">
+                            {eq.equipamento_descricao ?? 'Equipamento desconhecido'}
+                          </span>
+                          {eq.serie && <span className="text-slate-400 ml-2">· {eq.serie}</span>}
+                          {eq.cliente_nome && (
+                            <span className="block text-xs text-slate-500 mt-0.5">{eq.cliente_nome}</span>
+                          )}
+                        </div>
+                        {(() => {
+                          const s = STATUS_CALIBRACAO[eq.status_calibracao] ?? STATUS_CALIBRACAO.sem_data
+                          return (
+                            <div className="shrink-0 text-right">
+                              <Badge tone={s.tone}>{s.label}</Badge>
+                              {eq.prox_calibragem && (
+                                <span className="block text-[11px] text-slate-500 mt-1">próx.: {formatData(eq.prox_calibragem)}</span>
+                              )}
+                            </div>
+                          )
+                        })()}
+                      </div>
                     </button>
                   </li>
                 ))}

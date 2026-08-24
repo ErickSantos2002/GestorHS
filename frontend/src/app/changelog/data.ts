@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.43.0',
+    data: '21/08/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'Ao selecionar o aparelho para abrir uma OS na caixa, cada resultado da busca agora mostra uma etiqueta de calibração: "Em dia", "Vencendo", "Vencido" ou "Sem data", junto com a data da próxima calibração — assim dá para conferir a situação do aparelho antes de abrir a OS.' },
+    ],
+  },
+  {
     versao: '1.42.0',
     data: '21/08/2026',
     itens: [
