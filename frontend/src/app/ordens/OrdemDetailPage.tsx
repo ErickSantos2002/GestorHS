@@ -9,11 +9,13 @@ import {
 } from '../../components/ui/icons'
 import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
-import { isAdmin, podeAbrirOS, podeMarcarSemConserto, podeEditarTipoServico } from '../../auth/roles'
+import { isAdmin, podeAbrirOS, podeMarcarSemConserto, podeEditarTipoServico, podeRegistrarManutencao } from '../../auth/roles'
 import { ordensApi, fotosApi, TIPO_SERVICO, FLUXO_FASES, posicaoFase, posLaboratorio, formatData, garantiaBadge, garantiasAtivas, type OrdemDetalhe, type GarantiaItem, type LogOS, type Foto, type OSCertificado, type TipoServico } from './api'
 import { GerarCertificadoModal } from './GerarCertificadoModal'
 import { LiberarLabModal } from './LiberarLabModal'
 import { EditarOSModal } from './EditarOSModal'
+import { ManutencaoModal } from './ManutencaoModal'
+import { manutencaoApi, type Manutencao } from './manutencao'
 import { FotoImg } from './FotoImg'
 import { FotoLightbox } from './FotoLightbox'
 import { PageContainer, DetailGrid, DetailMain, DetailAside } from '../../components/ui/Page'
@@ -116,6 +118,8 @@ export function OrdemDetailPage() {
   const [obsTexto, setObsTexto] = useState('')
   const [salvandoObs, setSalvandoObs] = useState(false)
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null)
+  const [manutencaoAberta, setManutencaoAberta] = useState(false)
+  const [manut, setManut] = useState<Manutencao | null>(null)
 
   useEffect(() => {
     let ativo = true
@@ -152,6 +156,12 @@ export function OrdemDetailPage() {
     ordensApi.certificados(osId)
       .then((cs) => { if (ativo) setCerts(cs) })
       .catch(() => {})
+    // Manutencao registrada na bancada. O endpoint responde 404 quando nao ha —
+    // e' o caso normal, e a maioria das OS nem chega a ter manutencao; por isso
+    // qualquer falha aqui so deixa a secao no estado "nada registrado".
+    manutencaoApi.obter(osId)
+      .then((m) => { if (ativo) setManut(m) })
+      .catch(() => { if (ativo) setManut(null) })
     return () => { ativo = false }
   }, [osId])
 
@@ -176,6 +186,15 @@ export function OrdemDetailPage() {
   // Gerar/regerar: do laboratório em diante (calibração já ocorre/ocorreu, inclusive no
   // Financeiro), ou onde já existe certificado. Fora: Recebido (ainda não calibrada) e Cancelada.
   const podeGerarOuRegerar = podeGerarCert && (certs.length > 0 || posLaboratorio(os.fase))
+  // Quais documentos a OS PEDE — espelha tipos_para no backend. Governa as ações
+  // de gerar/regerar: só dá para gerar o que o tipo de serviço da OS pede.
+  const tiposDaOS = os.tipo_servico === 'M' ? ['M'] : os.tipo_servico === 'A' ? ['C', 'M'] : ['C']
+  const certDe = (tipo: string) => certs.find((c) => c.tipo === tipo)
+  // Quais seções aparecem: a união com os tipos JÁ EMITIDOS. Trocar o tipo de
+  // serviço depois de gerar (A→M pelo /editar, C→M no laboratório) não pode
+  // fazer um documento já emitido sumir da tela — ele continua existindo e
+  // precisa continuar baixável.
+  const tiposVisiveis = [...new Set([...tiposDaOS, ...certs.map((c) => c.tipo)])]
   // O aparelho nao tem modelo cadastrado para algum tipo pedido -> nao da para gerar.
   // Avisamos aqui, antes de o usuario tentar (o backend tambem recusa com 409).
   const faltantes = os.certificado_modelos_faltantes ?? []
@@ -510,50 +529,98 @@ export function OrdemDetailPage() {
       </Secao>
         </DetailMain>
         <DetailAside>
-      {/* Certificados gerados */}
-      <Secao
-        icon={<IconCertificado className="w-4 h-4" />}
-        titulo="Certificados"
-        acao={podeGerarOuRegerar && !semModelo && (
-          <Button variant={certs.length ? 'secondary' : 'primary'} onClick={() => setAcao('gerar')}>
-            {certs.length ? 'Regerar certificado' : 'Gerar certificado de calibração'}
-          </Button>
-        )}
-      >
-        {/* O aviso ACOMPANHA a lista, nunca a substitui: uma OS "Ambas" pode ter o
-            certificado de Calibração já gerado e faltar só o modelo de Manutenção —
-            esconder a lista tiraria do usuário um documento que já foi emitido. */}
-        {semModelo && (
-          <div className="rounded-lg bg-warning/10 border border-warning/20 px-3 py-2.5 space-y-1.5">
-            <p className="text-sm text-warning">
-              Este aparelho não tem modelo de certificado de {modelosFaltantesLabel} cadastrado — por isso não é
-              possível gerar {certs.length ? 'esse certificado' : 'o certificado'}.
+      {/* O aviso ACOMPANHA as seções, nunca as substitui: o documento já emitido não pode
+          sumir da tela por falta de modelo de outro tipo. Vale para qualquer tipo de OS —
+          por isso fica acima das duas, não dentro de uma delas. */}
+      {semModelo && (
+        <div className="rounded-lg bg-warning/10 border border-warning/20 px-3 py-2.5 space-y-1.5">
+          <p className="text-sm text-warning">
+            Este aparelho não tem modelo de certificado de {modelosFaltantesLabel} cadastrado — por isso não é
+            possível gerar o documento.
+          </p>
+          <Link to="/app/certificados" className="inline-block text-xs font-semibold text-primary hover:underline">
+            Cadastrar modelo de certificado
+          </Link>
+        </div>
+      )}
+      {os.desfecho_lab === 'liberado' && (
+        <p className="text-sm text-slate-400">Liberado sem certificado{os.desfecho_lab_obs ? ` — ${os.desfecho_lab_obs}` : ''}.</p>
+      )}
+
+      {/* Uma seção por documento: deixa explícito qual está sendo feito e onde. */}
+      {tiposVisiveis.includes('C') && (
+        <Secao
+          icon={<IconCertificado className="w-4 h-4" />}
+          titulo="Certificado de calibração"
+          acao={tiposDaOS.includes('C') && podeGerarOuRegerar && !semModelo && (
+            <Button variant={certDe('C') ? 'secondary' : 'primary'} onClick={() => setAcao('gerar')}>
+              {certDe('C') ? 'Regerar certificado' : 'Gerar certificado'}
+            </Button>
+          )}
+        >
+          {certDe('C') ? (
+            <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+              <span className="text-sm text-slate-200">
+                Gerado <span className="text-xs text-slate-500 ml-1">{formatData(certDe('C')!.data_geracao)}</span>
+              </span>
+              <button type="button" onClick={() => void onBaixarPdf('C')} className="text-xs font-semibold text-primary hover:underline">Baixar PDF</button>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-500">Nenhum certificado de calibração gerado.</p>
+          )}
+        </Secao>
+      )}
+
+      {tiposVisiveis.includes('M') && (
+        <Secao
+          icon={<IconCertificado className="w-4 h-4" />}
+          titulo="Certificado de manutenção"
+          acao={tiposDaOS.includes('M') && (
+            <div className="flex gap-2">
+              {podeRegistrarManutencao(user, os.fase) && (
+                <Button variant="secondary" onClick={() => setManutencaoAberta(true)}>Registrar manutenção</Button>
+              )}
+              {podeGerarOuRegerar && !semModelo && (
+                <Button variant={certDe('M') ? 'secondary' : 'primary'} onClick={() => setAcao('gerar')}>
+                  {certDe('M') ? 'Regerar relatório' : 'Gerar relatório'}
+                </Button>
+              )}
+            </div>
+          )}
+        >
+          {/* O que foi registrado na bancada, acima do estado do relatório: sem isto
+              o técnico salva a manutenção e a tela continua idêntica, sem sinal de
+              que o registro existe. */}
+          {manut && (
+            <div className="rounded-lg border border-border px-3 py-2 space-y-2">
+              <div className="grid grid-cols-2 gap-x-4">
+                <Campo label="Nº do relatório" valor={manut.numero} />
+                <Campo label="Data da manutenção" valor={formatData(manut.data_manutencao)} />
+              </div>
+              {manut.servicos.length > 0 && (
+                <ul className="list-disc pl-5 text-sm text-slate-200 space-y-0.5">
+                  {manut.servicos.map((s) => <li key={s.servico}>{s.descricao}</li>)}
+                </ul>
+              )}
+            </div>
+          )}
+          {certDe('M') ? (
+            <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+              <span className="text-sm text-slate-200">
+                Gerado <span className="text-xs text-slate-500 ml-1">{formatData(certDe('M')!.data_geracao)}</span>
+              </span>
+              <button type="button" onClick={() => void onBaixarPdf('M')} className="text-xs font-semibold text-primary hover:underline">Baixar PDF</button>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-500">
+              {/* "Registre a manutenção antes de gerar" enganaria numa OS liberada sem
+                  conserto — o aviso "Liberado sem certificado" acima já explica o caso —
+                  e numa OS onde a manutenção JÁ está registrada, logo acima. */}
+              Nenhum relatório de manutenção gerado.{os.desfecho_lab !== 'liberado' && !manut ? ' Registre a manutenção antes de gerar.' : ''}
             </p>
-            <Link to="/app/certificados" className="inline-block text-xs font-semibold text-primary hover:underline">
-              Cadastrar modelo de certificado
-            </Link>
-          </div>
-        )}
-        {os.desfecho_lab === 'liberado' && (
-          <p className="text-sm text-slate-400">Liberado sem certificado{os.desfecho_lab_obs ? ` — ${os.desfecho_lab_obs}` : ''}.</p>
-        )}
-        {certs.length === 0 ? (
-          // A dica só faz sentido se o botão estiver de fato na tela (sem modelo ele some).
-          <p className="text-sm text-slate-500">Nenhum certificado gerado.{podeGerarOuRegerar && !semModelo ? ' Clique em "Gerar certificado de calibração".' : ''}</p>
-        ) : (
-          <ul className="space-y-2">
-            {certs.map((c) => (
-              <li key={c.tipo} className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
-                <span className="text-sm text-slate-200">
-                  {c.tipo === 'C' ? 'Calibração' : 'Manutenção'}
-                  <span className="text-xs text-slate-500 ml-2">{formatData(c.data_geracao)}</span>
-                </span>
-                <button type="button" onClick={() => void onBaixarPdf(c.tipo)} className="text-xs font-semibold text-primary hover:underline">Baixar PDF</button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Secao>
+          )}
+        </Secao>
+      )}
 
       {/* Nota fiscal — só exibição/download; o anexo é feito no nível da caixa
           (CaixaDetailPage), de uma vez para todas as OS ativas, não mais por OS aqui. */}
@@ -626,6 +693,14 @@ export function OrdemDetailPage() {
 
       {editarAberto && (
         <EditarOSModal os={os} onClose={() => setEditarAberto(false)} onSalvo={aoEditarOS} />
+      )}
+
+      {manutencaoAberta && (
+        <ManutencaoModal
+          osId={osId}
+          onClose={() => setManutencaoAberta(false)}
+          onSalvo={(m) => { setManut(m); void ordensApi.obter(osId).then(setOs) }}
+        />
       )}
 
       {lightboxIdx !== null && fotos[lightboxIdx] && (

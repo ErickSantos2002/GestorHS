@@ -17,7 +17,7 @@ export interface ModeloItem {
   tem_manutencao: boolean
 }
 export interface CertificadoModelo {
-  equipamento: number
+  equipamento: number | null // nulo = modelo GENERICO (sem aparelho)
   equipamento_descricao: string | null
   descricao: string | null
   texto: string
@@ -117,6 +117,10 @@ export const CAMPOS_CERTIFICADO: { campo: string; desc: string }[] = [
   { campo: '[equipamentosauxiliares]', desc: 'Equipamentos auxiliares' },
   { campo: '[margemtemp]', desc: 'Margem de temperatura padrão' },
   { campo: '[qrcertificados]', desc: 'QR dos certificados auxiliares (gás, termohigrômetro, barômetro)' },
+  { campo: '[manutnumero]', desc: 'Número do relatório de manutenção' },
+  { campo: '[manutdata]', desc: 'Data da manutenção' },
+  { campo: '[manutproblema]', desc: 'Serviços executados (tipo do problema)' },
+  { campo: '[manutresumo]', desc: 'Resumo do serviço' },
   { campo: '[pulapagina]', desc: 'Quebra de página (impressão)' },
 ]
 
@@ -175,6 +179,11 @@ export const certificadosApi = {
     apiJson<CertificadoModelo>(`/certificados-modelo/${equipId}?tipo=${tipo}`),
   salvarModelo: (equipId: number, body: { descricao?: string | null; texto: string }, tipo: 'C' | 'M' = 'C'): Promise<CertificadoModelo> =>
     apiJson<CertificadoModelo>(`/certificados-modelo/${equipId}?tipo=${tipo}`, { method: 'PUT', body: JSON.stringify(body) }),
+  // Modelo GENERICO (sem aparelho) — hoje so o tipo M usa esse caminho.
+  obterModeloGenerico: (tipo: 'M' = 'M'): Promise<CertificadoModelo> =>
+    apiJson<CertificadoModelo>(`/certificados-modelo/generico?tipo=${tipo}`),
+  salvarModeloGenerico: (body: { descricao?: string | null; texto: string }, tipo: 'M' = 'M'): Promise<CertificadoModelo> =>
+    apiJson<CertificadoModelo>(`/certificados-modelo/generico?tipo=${tipo}`, { method: 'PUT', body: JSON.stringify(body) }),
   listarImagens: (): Promise<{ items: ImagemCert[] }> =>
     apiJson<{ items: ImagemCert[] }>('/certificado-imagens'),
   enviarImagem: async (file: File, nome?: string): Promise<ImagemCert> => {

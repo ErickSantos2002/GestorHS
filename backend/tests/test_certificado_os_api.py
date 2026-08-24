@@ -44,6 +44,12 @@ def test_gerar_calibracao(client, usuario_admin, db_session):
 def test_gerar_manutencao_quando_servico_A(client, usuario_admin, db_session):
     h = _headers(client, "admin@hs.com", "senha123")
     oid = _os_com_modelo(client, db_session, h, tipos=("C", "M"), tipo_servico="A")
+    sid = client.post("/manutencao-servicos",
+                       json={"descricao": "Troca da placa mãe", "resumo_padrao": "Placa trocada."},
+                       headers=h).json()["id"]
+    client.put(f"/ordens/{oid}/manutencao", json={
+        "numero": "HF00715", "data_manutencao": "2026-08-21",
+        "resumo": "Placa trocada.", "servicos": [sid]}, headers=h)
     r = client.post(f"/ordens/{oid}/gerar-certificado", headers=h).json()
     assert {c["tipo"] for c in r} == {"C", "M"}
 

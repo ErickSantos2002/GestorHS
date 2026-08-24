@@ -8,6 +8,7 @@ import {
   podeAvancarCaixa,
   podeMarcarSemConserto,
   podeEditarTipoServico,
+  podeRegistrarManutencao,
   podeFaturarProposta,
   podeDesfaturarProposta,
   FUNCAO_RESPONSAVEL_POR_FASE,
@@ -199,5 +200,36 @@ describe('auth/roles — podeEditarTipoServico', () => {
 
   it('fase desconhecida não libera', () => {
     expect(podeEditarTipoServico({ funcao: 'Laboratório' } as never, null)).toBe(false)
+  })
+})
+
+describe('auth/roles — podeRegistrarManutencao', () => {
+  it('laboratório registra do laboratório em diante', () => {
+    for (const fase of [5, 6, 10, 7, 8]) {
+      expect(podeRegistrarManutencao({ funcao: 'Laboratório' } as never, fase)).toBe(true)
+    }
+  })
+
+  // Regressão: o Financeiro é o id 10 e ficava de fora da lista [5, 6, 7, 8],
+  // deixando a OS sem botão justamente na fase por onde toda OS passa.
+  it('financeiro (fase 10) registra', () => {
+    expect(podeRegistrarManutencao({ funcao: 'Laboratório' } as never, 10)).toBe(true)
+    expect(podeRegistrarManutencao({ funcao: 'Administrador' } as never, 10)).toBe(true)
+  })
+
+  it('admin também registra', () => {
+    expect(podeRegistrarManutencao({ funcao: 'Administrador' } as never, 5)).toBe(true)
+  })
+
+  it('fora da janela não registra', () => {
+    for (const fase of [4, 9]) {
+      expect(podeRegistrarManutencao({ funcao: 'Laboratório' } as never, fase)).toBe(false)
+    }
+    expect(podeRegistrarManutencao({ funcao: 'Laboratório' } as never, null)).toBe(false)
+  })
+
+  it('outra função não registra', () => {
+    expect(podeRegistrarManutencao({ funcao: 'Financeiro' } as never, 5)).toBe(false)
+    expect(podeRegistrarManutencao(null, 5)).toBe(false)
   })
 })

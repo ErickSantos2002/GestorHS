@@ -1,4 +1,5 @@
 import { type User } from './AuthContext'
+import { posLaboratorio } from '../app/ordens/api'
 
 export const FUNCAO_ADMIN = 'Administrador'
 
@@ -100,6 +101,20 @@ export function podeMarcarSemConserto(user: User | null): boolean {
  * cobrança. Espelha o guard de app/api/ordens.py. */
 export function podeEditarTipoServico(user: User | null, fase: number | null): boolean {
   return (isAdmin(user) || user?.funcao === FUNCAO_LABORATORIO) && fase === 5
+}
+
+/** Registrar a manutenção e gerar o relatório.
+ *
+ * Laboratório e Administrador, do Laboratório em diante — a mesma janela do
+ * certificado de calibração, que permite regerar OS antiga sob demanda.
+ * Espelha `na_janela` em app/api/manutencoes.py.
+ *
+ * Usa `posLaboratorio` (o mesmo helper de `podeGerarOuRegerar`) em vez de uma
+ * lista de ids: o Financeiro é o id 10, maior que Preparando Retorno (7) e
+ * Finalizada (8), então uma lista "em ordem" o deixava de fora e travava a OS
+ * justamente na fase por onde toda OS passa. */
+export function podeRegistrarManutencao(user: User | null, fase: number | null): boolean {
+  return (isAdmin(user) || user?.funcao === FUNCAO_LABORATORIO) && posLaboratorio(fase)
 }
 
 // Espelha require_funcao("Financeiro", "Administrador") em
