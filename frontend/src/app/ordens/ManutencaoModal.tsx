@@ -62,6 +62,10 @@ export function ManutencaoModal({ osId, onClose, onSalvo }: {
 
   async function submeter(e: FormEvent) {
     e.preventDefault()
+    // Numero e data sao exigidos aqui pelo mesmo motivo do 409 do backend: sem
+    // eles o relatorio sai com "N°" e "Data da Manutenção" em branco.
+    if (!numero.trim()) { setErro('Informe o número do relatório.'); return }
+    if (!data) { setErro('Informe a data da manutenção.'); return }
     if (escolhidos.length === 0) { setErro('Escolha ao menos um serviço.'); return }
     setErro('')
     setSalvando(true)

@@ -112,8 +112,30 @@ describe('ManutencaoModal', () => {
   it('sem serviço escolhido nao deixa salvar', async () => {
     render(<ManutencaoModal osId={7} onClose={vi.fn()} onSalvo={vi.fn()} />)
     await screen.findByLabelText('Troca da placa mãe')
+    fireEvent.change(screen.getByLabelText('Número do relatório'), { target: { value: 'HF00715' } })
+    fireEvent.change(screen.getByLabelText('Data da manutenção'), { target: { value: '2026-08-21' } })
     await userEvent.click(screen.getByText('Salvar manutenção'))
     expect(await screen.findByText(/escolha ao menos um serviço/i)).toBeInTheDocument()
+    expect(salvar).not.toHaveBeenCalled()
+  })
+
+  // Sem numero e data o relatorio sai com os dois campos em branco — o backend
+  // tambem recusa com 409; aqui a recusa chega antes, com mensagem por campo.
+  it('sem número nao deixa salvar', async () => {
+    render(<ManutencaoModal osId={7} onClose={vi.fn()} onSalvo={vi.fn()} />)
+    await userEvent.click(await screen.findByLabelText('Troca da placa mãe'))
+    fireEvent.change(screen.getByLabelText('Data da manutenção'), { target: { value: '2026-08-21' } })
+    await userEvent.click(screen.getByText('Salvar manutenção'))
+    expect(await screen.findByText(/informe o número do relatório/i)).toBeInTheDocument()
+    expect(salvar).not.toHaveBeenCalled()
+  })
+
+  it('sem data nao deixa salvar', async () => {
+    render(<ManutencaoModal osId={7} onClose={vi.fn()} onSalvo={vi.fn()} />)
+    await userEvent.click(await screen.findByLabelText('Troca da placa mãe'))
+    fireEvent.change(screen.getByLabelText('Número do relatório'), { target: { value: 'HF00715' } })
+    await userEvent.click(screen.getByText('Salvar manutenção'))
+    expect(await screen.findByText(/informe a data da manutenção/i)).toBeInTheDocument()
     expect(salvar).not.toHaveBeenCalled()
   })
 })

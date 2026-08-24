@@ -79,6 +79,46 @@ def test_gerar_sem_manutencao_registrada_recusa(client_lab, os_base, fases_seed,
     assert "manutenção" in r.json()["detail"].lower()
 
 
+def _registrar(client, oid, **campos):
+    sid = client.post("/manutencao-servicos",
+                      json={"descricao": "Troca da placa mãe", "resumo_padrao": "Placa trocada."}).json()["id"]
+    corpo = {"servicos": [sid]}
+    corpo.update(campos)
+    return client.put(f"/ordens/{oid}/manutencao", json=corpo)
+
+
+def test_gerar_sem_numero_recusa(client_lab, os_base, fases_seed, db_session, upload_tmp):
+    """Relatorio sem numeracao nao serve para a Qualidade."""
+    from app.models import CertificadoModelo
+    db_session.add(CertificadoModelo(equipamento=None, tipo="M", texto="<p>[manutnumero]</p>"))
+    db_session.commit()
+    oid = _os_manutencao(db_session, os_base)
+    _registrar(client_lab, oid, data_manutencao="2026-08-21")
+    r = client_lab.post(f"/ordens/{oid}/gerar-certificado")
+    assert r.status_code == 409
+    assert "manutenção" in r.json()["detail"].lower()
+
+
+def test_gerar_sem_data_recusa(client_lab, os_base, fases_seed, db_session, upload_tmp):
+    from app.models import CertificadoModelo
+    db_session.add(CertificadoModelo(equipamento=None, tipo="M", texto="<p>[manutnumero]</p>"))
+    db_session.commit()
+    oid = _os_manutencao(db_session, os_base)
+    _registrar(client_lab, oid, numero="HF00715")
+    r = client_lab.post(f"/ordens/{oid}/gerar-certificado")
+    assert r.status_code == 409
+    assert "manutenção" in r.json()["detail"].lower()
+
+
+def test_gerar_com_numero_so_de_espacos_recusa(client_lab, os_base, fases_seed, db_session, upload_tmp):
+    from app.models import CertificadoModelo
+    db_session.add(CertificadoModelo(equipamento=None, tipo="M", texto="<p>[manutnumero]</p>"))
+    db_session.commit()
+    oid = _os_manutencao(db_session, os_base)
+    _registrar(client_lab, oid, numero="   ", data_manutencao="2026-08-21")
+    assert client_lab.post(f"/ordens/{oid}/gerar-certificado").status_code == 409
+
+
 def test_gerar_com_manutencao_registrada_produz_o_tipo_M(client_lab, os_base, fases_seed, db_session, upload_tmp):
     from app.models import CertificadoModelo, OSCertificado
     db_session.add(CertificadoModelo(equipamento=None, tipo="M", texto="<p>[manutnumero]</p>"))
