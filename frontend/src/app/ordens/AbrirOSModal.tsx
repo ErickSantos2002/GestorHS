@@ -62,6 +62,11 @@ export function AbrirOSModal({ equipamentoClienteId, osAtual, onClose, caixa, on
   const [enviando, setEnviando] = useState(false)
 
   const caixaTravada = caixa != null
+  // Desmarcada por padrao: o caminho normal e' a caixa nascer JUNTO com a OS,
+  // no mesmo commit do backend. Criar a caixa antes exigia adivinhar o proximo
+  // numero (o numero e' o id) e deixava caixa vazia quando alguem desistia no
+  // meio do cadastro.
+  const [usarCaixaExistente, setUsarCaixaExistente] = useState(false)
   const [caixaId, setCaixaId] = useState<number | null>(caixa ?? null)
   const [caixaQ, setCaixaQ] = useState('')
   const [caixaResultados, setCaixaResultados] = useState<CaixaListItem[]>([])
@@ -106,7 +111,7 @@ export function AbrirOSModal({ equipamentoClienteId, osAtual, onClose, caixa, on
         equipamento_cliente: equipamentoClienteId,
         tipo_servico: tipo,
         data_chegada: dataChegada || null,
-        caixa: caixaId,
+        caixa: caixaTravada || usarCaixaExistente ? caixaId : null,
         condicao_chegada: condicao || null,
         checklist: checklist.length ? checklist : null,
         pilhas: Number(pilhas) || 0,
@@ -136,7 +141,7 @@ export function AbrirOSModal({ equipamentoClienteId, osAtual, onClose, caixa, on
       footer={
         <>
           <Button variant="secondary" type="button" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" form="form-abrir-os" disabled={enviando || caixaId == null}>
+          <Button type="submit" form="form-abrir-os" disabled={enviando || (usarCaixaExistente && caixaId == null)}>
             {enviando ? 'Abrindo…' : 'Abrir OS'}
           </Button>
         </>
@@ -177,9 +182,23 @@ export function AbrirOSModal({ equipamentoClienteId, osAtual, onClose, caixa, on
             {/* Caixa */}
             <div>
               <FieldLabel htmlFor="caixa-q" icon={<IconCaixas className="w-3.5 h-3.5" />}>
-                Caixa {caixaTravada ? '' : '(obrigatória)'}
+                Caixa
               </FieldLabel>
-              {caixaTravada ? (
+              {!caixaTravada && (
+                <label className="flex items-center gap-2 text-sm text-slate-300 mb-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={usarCaixaExistente}
+                    onChange={(e) => { setUsarCaixaExistente(e.target.checked); setCaixaId(null); setCaixaQ('') }}
+                  />
+                  Essa OS vai iniciar em uma caixa existente?
+                </label>
+              )}
+              {!caixaTravada && !usarCaixaExistente ? (
+                <p className="text-sm text-slate-500">
+                  Uma caixa nova será criada com esta OS dentro, e receberá o próximo número disponível.
+                </p>
+              ) : caixaTravada ? (
                 <div className="inline-flex items-center gap-2 rounded-full bg-primary/15 text-primary border border-primary/40 px-3 py-1.5 text-sm font-semibold">
                   <IconCaixas className="w-4 h-4" />
                   Caixa #{caixa}

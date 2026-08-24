@@ -126,9 +126,86 @@ def test_abrir_checklist_id_invalido_400(client, usuario_comum, fases_seed, os_b
     assert r.status_code == 400
 
 
-def test_abrir_os_sem_caixa_400(client, usuario_comum, fases_seed, os_base):
+def test_abrir_os_sem_caixa_cria_a_caixa(client, usuario_comum, fases_seed, os_base):
+    """Antes isto era 400. A caixa passou a nascer junto com a OS — ver os testes
+    no fim do arquivo, que cobrem o numero e a atomicidade."""
     h = _headers(client, "comum@hs.com", "senha123")
     r = client.post("/ordens", json={
         "equipamento_cliente": os_base["equipamento_cliente"], "tipo_servico": "C",
     }, headers=h)
-    assert r.status_code == 400
+    assert r.status_code == 201
+    assert r.json()["caixa"] is not None
+
+
+# ── Caixa criada junto com a OS ──────────────────────────────────────────────
+# Sem caixa informada, a caixa nasce COM a OS dentro. Antes era erro 400: a
+# pessoa tinha que criar a caixa antes, por outra tela, sem saber qual seria o
+# proximo numero — e se desistisse no meio, a caixa vazia ficava para tras.
+
+def test_abrir_sem_caixa_cria_uma_com_a_os_dentro(client, usuario_comum, fases_seed, os_base, db_session):
+    from app.models import Caixa
+    h = _headers(client, "comum@hs.com", "senha123")
+    antes = db_session.query(Caixa).count()
+
+    r = client.post("/ordens", json={
+        "equipamento_cliente": os_base["equipamento_cliente"], "tipo_servico": "C",
+    }, headers=h)
+
+    assert r.status_code == 201
+    corpo = r.json()
+    assert corpo["caixa"] is not None, "a OS nunca pode nascer sem caixa"
+    db_session.expire_all()
+    assert db_session.query(Caixa).count() == antes + 1
+
+    det = client.get(f"/caixas/{corpo['caixa']}", headers=h).json()
+    assert det["total_os"] == 1
+    assert det["fase"] == 4, "a caixa nasce na mesma fase da OS"
+
+
+def test_caixa_criada_recebe_o_proximo_numero(client, usuario_comum, fases_seed, os_base, db_session):
+    """O numero da caixa E' o id — quem atribui e' o banco, entao nao ha consulta
+    de "qual e o proximo" nem corrida entre duas aberturas simultaneas."""
+    from app.models import Caixa
+    h = _headers(client, "comum@hs.com", "senha123")
+    maior = db_session.query(Caixa).order_by(Caixa.id.desc()).first()
+    esperado = (maior.id if maior else 0) + 1
+
+    r = client.post("/ordens", json={
+        "equipamento_cliente": os_base["equipamento_cliente"], "tipo_servico": "C",
+    }, headers=h)
+    assert r.json()["caixa"] == esperado
+
+
+def test_caixa_informada_continua_sendo_usada(client, usuario_comum, fases_seed, os_base, db_session):
+    from app.models import Caixa
+    h = _headers(client, "comum@hs.com", "senha123")
+    cid = client.post("/caixas", json={"obs": "lote existente"}, headers=h).json()["id"]
+    antes = db_session.query(Caixa).count()
+
+    r = client.post("/ordens", json={
+        "equipamento_cliente": os_base["equipamento_cliente"], "tipo_servico": "C", "caixa": cid,
+    }, headers=h)
+
+    assert r.json()["caixa"] == cid
+    db_session.expire_all()
+    assert db_session.query(Caixa).count() == antes, "nao pode criar caixa quando uma foi informada"
+
+
+def test_falha_na_abertura_nao_deixa_caixa_vazia(client, usuario_comum, fases_seed, os_base, db_session):
+    """A caixa so existe se a OS existir — e o motivo de a criacao ter vindo
+    para dentro da abertura, em vez de ser um passo separado."""
+    from app.models import Caixa
+    h = _headers(client, "comum@hs.com", "senha123")
+    # Abre uma vez com sucesso; a segunda falha com 409 (aparelho ja tem OS ativa).
+    client.post("/ordens", json={
+        "equipamento_cliente": os_base["equipamento_cliente"], "tipo_servico": "C",
+    }, headers=h)
+    db_session.expire_all()
+    antes = db_session.query(Caixa).count()
+
+    r = client.post("/ordens", json={
+        "equipamento_cliente": os_base["equipamento_cliente"], "tipo_servico": "C",
+    }, headers=h)
+    assert r.status_code == 409
+    db_session.expire_all()
+    assert db_session.query(Caixa).count() == antes, "a recusa nao pode deixar caixa orfa"

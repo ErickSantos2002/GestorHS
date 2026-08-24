@@ -210,10 +210,18 @@ def abrir(dados: OrdemAbrirIn, background_tasks: BackgroundTasks, db: Session = 
     if ativa is not None:
         raise HTTPException(status_code=409, detail="aparelho já possui OS ativa")
     if dados.caixa is None:
-        raise HTTPException(status_code=400, detail="É obrigatório vincular uma caixa à OS")
-    cx = db.query(Caixa).filter(Caixa.id == dados.caixa).first()
-    if cx is None:
-        raise HTTPException(status_code=404, detail="caixa não encontrada")
+        # Sem caixa informada, ela nasce AQUI, dentro da mesma transacao da OS.
+        # Duas razoes: o numero da caixa e' o id, entao so o banco sabe qual e' o
+        # proximo — criar antes, por outra tela, era adivinhar; e uma caixa criada
+        # num passo separado sobrevive a desistencia no meio do cadastro, virando
+        # caixa vazia. Aqui, se a abertura falhar, a transacao desfaz as duas.
+        cx = Caixa(data=date.today())
+        db.add(cx)
+        db.flush()
+    else:
+        cx = db.query(Caixa).filter(Caixa.id == dados.caixa).first()
+        if cx is None:
+            raise HTTPException(status_code=404, detail="caixa não encontrada")
     if dados.condicao_chegada is not None and dados.condicao_chegada not in rec.CONDICOES_CHEGADA:
         raise HTTPException(status_code=400, detail="condição de chegada inválida")
     try:
@@ -241,7 +249,7 @@ def abrir(dados: OrdemAbrirIn, background_tasks: BackgroundTasks, db: Session = 
         data_chegada=data_chegada,
         recebido=True,
         situacao="E",
-        caixa=dados.caixa,
+        caixa=cx.id,
     )
     db.add(ordem)
     db.flush()
