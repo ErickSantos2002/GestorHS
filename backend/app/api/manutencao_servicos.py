@@ -48,7 +48,8 @@ def listar(db: Session = Depends(get_db), _: Usuario = Depends(get_current_usuar
 
 @router.post("", response_model=ServicoOut, status_code=http_status.HTTP_201_CREATED)
 def criar(dados: ServicoIn, db: Session = Depends(get_db), _: Usuario = Depends(_escrita)):
-    s = ManutencaoServico(descricao=_exige_descricao(dados.descricao),
+    s = ManutencaoServico(codigo=(dados.codigo or "").strip() or None,
+                          descricao=_exige_descricao(dados.descricao),
                           resumo_padrao=dados.resumo_padrao.strip(), ativo=dados.ativo)
     db.add(s)
     try:

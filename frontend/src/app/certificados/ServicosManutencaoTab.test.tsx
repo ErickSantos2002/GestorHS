@@ -23,8 +23,8 @@ describe('ServicosManutencaoTab', () => {
     mockUser = { funcao: 'Laboratório' }
     listarServicos.mockReset(); criarServico.mockReset(); atualizarServico.mockReset(); excluirServico.mockReset()
     listarServicos.mockResolvedValue([
-      { id: 1, descricao: 'Troca da placa mãe', resumo_padrao: 'Placa substituída.', ativo: true },
-      { id: 2, descricao: 'Serviço antigo', resumo_padrao: 'x.', ativo: false },
+      { id: 1, codigo: '226', descricao: 'Troca da placa mãe', resumo_padrao: 'Placa substituída.', ativo: true },
+      { id: 2, codigo: null, descricao: 'Serviço antigo', resumo_padrao: 'x.', ativo: false },
     ])
   })
 
@@ -44,7 +44,7 @@ describe('ServicosManutencaoTab', () => {
     await userEvent.click(screen.getByText('Salvar'))
 
     await waitFor(() => expect(criarServico).toHaveBeenCalledWith({
-      descricao: 'Troca do bocal', resumo_padrao: 'Bocal trocado.',
+      codigo: null, descricao: 'Troca do bocal', resumo_padrao: 'Bocal trocado.',
     }))
   })
 
@@ -59,5 +59,27 @@ describe('ServicosManutencaoTab', () => {
     render(<ServicosManutencaoTab />)
     await screen.findByText('Troca da placa mãe')
     expect(screen.getAllByLabelText('Excluir').length).toBeGreaterThan(0)
+  })
+
+  it('mostra o código na lista e envia o que foi digitado', async () => {
+    criarServico.mockResolvedValue({ id: 3, codigo: '294', descricao: 'Troca de pilha interna', resumo_padrao: '', ativo: true })
+    render(<ServicosManutencaoTab />)
+    // O código vem do catálogo comercial e aparece na coluna própria.
+    expect(await screen.findByText('226')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByText('Novo serviço'))
+    fireEvent.change(screen.getByLabelText('Código'), { target: { value: '294' } })
+    fireEvent.change(screen.getByLabelText('Descrição'), { target: { value: 'Troca de pilha interna' } })
+    await userEvent.click(screen.getByText('Salvar'))
+
+    await waitFor(() => expect(criarServico).toHaveBeenCalledWith({
+      codigo: '294', descricao: 'Troca de pilha interna', resumo_padrao: '',
+    }))
+  })
+
+  it('serviço sem código mostra travessão, não vazio', async () => {
+    render(<ServicosManutencaoTab />)
+    await screen.findByText('Troca da placa mãe')
+    expect(screen.getByText('—')).toBeInTheDocument()
   })
 })

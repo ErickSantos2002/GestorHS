@@ -21,6 +21,8 @@ async function apiVoid(path: string, options: RequestInit = {}): Promise<void> {
 
 export interface ServicoManutencao {
   id: number
+  /** SKU no catálogo comercial (`servicos`); nulo quando cadastrado à mão. */
+  codigo: string | null
   descricao: string
   resumo_padrao: string
   ativo: boolean
@@ -62,7 +64,7 @@ export const manutencaoApi = {
     apiJson<Manutencao>(`/ordens/${osId}/manutencao`, { method: 'PUT', body: JSON.stringify(payload) }),
   listarServicos: (): Promise<ServicoManutencao[]> =>
     apiJson<ServicoManutencao[]>('/manutencao-servicos'),
-  criarServico: (dados: { descricao: string; resumo_padrao: string }): Promise<ServicoManutencao> =>
+  criarServico: (dados: { codigo?: string | null; descricao: string; resumo_padrao: string }): Promise<ServicoManutencao> =>
     apiJson<ServicoManutencao>('/manutencao-servicos', { method: 'POST', body: JSON.stringify(dados) }),
   atualizarServico: (id: number, dados: Partial<ServicoManutencao>): Promise<ServicoManutencao> =>
     apiJson<ServicoManutencao>(`/manutencao-servicos/${id}`, { method: 'PUT', body: JSON.stringify(dados) }),

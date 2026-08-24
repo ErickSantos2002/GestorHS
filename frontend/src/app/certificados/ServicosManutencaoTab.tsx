@@ -26,6 +26,7 @@ export function ServicosManutencaoTab() {
   const [erro, setErro] = useState('')
   const [aberto, setAberto] = useState(false)
   const [editando, setEditando] = useState<ServicoManutencao | null>(null)
+  const [codigo, setCodigo] = useState('')
   const [descricao, setDescricao] = useState('')
   const [resumoPadrao, setResumoPadrao] = useState('')
   const [ativo, setAtivo] = useState(true)
@@ -51,12 +52,13 @@ export function ServicosManutencaoTab() {
   }, [])
 
   function abrirNovo() {
-    setEditando(null); setDescricao(''); setResumoPadrao(''); setAtivo(true)
+    setEditando(null); setCodigo(''); setDescricao(''); setResumoPadrao(''); setAtivo(true)
     setErroForm(''); setAberto(true)
   }
 
   function abrirEdicao(s: ServicoManutencao) {
-    setEditando(s); setDescricao(s.descricao); setResumoPadrao(s.resumo_padrao); setAtivo(s.ativo)
+    setEditando(s); setCodigo(s.codigo ?? ''); setDescricao(s.descricao)
+    setResumoPadrao(s.resumo_padrao); setAtivo(s.ativo)
     setErroForm(''); setAberto(true)
   }
 
@@ -67,10 +69,13 @@ export function ServicosManutencaoTab() {
     try {
       if (editando) {
         await manutencaoApi.atualizarServico(editando.id, {
-          descricao: descricao.trim(), resumo_padrao: resumoPadrao.trim(), ativo,
+          codigo: codigo.trim() || null, descricao: descricao.trim(),
+          resumo_padrao: resumoPadrao.trim(), ativo,
         })
       } else {
-        await manutencaoApi.criarServico({ descricao: descricao.trim(), resumo_padrao: resumoPadrao.trim() })
+        await manutencaoApi.criarServico({
+          codigo: codigo.trim() || null, descricao: descricao.trim(), resumo_padrao: resumoPadrao.trim(),
+        })
       }
       setAberto(false)
       carregar()
@@ -110,9 +115,10 @@ export function ServicosManutencaoTab() {
       ) : itens.length === 0 ? (
         <p className="text-sm text-slate-500">Nenhum serviço cadastrado ainda.</p>
       ) : (
-        <Table head={<><TH>Serviço</TH><TH>Resumo padrão</TH><TH>Situação</TH><TH> </TH></>}>
+        <Table head={<><TH>Código</TH><TH>Serviço</TH><TH>Resumo padrão</TH><TH>Situação</TH><TH> </TH></>}>
           {itens.map((s) => (
             <tr key={s.id} className="hover:bg-background-elevated transition-colors">
+              <TD><span className="text-slate-500">{s.codigo || '—'}</span></TD>
               <TD>{s.descricao}</TD>
               <TD><span className="text-slate-400">{s.resumo_padrao || '—'}</span></TD>
               <TD>{s.ativo ? <Badge tone="primary">Ativo</Badge> : <Badge tone="neutral">Inativo</Badge>}</TD>
@@ -148,6 +154,9 @@ export function ServicosManutencaoTab() {
           }
         >
           <form id="form-servico-manut" className="space-y-4" onSubmit={submeter}>
+            <Input id="serv-codigo" label="Código" value={codigo}
+                   onChange={(e) => setCodigo(e.target.value)} maxLength={20}
+                   placeholder="SKU do catálogo comercial — opcional" />
             <Input id="serv-descricao" label="Descrição" value={descricao}
                    onChange={(e) => setDescricao(e.target.value)} maxLength={200} />
             <div className="space-y-1">

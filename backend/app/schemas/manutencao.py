@@ -5,12 +5,14 @@ from pydantic import BaseModel
 
 
 class ServicoIn(BaseModel):
+    codigo: Optional[str] = None
     descricao: str
     resumo_padrao: str = ""
     ativo: bool = True
 
 
 class ServicoUpdate(BaseModel):
+    codigo: Optional[str] = None
     descricao: Optional[str] = None
     resumo_padrao: Optional[str] = None
     ativo: Optional[bool] = None
@@ -18,6 +20,7 @@ class ServicoUpdate(BaseModel):
 
 class ServicoOut(BaseModel):
     id: int
+    codigo: Optional[str] = None
     descricao: str
     resumo_padrao: str
     ativo: bool

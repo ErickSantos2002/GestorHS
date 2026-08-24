@@ -16,6 +16,7 @@ class ManutencaoServico(Base):
     __tablename__ = "manutencao_servicos"
 
     id = Column(Integer, primary_key=True, index=True)
+    codigo = Column(String(20), nullable=True)                     # SKU no catalogo comercial (`servicos`)
     descricao = Column(String(200), nullable=False, unique=True)   # vai para "Tipo do Problema"
     resumo_padrao = Column(Text, nullable=False, default="")       # frase que compoe o "Resumo do Servico"
     ativo = Column(Boolean, nullable=False, default=True)
