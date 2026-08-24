@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/Spinner'
 import { ApiError } from '../../lib/api'
 import { comporResumo, manutencaoApi, type Manutencao, type ServicoManutencao } from './manutencao'
+import { ordensApi } from './api'
 
 export function ManutencaoModal({ osId, onClose, onSalvo }: {
   osId: number
@@ -23,6 +24,12 @@ export function ManutencaoModal({ osId, onClose, onSalvo }: {
   // resumo acompanha a escolha de servicos; assim que o tecnico edita, para de
   // acompanhar — senao acrescentar um servico apagaria o texto dele.
   const [composicao, setComposicao] = useState('')
+  // Modelo e serie entram no texto padrao. Vem de `certificadoCampos` porque e'
+  // la que os overrides por OS ja estao aplicados — se o laboratorio corrigiu a
+  // serie so naquela OS, o resumo usa a corrigida.
+  const [aparelho, setAparelho] = useState<{ modelo: string | null; serie: string | null }>(
+    { modelo: null, serie: null },
+  )
   const [busca, setBusca] = useState('')
   const [erro, setErro] = useState('')
   // Falha REAL ao ler a manutencao ja registrada (500, rede fora) — diferente do
@@ -37,26 +44,41 @@ export function ManutencaoModal({ osId, onClose, onSalvo }: {
     void manutencaoApi.listarServicos()
       .then((lista) => { if (vivo) setServicos(lista) })
       .catch(() => { if (vivo) setServicos([]) })
-    // Manutencao ja registrada: 404 aqui e' o caso normal da primeira vez.
-    void manutencaoApi.obter(osId)
-      .then((m) => {
-        if (!vivo) return
-        setNumero(m.numero ?? '')
-        setData(m.data_manutencao ?? '')
-        setResumo(m.resumo ?? '')
-        // A composicao que ESTES servicos gerariam — nao o texto salvo. Se o
-        // salvo bate com ela, foi automatico e segue acompanhando os servicos;
-        // se difere, foi editado a mao e fica congelado.
-        setComposicao(comporResumo(m.servicos.map((s) => s.resumo_padrao)))
-        setEscolhidos(m.servicos.map((s) => s.servico))
-      })
-      .catch((e) => {
-        if (!vivo) return
+    // As duas chamadas juntas: a composicao na carga precisa do aparelho E dos
+    // servicos salvos, e resolver em separado deixaria o texto ser montado com
+    // "aparelho nao identificado" se `obter` chegasse primeiro.
+    // `certificadoCampos` nunca rejeita aqui (o catch devolve o vazio) para que
+    // a falta do aparelho nao esconda a manutencao ja registrada.
+    void Promise.all([
+      ordensApi.certificadoCampos(osId).catch(() => null),
+      manutencaoApi.obter(osId).then((m) => ({ ok: true as const, m }))
+        .catch((e: unknown) => ({ ok: false as const, e })),
+    ]).then(([campos, res]) => {
+      if (!vivo) return
+      const modelo = campos?.modelo ?? null
+      const serie = campos?.serie ?? null
+      setAparelho({ modelo, serie })
+
+      if (!res.ok) {
         // 404 = ainda nao ha manutencao, o caso normal da primeira vez.
-        if (e instanceof ApiError && e.status === 404) return
+        if (res.e instanceof ApiError && res.e.status === 404) return
         setErroCarregar('Não foi possível carregar a manutenção já registrada. '
           + 'Feche e abra de novo antes de salvar — salvar agora apagaria o que estiver gravado.')
-      })
+        return
+      }
+      const m = res.m
+      setNumero(m.numero ?? '')
+      setData(m.data_manutencao ?? '')
+      setResumo(m.resumo ?? '')
+      // A composicao que ESTES servicos gerariam — nao o texto salvo. Se o
+      // salvo bate com ela, foi automatico e segue acompanhando os servicos;
+      // se difere, foi editado a mao e fica congelado.
+      setComposicao(comporResumo(
+        modelo, serie,
+        m.servicos.map((s) => ({ codigo: s.codigo ?? null, descricao: s.descricao })),
+      ))
+      setEscolhidos(m.servicos.map((s) => s.servico))
+    })
     return () => { vivo = false }
   }, [osId])
 
@@ -65,8 +87,11 @@ export function ManutencaoModal({ osId, onClose, onSalvo }: {
       ? escolhidos.filter((x) => x !== servico.id)
       : [...escolhidos, servico.id]
     setEscolhidos(novos)
-    const frases = novos.map((id) => (servicos ?? []).find((s) => s.id === id)?.resumo_padrao ?? '')
-    const nova = comporResumo(frases)
+    const escolhidosServicos = novos
+      .map((id) => (servicos ?? []).find((s) => s.id === id))
+      .filter((s): s is ServicoManutencao => s != null)
+      .map((s) => ({ codigo: s.codigo, descricao: s.descricao }))
+    const nova = comporResumo(aparelho.modelo, aparelho.serie, escolhidosServicos)
     if (resumo === composicao) {
       setResumo(nova)
     }

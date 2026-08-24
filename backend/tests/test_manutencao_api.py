@@ -112,13 +112,20 @@ def test_os_inexistente_404(client_lab):
 
 
 def test_resumo_vazio_e_composto_a_partir_dos_servicos(client_lab, os_base, fases_seed, db_session):
-    """A composicao tem dono no servidor: a tela so faz preview."""
+    """A composicao tem dono no servidor: a tela so faz preview.
+
+    O texto e' padrao — aparelho e frase de conformidade UMA vez, servicos
+    listados. Antes emendava uma frase por servico e ficava longo com tres ou mais.
+    """
     oid = _os(db_session, os_base)
     s1 = _servico(client_lab, "Troca da placa mãe", "Placa substituída.")
     s2 = _servico(client_lab, "Troca da bateria", "Bateria trocada.")
     r = client_lab.put(f"/ordens/{oid}/manutencao", json={"servicos": [s1, s2]})
     assert r.status_code == 200
-    assert r.json()["resumo"] == "Placa substituída. Bateria trocada."
+    resumo = r.json()["resumo"]
+    assert "referente aos serviços: " in resumo
+    assert "Troca da placa mãe" in resumo and "Troca da bateria" in resumo
+    assert resumo.count("em conformidade") == 1
 
 
 def test_resumo_informado_nao_e_sobrescrito(client_lab, os_base, fases_seed, db_session):

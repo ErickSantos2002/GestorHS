@@ -29,6 +29,7 @@ class ServicoOut(BaseModel):
 
 class ManutencaoItemOut(BaseModel):
     servico: int
+    codigo: Optional[str] = None
     descricao: str
     resumo_padrao: str
 

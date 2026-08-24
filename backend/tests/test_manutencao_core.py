@@ -32,18 +32,58 @@ def test_espacos_em_branco_sao_ignorados():
     assert compor_problema(["  Troca da placa mãe  ", "", "   "]) == "Troca da placa mãe."
 
 
-def test_resumo_junta_as_frases_na_ordem():
-    assert compor_resumo(["Primeira frase.", "Segunda frase."]) == "Primeira frase. Segunda frase."
+# O resumo e' um texto padrao unico: o aparelho e a frase de conformidade
+# aparecem UMA vez, e so os servicos se repetem. Emendar uma frase inteira por
+# servico repetia o aparelho e a conformidade a cada item e ficava enorme com
+# tres ou mais.
+
+def test_resumo_com_um_servico():
+    assert compor_resumo("Mercury", "10301681", [("214", "Troca de solenoide/bomba")]) == (
+        "Foi realizada a manutenção no equipamento Mercury / nº de série 10301681, "
+        "em conformidade com os procedimentos técnicos da Health & Safety, "
+        "referente ao serviço: 214 – Troca de solenoide/bomba."
+    )
 
 
-def test_resumo_garante_ponto_entre_as_frases():
-    assert compor_resumo(["Primeira frase", "Segunda frase"]) == "Primeira frase. Segunda frase."
+def test_resumo_com_varios_servicos_lista_todos_sem_repetir_o_resto():
+    texto = compor_resumo("Mercury", "10301681", [
+        ("214", "Troca de solenoide/bomba"),
+        ("315", "Troca do Bluetooth - Mercury"),
+        ("70", "Troca do botão ON/OFF"),
+    ])
+    assert texto == (
+        "Foi realizada a manutenção no equipamento Mercury / nº de série 10301681, "
+        "em conformidade com os procedimentos técnicos da Health & Safety, "
+        "referente aos serviços: 214 – Troca de solenoide/bomba; "
+        "315 – Troca do Bluetooth - Mercury; 70 – Troca do botão ON/OFF."
+    )
+    assert texto.count("em conformidade") == 1, "a frase de conformidade nao pode repetir"
+    assert texto.count("Mercury / nº de série") == 1, "o aparelho nao pode repetir"
 
 
-def test_resumo_sem_frases_devolve_vazio():
-    assert compor_resumo([]) == ""
+def test_resumo_usa_plural_so_com_mais_de_um():
+    um = compor_resumo("X", "1", [("1", "A")])
+    dois = compor_resumo("X", "1", [("1", "A"), ("2", "B")])
+    assert "referente ao serviço:" in um
+    assert "referente aos serviços:" in dois
 
 
-@pytest.mark.parametrize("frases", [[""], ["   "], ["", "  "]])
-def test_resumo_ignora_frases_vazias(frases):
-    assert compor_resumo(frases) == ""
+def test_resumo_sem_servico_devolve_vazio():
+    assert compor_resumo("Mercury", "10301681", []) == ""
+
+
+def test_resumo_sem_codigo_mostra_so_a_descricao():
+    """Servico cadastrado a mao pelo laboratorio pode nao ter codigo."""
+    texto = compor_resumo("X", "1", [(None, "Servico sem codigo")])
+    assert "referente ao serviço: Servico sem codigo." in texto
+    assert "–" not in texto.split("referente ao serviço:")[1]
+
+
+@pytest.mark.parametrize("modelo,serie,esperado", [
+    ("", "10301681", "no equipamento nº de série 10301681,"),
+    ("Mercury", "", "no equipamento Mercury,"),
+    ("", "", "no equipamento não identificado,"),
+])
+def test_resumo_aguenta_aparelho_sem_modelo_ou_serie(modelo, serie, esperado):
+    """Cadastro incompleto nao pode gerar frase quebrada tipo "equipamento  / nº de série ,"."""
+    assert esperado in compor_resumo(modelo, serie, [("1", "A")])

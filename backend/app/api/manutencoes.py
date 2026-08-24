@@ -51,7 +51,8 @@ def manutencao_da_os(db: Session, ordem_id: int) -> Manutencao | None:
 def _saida(m: Manutencao) -> ManutencaoOut:
     return ManutencaoOut(
         id=m.id, os=m.os, numero=m.numero, data_manutencao=m.data_manutencao, resumo=m.resumo,
-        servicos=[ManutencaoItemOut(servico=i.servico, descricao=i.servico_rel.descricao,
+        servicos=[ManutencaoItemOut(servico=i.servico, codigo=i.servico_rel.codigo,
+                                    descricao=i.servico_rel.descricao,
                                     resumo_padrao=i.servico_rel.resumo_padrao)
                   for i in m.itens],
     )
@@ -91,7 +92,10 @@ def registrar(ordem_id: int, dados: ManutencaoIn, db: Session = Depends(get_db),
     # houver servicos, compoe a partir das frases padrao do catalogo — a tela
     # so faz preview, quem decide o texto final e' a API.
     if (not dados.resumo or not dados.resumo.strip()) and servicos:
-        m.resumo = compor_resumo([s.resumo_padrao for s in servicos])
+        m.resumo = compor_resumo(
+            ordem.equipamento_descricao, ordem.equipamento_serie,
+            [(s.codigo, s.descricao) for s in servicos],
+        )
     else:
         m.resumo = dados.resumo
     m.atualizado_em = datetime.now(timezone.utc)

@@ -30,6 +30,7 @@ export interface ServicoManutencao {
 
 export interface ManutencaoServicoItem {
   servico: number
+  codigo: string | null
   descricao: string
   resumo_padrao: string
 }
@@ -50,11 +51,38 @@ export interface ManutencaoPayload {
   servicos: number[]
 }
 
-/** Espelha compor_resumo do backend, para o modal mostrar o texto antes de salvar. */
-export function comporResumo(frases: string[]): string {
-  const limpas = frases.map((f) => f.trim()).filter((f) => f !== '')
-  if (limpas.length === 0) return ''
-  return limpas.map((f) => (f.endsWith('.') ? f : `${f}.`)).join(' ')
+/** Modelo e série do aparelho, aguentando cadastro incompleto.
+ *  Sem isso, aparelho sem série produziria "equipamento Mercury / nº de série ,". */
+function descreverAparelho(modelo: string | null, serie: string | null): string {
+  const partes = [
+    (modelo ?? '').trim(),
+    (serie ?? '').trim() ? `nº de série ${(serie ?? '').trim()}` : '',
+  ].filter((p) => p !== '')
+  return partes.length ? partes.join(' / ') : 'não identificado'
+}
+
+/** Espelha `compor_resumo` do backend (app/core/manutencao.py), para o modal
+ *  mostrar o texto antes de salvar. Quem decide o valor final é a API.
+ *
+ *  O aparelho e a frase de conformidade aparecem UMA vez; só os serviços se
+ *  repetem — emendar uma frase completa por serviço repetia os dois a cada item
+ *  e ficava longo e confuso com três ou mais. */
+export function comporResumo(
+  modelo: string | null,
+  serie: string | null,
+  servicos: { codigo: string | null; descricao: string }[],
+): string {
+  const itens = servicos
+    .map((s) => ({ codigo: (s.codigo ?? '').trim(), descricao: s.descricao.trim() }))
+    .filter((s) => s.descricao !== '')
+  if (itens.length === 0) return ''
+  const lista = itens
+    .map((s) => (s.codigo ? `${s.codigo} – ${s.descricao}` : s.descricao))
+    .join('; ')
+  const rotulo = itens.length === 1 ? 'referente ao serviço' : 'referente aos serviços'
+  return `Foi realizada a manutenção no equipamento ${descreverAparelho(modelo, serie)}, `
+    + `em conformidade com os procedimentos técnicos da Health & Safety, `
+    + `${rotulo}: ${lista}.`
 }
 
 export const manutencaoApi = {

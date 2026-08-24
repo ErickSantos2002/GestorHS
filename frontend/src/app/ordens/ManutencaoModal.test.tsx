@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
-const { obter, salvar, listarServicos } = vi.hoisted(() => ({
+const { obter, salvar, listarServicos, certificadoCampos } = vi.hoisted(() => ({
+  certificadoCampos: vi.fn(),
   obter: vi.fn(), salvar: vi.fn(), listarServicos: vi.fn(),
 }))
 vi.mock('./manutencao', async (orig) => {
@@ -11,6 +12,11 @@ vi.mock('./manutencao', async (orig) => {
 })
 
 import { ApiError } from '../../lib/api'
+vi.mock('./api', async (orig) => {
+  const real = await orig<typeof import('./api')>()
+  return { ...real, ordensApi: { ...real.ordensApi, certificadoCampos } }
+})
+
 import { ManutencaoModal } from './ManutencaoModal'
 
 const SERVICOS = [
@@ -19,10 +25,18 @@ const SERVICOS = [
   { id: 3, codigo: '999', descricao: 'Serviço aposentado', resumo_padrao: 'x.', ativo: false },
 ]
 
+// O resumo e' um texto padrao: aparelho e frase de conformidade UMA vez, e so
+// os servicos listados. Antes emendava uma frase por servico.
+const RESUMO = (lista: string, plural = true) =>
+  'Foi realizada a manutenção no equipamento Mercury / nº de série 10301681, '
+  + 'em conformidade com os procedimentos técnicos da Health & Safety, '
+  + `referente ${plural ? 'aos serviços' : 'ao serviço'}: ${lista}.`
+
 describe('ManutencaoModal', () => {
   beforeEach(() => {
     obter.mockReset(); salvar.mockReset(); listarServicos.mockReset()
     listarServicos.mockResolvedValue(SERVICOS)
+    certificadoCampos.mockResolvedValue({ modelo: 'Mercury', serie: '10301681' })
     obter.mockRejectedValue(new ApiError(404, 'esta OS não tem manutenção registrada'))   // OS ainda sem manutenção
     salvar.mockResolvedValue({ id: 1, os: 7, numero: 'HF1', data_manutencao: null, resumo: '', servicos: [] })
   })
@@ -41,7 +55,7 @@ describe('ManutencaoModal', () => {
     obter.mockResolvedValue({
       id: 1, os: 7, numero: 'HF1', data_manutencao: '2026-08-21',
       resumo: 'x.',
-      servicos: [{ servico: 3, descricao: 'Serviço aposentado', resumo_padrao: 'x.' }],
+      servicos: [{ servico: 3, codigo: '999', descricao: 'Serviço aposentado', resumo_padrao: 'x.' }],
     })
     render(<ManutencaoModal osId={7} onClose={vi.fn()} onSalvo={vi.fn()} />)
     const box = await screen.findByLabelText('Serviço aposentado') as HTMLInputElement
@@ -53,15 +67,18 @@ describe('ManutencaoModal', () => {
     obter.mockReset()
     obter.mockResolvedValue({
       id: 1, os: 7, numero: 'HF1', data_manutencao: '2026-08-21',
-      resumo: 'x.',
-      servicos: [{ servico: 3, descricao: 'Serviço aposentado', resumo_padrao: 'x.' }],
+      // Resumo salvo IGUAL a composicao: continua no automatico, entao marcar
+      // outro servico recompoe. Se estivesse editado a mao ficaria congelado —
+      // e' o que o teste vizinho cobre.
+      resumo: RESUMO('999 – Serviço aposentado', false),
+      servicos: [{ servico: 3, codigo: '999', descricao: 'Serviço aposentado', resumo_padrao: 'x.' }],
     })
     render(<ManutencaoModal osId={7} onClose={vi.fn()} onSalvo={vi.fn()} />)
     await screen.findByLabelText('Serviço aposentado')
     await userEvent.click(screen.getByLabelText('Troca da bateria'))
 
     const resumo = screen.getByLabelText('Resumo do serviço') as HTMLTextAreaElement
-    await waitFor(() => expect(resumo.value).toBe('x. Bateria trocada.'))
+    await waitFor(() => expect(resumo.value).toBe(RESUMO('999 – Serviço aposentado; 380 – Troca da bateria')))
   })
 
   it('desmarcar o serviço inativo tira ele da manutenção', async () => {
@@ -69,7 +86,7 @@ describe('ManutencaoModal', () => {
     obter.mockResolvedValue({
       id: 1, os: 7, numero: 'HF1', data_manutencao: '2026-08-21',
       resumo: 'x.',
-      servicos: [{ servico: 3, descricao: 'Serviço aposentado', resumo_padrao: 'x.' }],
+      servicos: [{ servico: 3, codigo: '999', descricao: 'Serviço aposentado', resumo_padrao: 'x.' }],
     })
     render(<ManutencaoModal osId={7} onClose={vi.fn()} onSalvo={vi.fn()} />)
     await userEvent.click(await screen.findByLabelText('Serviço aposentado'))
@@ -88,7 +105,7 @@ describe('ManutencaoModal', () => {
     await userEvent.click(screen.getByLabelText('Troca da bateria'))
 
     const resumo = screen.getByLabelText('Resumo do serviço') as HTMLTextAreaElement
-    await waitFor(() => expect(resumo.value).toBe('Placa substituída. Bateria trocada.'))
+    await waitFor(() => expect(resumo.value).toBe(RESUMO('226 – Troca da placa mãe; 380 – Troca da bateria')))
   })
 
   it('depois de editar o resumo, mudar os serviços nao sobrescreve o texto', async () => {
@@ -96,7 +113,7 @@ describe('ManutencaoModal', () => {
     render(<ManutencaoModal osId={7} onClose={vi.fn()} onSalvo={vi.fn()} />)
     await userEvent.click(await screen.findByLabelText('Troca da placa mãe'))
     const resumo = screen.getByLabelText('Resumo do serviço') as HTMLTextAreaElement
-    await waitFor(() => expect(resumo.value).toBe('Placa substituída.'))
+    await waitFor(() => expect(resumo.value).toBe(RESUMO('226 – Troca da placa mãe', false)))
 
     fireEvent.change(resumo, { target: { value: 'Texto escrito à mão.' } })
     await userEvent.click(screen.getByLabelText('Troca da bateria'))
@@ -119,7 +136,7 @@ describe('ManutencaoModal', () => {
     expect(salvar.mock.calls[0][1]).toEqual({
       numero: 'HF00715',
       data_manutencao: '2026-08-21',
-      resumo: 'Bateria trocada. Placa substituída.',
+      resumo: RESUMO('380 – Troca da bateria; 226 – Troca da placa mãe'),
       servicos: [2, 1],
     })
     expect(onSalvo).toHaveBeenCalled()
@@ -129,16 +146,16 @@ describe('ManutencaoModal', () => {
     obter.mockReset()
     obter.mockResolvedValue({
       id: 1, os: 7, numero: 'HF1', data_manutencao: null,
-      resumo: 'Placa substituída.',
-      servicos: [{ servico: 1, descricao: 'Troca da placa mãe', resumo_padrao: 'Placa substituída.' }],
+      resumo: RESUMO('226 – Troca da placa mãe', false),
+      servicos: [{ servico: 1, codigo: '226', descricao: 'Troca da placa mãe', resumo_padrao: 'Placa substituída.' }],
     })
     render(<ManutencaoModal osId={7} onClose={vi.fn()} onSalvo={vi.fn()} />)
     const resumo = await screen.findByLabelText('Resumo do serviço') as HTMLTextAreaElement
-    await waitFor(() => expect(resumo.value).toBe('Placa substituída.'))
+    await waitFor(() => expect(resumo.value).toBe(RESUMO('226 – Troca da placa mãe', false)))
 
     await userEvent.click(screen.getByLabelText('Troca da bateria'))
 
-    await waitFor(() => expect(resumo.value).toBe('Placa substituída. Bateria trocada.'))
+    await waitFor(() => expect(resumo.value).toBe(RESUMO('226 – Troca da placa mãe; 380 – Troca da bateria')))
     expect(screen.queryByText(/não acompanha mais os serviços/i)).not.toBeInTheDocument()
   })
 
@@ -147,7 +164,7 @@ describe('ManutencaoModal', () => {
     obter.mockResolvedValue({
       id: 1, os: 7, numero: 'HF1', data_manutencao: null,
       resumo: 'Texto escrito à mão na vez anterior.',
-      servicos: [{ servico: 1, descricao: 'Troca da placa mãe', resumo_padrao: 'Placa substituída.' }],
+      servicos: [{ servico: 1, codigo: '226', descricao: 'Troca da placa mãe', resumo_padrao: 'Placa substituída.' }],
     })
     render(<ManutencaoModal osId={7} onClose={vi.fn()} onSalvo={vi.fn()} />)
     const resumo = await screen.findByLabelText('Resumo do serviço') as HTMLTextAreaElement

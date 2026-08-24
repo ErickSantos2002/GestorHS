@@ -37,9 +37,37 @@ def compor_problema(descricoes: list[str]) -> str:
     return f"{corpo}."
 
 
-def compor_resumo(frases: list[str]) -> str:
-    """Emenda as frases padrao, garantindo ponto final entre elas."""
-    itens = _limpar(frases)
+def _descrever_aparelho(modelo: str | None, serie: str | None) -> str:
+    """Modelo e serie do aparelho, aguentando cadastro incompleto.
+
+    Sem tratamento, um aparelho sem serie produziria "equipamento Mercury / nº de
+    série ," — frase quebrada num documento que vai para o cliente.
+    """
+    partes = [p for p in (
+        (modelo or "").strip(),
+        f"nº de série {serie.strip()}" if (serie or "").strip() else "",
+    ) if p]
+    return " / ".join(partes) if partes else "não identificado"
+
+
+def compor_resumo(modelo: str | None, serie: str | None,
+                  servicos: list[tuple[str | None, str]]) -> str:
+    """Texto padrao do "Resumo do Servico".
+
+    O aparelho e a frase de conformidade aparecem UMA vez; so os servicos se
+    repetem. Emendar uma frase completa por servico repetia os dois a cada item
+    e, com tres ou mais, o resumo ficava longo e confuso.
+    """
+    itens = [(codigo, descricao.strip()) for codigo, descricao in servicos if descricao and descricao.strip()]
     if not itens:
         return ""
-    return " ".join(f"{_sem_ponto_final(f)}." for f in itens)
+    lista = "; ".join(
+        f"{codigo.strip()} – {descricao}" if (codigo or "").strip() else descricao
+        for codigo, descricao in itens
+    )
+    rotulo = "referente ao serviço" if len(itens) == 1 else "referente aos serviços"
+    return (
+        f"Foi realizada a manutenção no equipamento {_descrever_aparelho(modelo, serie)}, "
+        f"em conformidade com os procedimentos técnicos da Health & Safety, "
+        f"{rotulo}: {lista}."
+    )
