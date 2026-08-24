@@ -100,6 +100,21 @@ describe('OrdemDetailPage — seções de certificado', () => {
     expect(screen.getByText('Cadastrar modelo de certificado')).toBeInTheDocument()
   })
 
+  // Regressão: as seções vinham só do tipo_servico, então trocar o tipo depois de
+  // gerar (A→M pelo /editar, C→M no laboratório) tirava da tela um documento já
+  // emitido — que continua existindo e precisa continuar baixável.
+  it('certificado de calibração já emitido continua visível em OS que virou manutenção', async () => {
+    obter.mockResolvedValue(baseOs({ tipo_servico: 'M' }))
+    certificados.mockResolvedValue([
+      { id: 9, os: 500, tipo: 'C', data_geracao: '2026-08-20T12:00:00Z', gerado_por: 'lab' },
+    ])
+    tela()
+    expect(await screen.findByText('Certificado de calibração')).toBeInTheDocument()
+    expect(screen.getByText('Certificado de manutenção')).toBeInTheDocument()
+    expect(screen.getAllByText('Baixar PDF').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Nenhum certificado de calibração gerado.')).not.toBeInTheDocument()
+  })
+
   it('OS de manutenção liberada sem certificado mostra "Liberado sem certificado" e não manda registrar manutenção', async () => {
     obter.mockResolvedValue(baseOs({ tipo_servico: 'M', desfecho_lab: 'liberado' }))
     tela()

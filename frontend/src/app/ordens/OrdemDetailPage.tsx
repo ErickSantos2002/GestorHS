@@ -178,9 +178,15 @@ export function OrdemDetailPage() {
   // Gerar/regerar: do laboratório em diante (calibração já ocorre/ocorreu, inclusive no
   // Financeiro), ou onde já existe certificado. Fora: Recebido (ainda não calibrada) e Cancelada.
   const podeGerarOuRegerar = podeGerarCert && (certs.length > 0 || posLaboratorio(os.fase))
-  // Quais seções aparecem — espelha tipos_para no backend.
+  // Quais documentos a OS PEDE — espelha tipos_para no backend. Governa as ações
+  // de gerar/regerar: só dá para gerar o que o tipo de serviço da OS pede.
   const tiposDaOS = os.tipo_servico === 'M' ? ['M'] : os.tipo_servico === 'A' ? ['C', 'M'] : ['C']
   const certDe = (tipo: string) => certs.find((c) => c.tipo === tipo)
+  // Quais seções aparecem: a união com os tipos JÁ EMITIDOS. Trocar o tipo de
+  // serviço depois de gerar (A→M pelo /editar, C→M no laboratório) não pode
+  // fazer um documento já emitido sumir da tela — ele continua existindo e
+  // precisa continuar baixável.
+  const tiposVisiveis = [...new Set([...tiposDaOS, ...certs.map((c) => c.tipo)])]
   // O aparelho nao tem modelo cadastrado para algum tipo pedido -> nao da para gerar.
   // Avisamos aqui, antes de o usuario tentar (o backend tambem recusa com 409).
   const faltantes = os.certificado_modelos_faltantes ?? []
@@ -534,11 +540,11 @@ export function OrdemDetailPage() {
       )}
 
       {/* Uma seção por documento: deixa explícito qual está sendo feito e onde. */}
-      {tiposDaOS.includes('C') && (
+      {tiposVisiveis.includes('C') && (
         <Secao
           icon={<IconCertificado className="w-4 h-4" />}
           titulo="Certificado de calibração"
-          acao={podeGerarOuRegerar && !semModelo && (
+          acao={tiposDaOS.includes('C') && podeGerarOuRegerar && !semModelo && (
             <Button variant={certDe('C') ? 'secondary' : 'primary'} onClick={() => setAcao('gerar')}>
               {certDe('C') ? 'Regerar certificado' : 'Gerar certificado'}
             </Button>
@@ -557,11 +563,11 @@ export function OrdemDetailPage() {
         </Secao>
       )}
 
-      {tiposDaOS.includes('M') && (
+      {tiposVisiveis.includes('M') && (
         <Secao
           icon={<IconCertificado className="w-4 h-4" />}
           titulo="Certificado de manutenção"
-          acao={(
+          acao={tiposDaOS.includes('M') && (
             <div className="flex gap-2">
               {podeRegistrarManutencao(user, os.fase) && (
                 <Button variant="secondary" onClick={() => setManutencaoAberta(true)}>Registrar manutenção</Button>
