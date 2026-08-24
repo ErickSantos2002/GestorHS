@@ -6,6 +6,7 @@ import { Spinner } from '../../components/ui/Spinner'
 import { ApiError } from '../../lib/api'
 import { comporResumo, manutencaoApi, type Manutencao, type ServicoManutencao } from './manutencao'
 import { ordensApi } from './api'
+import { hojeISO } from '../../lib/datas'
 
 export function ManutencaoModal({ osId, onClose, onSalvo }: {
   osId: number
@@ -18,7 +19,9 @@ export function ManutencaoModal({ osId, onClose, onSalvo }: {
   const [servicos, setServicos] = useState<ServicoManutencao[] | null>(null)
   const [escolhidos, setEscolhidos] = useState<number[]>([])
   const [numero, setNumero] = useState('')
-  const [data, setData] = useState('')
+  // Nasce com hoje: a manutencao e' registrada no dia em que foi feita, e a
+  // data e' obrigatoria para gerar o relatorio.
+  const [data, setData] = useState(hojeISO())
   const [resumo, setResumo] = useState('')
   // Guarda a ultima composicao automatica. Enquanto o texto for igual a ela, o
   // resumo acompanha a escolha de servicos; assim que o tecnico edita, para de
@@ -68,7 +71,7 @@ export function ManutencaoModal({ osId, onClose, onSalvo }: {
       }
       const m = res.m
       setNumero(m.numero ?? '')
-      setData(m.data_manutencao ?? '')
+      setData(m.data_manutencao ?? hojeISO())
       setResumo(m.resumo ?? '')
       // A composicao que ESTES servicos gerariam — nao o texto salvo. Se o
       // salvo bate com ela, foi automatico e segue acompanhando os servicos;

@@ -226,9 +226,12 @@ describe('ManutencaoModal', () => {
   })
 
   it('sem data nao deixa salvar', async () => {
+    // A data nasce com hoje, entao o campo precisa ser LIMPO para exercitar a
+    // validacao — que continua valendo porque a data e' obrigatoria para gerar.
     render(<ManutencaoModal osId={7} onClose={vi.fn()} onSalvo={vi.fn()} />)
     await userEvent.click(await screen.findByLabelText('Troca da placa mãe'))
     fireEvent.change(screen.getByLabelText('Número do relatório'), { target: { value: 'HF00715' } })
+    fireEvent.change(screen.getByLabelText('Data da manutenção'), { target: { value: '' } })
     await userEvent.click(screen.getByText('Salvar manutenção'))
     expect(await screen.findByText(/informe a data da manutenção/i)).toBeInTheDocument()
     expect(salvar).not.toHaveBeenCalled()
@@ -267,5 +270,25 @@ describe('ManutencaoModal', () => {
     fireEvent.change(screen.getByLabelText('Buscar serviço'), { target: { value: '380' } })
 
     expect(screen.getByLabelText(/Troca da placa mãe/)).toBeInTheDocument()
+  })
+
+  it('a data da manutenção nasce com hoje', async () => {
+    // A manutencao e' registrada no dia em que foi feita, e a data e obrigatoria
+    // para gerar o relatorio — deixar em branco era trabalho manual garantido.
+    const hoje = new Date().toISOString().slice(0, 10)
+    render(<ManutencaoModal osId={7} onClose={vi.fn()} onSalvo={vi.fn()} />)
+    const campo = await screen.findByLabelText('Data da manutenção')
+    expect((campo as HTMLInputElement).value).toBe(hoje)
+  })
+
+  it('reabrir uma manutenção salva mantém a data que foi gravada', async () => {
+    obter.mockReset()
+    obter.mockResolvedValue({
+      id: 1, os: 7, numero: 'HF1', data_manutencao: '2026-07-15', resumo: '', servicos: [],
+    })
+    render(<ManutencaoModal osId={7} onClose={vi.fn()} onSalvo={vi.fn()} />)
+    await waitFor(() => {
+      expect((screen.getByLabelText('Data da manutenção') as HTMLInputElement).value).toBe('2026-07-15')
+    })
   })
 })
