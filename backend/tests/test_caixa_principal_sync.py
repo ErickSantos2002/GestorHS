@@ -19,7 +19,10 @@ def test_abrir_os_em_caixa_nova_define_principal(client_exp, os_base, caixa_base
     assert cx.cliente_principal == os_base["cliente"]
 
 
-def test_desvincular_ressincroniza_principal_para_o_restante(client_exp, db_session, fases_seed):
+def test_mover_ressincroniza_principal_da_caixa_de_origem(client_exp, db_session, fases_seed):
+    """Antes isto era provado pelo desvincular, que saiu (OS nao pode ficar sem
+    caixa). A ressincronizacao da caixa de ORIGEM continua valendo — agora pelo
+    unico caminho que restou, que e' mover para outra caixa."""
     from app.models import Cliente, Caixa, Ordem
 
     cli_a = Cliente(nome="Cliente Ressync A")
@@ -36,8 +39,13 @@ def test_desvincular_ressincroniza_principal_para_o_restante(client_exp, db_sess
     db_session.refresh(o_a)
     db_session.refresh(cx)
 
-    r = client_exp.delete(f"/caixas/{cx.id}/ordens/{o_a.id}")
-    assert r.status_code == 204
+    destino = Caixa(obs="Caixa destino ressync", fase=4)
+    db_session.add(destino)
+    db_session.commit()
+    db_session.refresh(destino)
+
+    r = client_exp.post(f"/caixas/{destino.id}/ordens", json={"ordem_id": o_a.id})
+    assert r.status_code == 200
 
     db_session.refresh(cx)
     assert cx.cliente_principal == cli_b.id

@@ -125,16 +125,6 @@ export function CaixaDetailPage() {
     }
   }
 
-  async function removerOrdem(osId: number) {
-    if (!caixa) return
-    try {
-      await caixasApi.desvincularOrdem(caixaId, osId)
-      carregar()
-    } catch (err) {
-      setErroAcao(err instanceof ApiError ? err.message : 'Falha ao remover OS da caixa')
-    }
-  }
-
   async function avancarCaixaDireto(semNotaFiscal = false) {
     setAvancandoCaixa(true)
     setErroAcao('')
@@ -434,12 +424,6 @@ export function CaixaDetailPage() {
                                 }}
                               >
                                 Mover
-                              </Button>
-                              <Button
-                                variant="danger"
-                                onClick={() => removerOrdem(o.id)}
-                              >
-                                Remover
                               </Button>
                             </>
                           )}

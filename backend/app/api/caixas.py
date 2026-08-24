@@ -166,15 +166,17 @@ def desvincular_ordem(
     db: Session = Depends(get_db),
     usuario: Usuario = Depends(_escrita),
 ):
-    cx = _get_caixa(db, caixa_id)
-    ordem = db.query(Ordem).filter(Ordem.id == ordem_id, Ordem.caixa == cx.id).first()
-    if ordem is None:
-        raise HTTPException(status_code=404, detail="OS não está nesta caixa")
-    ordem.caixa = None
-    db.flush()
-    sincronizar_principal(db, cx)
-    registrar_log(db, ordem, usuario, f"OS removida da caixa #{cx.id}")
-    db.commit()
+    """Desvincular deixaria a OS SEM CAIXA — e OS sem caixa nao anda.
+
+    Quem avanca de fase e' a caixa, nao a OS. Uma OS solta fica parada na fase em
+    que estava para sempre, sem aparecer em caixa nenhuma e sem botao que a
+    resgate: em 24/08/2026 havia quatro assim, a mais antiga travada ha um mes.
+    Para tirar a OS desta caixa, MOVA para outra (`POST /caixas/{id}/ordens`).
+    """
+    raise HTTPException(
+        status_code=409,
+        detail="a OS não pode ficar sem caixa — mova para outra caixa em vez de remover",
+    )
 
 
 def _ordens_ativas(cx: Caixa) -> list[Ordem]:
