@@ -1,4 +1,4 @@
-"""Manutencao da OS: uma por OS, registrada pelo Laboratorio na janela 5-8."""
+"""Manutencao da OS: uma por OS, registrada pelo Laboratorio do laboratorio em diante."""
 import pytest
 
 
@@ -82,10 +82,22 @@ def test_fora_da_janela_recusa(client_lab, os_base, fases_seed, db_session, fase
     assert r.status_code == 409
 
 
-@pytest.mark.parametrize("fase", [5, 6, 7, 8])
+@pytest.mark.parametrize("fase", [5, 6, 10, 7, 8])
 def test_dentro_da_janela_aceita(client_lab, os_base, fases_seed, db_session, fase):
+    """Inclui o Financeiro (10), que vem logo depois do Pos-Vendas no fluxo."""
     oid = _os(db_session, os_base, fase=fase)
     assert client_lab.put(f"/ordens/{oid}/manutencao", json={"numero": "1"}).status_code == 200
+
+
+def test_financeiro_aceita_registro(client_lab, os_base, fases_seed, db_session):
+    """Regressao: a janela era a lista crua (5, 6, 7, 8) e o id 10 ficava fora,
+    travando a manutencao na fase por onde TODA OS passa."""
+    oid = _os(db_session, os_base, fase=10)
+    s1 = _servico(client_lab, "Troca da placa mãe", "Placa substituída.")
+    r = client_lab.put(f"/ordens/{oid}/manutencao", json={
+        "numero": "HF00999", "data_manutencao": "2026-08-21", "servicos": [s1]})
+    assert r.status_code == 200
+    assert r.json()["numero"] == "HF00999"
 
 
 def test_outra_funcao_nao_registra(client, usuario_financeiro, os_base, fases_seed, db_session):

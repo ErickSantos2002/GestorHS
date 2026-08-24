@@ -1,8 +1,9 @@
 """Registro da manutencao feita na bancada.
 
 Uma por OS (unicidade em `manutencoes.os`), com N servicos do catalogo dentro.
-Janela 5-8, a mesma do certificado de calibracao, que permite regerar OS antiga
-sob demanda — antes do laboratorio nao ha o que registrar.
+Janela: do Laboratorio em diante, a mesma do certificado de calibracao, que
+permite regerar OS antiga sob demanda — antes do laboratorio nao ha o que
+registrar.
 """
 from datetime import datetime, timezone
 
@@ -10,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.api.deps import ADMIN, get_current_usuario, require_funcao
+from app.core import os_workflow as wf
 from app.core.manutencao import compor_resumo
 from app.models import Manutencao, ManutencaoItem, ManutencaoServico, Ordem, Usuario
 from app.models.database import get_db
@@ -19,8 +21,19 @@ router = APIRouter(tags=["manutencao"])
 
 _escrita = require_funcao(ADMIN, "Laboratório")
 
-# Do Laboratorio ate Finalizada. Cancelada (9) e Recebido (4) ficam de fora.
-FASES_PERMITIDAS = (5, 6, 7, 8)
+
+def na_janela(fase: int | None) -> bool:
+    """Do Laboratorio em diante — Recebido (4) e Cancelada (9) ficam de fora.
+
+    Compara POSICAO logica, nunca o id cru: o Financeiro e' o id 10, maior que
+    Preparando Retorno (7) e Finalizada (8), entao qualquer lista de ids escrita
+    "em ordem" o deixaria de fora — e toda OS passa pelo Financeiro. Fase fora
+    do fluxo linear (cancelada, nula) nem chega a comparar: `posicao()` devolve
+    o sentinela 99 e faria a cancelada passar como se fosse a ultima da fila.
+    """
+    if fase is None or fase not in wf.ORDEM_FASES:
+        return False
+    return wf.posicao(fase) >= wf.posicao(wf.FASE_LABORATORIO)
 
 
 def _os_ou_404(db: Session, ordem_id: int) -> Ordem:
@@ -58,7 +71,7 @@ def obter(ordem_id: int, db: Session = Depends(get_db),
 def registrar(ordem_id: int, dados: ManutencaoIn, db: Session = Depends(get_db),
               usuario: Usuario = Depends(_escrita)):
     ordem = _os_ou_404(db, ordem_id)
-    if ordem.fase not in FASES_PERMITIDAS:
+    if not na_janela(ordem.fase):
         raise HTTPException(409, "a manutenção só pode ser registrada do Laboratório em diante")
 
     servicos = []

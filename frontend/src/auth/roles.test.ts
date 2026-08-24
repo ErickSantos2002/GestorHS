@@ -204,10 +204,17 @@ describe('auth/roles — podeEditarTipoServico', () => {
 })
 
 describe('auth/roles — podeRegistrarManutencao', () => {
-  it('laboratório registra nas fases 5 a 8', () => {
-    for (const fase of [5, 6, 7, 8]) {
+  it('laboratório registra do laboratório em diante', () => {
+    for (const fase of [5, 6, 10, 7, 8]) {
       expect(podeRegistrarManutencao({ funcao: 'Laboratório' } as never, fase)).toBe(true)
     }
+  })
+
+  // Regressão: o Financeiro é o id 10 e ficava de fora da lista [5, 6, 7, 8],
+  // deixando a OS sem botão justamente na fase por onde toda OS passa.
+  it('financeiro (fase 10) registra', () => {
+    expect(podeRegistrarManutencao({ funcao: 'Laboratório' } as never, 10)).toBe(true)
+    expect(podeRegistrarManutencao({ funcao: 'Administrador' } as never, 10)).toBe(true)
   })
 
   it('admin também registra', () => {
