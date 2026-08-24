@@ -24,6 +24,11 @@ export function ManutencaoModal({ osId, onClose, onSalvo }: {
   // acompanhar — senao acrescentar um servico apagaria o texto dele.
   const [composicao, setComposicao] = useState('')
   const [erro, setErro] = useState('')
+  // Falha REAL ao ler a manutencao ja registrada (500, rede fora) — diferente do
+  // 404, que so quer dizer "ainda nao existe". Com o modal vazio por falha, um
+  // PUT substituiria numero, data, servicos e o resumo revisado a mao; por isso
+  // aqui salvar fica bloqueado ate recarregar.
+  const [erroCarregar, setErroCarregar] = useState('')
   const [salvando, setSalvando] = useState(false)
 
   useEffect(() => {
@@ -44,7 +49,13 @@ export function ManutencaoModal({ osId, onClose, onSalvo }: {
         setComposicao(comporResumo(m.servicos.map((s) => s.resumo_padrao)))
         setEscolhidos(m.servicos.map((s) => s.servico))
       })
-      .catch(() => { /* sem manutencao ainda */ })
+      .catch((e) => {
+        if (!vivo) return
+        // 404 = ainda nao ha manutencao, o caso normal da primeira vez.
+        if (e instanceof ApiError && e.status === 404) return
+        setErroCarregar('Não foi possível carregar a manutenção já registrada. '
+          + 'Feche e abra de novo antes de salvar — salvar agora apagaria o que estiver gravado.')
+      })
     return () => { vivo = false }
   }, [osId])
 
@@ -71,6 +82,7 @@ export function ManutencaoModal({ osId, onClose, onSalvo }: {
 
   async function submeter(e: FormEvent) {
     e.preventDefault()
+    if (erroCarregar) return
     // Numero e data sao exigidos aqui pelo mesmo motivo do 409 do backend: sem
     // eles o relatorio sai com "N°" e "Data da Manutenção" em branco.
     if (!numero.trim()) { setErro('Informe o número do relatório.'); return }
@@ -104,13 +116,16 @@ export function ManutencaoModal({ osId, onClose, onSalvo }: {
       footer={
         <>
           <Button variant="secondary" type="button" onClick={onClose} disabled={salvando}>Cancelar</Button>
-          <Button type="submit" form="form-manutencao" disabled={salvando}>
+          <Button type="submit" form="form-manutencao" disabled={salvando || erroCarregar !== ''}>
             {salvando ? 'Salvando…' : 'Salvar manutenção'}
           </Button>
         </>
       }
     >
       <form id="form-manutencao" className="space-y-4" onSubmit={submeter}>
+        {erroCarregar && (
+          <div className="rounded-lg bg-danger/10 border border-danger/20 px-3 py-2.5 text-sm text-danger">{erroCarregar}</div>
+        )}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Input id="manut-numero" label="Número do relatório" value={numero}
                  onChange={(e) => setNumero(e.target.value)} maxLength={50} />

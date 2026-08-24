@@ -10,6 +10,7 @@ vi.mock('./manutencao', async (orig) => {
   return { ...real, manutencaoApi: { ...real.manutencaoApi, obter, salvar, listarServicos } }
 })
 
+import { ApiError } from '../../lib/api'
 import { ManutencaoModal } from './ManutencaoModal'
 
 const SERVICOS = [
@@ -22,7 +23,7 @@ describe('ManutencaoModal', () => {
   beforeEach(() => {
     obter.mockReset(); salvar.mockReset(); listarServicos.mockReset()
     listarServicos.mockResolvedValue(SERVICOS)
-    obter.mockRejectedValue(new Error('404'))   // OS ainda sem manutenção
+    obter.mockRejectedValue(new ApiError(404, 'esta OS não tem manutenção registrada'))   // OS ainda sem manutenção
     salvar.mockResolvedValue({ id: 1, os: 7, numero: 'HF1', data_manutencao: null, resumo: '', servicos: [] })
   })
 
@@ -156,6 +157,34 @@ describe('ManutencaoModal', () => {
 
     expect(resumo.value).toBe('Texto escrito à mão na vez anterior.')
     expect(screen.getByText(/não acompanha mais os serviços/i)).toBeInTheDocument()
+  })
+
+  // O .catch cego tratava 500/queda de rede como "nao ha manutencao": o modal
+  // abria vazio e o PUT seguinte apagava numero, data, servicos e o resumo
+  // revisado a mao — o unico ponto que anulava o congelamento do resumo.
+  it('erro real ao carregar avisa e nao deixa salvar por cima', async () => {
+    obter.mockReset()
+    obter.mockRejectedValue(new ApiError(500, 'erro interno'))
+    render(<ManutencaoModal osId={7} onClose={vi.fn()} onSalvo={vi.fn()} />)
+    expect(await screen.findByText(/não foi possível carregar a manutenção já registrada/i)).toBeInTheDocument()
+
+    await userEvent.click(screen.getByLabelText('Troca da placa mãe'))
+    fireEvent.change(screen.getByLabelText('Número do relatório'), { target: { value: 'HF00715' } })
+    fireEvent.change(screen.getByLabelText('Data da manutenção'), { target: { value: '2026-08-21' } })
+    fireEvent.submit(document.getElementById('form-manutencao')!)
+
+    expect(salvar).not.toHaveBeenCalled()
+  })
+
+  it('404 ao carregar e o caso normal: modal abre vazio e salva', async () => {
+    render(<ManutencaoModal osId={7} onClose={vi.fn()} onSalvo={vi.fn()} />)
+    await userEvent.click(await screen.findByLabelText('Troca da placa mãe'))
+    fireEvent.change(screen.getByLabelText('Número do relatório'), { target: { value: 'HF00715' } })
+    fireEvent.change(screen.getByLabelText('Data da manutenção'), { target: { value: '2026-08-21' } })
+    expect(screen.queryByText(/não foi possível carregar/i)).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByText('Salvar manutenção'))
+    await waitFor(() => expect(salvar).toHaveBeenCalled())
   })
 
   it('sem serviço escolhido nao deixa salvar', async () => {
