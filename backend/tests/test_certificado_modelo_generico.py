@@ -34,3 +34,33 @@ def test_generico_de_calibracao_e_recusado(client_admin):
 
 def test_ler_generico_inexistente_404(client_admin):
     assert client_admin.get("/certificados-modelo/generico?tipo=M").status_code == 404
+
+
+# ── Modelo por aparelho e' so de calibracao ──────────────────────────────────
+# Manutencao tem modelo unico. Um modelo de manutencao por aparelho venceria o
+# generico em silencio (ver `modelo_para`), e aquele aparelho pararia de
+# acompanhar as revisoes da Qualidade sem aviso.
+
+def _equipamento(db):
+    from app.models import Equipamento
+    e = Equipamento(descricao="Bafômetro X")
+    db.add(e); db.commit(); db.refresh(e)
+    return e.id
+
+
+def test_nao_da_para_gravar_modelo_de_manutencao_por_aparelho(client_admin, db_session):
+    eq = _equipamento(db_session)
+    r = client_admin.put(f"/certificados-modelo/{eq}?tipo=M", json={"texto": "<p>x</p>"})
+    assert r.status_code == 422
+
+
+def test_nao_da_para_ler_modelo_de_manutencao_por_aparelho(client_admin, db_session):
+    eq = _equipamento(db_session)
+    assert client_admin.get(f"/certificados-modelo/{eq}?tipo=M").status_code == 422
+
+
+def test_calibracao_por_aparelho_continua_funcionando(client_admin, db_session):
+    eq = _equipamento(db_session)
+    r = client_admin.put(f"/certificados-modelo/{eq}", json={"texto": "<p>calib</p>"})
+    assert r.status_code == 200
+    assert client_admin.get(f"/certificados-modelo/{eq}").json()["texto"] == "<p>calib</p>"

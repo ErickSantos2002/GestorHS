@@ -86,7 +86,15 @@ def salvar_modelo_generico(dados: CertificadoModeloIn, tipo: Literal["M"] = "M",
 
 
 @router.get("/certificados-modelo/{equipamento_id}", response_model=CertificadoModeloOut)
-def obter_modelo(equipamento_id: int, tipo: Literal["C", "M"] = "C", db: Session = Depends(get_db), _: Usuario = Depends(get_current_usuario)):
+def obter_modelo(equipamento_id: int, tipo: Literal["C"] = "C", db: Session = Depends(get_db), _: Usuario = Depends(get_current_usuario)):
+    """Modelo POR APARELHO — so calibracao.
+
+    Manutencao tem um modelo unico para todos (rota `/generico`): os relatorios
+    so diferem em marca, modelo e serie, que sao dados. Aceitar `tipo=M` aqui
+    reabriria a armadilha que `modelo_para` cria — um modelo de manutencao por
+    aparelho VENCE o generico, entao aquele aparelho pararia de acompanhar as
+    revisoes da Qualidade sem nenhum aviso.
+    """
     eq = _equipamento_ou_404(db, equipamento_id)
     cert = db.query(CertificadoModelo).filter(
         CertificadoModelo.equipamento == equipamento_id, CertificadoModelo.tipo == tipo
@@ -101,7 +109,7 @@ def obter_modelo(equipamento_id: int, tipo: Literal["C", "M"] = "C", db: Session
 def salvar_modelo(
     equipamento_id: int,
     dados: CertificadoModeloIn,
-    tipo: Literal["C", "M"] = "C",
+    tipo: Literal["C"] = "C",   # manutencao vai pela rota /generico (ver obter_modelo)
     db: Session = Depends(get_db),
     _: Usuario = Depends(_escrita),
 ):

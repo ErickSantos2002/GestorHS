@@ -19,7 +19,6 @@ export function ModelosTab() {
   const [itens, setItens] = useState<ModeloItem[] | null>(null)
   const [selecionado, setSelecionado] = useState<ModeloItem | null>(null)
   const [generico, setGenerico] = useState(false)
-  const [tipo, setTipo] = useState<'C' | 'M'>('C')
   const [texto, setTexto] = useState('')
   const [descricao, setDescricao] = useState('')
   const [carregandoEd, setCarregandoEd] = useState(false)
@@ -43,10 +42,10 @@ export function ModelosTab() {
       .finally(() => setCarregandoEd(false))
   }
 
-  function abrir(m: ModeloItem) { setGenerico(false); setSelecionado(m); setTipo('C'); carregar(m.equipamento, 'C') }
+  function abrir(m: ModeloItem) { setGenerico(false); setSelecionado(m); carregar(m.equipamento, 'C') }
 
   function abrirGenerico() {
-    setSelecionado(null); setGenerico(true); setTipo('M')
+    setSelecionado(null); setGenerico(true)
     setCarregandoEd(true); setErro('')
     certificadosApi.obterModeloGenerico('M')
       .then((c) => { setTexto(c.texto); setDescricao(c.descricao ?? '') })
@@ -60,8 +59,6 @@ export function ModelosTab() {
 
   function fechar() { setSelecionado(null); setGenerico(false) }
 
-  function trocarTipo(t: 'C' | 'M') { setTipo(t); if (selecionado) carregar(selecionado.equipamento, t) }
-
   async function salvar() {
     if (!selecionado && !generico) return
     setSalvando(true); setErro('')
@@ -69,10 +66,14 @@ export function ModelosTab() {
       if (generico) {
         await certificadosApi.salvarModeloGenerico({ descricao: descricao.trim() || null, texto }, 'M')
       } else if (selecionado) {
-        await certificadosApi.salvarModelo(selecionado.equipamento, { descricao: descricao.trim() || null, texto }, tipo)
+        // Modelo por aparelho e' sempre de CALIBRACAO. Manutencao tem um modelo
+        // unico para todos, editado pelo cartao "Relatório de Manutenção" — e um
+        // modelo de manutencao por aparelho venceria o generico em silencio
+        // (ver `modelo_para`), fazendo aquele aparelho parar de acompanhar as
+        // revisoes da Qualidade sem ninguem perceber.
+        await certificadosApi.salvarModelo(selecionado.equipamento, { descricao: descricao.trim() || null, texto }, 'C')
         setItens((cur) => cur?.map((m) => m.equipamento === selecionado.equipamento
-          ? { ...m, tem_calibracao: tipo === 'C' ? true : m.tem_calibracao, tem_manutencao: tipo === 'M' ? true : m.tem_manutencao }
-          : m) ?? null)
+          ? { ...m, tem_calibracao: true } : m) ?? null)
       }
     } catch (e) {
       setErro(e instanceof ApiError ? e.message : 'Falha ao salvar')
@@ -88,16 +89,6 @@ export function ModelosTab() {
             <h2 className="text-lg font-bold text-slate-100">{generico ? 'Relatório de Manutenção' : selecionado?.equipamento_descricao}</h2>
           </div>
           <div className="flex items-center gap-3">
-            {!generico && (
-              <div className="flex gap-1 rounded-lg bg-background-elevated p-1 w-fit">
-                {(['C', 'M'] as const).map((t) => (
-                  <button key={t} type="button" onClick={() => trocarTipo(t)}
-                    className={'px-3 py-1 text-xs rounded-md transition-colors ' + (tipo === t ? 'bg-primary text-white' : 'text-slate-400 hover:text-slate-200')}>
-                    {t === 'C' ? 'Calibração' : 'Manutenção'}
-                  </button>
-                ))}
-              </div>
-            )}
             {podeEditar && <Button onClick={salvar} disabled={salvando || carregandoEd}>{salvando ? 'Salvando…' : 'Salvar'}</Button>}
           </div>
         </div>
