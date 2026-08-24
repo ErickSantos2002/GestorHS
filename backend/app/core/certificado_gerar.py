@@ -77,6 +77,11 @@ _PAGE_BREAK = '<div style="page-break-after: always;"></div>'
 # Este conjunto so decide quem escapa do escape.
 _TOKENS_ESTRUTURAIS = frozenset({"pulapagina", "qrcertificados"})
 
+# Tokens de texto livre, digitado num <textarea>: as quebras de linha viram <br />
+# DEPOIS do escape (nunca antes — escapar depois anularia o <br /> e converter
+# antes deixaria passar HTML digitado). O resto do valor segue escapado.
+_TOKENS_MULTILINHA = frozenset({"manutresumo"})
+
 
 def _fmt(d) -> str:
     if d is None:
@@ -471,7 +476,12 @@ def preencher(html: str, contexto: dict[str, str]) -> str:
     for campo, valor in contexto.items():
         if campo in _TOKENS_ESTRUTURAIS:
             continue
-        html = html.replace(f"[{campo}]", _html_escape(valor or "", quote=True))
+        texto = _html_escape(valor or "", quote=True)
+        if campo in _TOKENS_MULTILINHA:
+            # O <textarea rows=6> do modal convida a escrever paragrafos; sem isto
+            # o navegador colapsa o \n num espaco e o PDF sai com tudo corrido.
+            texto = texto.replace("\r\n", "\n").replace("\r", "\n").replace("\n", "<br />")
+        html = html.replace(f"[{campo}]", texto)
     # Estruturais, sem escapar.
     html = html.replace("[qrcertificados]", contexto.get("qrcertificados") or "")
     html = html.replace("[pulapagina]", _PAGE_BREAK)

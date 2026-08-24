@@ -20,6 +20,30 @@ def test_preencher_escapa_valor_malicioso():
     assert "&lt;script&gt;" in out
 
 
+def test_preencher_resumo_de_manutencao_preserva_quebras():
+    """O <textarea> do modal convida a escrever paragrafos; sem <br /> o
+    navegador colapsa o \n num espaco e o PDF sai com tudo corrido."""
+    from app.core.certificado_gerar import preencher
+    out = preencher("[manutresumo]", {"manutresumo": "Primeira linha.\nSegunda linha."})
+    assert out == "Primeira linha.<br />Segunda linha."
+
+
+def test_preencher_resumo_de_manutencao_continua_escapando():
+    """A conversao para <br /> vem DEPOIS do escape — antes seria injecao de HTML."""
+    from app.core.certificado_gerar import preencher
+    out = preencher("[manutresumo]", {"manutresumo": "<script>alert(1)</script>\nfim"})
+    assert "<script>" not in out
+    assert "&lt;script&gt;" in out
+    assert "<br />fim" in out
+
+
+def test_preencher_outros_campos_nao_viram_br():
+    """So o resumo e multilinha: os demais tokens seguem escapados por inteiro."""
+    from app.core.certificado_gerar import preencher
+    out = preencher("[nomecli]", {"nomecli": "ACME\nLTDA"})
+    assert "<br />" not in out
+
+
 def test_preencher_pulapagina_vira_quebra():
     from app.core.certificado_gerar import preencher
     out = preencher("A[pulapagina]B", {})
