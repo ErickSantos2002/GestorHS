@@ -5,8 +5,8 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom'
 let mockUser: { funcao: string } | null = { funcao: 'Laboratório' }
 vi.mock('../../auth/AuthContext', () => ({ useAuth: () => ({ user: mockUser }) }))
 
-const { obter, logs, certificados } = vi.hoisted(() => ({
-  obter: vi.fn(), logs: vi.fn(), certificados: vi.fn(),
+const { obter, logs, certificados, obterManutencao } = vi.hoisted(() => ({
+  obter: vi.fn(), logs: vi.fn(), certificados: vi.fn(), obterManutencao: vi.fn(),
 }))
 vi.mock('./api', async (orig) => {
   const real = await orig<typeof import('./api')>()
@@ -22,7 +22,7 @@ vi.mock('./manutencao', async (orig) => {
     ...real,
     manutencaoApi: {
       ...real.manutencaoApi,
-      obter: vi.fn().mockRejectedValue(new Error('404')),
+      obter: obterManutencao,
       listarServicos: vi.fn().mockResolvedValue([]),
     },
   }
@@ -61,8 +61,9 @@ function tela() {
 describe('OrdemDetailPage — seções de certificado', () => {
   beforeEach(() => {
     mockUser = { funcao: 'Laboratório' }
-    obter.mockReset(); logs.mockReset(); certificados.mockReset()
+    obter.mockReset(); logs.mockReset(); certificados.mockReset(); obterManutencao.mockReset()
     logs.mockResolvedValue([]); certificados.mockResolvedValue([])
+    obterManutencao.mockRejectedValue(new Error('404'))   // OS sem manutenção registrada
   })
 
   it('OS de calibração mostra só a seção de calibração', async () => {
@@ -113,6 +114,30 @@ describe('OrdemDetailPage — seções de certificado', () => {
     expect(screen.getByText('Certificado de manutenção')).toBeInTheDocument()
     expect(screen.getAllByText('Baixar PDF').length).toBeGreaterThan(0)
     expect(screen.queryByText('Nenhum certificado de calibração gerado.')).not.toBeInTheDocument()
+  })
+
+  // Sem isto o técnico salva a manutenção e a tela continua igual, mandando
+  // registrar de novo — nada indica que o registro existe.
+  it('manutenção registrada aparece na seção, com número, data e serviços', async () => {
+    obter.mockResolvedValue(baseOs({ tipo_servico: 'M' }))
+    obterManutencao.mockResolvedValue({
+      id: 3, os: 500, numero: 'HF00715', data_manutencao: '2026-08-21',
+      resumo: 'Placa substituída.',
+      servicos: [{ servico: 1, descricao: 'Troca da placa mãe', resumo_padrao: 'Placa substituída.' }],
+    })
+    tela()
+    expect(await screen.findByText('HF00715')).toBeInTheDocument()
+    expect(screen.getByText('21/08/2026')).toBeInTheDocument()
+    expect(screen.getByText('Troca da placa mãe')).toBeInTheDocument()
+    // Já registrada: não faz sentido continuar mandando registrar.
+    expect(screen.queryByText(/Registre a manutenção antes de gerar/)).not.toBeInTheDocument()
+  })
+
+  it('OS de manutenção sem manutenção registrada manda registrar', async () => {
+    obter.mockResolvedValue(baseOs({ tipo_servico: 'M' }))
+    tela()
+    expect(await screen.findByText(/Registre a manutenção antes de gerar/)).toBeInTheDocument()
+    expect(screen.queryByText('Nº do relatório')).not.toBeInTheDocument()
   })
 
   it('OS de manutenção liberada sem certificado mostra "Liberado sem certificado" e não manda registrar manutenção', async () => {

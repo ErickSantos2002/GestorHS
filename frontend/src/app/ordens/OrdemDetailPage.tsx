@@ -15,6 +15,7 @@ import { GerarCertificadoModal } from './GerarCertificadoModal'
 import { LiberarLabModal } from './LiberarLabModal'
 import { EditarOSModal } from './EditarOSModal'
 import { ManutencaoModal } from './ManutencaoModal'
+import { manutencaoApi, type Manutencao } from './manutencao'
 import { FotoImg } from './FotoImg'
 import { FotoLightbox } from './FotoLightbox'
 import { PageContainer, DetailGrid, DetailMain, DetailAside } from '../../components/ui/Page'
@@ -118,6 +119,7 @@ export function OrdemDetailPage() {
   const [salvandoObs, setSalvandoObs] = useState(false)
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null)
   const [manutencaoAberta, setManutencaoAberta] = useState(false)
+  const [manut, setManut] = useState<Manutencao | null>(null)
 
   useEffect(() => {
     let ativo = true
@@ -154,6 +156,12 @@ export function OrdemDetailPage() {
     ordensApi.certificados(osId)
       .then((cs) => { if (ativo) setCerts(cs) })
       .catch(() => {})
+    // Manutencao registrada na bancada. O endpoint responde 404 quando nao ha —
+    // e' o caso normal, e a maioria das OS nem chega a ter manutencao; por isso
+    // qualquer falha aqui so deixa a secao no estado "nada registrado".
+    manutencaoApi.obter(osId)
+      .then((m) => { if (ativo) setManut(m) })
+      .catch(() => { if (ativo) setManut(null) })
     return () => { ativo = false }
   }, [osId])
 
@@ -580,6 +588,22 @@ export function OrdemDetailPage() {
             </div>
           )}
         >
+          {/* O que foi registrado na bancada, acima do estado do relatório: sem isto
+              o técnico salva a manutenção e a tela continua idêntica, sem sinal de
+              que o registro existe. */}
+          {manut && (
+            <div className="rounded-lg border border-border px-3 py-2 space-y-2">
+              <div className="grid grid-cols-2 gap-x-4">
+                <Campo label="Nº do relatório" valor={manut.numero} />
+                <Campo label="Data da manutenção" valor={formatData(manut.data_manutencao)} />
+              </div>
+              {manut.servicos.length > 0 && (
+                <ul className="list-disc pl-5 text-sm text-slate-200 space-y-0.5">
+                  {manut.servicos.map((s) => <li key={s.servico}>{s.descricao}</li>)}
+                </ul>
+              )}
+            </div>
+          )}
           {certDe('M') ? (
             <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
               <span className="text-sm text-slate-200">
@@ -590,8 +614,9 @@ export function OrdemDetailPage() {
           ) : (
             <p className="text-sm text-slate-500">
               {/* "Registre a manutenção antes de gerar" enganaria numa OS liberada sem
-                  conserto — o aviso "Liberado sem certificado" acima já explica o caso. */}
-              Nenhum relatório de manutenção gerado.{os.desfecho_lab !== 'liberado' ? ' Registre a manutenção antes de gerar.' : ''}
+                  conserto — o aviso "Liberado sem certificado" acima já explica o caso —
+                  e numa OS onde a manutenção JÁ está registrada, logo acima. */}
+              Nenhum relatório de manutenção gerado.{os.desfecho_lab !== 'liberado' && !manut ? ' Registre a manutenção antes de gerar.' : ''}
             </p>
           )}
         </Secao>
@@ -674,7 +699,7 @@ export function OrdemDetailPage() {
         <ManutencaoModal
           osId={osId}
           onClose={() => setManutencaoAberta(false)}
-          onSalvo={() => { void ordensApi.obter(osId).then(setOs) }}
+          onSalvo={(m) => { setManut(m); void ordensApi.obter(osId).then(setOs) }}
         />
       )}
 
