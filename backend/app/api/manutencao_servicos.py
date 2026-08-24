@@ -22,6 +22,18 @@ _escrita = require_funcao(ADMIN, "Laboratório")
 _excluir = require_funcao(ADMIN)
 
 
+def _exige_descricao(valor: str | None) -> str:
+    """Descricao e' NOT NULL no banco e e' o rotulo do servico no relatorio.
+
+    Sem esta guarda, `PUT {"descricao": null}` chegaria ao commit e cairia no
+    `except IntegrityError`, que responde "ja existe um servico com essa
+    descricao" — mensagem que nao tem nada a ver com o que aconteceu.
+    """
+    if valor is None or not valor.strip():
+        raise HTTPException(422, "a descrição do serviço não pode ficar vazia")
+    return valor.strip()
+
+
 def _ou_404(db: Session, servico_id: int) -> ManutencaoServico:
     s = db.query(ManutencaoServico).filter(ManutencaoServico.id == servico_id).first()
     if s is None:
@@ -36,7 +48,7 @@ def listar(db: Session = Depends(get_db), _: Usuario = Depends(get_current_usuar
 
 @router.post("", response_model=ServicoOut, status_code=http_status.HTTP_201_CREATED)
 def criar(dados: ServicoIn, db: Session = Depends(get_db), _: Usuario = Depends(_escrita)):
-    s = ManutencaoServico(descricao=dados.descricao.strip(),
+    s = ManutencaoServico(descricao=_exige_descricao(dados.descricao),
                           resumo_padrao=dados.resumo_padrao.strip(), ativo=dados.ativo)
     db.add(s)
     try:
@@ -53,6 +65,8 @@ def atualizar(servico_id: int, dados: ServicoUpdate, db: Session = Depends(get_d
               _: Usuario = Depends(_escrita)):
     s = _ou_404(db, servico_id)
     campos = dados.model_dump(exclude_unset=True)
+    if "descricao" in campos:
+        campos["descricao"] = _exige_descricao(campos["descricao"])
     for chave, valor in campos.items():
         setattr(s, chave, valor.strip() if isinstance(valor, str) else valor)
     try:

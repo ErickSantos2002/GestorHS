@@ -36,6 +36,37 @@ def test_laboratorio_edita_servico(client_lab):
     assert r.json()["ativo"] is False
 
 
+def test_editar_com_descricao_nula_recusa_com_mensagem_propria(client_lab):
+    """Sem a guarda, o NOT NULL do banco caia no except IntegrityError e o
+    tecnico lia "ja existe um servico com essa descricao"."""
+    sid = client_lab.post("/manutencao-servicos", json={"descricao": "A", "resumo_padrao": "a."}).json()["id"]
+    r = client_lab.put(f"/manutencao-servicos/{sid}", json={"descricao": None})
+    assert r.status_code == 422
+    assert "vazia" in r.json()["detail"]
+    assert "já existe" not in r.json()["detail"]
+
+
+def test_editar_com_descricao_em_branco_recusa(client_lab):
+    sid = client_lab.post("/manutencao-servicos", json={"descricao": "A", "resumo_padrao": "a."}).json()["id"]
+    r = client_lab.put(f"/manutencao-servicos/{sid}", json={"descricao": "   "})
+    assert r.status_code == 422
+    assert "vazia" in r.json()["detail"]
+
+
+def test_cadastrar_com_descricao_em_branco_recusa(client_lab):
+    r = client_lab.post("/manutencao-servicos", json={"descricao": "  ", "resumo_padrao": "a."})
+    assert r.status_code == 422
+    assert "vazia" in r.json()["detail"]
+
+
+def test_editar_so_o_resumo_nao_mexe_na_descricao(client_lab):
+    """A guarda so vale quando `descricao` vem no corpo — PUT parcial continua valendo."""
+    sid = client_lab.post("/manutencao-servicos", json={"descricao": "A", "resumo_padrao": "a."}).json()["id"]
+    r = client_lab.put(f"/manutencao-servicos/{sid}", json={"resumo_padrao": "b."})
+    assert r.status_code == 200
+    assert r.json()["descricao"] == "A"
+
+
 def test_laboratorio_nao_exclui(client_lab):
     sid = client_lab.post("/manutencao-servicos", json={"descricao": "A", "resumo_padrao": "a."}).json()["id"]
     assert client_lab.delete(f"/manutencao-servicos/{sid}").status_code == 403
