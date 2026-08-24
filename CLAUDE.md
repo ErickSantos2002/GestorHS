@@ -27,6 +27,7 @@ python -m app.scripts.enviar_atrasados_growthhs                   # SIMULA a car
 python -m app.scripts.enviar_atrasados_growthhs --enviar          # carga real no GrowthHS (ver aviso abaixo)
 python -m app.scripts.enviar_vencendo_growthhs --dry-run          # SIMULA o job mensal (mes corrente + seguinte)
 python -m app.scripts.enviar_vencendo_growthhs                    # roda o job mensal a mao
+python -m app.scripts.publicar_modelo_manutencao                 # compara o modelo do relatorio com o banco (--aplicar grava)
 ```
 
 > ⚠️ **`enviar_atrasados_growthhs` nao envia nada sem `--enviar`.** A chave do card e
@@ -68,15 +69,29 @@ Verificação completa antes de commitar frontend: `npm run lint && npx tsc -b -
 > baixa o Chromium de novo — esse deploy demora bem mais que o normal. Em fluxo que só faça
 > `pull` de imagem pronta + restart, aí sim seria preciso reconstruir à mão.
 
+> ℹ️ **Scripts de uso único** ficam em `app/scripts/` junto com os recorrentes, mas
+> não precisam rodar de novo — são o registro do que foi corrigido à mão em produção
+> e todos são idempotentes: `corrigir_cnpj_proposta_99`, `corrigir_prox_calibragem`,
+> `resgatar_os_sem_caixa`, `importar_servicos_manutencao`, `normalizar_servicos_manutencao`.
+> **Todos simulam por padrão** e só gravam com `--aplicar`.
+
 ## Arquitetura
 
 ### O ciclo de negócio e o workflow da OS
 A Ordem de Serviço avança **linearmente** por fases, cada uma de responsabilidade de uma função. O grafo de transições está centralizado e puro (sem I/O) em [backend/app/core/os_workflow.py](backend/app/core/os_workflow.py):
 
 ```
-Recebido(4) → Laboratório(5) → Pós-Vendas(6) → Preparando Retorno(7) → Finalizada(8)
+Recebido(4) → Laboratório(5) → Pós-Vendas(6) → Financeiro(10) → Preparando Retorno(7) → Finalizada(8)
 ```
-Com `Cancelada(9)` como saída a qualquer momento. As fases são IDs fixos (`FASE_RECEBIDO=4`, `FASE_FINALIZADA=8`, etc.); use as constantes e `proxima_fase()`/`eh_ativa()` em vez de hard-codar números.
+Com `Cancelada(9)` como saída a qualquer momento.
+
+⚠️ **O ID 10 (Financeiro) é numericamente MAIOR que 7 e 8, mas vem antes deles no fluxo.** Nunca compare fases por ID cru nem escreva a janela como lista literal — use `posicao()`/`ORDEM_FASES` no backend e `posicaoFase()`/`posLaboratorio()` no frontend. Escrever `(5, 6, 7, 8)` para dizer "do laboratório em diante" **omite o Financeiro** e trava a OS lá, sem saída: já aconteceu em 24/08/2026.
+
+As fases são IDs fixos (`FASE_RECEBIDO=4`, `FASE_LABORATORIO=5`, `FASE_FINANCEIRO=10`, `FASE_FINALIZADA=8`); use as constantes e `proxima_fase()`/`eh_ativa()`.
+
+**A OS anda pela CAIXA, não sozinha.** Quem avança de fase é a caixa; a OS acompanha. Por isso a OS nunca pode ficar sem caixa — uma OS solta fica parada para sempre, sem aparecer em caixa nenhuma. Abrir OS sem informar caixa **cria** uma (mesma transação, para não sobrar caixa vazia se a abertura falhar), e tirar a OS de uma caixa é **mover** para outra: desvincular foi removido.
+
+**Concluir o laboratório exige o certificado do tipo de serviço da OS** (`C` → certificado de calibração, `M` → relatório de manutenção, `A` → os dois). Os desfechos `liberado` e `sem_conserto` saem sem documento — é para isso que existem.
 
 Ao concluir o laboratório, os dados de calibração são **espelhados** no registro da frota do cliente (`equipamento_cliente`/`historico_equipamento`).
 
@@ -95,6 +110,16 @@ A geração de certificado é o subsistema mais elaborado:
 - [certificado_pdf.py](backend/app/core/certificado_pdf.py) gera o PDF; [storage.py](backend/app/core/storage.py) lida com upload de imagens/PDF (limite 10 MB; `UPLOAD_DIR` em config).
 
 `status_calibracao()` em [calibracao.py](backend/app/core/calibracao.py) classifica a próxima calibração (`sem_data`/`vencido`/`vencendo`/`em_dia`, janela padrão 90 dias) — reutilize-o em vez de recalcular.
+
+### Relatório de Manutenção
+Documento irmão do certificado de calibração, gerado pelo **mesmo motor** (modelo HTML no banco com tokens `[campo]` + Playwright). O que muda:
+
+- **Modelo ÚNICO para todos os aparelhos** — os relatórios só diferem em marca, modelo e série, que são dados. Vive em `certificados` com `equipamento` **nulo**, e `modelo_para()` cai nele quando não há modelo do aparelho. ⚠️ **Esse fallback vale só para o tipo `M`**: existe um registro tipo `C` com `equipamento` nulo (o "legado" de julho) que não pode virar padrão de calibração. As rotas por aparelho recusam `tipo=M`.
+- **A fonte do modelo é versionada** em `docs/certificado-manutencao/modelo-relatorio-manutencao.html`. Editar lá e publicar com `python -m app.scripts.publicar_modelo_manutencao --aplicar` (mostra o diff antes) — colar à mão na tela fazia as duas versões divergirem em silêncio.
+- **O registro da manutenção** fica em `manutencoes` (uma por OS, espelhando a unicidade de `os_certificados`), com N serviços de um **catálogo fechado** (`manutencao_servicos`, com `codigo` que amarra ao catálogo comercial `servicos`). Núcleo puro em [app/core/manutencao.py](backend/app/core/manutencao.py).
+- **O resumo é composto**, não digitado: aparelho e frase de conformidade uma vez, serviços listados. A composição tem dono no **servidor** (`compor_resumo`); o modal só faz preview, com um espelho em `frontend/src/app/ordens/manutencao.ts` — mexer num, mexer no outro.
+- **O resumo editado à mão fica congelado.** O modal guarda a última composição automática e só recompõe enquanto o texto for igual a ela. Ao reabrir, `composicao` é **recalculada a partir dos serviços salvos**, nunca copiada do texto salvo — copiar fazia o texto do técnico ser sobrescrito ao marcar qualquer serviço.
+- Gerar sem manutenção registrada é recusado com 409: documento em branco não deve sair.
 
 ### Exportação para Excel
 A exportação para Excel tem o motor puro em [backend/app/core/planilha.py](backend/app/core/planilha.py) (formatação do xlsx, sem domínio) e as colunas de cada planilha em [backend/app/core/exportacoes.py](backend/app/core/exportacoes.py). Cada endpoint `GET .../exportar` reaproveita o mesmo helper `_query_*` da listagem correspondente — é o que impede a planilha de divergir da tela. No frontend, o componente compartilhado é [frontend/src/components/ui/BotaoExportar.tsx](frontend/src/components/ui/BotaoExportar.tsx).
@@ -150,4 +175,4 @@ Esta máquina tem plugins do Claude Code que ampliam o que está disponível —
 - **gh** (GitHub CLI) — autenticado; usado por `commit-push-pr` para abrir PRs (branches `feat/<nome>`).
 
 ## Migrações Alembic
-Migrações já aplicadas (`0001`–`0008`) cobrem auth, schema de OS, solicitações, caixas, certificados (modelo, por-OS) e cert_overrides. Cada migração tem um propósito único e nomeado — siga o padrão `NNNN_descricao.py`.
+Migrações já aplicadas (`0001`–`0028`) cobrem auth, schema de OS, solicitações, caixas, certificados (modelo, por-OS, cert_overrides, configuração e cilindros), propostas, nota fiscal em PDF+XML e o registro de manutenção. Cada migração tem um propósito único e nomeado — siga o padrão `NNNN_descricao.py`.

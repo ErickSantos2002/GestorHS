@@ -23,6 +23,26 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.45.0',
+    data: '24/08/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'Os 52 serviços do catálogo comercial foram levados para Certificados › Serviços de manutenção, com o código de cada um. No modal de registro dá para buscar pelo código — é assim que o serviço chega ao técnico — e o código aparece ao lado do nome.' },
+      { tipo: 'melhoria', texto: 'O resumo do relatório passou a ser um texto padrão: o aparelho e a frase de conformidade aparecem uma vez só e os serviços são listados em seguida. Antes emendava uma frase por serviço e ficava longo com três ou mais. O texto continua editável antes de gerar.' },
+      { tipo: 'melhoria', texto: 'A data da manutenção já vem preenchida com o dia de hoje, e no relatório os rótulos “Tipo do Problema” e “Resumo do Serviço” saem em negrito.' },
+      { tipo: 'correcao', texto: 'Concluir o laboratório passa a exigir o certificado do tipo de serviço da OS: Calibração pede o certificado de calibração, Manutenção pede o relatório de manutenção, e Ambas só conclui com os dois. Antes bastava um documento qualquer.' },
+    ],
+  },
+  {
+    versao: '1.44.1',
+    data: '24/08/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'Ao abrir uma OS, a caixa passa a ser criada junto, já com a OS dentro e com o próximo número. Só é preciso buscar uma caixa quando a OS vai entrar numa que já existe — nesse caso, marque a opção no topo do formulário.' },
+      { tipo: 'correcao', texto: 'Saiu o botão “Remover” da OS dentro da caixa. Uma OS sem caixa não anda, porque quem avança de fase é a caixa: quatro OS estavam paradas assim, a mais antiga havia um mês. Para tirar a OS de uma caixa, use “Mover” para outra.' },
+      { tipo: 'correcao', texto: 'Não é mais possível criar caixa pelo formulário de abrir OS. Criar a caixa antes e desistir do cadastro deixava caixa vazia no sistema.' },
+      { tipo: 'melhoria', texto: 'O modelo do relatório de manutenção é único para todos os aparelhos, então a opção de cadastrar um modelo de manutenção por aparelho foi removida — ela faria aquele aparelho parar de acompanhar as revisões do formulário sem ninguém perceber.' },
+    ],
+  },
+  {
     versao: '1.44.0',
     data: '21/08/2026',
     itens: [
