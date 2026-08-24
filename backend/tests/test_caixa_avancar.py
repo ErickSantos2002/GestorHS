@@ -376,3 +376,72 @@ def test_admin_sem_pedir_dispensa_continua_barrado(client_admin, caixa_financeir
     senao o admin passaria sem nota por engano no fluxo normal."""
     r = client_admin.post(f"/caixas/{caixa_financeiro}/avancar", json={})
     assert r.status_code == 409
+
+
+# ── Concluir exige o certificado DO TIPO do servico ──────────────────────────
+# `tem_cert` aceitava qualquer certificado. Furo real: OS de Calibracao com o
+# certificado gerado, o laboratorio troca o tipo para "Ambas" (pode, na fase
+# dele) e o certificado antigo satisfazia a trava — dava para concluir sem o
+# relatorio de manutencao.
+
+def _cert(db, os_id, tipo):
+    from app.models import OSCertificado
+    db.add(OSCertificado(os=os_id, tipo=tipo, html="<p>x</p>"))
+    db.commit()
+
+
+def _tipo(db, os_id, tipo_servico):
+    from app.models import Ordem
+    o = db.get(Ordem, os_id)
+    o.tipo_servico = tipo_servico
+    db.commit()
+
+
+def test_calibracao_conclui_com_o_certificado_de_calibracao(client_lab, os_no_lab, db_session):
+    _tipo(db_session, os_no_lab, "C")
+    _cert(db_session, os_no_lab, "C")
+    r = client_lab.post(f"/ordens/{os_no_lab}/desfecho-lab", json={"desfecho": "concluido", "obs": None})
+    assert r.status_code == 200
+
+
+def test_manutencao_nao_conclui_com_certificado_de_calibracao(client_lab, os_no_lab, db_session):
+    _tipo(db_session, os_no_lab, "M")
+    _cert(db_session, os_no_lab, "C")
+    r = client_lab.post(f"/ordens/{os_no_lab}/desfecho-lab", json={"desfecho": "concluido", "obs": None})
+    assert r.status_code == 409
+    assert "Manutenção" in r.json()["detail"]
+
+
+def test_manutencao_conclui_com_o_relatorio_de_manutencao(client_lab, os_no_lab, db_session):
+    _tipo(db_session, os_no_lab, "M")
+    _cert(db_session, os_no_lab, "M")
+    r = client_lab.post(f"/ordens/{os_no_lab}/desfecho-lab", json={"desfecho": "concluido", "obs": None})
+    assert r.status_code == 200
+
+
+def test_ambas_exige_os_dois(client_lab, os_no_lab, db_session):
+    _tipo(db_session, os_no_lab, "A")
+    _cert(db_session, os_no_lab, "C")
+    r = client_lab.post(f"/ordens/{os_no_lab}/desfecho-lab", json={"desfecho": "concluido", "obs": None})
+    assert r.status_code == 409
+    assert "Manutenção" in r.json()["detail"]
+
+    _cert(db_session, os_no_lab, "M")
+    r2 = client_lab.post(f"/ordens/{os_no_lab}/desfecho-lab", json={"desfecho": "concluido", "obs": None})
+    assert r2.status_code == 200
+
+
+def test_ambas_so_com_manutencao_ainda_falta_a_calibracao(client_lab, os_no_lab, db_session):
+    _tipo(db_session, os_no_lab, "A")
+    _cert(db_session, os_no_lab, "M")
+    r = client_lab.post(f"/ordens/{os_no_lab}/desfecho-lab", json={"desfecho": "concluido", "obs": None})
+    assert r.status_code == 409
+    assert "Calibração" in r.json()["detail"]
+
+
+def test_liberado_continua_saindo_sem_certificado(client_lab, os_no_lab, db_session):
+    """A trava e' so do 'concluido' — 'liberado' existe justamente para o
+    aparelho que sai do laboratorio sem documento."""
+    _tipo(db_session, os_no_lab, "A")
+    r = client_lab.post(f"/ordens/{os_no_lab}/desfecho-lab", json={"desfecho": "liberado", "obs": None})
+    assert r.status_code == 200

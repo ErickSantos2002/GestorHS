@@ -381,9 +381,16 @@ def marcar_desfecho_lab(ordem_id: int, dados: DesfechoLabIn, db: Session = Depen
         raise HTTPException(status_code=409, detail="desfecho só no laboratório")
     exige_funcao_da_fase(db, usuario, ordem.fase)
     if dados.desfecho == wf.DESFECHO_CONCLUIDO:
-        tem_cert = db.query(OSCertificado).filter(OSCertificado.os == ordem.id).first() is not None
-        if not tem_cert:
-            raise HTTPException(status_code=409, detail="gere o certificado antes de concluir")
+        # Os documentos que o TIPO DE SERVICO pede — nao "qualquer certificado".
+        # Antes bastava um: uma OS de Calibracao com o certificado gerado, trocada
+        # para "Ambas" na propria fase do laboratorio, concluia sem o relatorio de
+        # manutencao, porque o certificado antigo satisfazia a trava.
+        emitidos = {c.tipo for c in db.query(OSCertificado).filter(OSCertificado.os == ordem.id).all()}
+        faltam = [t for t in tipos_para(ordem) if t not in emitidos]
+        if faltam:
+            nomes = " e ".join(TIPO_SERVICO_LABEL.get(t, t) for t in faltam)
+            raise HTTPException(status_code=409,
+                                detail=f"gere o certificado de {nomes} antes de concluir")
         concluir_laboratorio(db, ordem)
         texto = "Laboratório concluído (aparelho)"
     elif dados.desfecho == wf.DESFECHO_SEM_CONSERTO:
