@@ -12,7 +12,6 @@ import {
   IconTag,
   IconBattery,
   IconSearch,
-  IconPlus,
   IconNote,
   IconX,
   IconAlertCircle,
@@ -70,7 +69,6 @@ export function AbrirOSModal({ equipamentoClienteId, osAtual, onClose, caixa, on
   const [caixaId, setCaixaId] = useState<number | null>(caixa ?? null)
   const [caixaQ, setCaixaQ] = useState('')
   const [caixaResultados, setCaixaResultados] = useState<CaixaListItem[]>([])
-  const [criandoCaixa, setCriandoCaixa] = useState(false)
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -84,21 +82,6 @@ export function AbrirOSModal({ equipamentoClienteId, osAtual, onClose, caixa, on
 
   function toggleChecklist(id: number) {
     setChecklist((cur) => cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id])
-  }
-
-  async function criarCaixa() {
-    setCriandoCaixa(true)
-    setErro('')
-    try {
-      const nova = await caixasApi.criar({ obs: caixaQ.trim() || null })
-      setCaixaId(nova.id)
-      setCaixaResultados([])
-      setCaixaQ('')
-    } catch (err) {
-      setErro(err instanceof ApiError ? err.message : 'Falha ao criar caixa')
-    } finally {
-      setCriandoCaixa(false)
-    }
   }
 
   async function submeter(e: FormEvent) {
@@ -249,17 +232,6 @@ export function AbrirOSModal({ equipamentoClienteId, osAtual, onClose, caixa, on
                         </li>
                       ))}
                     </ul>
-                  )}
-                  {caixaQ.trim() && (
-                    <button
-                      type="button"
-                      onClick={criarCaixa}
-                      disabled={criandoCaixa}
-                      className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary-600 disabled:opacity-50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50 rounded"
-                    >
-                      <IconPlus className="w-3.5 h-3.5" />
-                      {criandoCaixa ? 'Criando…' : `Criar caixa "${caixaQ.trim()}"`}
-                    </button>
                   )}
                 </div>
               )}

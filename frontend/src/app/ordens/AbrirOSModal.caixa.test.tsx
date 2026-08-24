@@ -105,4 +105,17 @@ describe('AbrirOSModal — escolha da caixa', () => {
     expect(await screen.findByText(/Caixa #55/)).toBeInTheDocument()
     expect(screen.queryByLabelText(ROTULO)).not.toBeInTheDocument()
   })
+
+  it('não dá para criar caixa por aqui', async () => {
+    // Criar a caixa neste modal era o ultimo caminho que sobrava para gerar
+    // caixa vazia: bastava criar e desistir do resto do cadastro. Sem caixa
+    // marcada, o backend cria uma JUNTO com a OS, no mesmo commit.
+    tela()
+    await userEvent.click(await screen.findByLabelText(ROTULO))
+    fireEvent.change(screen.getByPlaceholderText(/Buscar por n/i), { target: { value: '999' } })
+
+    await waitFor(() => expect(listarCaixas).toHaveBeenCalled())
+    expect(screen.queryByText(/Criar caixa/i)).not.toBeInTheDocument()
+    expect(criarCaixa).not.toHaveBeenCalled()
+  })
 })
