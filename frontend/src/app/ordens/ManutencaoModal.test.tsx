@@ -32,6 +32,55 @@ describe('ManutencaoModal', () => {
     expect(screen.queryByLabelText('Serviço aposentado')).not.toBeInTheDocument()
   })
 
+  // Desativar e' o caminho recomendado para aposentar servico. Escondê-lo de uma
+  // manutenção que já o tem grava um serviço sem checkbox: impossível desmarcar,
+  // fora do resumo e ainda assim impresso em "Tipo do Problema".
+  it('serviço inativo JÁ ESCOLHIDO aparece, marcado como desativado', async () => {
+    obter.mockReset()
+    obter.mockResolvedValue({
+      id: 1, os: 7, numero: 'HF1', data_manutencao: '2026-08-21',
+      resumo: 'x.',
+      servicos: [{ servico: 3, descricao: 'Serviço aposentado', resumo_padrao: 'x.' }],
+    })
+    render(<ManutencaoModal osId={7} onClose={vi.fn()} onSalvo={vi.fn()} />)
+    const box = await screen.findByLabelText('Serviço aposentado') as HTMLInputElement
+    expect(box.checked).toBe(true)
+    expect(screen.getByText(/serviço desativado/i)).toBeInTheDocument()
+  })
+
+  it('a frase do serviço inativo escolhido continua no resumo composto', async () => {
+    obter.mockReset()
+    obter.mockResolvedValue({
+      id: 1, os: 7, numero: 'HF1', data_manutencao: '2026-08-21',
+      resumo: 'x.',
+      servicos: [{ servico: 3, descricao: 'Serviço aposentado', resumo_padrao: 'x.' }],
+    })
+    render(<ManutencaoModal osId={7} onClose={vi.fn()} onSalvo={vi.fn()} />)
+    await screen.findByLabelText('Serviço aposentado')
+    await userEvent.click(screen.getByLabelText('Troca da bateria'))
+
+    const resumo = screen.getByLabelText('Resumo do serviço') as HTMLTextAreaElement
+    await waitFor(() => expect(resumo.value).toBe('x. Bateria trocada.'))
+  })
+
+  it('desmarcar o serviço inativo tira ele da manutenção', async () => {
+    obter.mockReset()
+    obter.mockResolvedValue({
+      id: 1, os: 7, numero: 'HF1', data_manutencao: '2026-08-21',
+      resumo: 'x.',
+      servicos: [{ servico: 3, descricao: 'Serviço aposentado', resumo_padrao: 'x.' }],
+    })
+    render(<ManutencaoModal osId={7} onClose={vi.fn()} onSalvo={vi.fn()} />)
+    await userEvent.click(await screen.findByLabelText('Serviço aposentado'))
+    await userEvent.click(screen.getByLabelText('Troca da bateria'))
+    await userEvent.click(screen.getByText('Salvar manutenção'))
+
+    await waitFor(() => expect(salvar).toHaveBeenCalled())
+    expect(salvar.mock.calls[0][1].servicos).toEqual([2])
+    // Desmarcado, some da lista: inativo só continua visível enquanto escolhido.
+    expect(screen.queryByLabelText('Serviço aposentado')).not.toBeInTheDocument()
+  })
+
   it('escolher serviços compõe o resumo automaticamente', async () => {
     render(<ManutencaoModal osId={7} onClose={vi.fn()} onSalvo={vi.fn()} />)
     await userEvent.click(await screen.findByLabelText('Troca da placa mãe'))

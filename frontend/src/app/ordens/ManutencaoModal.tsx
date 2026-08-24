@@ -11,6 +11,9 @@ export function ManutencaoModal({ osId, onClose, onSalvo }: {
   onClose: () => void
   onSalvo: (m: Manutencao) => void
 }) {
+  // Catalogo INTEIRO (ativos e inativos). O filtro de exibicao acontece na
+  // renderizacao, para nao perder de vista um servico ja escolhido que foi
+  // desativado depois — ver `visiveis` abaixo.
   const [servicos, setServicos] = useState<ServicoManutencao[] | null>(null)
   const [escolhidos, setEscolhidos] = useState<number[]>([])
   const [numero, setNumero] = useState('')
@@ -26,7 +29,7 @@ export function ManutencaoModal({ osId, onClose, onSalvo }: {
   useEffect(() => {
     let vivo = true
     void manutencaoApi.listarServicos()
-      .then((lista) => { if (vivo) setServicos(lista.filter((s) => s.ativo)) })
+      .then((lista) => { if (vivo) setServicos(lista) })
       .catch(() => { if (vivo) setServicos([]) })
     // Manutencao ja registrada: 404 aqui e' o caso normal da primeira vez.
     void manutencaoApi.obter(osId)
@@ -57,6 +60,12 @@ export function ManutencaoModal({ osId, onClose, onSalvo }: {
     }
     setComposicao(nova)
   }
+
+  // Inativo aparece SO se ja estiver escolhido nesta manutencao: escondê-lo
+  // deixaria um serviço gravado sem checkbox — impossível de desmarcar, fora do
+  // resumo composto e ainda assim impresso em "Tipo do Problema". Inativo que
+  // ninguém escolheu continua fora, que é o ponto de desativar.
+  const visiveis = (servicos ?? []).filter((s) => s.ativo || escolhidos.includes(s.id))
 
   const resumoDesacoplado = resumo !== composicao && resumo.trim() !== ''
 
@@ -113,15 +122,18 @@ export function ManutencaoModal({ osId, onClose, onSalvo }: {
           <span className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">Serviços executados</span>
           {servicos === null ? (
             <Spinner className="w-5 h-5" />
-          ) : servicos.length === 0 ? (
+          ) : visiveis.length === 0 ? (
             <p className="text-sm text-slate-500">Nenhum serviço cadastrado — cadastre em Certificados › Serviços de manutenção.</p>
           ) : (
             <div className="space-y-1">
-              {servicos.map((s) => (
+              {visiveis.map((s) => (
                 <label key={s.id} className="flex items-center gap-2 text-sm text-slate-200">
                   <input type="checkbox" aria-label={s.descricao}
                          checked={escolhidos.includes(s.id)} onChange={() => alternar(s)} />
                   {s.descricao}
+                  {!s.ativo && (
+                    <span className="text-xs text-warning">(serviço desativado — desmarque para tirar do relatório)</span>
+                  )}
                 </label>
               ))}
             </div>
