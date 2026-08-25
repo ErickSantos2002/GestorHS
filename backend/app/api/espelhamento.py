@@ -80,6 +80,24 @@ def _montar_payload_caixa(db, caixa, *, list_id, arquivado) -> dict:
     return taskhs.montar_payload_caixa(caixa, ordens, list_id=list_id, arquivado=arquivado, obs=obs)
 
 
+def espelhar_caixa_sync(db, caixa, *, list_id, arquivado=False) -> bool:
+    """Versão síncrona de `agendar_espelhamento_caixa`, para backfill/correção em lote.
+
+    Espelho de `espelhar_os_sync`, só que para o card da CAIXA: PROPAGA erro em vez
+    de engolir, para o script conseguir relatar o que falhou. Devolve False quando a
+    caixa é de módulo/phoebus (fluxo próprio, fora do board).
+    """
+    ordens = ordens_do_card(caixa)
+    if fluxo_modulo.caixa_de_modulo(ordens):
+        registrar_log_integracao(integracao="taskhs", status="pulado",
+                                 motivo="caixa_de_modulo",
+                                 referencia_os=ordens[0].id if ordens else None)
+        return False
+    payload = _montar_payload_caixa(db, caixa, list_id=list_id, arquivado=arquivado)
+    taskhs_client.enviar_card_sync(payload)
+    return True
+
+
 def agendar_espelhamento_caixa(db, background_tasks, caixa, *, origem=None, arquivado=False):
     """Agenda o upsert no TaskHS do card da CAIXA (async, best-effort). No-op se
     sem list_id (fase sem mapeamento), integração desligada ou caixa de módulo."""
