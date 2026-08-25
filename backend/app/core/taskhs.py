@@ -15,7 +15,10 @@ FASE_PARA_LIST_ID: dict[int, int] = {
     5: 197,  # 🔬 Laboratório Calibração
     6: 202,  # 🔬 LIBERADOS DO LABORATÓRIO
     10: 205,  # 💰 Financeiro
-    7: 209,  # 🚚 Expedição (Preparando para Envio)
+    # 208, nao 209: o Financeiro e a Expedicao pediram (25/08/2026) que a caixa
+    # liberada pelo Financeiro caia em "Notas Faturadas" — a lista imediatamente
+    # anterior a "Preparando para Envio" no board.
+    7: 208,  # 📑 Notas Faturadas
     8: 210,  # 📮 Correios
 }
 

@@ -17,7 +17,7 @@ def test_list_id_da_fase_cobre_ativas_e_finalizada():
     assert taskhs.list_id_da_fase(4) == 196
     assert taskhs.list_id_da_fase(5) == 197
     assert taskhs.list_id_da_fase(6) == 202
-    assert taskhs.list_id_da_fase(7) == 209
+    assert taskhs.list_id_da_fase(7) == 208  # 📑 Notas Faturadas
     assert taskhs.list_id_da_fase(8) == 210
 
 
