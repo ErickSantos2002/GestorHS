@@ -23,6 +23,15 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.46.0',
+    data: '27/08/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'A caixa que veio de uma proposta ganha do CRM agora mostra essa proposta na própria tela, ao lado do resumo: número, data, cliente, CNPJ e valor. Dali mesmo dá para visualizar o PDF, baixar e — para o Financeiro e o Administrador — marcar como faturada, sem abrir a tela de Propostas.' },
+      { tipo: 'melhoria', texto: 'Excluir proposta virou Desabilitar. A proposta sai da lista mas continua inteira no sistema, com itens, histórico de versões e o vínculo com a caixa, e só um Administrador pode reativá-la. Enquanto estiver desabilitada não aceita edição, duplicação nem faturamento, e o link público do PDF para de funcionar.' },
+      { tipo: 'novidade', texto: 'Na lista de propostas há um filtro "Mostrar desabilitadas". As propostas desabilitadas aparecem marcadas e, para o Administrador, com o botão de reativar — inclusive as seis que já haviam sido excluídas antes desta versão, que continuam recuperáveis.' },
+    ],
+  },
+  {
     versao: '1.45.0',
     data: '24/08/2026',
     itens: [
