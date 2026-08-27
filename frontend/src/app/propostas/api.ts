@@ -1,25 +1,6 @@
 import { apiJson, apiFetch, ApiError } from '../../lib/api'
 import { crudClient } from '../cadastros/api'
 
-// DELETE/204 não tem corpo — apiJson faz res.json() e quebraria. Mesmo padrão
-// usado em caixas/api.ts e cadastros/api.ts.
-async function apiVoid(path: string, options: RequestInit = {}): Promise<void> {
-  const res = await apiFetch(path, {
-    ...options,
-    headers: { 'Content-Type': 'application/json', ...(options.headers as Record<string, string>) },
-  })
-  if (!res.ok) {
-    let detail = res.statusText
-    try {
-      const body = (await res.json()) as { detail?: string }
-      if (body.detail) detail = body.detail
-    } catch {
-      // sem corpo JSON
-    }
-    throw new ApiError(res.status, detail)
-  }
-}
-
 // Mesma resolução de base usada em lib/api.ts (window.__API_URL__ → VITE_API_URL
 // → localhost:8000), replicada aqui porque BASE_URL não é exportado de lá — só
 // precisamos dela para montar a URL absoluta de download/preview do PDF (ver
@@ -107,6 +88,9 @@ export interface Proposta extends PropostaBase {
   faturada: boolean
   faturada_em: string | null
   faturada_por: string | null
+  /** Desabilitada: fora de circulacao, mas inteira no banco. So Admin reativa. */
+  is_deleted: boolean
+  deleted_at: string | null
 }
 
 export interface PropostaPage {
@@ -130,6 +114,7 @@ export interface PropostasParams {
   page?: number
   page_size?: number
   q?: string
+  incluir_desabilitadas?: boolean
 }
 
 export const propostasApi = {
@@ -138,6 +123,7 @@ export const propostasApi = {
     if (params.page != null) sp.set('page', String(params.page))
     if (params.page_size != null) sp.set('page_size', String(params.page_size))
     if (params.q) sp.set('q', params.q)
+    if (params.incluir_desabilitadas) sp.set('incluir_desabilitadas', 'true')
     const qs = sp.toString()
     return apiJson<PropostaPage>(`/propostas${qs ? `?${qs}` : ''}`)
   },
@@ -146,7 +132,11 @@ export const propostasApi = {
     apiJson<Proposta>('/propostas', { method: 'POST', body: JSON.stringify(payload) }),
   atualizar: (id: number, payload: PropostaUpdate): Promise<Proposta> =>
     apiJson<Proposta>(`/propostas/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
-  excluir: (id: number): Promise<void> => apiVoid(`/propostas/${id}`, { method: 'DELETE' }),
+  // Nao existe excluir: proposta sai de circulacao, nunca do banco.
+  desabilitar: (id: number): Promise<Proposta> =>
+    apiJson<Proposta>(`/propostas/${id}/desabilitar`, { method: 'POST' }),
+  reativar: (id: number): Promise<Proposta> =>
+    apiJson<Proposta>(`/propostas/${id}/reativar`, { method: 'POST' }),
   duplicar: (id: number): Promise<Proposta> =>
     apiJson<Proposta>(`/propostas/${id}/duplicar`, { method: 'POST' }),
   faturar: (id: number): Promise<Proposta> =>

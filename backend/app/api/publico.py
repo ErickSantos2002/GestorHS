@@ -13,7 +13,7 @@ from app.core import (
     storage,
 )
 from app.core.certificado_pdf import html_para_pdf
-from app.models import CertificadoGeral, OSCertificado, Ordem
+from app.models import CertificadoGeral, OSCertificado, Ordem, Proposta
 from app.models.database import get_db
 
 router = APIRouter(prefix="/publico", tags=["publico"])
@@ -73,6 +73,15 @@ def baixar_nota_fiscal_publica(ordem_id: int, t: str = "", db: Session = Depends
 def baixar_proposta_publica(proposta_id: int, t: str = "", db: Session = Depends(get_db)):
     if not proposta_link.verificar(proposta_id, t):
         raise HTTPException(status_code=403, detail="link inválido")
+    # Desabilitar tira a proposta de circulação aqui também: o link vive no card do
+    # TaskHS e continuaria servindo o PDF de uma proposta que a equipe tirou do ar.
+    desabilitada = (
+        db.query(Proposta.id)
+        .filter(Proposta.id == proposta_id, Proposta.is_deleted.is_(True))
+        .first()
+    )
+    if desabilitada is not None:
+        raise HTTPException(status_code=404, detail="proposta não encontrada")
     try:
         conteudo = proposta_pdf.gerar_pdf(db, proposta_id)
     except ValueError:

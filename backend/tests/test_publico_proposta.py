@@ -53,3 +53,31 @@ def test_404_proposta_inexistente(client, monkeypatch):
     tok = pl.assinar(123)
     r = client.get(f"/publico/proposta/123?t={tok}")
     assert r.status_code == 404
+
+
+def test_404_proposta_desabilitada(client, db_session, monkeypatch):
+    """Desabilitar tira a proposta de circulacao TAMBEM no link publico — o card do
+    TaskHS/GrowthHS carrega esse link e ele sobreviveria ao 'excluir' de antes."""
+    from app.api import publico
+    from app.models import Proposta
+    monkeypatch.setattr(publico.proposta_pdf, "gerar_pdf", lambda db, pid: b"%PDF-fake")
+
+    p = Proposta(numero=7, vendedor="Fulano", is_deleted=True)
+    db_session.add(p)
+    db_session.commit()
+
+    r = client.get(f"/publico/proposta/{p.id}?t={pl.assinar(p.id)}")
+    assert r.status_code == 404
+
+
+def test_proposta_ativa_continua_baixando(client, db_session, monkeypatch):
+    from app.api import publico
+    from app.models import Proposta
+    monkeypatch.setattr(publico.proposta_pdf, "gerar_pdf", lambda db, pid: b"%PDF-fake")
+
+    p = Proposta(numero=8, vendedor="Fulano")
+    db_session.add(p)
+    db_session.commit()
+
+    r = client.get(f"/publico/proposta/{p.id}?t={pl.assinar(p.id)}")
+    assert r.status_code == 200

@@ -6,13 +6,14 @@ import { SearchBar } from '../../components/ui/SearchBar'
 import { Pagination } from '../../components/ui/Pagination'
 import { PageContainer } from '../../components/ui/Page'
 import { IconButton, IconButtonGroup } from '../../components/ui/IconButton'
-import { IconEye, IconDownload, IconClock, IconPencil, IconCopy, IconTrash, IconCheck, IconX } from '../../components/ui/icons'
+import { IconEye, IconDownload, IconClock, IconPencil, IconCopy, IconBan, IconRestore, IconCheck, IconX } from '../../components/ui/icons'
 import { Badge } from '../../components/ui/Badge'
 import { useAuth } from '../../auth/AuthContext'
-import { podeGerenciarPropostas, podeFaturarProposta, podeDesfaturarProposta } from '../../auth/roles'
+import { podeGerenciarPropostas, podeFaturarProposta, podeDesfaturarProposta, podeReativarProposta } from '../../auth/roles'
 import { ApiError } from '../../lib/api'
 import { formatData } from '../../lib/utils'
 import { formatarDocumento } from '../../lib/documento'
+import { formatarMoeda } from '../../lib/moeda'
 import { propostasApi, type Proposta } from './api'
 import { PropostaModal } from './PropostaModal'
 import { HistoricoModal } from './HistoricoModal'
@@ -21,13 +22,13 @@ import { OverrideDetalheModal } from './OverrideDetalhe'
 import { temOverride } from './clienteOverride'
 
 const PAGE = 25
-const formatarMoeda = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 export function PropostasPage() {
   const { user } = useAuth()
   const podeEscrever = podeGerenciarPropostas(user)
   const [q, setQ] = useState('')
   const [busca, setBusca] = useState('')
+  const [incluirDesabilitadas, setIncluirDesabilitadas] = useState(false)
   const [page, setPage] = useState(1)
   const [dados, setDados] = useState<{ items: Proposta[]; total: number; total_pages: number } | null>(null)
   const [erro, setErro] = useState('')
@@ -48,11 +49,11 @@ export function PropostasPage() {
     setDados(null)
     setErro('')
     propostasApi
-      .listar({ q: busca || undefined, page, page_size: PAGE })
+      .listar({ q: busca || undefined, page, page_size: PAGE, incluir_desabilitadas: incluirDesabilitadas || undefined })
       .then((r) => { if (vivo) setDados({ items: r.items, total: r.total, total_pages: r.total_pages }) })
       .catch((e) => { if (vivo) { setErro(e instanceof ApiError ? e.message : 'Falha ao carregar'); setDados({ items: [], total: 0, total_pages: 0 }) } })
     return () => { vivo = false }
-  }, [busca, page, recarga])
+  }, [busca, page, recarga, incluirDesabilitadas])
 
   function onBuscar(e: FormEvent) {
     e.preventDefault()
@@ -91,15 +92,32 @@ export function PropostasPage() {
     setDuplicarDeId(id)
   }
 
-  async function excluir(p: Proposta) {
-    if (!window.confirm(`Excluir a proposta #${p.numero}? Esta ação não pode ser desfeita.`)) return
+  // Não existe excluir proposta: ela sai de circulação e continua inteira no banco,
+  // com itens, versões e o vínculo com a caixa. Só Admin traz de volta.
+  async function desabilitar(p: Proposta) {
+    const aviso = `Desabilitar a proposta #${p.numero}? Ela sai da lista mas continua `
+      + 'no sistema, e um Administrador pode reativá-la.'
+    if (!window.confirm(aviso)) return
     setErro('')
     setBusyId(p.id)
     try {
-      await propostasApi.excluir(p.id)
+      await propostasApi.desabilitar(p.id)
       recarregar()
     } catch (e) {
-      setErro(e instanceof ApiError ? e.message : 'Falha ao excluir')
+      setErro(e instanceof ApiError ? e.message : 'Falha ao desabilitar')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function reativar(p: Proposta) {
+    setErro('')
+    setBusyId(p.id)
+    try {
+      await propostasApi.reativar(p.id)
+      recarregar()
+    } catch (e) {
+      setErro(e instanceof ApiError ? e.message : 'Falha ao reativar')
     } finally {
       setBusyId(null)
     }
@@ -152,6 +170,16 @@ export function PropostasPage() {
         placeholder="Cliente ou número"
       />
 
+      <label className="flex items-center gap-2 text-sm text-slate-400 select-none w-fit">
+        <input
+          type="checkbox"
+          checked={incluirDesabilitadas}
+          onChange={(e) => { setPage(1); setIncluirDesabilitadas(e.target.checked) }}
+          className="rounded border-border"
+        />
+        Mostrar desabilitadas
+      </label>
+
       {erro && (
         <div className="rounded-lg bg-danger/10 border border-danger/20 px-3 py-2.5 text-sm text-danger">{erro}</div>
       )}
@@ -190,6 +218,7 @@ export function PropostasPage() {
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-slate-200">#{p.numero}</span>
                     {p.faturada && <Badge tone="primary">Faturada</Badge>}
+                    {p.is_deleted && <Badge tone="danger">Desabilitada</Badge>}
                   </div>
                 </TD>
                 <TD>{formatData(p.data)}</TD>
@@ -220,17 +249,18 @@ export function PropostasPage() {
                     <IconButton label="Histórico" tone="historico" onClick={() => setHistorico({ id: p.id, numero: p.numero })}>
                       <IconClock className="w-4 h-4" />
                     </IconButton>
-                    {!p.faturada && podeFaturarProposta(user) && (
+                    {!p.is_deleted && !p.faturada && podeFaturarProposta(user) && (
                       <IconButton label="Marcar como Faturada" tone="ok" disabled={busyId === p.id} onClick={() => faturar(p)}>
                         <IconCheck className="w-4 h-4" />
                       </IconButton>
                     )}
-                    {p.faturada && podeDesfaturarProposta(user) && (
+                    {!p.is_deleted && p.faturada && podeDesfaturarProposta(user) && (
                       <IconButton label="Desfazer faturamento" tone="neutro" disabled={busyId === p.id} onClick={() => desfaturar(p)}>
                         <IconX className="w-4 h-4" />
                       </IconButton>
                     )}
-                    {podeEscrever && (
+                    {/* Desabilitada só lê: o backend recusa editar/duplicar/faturar com 409. */}
+                    {podeEscrever && !p.is_deleted && (
                       <>
                         <IconButton label="Editar" tone="editar" onClick={() => setModalId(p.id)}>
                           <IconPencil className="w-4 h-4" />
@@ -238,10 +268,15 @@ export function PropostasPage() {
                         <IconButton label="Duplicar" tone="duplicar" onClick={() => duplicar(p.id)}>
                           <IconCopy className="w-4 h-4" />
                         </IconButton>
-                        <IconButton label="Excluir" tone="excluir" disabled={busyId === p.id} onClick={() => excluir(p)}>
-                          <IconTrash className="w-4 h-4" />
+                        <IconButton label="Desabilitar" tone="excluir" disabled={busyId === p.id} onClick={() => desabilitar(p)}>
+                          <IconBan className="w-4 h-4" />
                         </IconButton>
                       </>
+                    )}
+                    {p.is_deleted && podeReativarProposta(user) && (
+                      <IconButton label="Reativar" tone="ok" disabled={busyId === p.id} onClick={() => reativar(p)}>
+                        <IconRestore className="w-4 h-4" />
+                      </IconButton>
                     )}
                   </IconButtonGroup>
                 </TD>

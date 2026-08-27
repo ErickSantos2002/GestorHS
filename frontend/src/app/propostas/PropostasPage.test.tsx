@@ -16,7 +16,8 @@ vi.mock('../clientes/api', () => ({
 }))
 
 const listar = vi.fn()
-const excluir = vi.fn()
+const desabilitar = vi.fn()
+const reativar = vi.fn()
 const duplicar = vi.fn()
 const baixarPdf = vi.fn()
 const faturar = vi.fn()
@@ -29,7 +30,8 @@ vi.mock('./api', async (orig) => {
     propostasApi: {
       ...real.propostasApi,
       listar: (...a: unknown[]) => listar(...a),
-      excluir: (...a: unknown[]) => excluir(...a),
+      desabilitar: (...a: unknown[]) => desabilitar(...a),
+      reativar: (...a: unknown[]) => reativar(...a),
       duplicar: (...a: unknown[]) => duplicar(...a),
       baixarPdf: (...a: unknown[]) => baixarPdf(...a),
       faturar: (...a: unknown[]) => faturar(...a),
@@ -52,6 +54,7 @@ const PROPOSTA = {
   endereco_entrega_diferente: false, endereco_entrega: null, cliente_override: null, observacoes: null, assinatura: null,
   created_at: null, updated_at: null,
   faturada: false, faturada_em: null, faturada_por: null,
+  is_deleted: false, deleted_at: null,
 }
 
 // jsdom não implementa URL.createObjectURL/revokeObjectURL — atribuímos stubs
@@ -72,7 +75,8 @@ beforeEach(() => {
   vi.clearAllMocks()
   useAuth.mockReturnValue({ user: USUARIO_ADMIN })
   listar.mockResolvedValue({ items: [PROPOSTA], total: 1, page: 1, page_size: 25, total_pages: 1 })
-  excluir.mockResolvedValue(undefined)
+  desabilitar.mockResolvedValue({ ...PROPOSTA, is_deleted: true })
+  reativar.mockResolvedValue({ ...PROPOSTA, is_deleted: false })
   clientesObter.mockResolvedValue(CLIENTE_CADASTRO)
 })
 
@@ -88,7 +92,7 @@ describe('PropostasPage', () => {
     expect(screen.getByRole('button', { name: /histórico/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /editar/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /duplicar/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /excluir/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /desabilitar/i })).toBeInTheDocument()
   })
 
   it('esconde as ações de escrita para usuário sem permissão', async () => {
@@ -100,16 +104,70 @@ describe('PropostasPage', () => {
     expect(screen.getByRole('button', { name: /histórico/i })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /editar/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /duplicar/i })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /excluir/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /desabilitar/i })).not.toBeInTheDocument()
   })
 
-  it('Excluir confirma e chama propostasApi.excluir', async () => {
+  it('Desabilitar confirma dizendo que da para reativar, e chama a API', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
     render(<PropostasPage />)
     await screen.findByText('#42')
-    fireEvent.click(screen.getByRole('button', { name: /excluir/i }))
-    await waitFor(() => expect(excluir).toHaveBeenCalledWith(10))
+    fireEvent.click(screen.getByRole('button', { name: /desabilitar/i }))
+
+    await waitFor(() => expect(desabilitar).toHaveBeenCalledWith(10))
+    // O texto do confirm e o coracao da mudanca: nao pode mais prometer exclusao.
+    const texto = confirmSpy.mock.calls[0][0] as string
+    expect(texto).toMatch(/reativ/i)
+    expect(texto).not.toMatch(/não pode ser desfeita/i)
     confirmSpy.mockRestore()
+  })
+
+  it('nao desabilita se o usuario cancelar o confirm', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    render(<PropostasPage />)
+    await screen.findByText('#42')
+    fireEvent.click(screen.getByRole('button', { name: /desabilitar/i }))
+
+    expect(desabilitar).not.toHaveBeenCalled()
+    confirmSpy.mockRestore()
+  })
+
+  it('a lista pede as desabilitadas ao marcar o filtro', async () => {
+    render(<PropostasPage />)
+    await screen.findByText('#42')
+    fireEvent.click(screen.getByLabelText(/mostrar desabilitadas/i))
+
+    await waitFor(() =>
+      expect(listar).toHaveBeenLastCalledWith(expect.objectContaining({ incluir_desabilitadas: true })))
+  })
+
+  it('proposta desabilitada aparece marcada, sem editar/duplicar, com Reativar para o Admin', async () => {
+    listar.mockResolvedValue({
+      items: [{ ...PROPOSTA, is_deleted: true, deleted_at: '2026-08-05T10:00:00Z' }],
+      total: 1, page: 1, page_size: 25, total_pages: 1,
+    })
+    render(<PropostasPage />)
+    await screen.findByText('#42')
+
+    expect(screen.getByText('Desabilitada')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /editar/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /duplicar/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /desabilitar/i })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /reativar/i }))
+    await waitFor(() => expect(reativar).toHaveBeenCalledWith(10))
+  })
+
+  it('quem nao e Admin nao ve o Reativar', async () => {
+    useAuth.mockReturnValue({ user: USUARIO_FINANCEIRO })
+    listar.mockResolvedValue({
+      items: [{ ...PROPOSTA, is_deleted: true, deleted_at: '2026-08-05T10:00:00Z' }],
+      total: 1, page: 1, page_size: 25, total_pages: 1,
+    })
+    render(<PropostasPage />)
+    await screen.findByText('#42')
+
+    expect(screen.getByText('Desabilitada')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /reativar/i })).not.toBeInTheDocument()
   })
 
   it('Visualizar abre a proposta numa modal embutida, sem aba nova', async () => {

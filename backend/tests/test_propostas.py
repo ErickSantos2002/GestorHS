@@ -404,19 +404,8 @@ def test_api_duplicar_proposta_gera_numero_novo_e_copia_itens(client_comercial, 
     assert r.json() == []
 
 
-def test_api_delete_soft_delete_some_da_lista(client_comercial):
-    r = client_comercial.post("/propostas", json={"itens": []})
-    pid = r.json()["id"]
-
-    r = client_comercial.delete(f"/propostas/{pid}")
-    assert r.status_code == 204
-
-    r = client_comercial.get("/propostas")
-    ids = [p["id"] for p in r.json()["items"]]
-    assert pid not in ids
-
-    assert client_comercial.get(f"/propostas/{pid}").status_code == 404
-    assert client_comercial.delete(f"/propostas/{pid}").status_code == 404
+# O antigo `test_api_delete_soft_delete_some_da_lista` virou o fluxo de
+# desabilitar/reativar — cobertura completa em tests/test_propostas_desabilitar.py.
 
 
 def test_api_pdf_endpoint_inline_e_attachment(client_comercial, monkeypatch):

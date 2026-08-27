@@ -113,6 +113,9 @@ class PropostaOut(PropostaBase):
     faturada: bool = False
     faturada_em: Optional[datetime] = None
     faturada_por: Optional[str] = None
+    # Desabilitada: fora de circulação, mas inteira no banco. Só Admin reativa.
+    is_deleted: bool = False
+    deleted_at: Optional[datetime] = None
     model_config = {"from_attributes": True}
 
 

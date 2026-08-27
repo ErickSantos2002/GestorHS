@@ -71,9 +71,12 @@ describe('propostasApi', () => {
     expect(apiJson).toHaveBeenCalledWith('/propostas/9', { method: 'PUT', body: JSON.stringify(payload) })
   })
 
-  it('excluir usa apiFetch com DELETE', async () => {
-    await propostasApi.excluir(9)
-    expect(apiFetch).toHaveBeenCalledWith('/propostas/9', expect.objectContaining({ method: 'DELETE' }))
+  it('desabilitar e reativar usam POST nas rotas proprias (nao existe DELETE)', async () => {
+    await propostasApi.desabilitar(9)
+    expect(apiJson).toHaveBeenCalledWith('/propostas/9/desabilitar', { method: 'POST' })
+
+    await propostasApi.reativar(9)
+    expect(apiJson).toHaveBeenCalledWith('/propostas/9/reativar', { method: 'POST' })
   })
 
   it('duplicar posta em /propostas/:id/duplicar', async () => {

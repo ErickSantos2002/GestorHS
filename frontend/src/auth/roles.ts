@@ -129,6 +129,13 @@ export function podeDesfaturarProposta(user: User | null): boolean {
   return isAdmin(user)
 }
 
+// Espelha require_funcao("Administrador") em backend/app/api/propostas.py
+// (POST /propostas/{id}/reativar). Desabilitar é do mesmo grupo que edita
+// (`podeGerenciarPropostas`); devolver à circulação é só do Admin.
+export function podeReativarProposta(user: User | null): boolean {
+  return isAdmin(user)
+}
+
 // Espelha require_funcao("Administrador", "Laboratório") em
 // backend/app/api/certificados_config.py — mudou la, mude aqui.
 // O Laboratorio edita a configuracao e cadastra/altera cilindro: e quem opera a

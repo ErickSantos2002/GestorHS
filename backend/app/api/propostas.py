@@ -30,15 +30,29 @@ _escrever = require_funcao("Comercial Pós-Vendas", "Administrador", "Financeiro
 _faturar_gate = require_funcao("Financeiro", "Administrador")
 _desfaturar_gate = require_funcao("Administrador")
 
+# Quem pode devolver uma proposta desabilitada à circulação.
+_reativar_gate = require_funcao("Administrador")
 
-def _proposta_ou_404(db: Session, proposta_id: int) -> Proposta:
-    proposta = (
-        db.query(Proposta)
-        .filter(Proposta.id == proposta_id, Proposta.is_deleted.is_(False))
-        .first()
-    )
+
+def _proposta_ou_404(db: Session, proposta_id: int, *, incluir_desabilitadas: bool = False) -> Proposta:
+    """Busca a proposta. Por padrão ignora as desabilitadas — quem precisa delas
+    (leitura, reativar) pede explicitamente."""
+    query = db.query(Proposta).filter(Proposta.id == proposta_id)
+    if not incluir_desabilitadas:
+        query = query.filter(Proposta.is_deleted.is_(False))
+    proposta = query.first()
     if proposta is None:
         raise HTTPException(status_code=404, detail="Proposta não encontrada")
+    return proposta
+
+
+def _para_escrita(db: Session, proposta_id: int) -> Proposta:
+    """Proposta desabilitada existe e pode ser lida, mas não muda mais: editar,
+    duplicar ou faturar é 409 até um Administrador reativá-la. 409 e não 404 de
+    propósito — o registro está lá, o que falta é reativar."""
+    proposta = _proposta_ou_404(db, proposta_id, incluir_desabilitadas=True)
+    if proposta.is_deleted:
+        raise HTTPException(status_code=409, detail="proposta desabilitada")
     return proposta
 
 
@@ -56,10 +70,13 @@ def listar(
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
     q: str | None = None,
+    incluir_desabilitadas: bool = False,
     db: Session = Depends(get_db),
     _: Usuario = Depends(get_current_usuario),
 ):
-    query = db.query(Proposta).filter(Proposta.is_deleted.is_(False))
+    query = db.query(Proposta)
+    if not incluir_desabilitadas:
+        query = query.filter(Proposta.is_deleted.is_(False))
     if q:
         qs = q.strip()
         termo = f"%{qs}%"
@@ -111,7 +128,7 @@ def pdf(
     db: Session = Depends(get_db),
     _: Usuario = Depends(get_current_usuario),
 ):
-    _proposta_ou_404(db, proposta_id)
+    _proposta_ou_404(db, proposta_id, incluir_desabilitadas=True)
     try:
         conteudo = proposta_pdf.gerar_pdf(db, proposta_id)
     except ValueError:
@@ -129,7 +146,7 @@ def versoes(
     db: Session = Depends(get_db),
     _: Usuario = Depends(get_current_usuario),
 ):
-    _proposta_ou_404(db, proposta_id)
+    _proposta_ou_404(db, proposta_id, incluir_desabilitadas=True)
     registros = (
         db.query(PropostaVersao)
         .filter(PropostaVersao.proposta == proposta_id)
@@ -152,7 +169,7 @@ def versao_pdf(
     db: Session = Depends(get_db),
     _: Usuario = Depends(get_current_usuario),
 ):
-    _proposta_ou_404(db, proposta_id)
+    _proposta_ou_404(db, proposta_id, incluir_desabilitadas=True)
     v = (
         db.query(PropostaVersao)
         .filter(PropostaVersao.id == versao_id, PropostaVersao.proposta == proposta_id)
@@ -181,7 +198,7 @@ def duplicar(
     """Clona a proposta original com número novo, mesmos itens/aparelhos/campos,
     `data` de hoje e `vendedor` = quem duplicou. Não copia versões — a nova
     proposta nasce sem histórico."""
-    original = _proposta_ou_404(db, proposta_id)
+    original = _para_escrita(db, proposta_id)
     dados = PropostaCreate(
         cliente=original.cliente,
         contato=original.contato,
@@ -227,7 +244,7 @@ def faturar(
 ):
     """Marca a proposta como faturada (Financeiro ou Admin). Idempotente:
     repetir numa proposta já faturada não altera `faturada_em`/`faturada_por`."""
-    proposta = _proposta_ou_404(db, proposta_id)
+    proposta = _para_escrita(db, proposta_id)
     if not proposta.faturada:
         proposta.faturada = True
         proposta.faturada_em = agora()
@@ -245,7 +262,7 @@ def desfaturar(
 ):
     """Desfaz a marcação de faturada (só Admin). Idempotente: numa proposta
     já não-faturada é no-op."""
-    proposta = _proposta_ou_404(db, proposta_id)
+    proposta = _para_escrita(db, proposta_id)
     if proposta.faturada:
         proposta.faturada = False
         proposta.faturada_em = None
@@ -265,7 +282,7 @@ def obter(
     db: Session = Depends(get_db),
     _: Usuario = Depends(get_current_usuario),
 ):
-    proposta = _proposta_ou_404(db, proposta_id)
+    proposta = _proposta_ou_404(db, proposta_id, incluir_desabilitadas=True)
     return ps.montar_saida(db, proposta)
 
 
@@ -276,18 +293,43 @@ def atualizar(
     db: Session = Depends(get_db),
     usuario: Usuario = Depends(_escrever),
 ):
-    proposta = _proposta_ou_404(db, proposta_id)
+    proposta = _para_escrita(db, proposta_id)
     atualizado = ps.atualizar_proposta(db, proposta, dados, alterado_por=usuario.nome)
     return ps.montar_saida(db, atualizado)
 
 
-@router.delete("/{proposta_id}", status_code=status.HTTP_204_NO_CONTENT)
-def excluir(
+@router.post("/{proposta_id}/desabilitar", response_model=PropostaOut)
+def desabilitar(
     proposta_id: int,
     db: Session = Depends(get_db),
-    usuario: Usuario = Depends(_escrever),
+    _: Usuario = Depends(_escrever),
 ):
-    proposta = _proposta_ou_404(db, proposta_id)
-    proposta.is_deleted = True
-    proposta.deleted_at = datetime.now(timezone.utc)
-    db.commit()
+    """Tira a proposta de circulação sem apagar nada: some da lista, para de aceitar
+    edição, e só um Administrador traz de volta (`/reativar`).
+
+    Substituiu o antigo `DELETE`, que já fazia exatamente isto — mas com nome de
+    exclusão definitiva, num documento ligado a caixa, OS e link público."""
+    proposta = _proposta_ou_404(db, proposta_id, incluir_desabilitadas=True)
+    if not proposta.is_deleted:
+        proposta.is_deleted = True
+        proposta.deleted_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(proposta)
+    return ps.montar_saida(db, proposta)
+
+
+@router.post("/{proposta_id}/reativar", response_model=PropostaOut)
+def reativar(
+    proposta_id: int,
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(_reativar_gate),
+):
+    """Devolve a proposta à circulação. Só Administrador — mesma assimetria de
+    faturar/desfaturar. Idempotente."""
+    proposta = _proposta_ou_404(db, proposta_id, incluir_desabilitadas=True)
+    if proposta.is_deleted:
+        proposta.is_deleted = False
+        proposta.deleted_at = None
+        db.commit()
+        db.refresh(proposta)
+    return ps.montar_saida(db, proposta)
