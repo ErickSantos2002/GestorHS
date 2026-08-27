@@ -1,4 +1,5 @@
 import { apiJson, apiFetch, ApiError } from '../../lib/api'
+import type { Proposta } from '../propostas/api'
 
 // DELETE/204 não tem corpo — apiJson faz res.json() e quebraria. Mesmo padrão de acesso/api.ts.
 async function apiVoid(path: string, options: RequestInit = {}): Promise<void> {
@@ -45,6 +46,9 @@ export interface CaixaListItem {
   cliente_principal?: number | null
   cliente_principal_nome?: string | null
   outros_clientes?: number
+  /** Numero da proposta do CRM, gravado pelo inbound do GrowthHS ao marcar "Ganho".
+   *  A proposta em si vem de `caixasApi.proposta` — pode nao existir aqui. */
+  numero_proposta?: number | null
 }
 
 export interface CaixaPage { items: CaixaListItem[]; total: number }
@@ -91,6 +95,9 @@ export const caixasApi = {
     return apiJson<CaixaPage>(`/caixas?${sp.toString()}`)
   },
   obter: (id: number): Promise<CaixaDetalhe> => apiJson<CaixaDetalhe>(`/caixas/${id}`),
+  /** Proposta comercial da caixa (resolvida pelo numero). 404 quando a caixa nao tem
+   *  numero ou o numero e de proposta que so existe no CRM antigo. */
+  proposta: (id: number): Promise<Proposta> => apiJson<Proposta>(`/caixas/${id}/proposta`),
   criar: (body: { obs?: string | null }): Promise<CaixaListItem> =>
     apiJson<CaixaListItem>('/caixas', { method: 'POST', body: JSON.stringify(body) }),
   atualizar: (id: number, body: { obs?: string | null }): Promise<CaixaListItem> =>

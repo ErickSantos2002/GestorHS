@@ -37,6 +37,9 @@ class CaixaOut(BaseModel):
     cliente_principal: int | None = None
     cliente_principal_nome: str | None = None
     outros_clientes: int = 0
+    # So o NUMERO — a proposta em si vem por GET /caixas/{id}/proposta, que resolve
+    # numero -> Proposta local (pode nao existir: numeros do legado/GrowthHS).
+    numero_proposta: int | None = None
 
 
 class CaixaDetalhe(CaixaOut):

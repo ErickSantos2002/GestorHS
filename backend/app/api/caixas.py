@@ -5,9 +5,10 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.models.database import get_db
-from app.models import Usuario, Caixa, Ordem, Fase
+from app.models import Usuario, Caixa, Ordem, Fase, Proposta
 from app.core import os_workflow as wf
 from app.core.caixa import cliente_unico, contar_outros, principal_valido
+from app.core import proposta_servico
 from app.api.deps import ADMIN, get_current_usuario, require_funcao
 from app.api.cadastros_common import excluir_protegido
 from app.schemas.caixas import (
@@ -15,6 +16,7 @@ from app.schemas.caixas import (
     CaixaQuadroItem, QuadroCaixaColuna,
 )
 from app.schemas.caixa_acoes import CaixaAvancarIn, CaixaCancelarIn
+from app.schemas.proposta import PropostaOut
 from app.api.ordens_acoes import registrar_log, exige_funcao_da_fase, agora, espelhar_calibracao
 from app.api.espelhamento import agendar_espelhamento_caixa
 from app.api.growthhs_cards import agendar_card_caixa
@@ -100,6 +102,27 @@ def quadro_caixas(cliente: int | None = None, db: Session = Depends(get_db),
             fase=fid, descricao=f.descricao if f else str(fid),
             cor=f.cor if f else "888", total=len(itens), caixas=itens))
     return colunas
+
+
+@router.get("/{caixa_id}/proposta", response_model=PropostaOut)
+def proposta_da_caixa(caixa_id: int, db: Session = Depends(get_db),
+                      _: Usuario = Depends(get_current_usuario)):
+    """Proposta comercial da caixa, para o bloco do Financeiro na tela da caixa.
+
+    A caixa guarda so `numero_proposta` (gravado pelo inbound do GrowthHS ao marcar
+    "Ganho"); aqui resolvemos numero -> Proposta e devolvemos o mesmo `PropostaOut`
+    da tela de Propostas — com cliente, documento e total ja calculados. Numero de
+    proposta que nao existe aqui (legado do CRM) e 404, nao erro: o frontend apenas
+    nao desenha o bloco."""
+    cx = _get_caixa(db, caixa_id)
+    if cx.numero_proposta is None:
+        raise HTTPException(status_code=404, detail="caixa sem proposta")
+    # Inclui a desabilitada de proposito: o bloco a mostra marcada, sem acao de
+    # faturar. Some so quando o numero nao existe aqui (legado do CRM).
+    proposta = db.query(Proposta).filter(Proposta.numero == cx.numero_proposta).first()
+    if proposta is None:
+        raise HTTPException(status_code=404, detail="proposta não encontrada")
+    return proposta_servico.montar_saida(db, proposta)
 
 
 @router.get("/{caixa_id}", response_model=CaixaDetalhe)

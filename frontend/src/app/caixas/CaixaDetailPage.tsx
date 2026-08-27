@@ -16,6 +16,7 @@ import { AvancarCaixaModal } from './AvancarCaixaModal'
 import { ClientePrincipalModal } from './ClientePrincipalModal'
 import { SemConsertoModal } from './SemConsertoModal'
 import { NotaFiscalCaixaModal } from './NotaFiscalCaixaModal'
+import { PropostaCaixaCard } from './PropostaCaixaCard'
 import { TRANSICOES, faseAtiva } from '../ordens/api'
 import { STATUS_CALIBRACAO, type StatusCalibracao } from '../frota/api'
 import { PageContainer, DetailGrid, DetailMain, DetailAside } from '../../components/ui/Page'
@@ -475,6 +476,9 @@ export function CaixaDetailPage() {
               <div className="flex justify-between"><dt>Clientes</dt><dd className="text-slate-100">{clientesUnicos}</dd></div>
             </dl>
           </section>
+
+          {/* Proposta do CRM — so aparece quando a caixa tem numero E a proposta existe aqui */}
+          <PropostaCaixaCard caixaId={caixaId} numeroProposta={caixa.numero_proposta} />
         </DetailAside>
       </DetailGrid>
 
