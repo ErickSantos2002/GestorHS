@@ -1,6 +1,8 @@
 // Lógica pura do histórico de propostas: comparação de snapshots entre versões.
 // Fica isolada de React/HTTP para ser testável (ver historico.test.ts).
 
+import { formatarMoeda } from '../../lib/moeda'
+
 export interface SnapshotItem {
   descricao: string
   sku: string | null
@@ -24,9 +26,7 @@ export interface Snapshot {
   itens: SnapshotItem[]
 }
 
-function moeda(v: number): string {
-  return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
+const moeda = formatarMoeda
 
 function qtd(v: number): string {
   return Number.isInteger(v) ? String(v) : String(v).replace('.', ',')

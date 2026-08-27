@@ -14,6 +14,7 @@ import { ApiError } from '../../lib/api'
 import { hojeISO } from '../../lib/datas'
 import { formatarDocumento, soDigitos, mascararCEP } from '../../lib/documento'
 import { cn } from '../../lib/utils'
+import { formatarMoeda } from '../../lib/moeda'
 import { descreverVencimento } from './aparelhosFrota'
 import { clientesApi, type Cliente, type ClienteListItem } from '../clientes/api'
 import { STATUS_CALIBRACAO, type StatusCalibracao } from '../frota/api'
@@ -38,7 +39,6 @@ const UFS = [
   'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
 ]
 
-const formatarMoeda = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const sanitizarDecimal = (v: string) => v.replace(/[^0-9,]/g, '').replace(/(,.*),/g, '$1')
 const converterDecimal = (v: string) => parseFloat(v.replace(',', '.')) || 0
 const numeroParaTexto = (n?: number | null) => (n ? String(n).replace('.', ',') : '')

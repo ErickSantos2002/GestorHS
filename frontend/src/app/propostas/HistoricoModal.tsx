@@ -3,10 +3,10 @@ import { Modal } from '../../components/ui/Modal'
 import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/Spinner'
 import { ApiError } from '../../lib/api'
+import { formatarMoeda } from '../../lib/moeda'
 import { propostasApi, type PropostaVersao } from './api'
 import { coerceSnapshot, diffSnapshots } from './historico'
 
-const formatarMoeda = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 function formatarDataHora(iso: string | null): string {
   if (!iso) return '—'
