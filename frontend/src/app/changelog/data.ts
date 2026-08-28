@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.47.0',
+    data: '28/08/2026',
+    itens: [
+      { tipo: 'melhoria', texto: 'O cartão do TaskHS agora traz os dois arquivos da nota fiscal na etapa de Financeiro: "NF em PDF" e "NF em XML", cada um com seu link de download direto, sem precisar entrar no GestorHS. Antes só o PDF virava link. Os cartões que já estão no board ganham o link do XML na próxima atualização da caixa.' },
+    ],
+  },
+  {
     versao: '1.46.0',
     data: '27/08/2026',
     itens: [
