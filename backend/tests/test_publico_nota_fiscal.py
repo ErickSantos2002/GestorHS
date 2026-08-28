@@ -39,3 +39,23 @@ def test_download_publico_sem_nota_404(client, usuario_admin, fases_seed, os_bas
     o = Ordem(cliente=os_base["cliente"], equipamento_cliente=os_base["equipamento_cliente"], fase=10, situacao="E")
     db_session.add(o); db_session.commit(); db_session.refresh(o)
     assert client.get(f"/publico/nota-fiscal/{o.id}?t={nl.assinar(o.id)}").status_code == 404
+
+
+def test_download_publico_xml_ok(client, usuario_financeiro, fases_seed, os_base, db_session, upload_tmp):
+    o = _os_com_nf(client, db_session, os_base, upload_tmp)
+    r = client.get(f"/publico/nota-fiscal/{o.id}/xml?t={nl.assinar(o.id, nl.XML)}")   # sem Authorization
+    assert r.status_code == 200
+    # nunca application/xml: o XML e conteudo de usuario e renderizado inline executaria script
+    assert r.headers["content-type"] == "application/octet-stream"
+
+
+def test_download_publico_xml_token_do_pdf_403(client, usuario_financeiro, fases_seed, os_base, db_session, upload_tmp):
+    o = _os_com_nf(client, db_session, os_base, upload_tmp)
+    assert client.get(f"/publico/nota-fiscal/{o.id}/xml?t={nl.assinar(o.id)}").status_code == 403
+
+
+def test_download_publico_xml_sem_nota_404(client, usuario_admin, fases_seed, os_base, db_session):
+    from app.models import Ordem
+    o = Ordem(cliente=os_base["cliente"], equipamento_cliente=os_base["equipamento_cliente"], fase=10, situacao="E")
+    db_session.add(o); db_session.commit(); db_session.refresh(o)
+    assert client.get(f"/publico/nota-fiscal/{o.id}/xml?t={nl.assinar(o.id, nl.XML)}").status_code == 404

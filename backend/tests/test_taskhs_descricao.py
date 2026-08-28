@@ -139,7 +139,28 @@ def test_obs4_com_nota_fiscal():
     o = _ordem(fase=10, pago=False, data_pagamento=None, cod_retorno=None, data_retorno=None,
                nota_fiscal="abc.pdf", nota_fiscal_numero="12345")
     obs = taskhs.montar_obs(o, certificados=[], nota_fiscal_url="http://x/nf")
-    assert "Nota fiscal: 12345 — http://x/nf" in obs["obs4"]
+    assert "- Nota fiscal: 12345" in obs["obs4"]
+    assert "- NF em PDF: http://x/nf" in obs["obs4"]
+
+
+def test_obs4_com_pdf_e_xml_da_nota():
+    """O Financeiro anexa o par PDF+XML; os dois viram link no card."""
+    o = _ordem(fase=10, pago=False, data_pagamento=None, cod_retorno=None, data_retorno=None,
+               nota_fiscal="abc.pdf", nota_fiscal_xml="abc.xml", nota_fiscal_numero="12345")
+    obs = taskhs.montar_obs(o, certificados=[], nota_fiscal_url="http://x/nf",
+                            nota_fiscal_xml_url="http://x/nf/xml")
+    assert "- NF em PDF: http://x/nf" in obs["obs4"]
+    assert "- NF em XML: http://x/nf/xml" in obs["obs4"]
+
+
+def test_obs4_so_xml_quando_nao_ha_pdf():
+    """OS antiga so tem PDF; a nova so quebraria se um dos dois fosse obrigatorio."""
+    o = _ordem(fase=10, pago=False, data_pagamento=None, cod_retorno=None, data_retorno=None,
+               nota_fiscal=None, nota_fiscal_xml="abc.xml", nota_fiscal_numero="12345")
+    obs = taskhs.montar_obs(o, certificados=[], nota_fiscal_url=None,
+                            nota_fiscal_xml_url="http://x/nf/xml")
+    assert "PDF" not in obs["obs4"]
+    assert "- NF em XML: http://x/nf/xml" in obs["obs4"]
 
 
 def test_obs4_nota_fiscal_sem_url_mostra_so_numero():

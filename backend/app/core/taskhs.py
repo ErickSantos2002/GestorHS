@@ -141,19 +141,23 @@ def _sec_posvendas(ordem, *, numero_proposta=None, proposta_url=None) -> str | N
     ])
 
 
-def _sec_financeiro(ordem, nota_fiscal_url: str | None = None) -> str | None:
+def _sec_financeiro(ordem, nota_fiscal_url: str | None = None,
+                    nota_fiscal_xml_url: str | None = None) -> str | None:
     if wf.posicao(ordem.fase) < wf.posicao(10):
         return None
     if ordem.pago:
         pagamento = f"Pagamento: confirmado em {_fmt(ordem.data_pagamento)}" if ordem.data_pagamento else "Pagamento: confirmado"
     else:
         pagamento = "Pagamento: pendente"
-    nota = None
-    if ordem.nota_fiscal_numero:
-        nota = f"Nota fiscal: {ordem.nota_fiscal_numero}"
-        if nota_fiscal_url:
-            nota = f"{nota} — {nota_fiscal_url}"
-    return _bloco([pagamento, nota])
+    nota = f"Nota fiscal: {ordem.nota_fiscal_numero}" if ordem.nota_fiscal_numero else None
+    # Cada arquivo na sua linha: o Financeiro anexa o par PDF+XML e a expedicao
+    # precisa clicar nos dois. OS antiga so tem PDF, entao nenhum dos dois e' fixo.
+    return _bloco([
+        pagamento,
+        nota,
+        f"NF em PDF: {nota_fiscal_url}" if nota_fiscal_url else None,
+        f"NF em XML: {nota_fiscal_xml_url}" if nota_fiscal_xml_url else None,
+    ])
 
 
 def _sec_preparando(ordem) -> str | None:
@@ -171,7 +175,8 @@ def _sec_finalizada(ordem) -> str | None:
     return _bloco([linha or None])
 
 
-def montar_obs(ordem, *, certificados: list[dict], nota_fiscal_url: str | None = None) -> dict:
+def montar_obs(ordem, *, certificados: list[dict], nota_fiscal_url: str | None = None,
+               nota_fiscal_xml_url: str | None = None) -> dict:
     """Monta as 6 obs por etapa. Sempre retorna as 6 chaves (None quando a etapa não se aplica).
 
     obs1 leva o cabeçalho (Cliente/Aparelho/Serviço) no topo, seguido da seção Recebido.
@@ -183,7 +188,7 @@ def montar_obs(ordem, *, certificados: list[dict], nota_fiscal_url: str | None =
         "obs1": obs1,
         "obs2": _sec_laboratorio(ordem, certificados),
         "obs3": _sec_posvendas(ordem),
-        "obs4": _sec_financeiro(ordem, nota_fiscal_url),
+        "obs4": _sec_financeiro(ordem, nota_fiscal_url, nota_fiscal_xml_url),
         "obs5": _sec_preparando(ordem),
         "obs6": _sec_finalizada(ordem),
     }
@@ -238,7 +243,8 @@ def _linha_aparelho_lab(ordem, certificados: list[dict]) -> str:
     return " ".join(partes)
 
 
-def montar_obs_caixa(caixa, ordens, *, certificados_por_os: dict, nota_fiscal_url=None, proposta_url=None) -> dict:
+def montar_obs_caixa(caixa, ordens, *, certificados_por_os: dict, nota_fiscal_url=None,
+                     nota_fiscal_xml_url=None, proposta_url=None) -> dict:
     cliente_os = next((o for o in ordens if o.cliente_nome), ordens[0] if ordens else None)
     cabecalho = "\n".join(_cabecalho(cliente_os)) if cliente_os else None
     aparelhos = _bloco([
@@ -254,7 +260,7 @@ def montar_obs_caixa(caixa, ordens, *, certificados_por_os: dict, nota_fiscal_ur
         "obs1": obs1,
         "obs2": obs2,
         "obs3": _sec_posvendas(rep, numero_proposta=numero_proposta, proposta_url=proposta_url) if rep else None,
-        "obs4": _sec_financeiro(rep, nota_fiscal_url) if rep else None,
+        "obs4": _sec_financeiro(rep, nota_fiscal_url, nota_fiscal_xml_url) if rep else None,
         "obs5": _sec_preparando(rep) if rep else None,
         "obs6": _sec_finalizada(rep) if rep else None,
     }

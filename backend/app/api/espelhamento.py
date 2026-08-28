@@ -20,7 +20,9 @@ def _montar_payload_os(db, ordem, *, list_id, arquivado) -> dict:
         for c in certs
     ]
     nf_url = nota_fiscal_link.link_nota_fiscal(ordem.id) if ordem.nota_fiscal else None
-    obs = taskhs.montar_obs(ordem, certificados=certificados, nota_fiscal_url=nf_url)
+    nf_xml_url = nota_fiscal_link.link_nota_fiscal_xml(ordem.id) if ordem.nota_fiscal_xml else None
+    obs = taskhs.montar_obs(ordem, certificados=certificados, nota_fiscal_url=nf_url,
+                            nota_fiscal_xml_url=nf_xml_url)
     return taskhs.montar_payload(ordem, list_id=list_id, arquivado=arquivado, obs=obs)
 
 
@@ -65,10 +67,15 @@ def _montar_payload_caixa(db, caixa, *, list_id, arquivado) -> dict:
         certificados_por_os[o.id] = [
             {"tipo": c.tipo, "url": certificado_link.link_certificado(o.id, c.tipo)} for c in certs
         ]
-    nf_url = None
-    rep_nf = next((o for o in ordens if o.nota_fiscal), None)
+    nf_url = nf_xml_url = None
+    # o MESMO representante para os dois links: PDF de uma OS e XML de outra seriam
+    # notas diferentes no mesmo card.
+    rep_nf = next((o for o in ordens if o.nota_fiscal or o.nota_fiscal_xml), None)
     if rep_nf is not None:
-        nf_url = nota_fiscal_link.link_nota_fiscal(rep_nf.id)
+        if rep_nf.nota_fiscal:
+            nf_url = nota_fiscal_link.link_nota_fiscal(rep_nf.id)
+        if rep_nf.nota_fiscal_xml:
+            nf_xml_url = nota_fiscal_link.link_nota_fiscal_xml(rep_nf.id)
     proposta_url = None
     if caixa.numero_proposta is not None:
         p = db.query(Proposta).filter(Proposta.numero == caixa.numero_proposta,
@@ -76,7 +83,8 @@ def _montar_payload_caixa(db, caixa, *, list_id, arquivado) -> dict:
         if p is not None:
             proposta_url = proposta_link.link_proposta(p.id)
     obs = taskhs.montar_obs_caixa(caixa, ordens, certificados_por_os=certificados_por_os,
-                                   nota_fiscal_url=nf_url, proposta_url=proposta_url)
+                                   nota_fiscal_url=nf_url, nota_fiscal_xml_url=nf_xml_url,
+                                   proposta_url=proposta_url)
     return taskhs.montar_payload_caixa(caixa, ordens, list_id=list_id, arquivado=arquivado, obs=obs)
 
 

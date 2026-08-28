@@ -47,26 +47,38 @@ def baixar_certificado_publico(ordem_id: int, tipo: str, t: str = "", db: Sessio
     )
 
 
+def _servir_nota_fiscal(ordem_id: int, basename: str | None):
+    if not basename:
+        raise HTTPException(status_code=404, detail="nota fiscal não encontrada")
+    try:
+        caminho = storage.caminho_arquivo(nota_fiscal.subdir(ordem_id), basename)
+    except storage.ArquivoInvalido:
+        raise HTTPException(status_code=404, detail="nota fiscal não encontrada")
+    if not caminho.exists():
+        raise HTTPException(status_code=404, detail="arquivo não encontrado")
+    return FileResponse(
+        caminho,
+        media_type=nota_fiscal.media_type(basename),
+        filename=nota_fiscal.nome_download(ordem_id, basename),
+        headers={"X-Content-Type-Options": "nosniff"},
+    )
+
+
 @router.get("/nota-fiscal/{ordem_id}")
 def baixar_nota_fiscal_publica(ordem_id: int, t: str = "", db: Session = Depends(get_db)):
     if not nota_fiscal_link.verificar(ordem_id, t):
         raise HTTPException(status_code=403, detail="link inválido")
     o = db.query(Ordem).filter(Ordem.id == ordem_id).first()
-    if o is None or not o.nota_fiscal:
-        raise HTTPException(status_code=404, detail="nota fiscal não encontrada")
-    try:
-        caminho = storage.caminho_arquivo(nota_fiscal.subdir(ordem_id), o.nota_fiscal)
-    except storage.ArquivoInvalido:
-        raise HTTPException(status_code=404, detail="nota fiscal não encontrada")
-    if not caminho.exists():
-        raise HTTPException(status_code=404, detail="arquivo não encontrado")
-    media = nota_fiscal.media_type(o.nota_fiscal)
-    return FileResponse(
-        caminho,
-        media_type=media,
-        filename=nota_fiscal.nome_download(ordem_id, o.nota_fiscal),
-        headers={"X-Content-Type-Options": "nosniff"},
-    )
+    return _servir_nota_fiscal(ordem_id, o.nota_fiscal if o else None)
+
+
+@router.get("/nota-fiscal/{ordem_id}/xml")
+def baixar_nota_fiscal_xml_publica(ordem_id: int, t: str = "", db: Session = Depends(get_db)):
+    """Rota separada, e token separado do PDF: sao dois arquivos distintos."""
+    if not nota_fiscal_link.verificar(ordem_id, t, nota_fiscal_link.XML):
+        raise HTTPException(status_code=403, detail="link inválido")
+    o = db.query(Ordem).filter(Ordem.id == ordem_id).first()
+    return _servir_nota_fiscal(ordem_id, o.nota_fiscal_xml if o else None)
 
 
 @router.get("/proposta/{proposta_id}")
