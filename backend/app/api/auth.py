@@ -20,7 +20,7 @@ from app.core.security import (
     decodificar_token,
 )
 from app.integrations import microsoft_client
-from app.schemas.auth import LoginRequest, PortalLoginRequest, Token, RefreshRequest, UsuarioOut, TrocarSenhaIn, LoginOut, DefinirSenhaIn, DefinirSenhaPortalIn
+from app.schemas.auth import LoginRequest, PortalLoginRequest, Token, RefreshRequest, UsuarioOut, TrocarSenhaIn, LoginOut, DefinirSenhaIn, DefinirSenhaPortalIn, SsoExchangeIn
 from app.api.deps import get_current_usuario
 
 logger = logging.getLogger(__name__)
@@ -260,6 +260,18 @@ def microsoft_callback(request: Request, code: str | None = None, state: str | N
     )
     resposta.delete_cookie("sso_state")
     return resposta
+
+
+@router.post("/sso/exchange", response_model=Token)
+def sso_exchange(dados: SsoExchangeIn):
+    """Troca o ticket do redirect pelos tokens de verdade. Responde `Token` (e
+    nao `LoginOut`): o SSO nunca devolve precisa_redefinir."""
+    par = sso_tickets.resgatar(dados.ticket)
+    if par is None:
+        # 400 e nao 401 de proposito — ver o teste que fixa isso.
+        raise HTTPException(status_code=400, detail="Link de acesso inválido ou expirado. Entre de novo.")
+    access_token, refresh_token = par
+    return Token(access_token=access_token, refresh_token=refresh_token)
 
 
 @router.get("/sso/status")

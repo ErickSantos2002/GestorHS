@@ -414,3 +414,51 @@ def test_refresh_sem_via_sso_ainda_bloqueia_precisa_redefinir(client, db_session
     refresh_token = criar_refresh_token(sub=str(usuario.id), tipo="usuario")
     r = client.post("/auth/refresh", json={"refresh_token": refresh_token})
     assert r.status_code == 401
+
+
+def test_exchange_devolve_os_tokens(client, sso_ligado, usuario_admin, graph_diz, monkeypatch):
+    state = _iniciar_sso(client, monkeypatch)
+    graph_diz("admin@hs.com")
+    destino = client.get(f"/auth/microsoft/callback?code=abc&state={state}", follow_redirects=False).headers["location"]
+    ticket = destino.split("ticket=")[1]
+
+    r = client.post("/auth/sso/exchange", json={"ticket": ticket})
+    assert r.status_code == 200
+    corpo = r.json()
+    assert corpo["token_type"] == "bearer"
+    assert corpo["access_token"] and corpo["refresh_token"]
+
+
+def test_tokens_do_sso_valem_no_me(client, sso_ligado, usuario_admin, graph_diz, monkeypatch):
+    """A sessao nasce diferente mas e' indistinguivel da do login por senha."""
+    state = _iniciar_sso(client, monkeypatch)
+    graph_diz("admin@hs.com")
+    destino = client.get(f"/auth/microsoft/callback?code=abc&state={state}", follow_redirects=False).headers["location"]
+    tokens = client.post("/auth/sso/exchange", json={"ticket": destino.split("ticket=")[1]}).json()
+
+    r = client.get("/auth/me", headers={"Authorization": f"Bearer {tokens['access_token']}"})
+    assert r.status_code == 200 and r.json()["email"] == "admin@hs.com"
+
+    r = client.post("/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
+    assert r.status_code == 200 and r.json()["access_token"]
+
+
+def test_exchange_do_mesmo_ticket_duas_vezes_da_400(client, sso_ligado, usuario_admin, graph_diz, monkeypatch):
+    state = _iniciar_sso(client, monkeypatch)
+    graph_diz("admin@hs.com")
+    destino = client.get(f"/auth/microsoft/callback?code=abc&state={state}", follow_redirects=False).headers["location"]
+    ticket = destino.split("ticket=")[1]
+    assert client.post("/auth/sso/exchange", json={"ticket": ticket}).status_code == 200
+    assert client.post("/auth/sso/exchange", json={"ticket": ticket}).status_code == 400
+
+
+def test_exchange_ticket_invalido_e_400_e_nao_401(client, sso_ligado):
+    """401 faria o api.ts limpar o storage e sair da pagina antes de mostrar a
+    mensagem; com 400 o AuthCallbackPage consegue explicar o que houve."""
+    r = client.post("/auth/sso/exchange", json={"ticket": "nao-existe"})
+    assert r.status_code == 400
+    assert r.json()["detail"]
+
+
+def test_exchange_e_publico(client, sso_ligado):
+    assert client.post("/auth/sso/exchange", json={"ticket": "x"}).status_code == 400
