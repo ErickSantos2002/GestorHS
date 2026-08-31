@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.48.0',
+    data: '31/08/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'Agora dá para entrar no GestorHS com a conta Microsoft da empresa, pelo botão "Entrar com Microsoft" na tela de login — sem precisar de uma senha separada. Quem já tem cadastro no GestorHS entra direto; quem ainda não tem continua precisando ser cadastrado na tela de Usuários antes. O login por e-mail e senha continua funcionando normalmente, do jeito que sempre foi.' },
+    ],
+  },
+  {
     versao: '1.47.0',
     data: '28/08/2026',
     itens: [

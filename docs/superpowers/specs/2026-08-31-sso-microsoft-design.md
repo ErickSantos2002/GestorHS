@@ -233,6 +233,27 @@ O client secret vive só no `.env` (gitignorado) e no Easypanel — **nunca** em
 arquivo versionado, incluindo este documento. Expira em 24 meses; renovar é
 gerar outro no portal e atualizar as duas pontas.
 
+**O serviço backend do GestorHS tem que ficar em 1 réplica, sem `--workers`.**
+O ticket do SSO é estado em memória (ver `sso_tickets.py`): com duas réplicas o
+login passa a falhar em cerca de metade das tentativas com "Link de acesso
+inválido ou expirado", e nada no log aponta para a causa — o pedido caiu numa
+réplica que nunca emitiu aquele ticket. No Easypanel, subir réplicas é um
+botão — por isso precisa estar escrito aqui, não só na seção de desenho.
+
+**`BACKEND_CORS_ORIGINS` precisa conter `https://gestorhs.healthsafetytech.com`**,
+senão o `POST /auth/sso/exchange` morre no preflight e o usuário volta para o
+login sem mensagem.
+
+**Nota de offboarding:** ligar o SSO não faz do Entra ID o kill switch.
+Desativar a conta Microsoft de quem sai bloqueia o SSO, mas **não** o login
+por senha, que continua em paralelo por desenho. O desligamento continua
+sendo `ativo=False` na tela de Usuários do GestorHS.
+
+**Nota de log:** tanto o `?code=` (da Microsoft) quanto o `?ticket=` (do
+redirect interno) aparecem em log de acesso de proxy. Os dois são de uso
+único e de vida curta (o ticket, 60 s), então o risco é baixo — mas quem
+cuidar do proxy deve saber.
+
 ## Verificação
 
 O projeto tem suíte de testes, então boa parte é automática (TDD: teste antes).
