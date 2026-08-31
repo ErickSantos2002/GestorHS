@@ -172,10 +172,27 @@ def definir_senha_portal(dados: DefinirSenhaPortalIn, db: Session = Depends(get_
     )
 
 
-def _voltar_para_login(erro: str) -> RedirectResponse:
-    return RedirectResponse(
-        f"{settings.FRONTEND_URL}/login?{urlencode({'erro': erro})}", status_code=302
+def _voltar_para_login(erro: str | None = None) -> RedirectResponse:
+    """Volta para o /login, com ?erro= quando houver, e sempre apaga o cookie
+    de state — o invariante fica estrutural em vez de repetido em cada
+    chamador (era `resposta = ...` / `resposta.delete_cookie(...)` / `return
+    resposta` em cada uma das 7 saídas de erro do callback)."""
+    destino = f"{settings.FRONTEND_URL}/login"
+    if erro:
+        destino = f"{destino}?{urlencode({'erro': erro})}"
+    resposta = RedirectResponse(destino, status_code=302)
+    resposta.delete_cookie("sso_state")
+    return resposta
+
+
+def _ir_para_o_front(ticket: str) -> RedirectResponse:
+    """Caminho feliz: manda o ticket para /auth/callback e apaga o cookie de
+    state — irmão do `_voltar_para_login` para o mesmo invariante."""
+    resposta = RedirectResponse(
+        f"{settings.FRONTEND_URL}/auth/callback?{urlencode({'ticket': ticket})}", status_code=302
     )
+    resposta.delete_cookie("sso_state")
+    return resposta
 
 
 @router.get("/microsoft")
@@ -185,22 +202,41 @@ def microsoft_autorizar():
     if not settings.sso_ativo:
         raise HTTPException(status_code=503, detail="SSO Microsoft não configurado.")
     state = secrets.token_urlsafe(32)
-    resposta = RedirectResponse(microsoft_client.url_de_autorizacao(state), status_code=302)
+    try:
+        url_autorizacao = microsoft_client.url_de_autorizacao(state)
+    except Exception:
+        # Descoberta de autoridade do MSAL pode falhar (rede, Entra fora do
+        # ar). Esta rota é navegação de página inteira — sem o try/except o
+        # usuário veria o JSON de erro do FastAPI numa aba em branco, em vez
+        # da mensagem no /login.
+        logger.exception("Falha ao montar a URL de autorização do SSO Microsoft")
+        return _voltar_para_login("falha_microsoft")
+    resposta = RedirectResponse(url_autorizacao, status_code=302)
     resposta.set_cookie(
         "sso_state",
         state,
         max_age=600,
         httponly=True,
         samesite="lax",
-        secure=settings.FRONTEND_URL.startswith("https"),
+        # O cookie mora no domínio da API, não no do front — é pelo esquema
+        # do MS_REDIRECT_URI (onde o cookie é de fato setado) que "secure"
+        # deve ser decidido, não pelo FRONTEND_URL.
+        secure=settings.MS_REDIRECT_URI.startswith("https"),
     )
     return resposta
 
 
 @router.get("/microsoft/callback")
-def microsoft_callback(request: Request, code: str | None = None, state: str | None = None, db: Session = Depends(get_db)):
+def microsoft_callback(
+    request: Request,
+    code: str | None = None,
+    state: str | None = None,
+    error: str | None = None,
+    db: Session = Depends(get_db),
+):
     """Para onde a Microsoft devolve o navegador. Termina sempre em redirect:
-    ou para /auth/callback com o ticket, ou para /login com ?erro=."""
+    ou para /auth/callback com o ticket, ou para /login com ?erro= (ou sem,
+    quando quem cancelou foi o próprio usuário)."""
     if not settings.sso_ativo:
         raise HTTPException(status_code=503, detail="SSO Microsoft não configurado.")
 
@@ -212,14 +248,15 @@ def microsoft_callback(request: Request, code: str | None = None, state: str | N
     ):
         # Sem state (ou nao batendo com o cookie): nao da pra confiar que o
         # code veio do navegador que a gente mesmo mandou pra Microsoft.
-        resposta = _voltar_para_login("falha_microsoft")
-        resposta.delete_cookie("sso_state")
-        return resposta
+        return _voltar_para_login("falha_microsoft")
+
+    if error == "access_denied":
+        # O usuário cancelou o consentimento na tela da Microsoft — não é
+        # falha do sistema, então volta sem ?erro= (retorno silencioso).
+        return _voltar_para_login()
 
     if not code:
-        resposta = _voltar_para_login("falha_microsoft")
-        resposta.delete_cookie("sso_state")
-        return resposta
+        return _voltar_para_login("falha_microsoft")
 
     try:
         token_ms = microsoft_client.trocar_code_por_token(code)
@@ -228,26 +265,18 @@ def microsoft_callback(request: Request, code: str | None = None, state: str | N
         # Rede, timeout, resposta estranha: o usuario ve a mensagem no login em
         # vez de um 500. O detalhe fica no log — e nunca inclui o token.
         logger.exception("Falha no callback do SSO Microsoft")
-        resposta = _voltar_para_login("falha_microsoft")
-        resposta.delete_cookie("sso_state")
-        return resposta
+        return _voltar_para_login("falha_microsoft")
 
     if not email:
-        resposta = _voltar_para_login("falha_microsoft")
-        resposta.delete_cookie("sso_state")
-        return resposta
+        return _voltar_para_login("falha_microsoft")
 
     usuario = db.query(Usuario).filter(Usuario.email == email).first()
     if usuario is None:
         # Sem provisionamento automatico: o cadastro continua na tela de
         # Usuarios, senao o tenant inteiro ganharia conta ao logar.
-        resposta = _voltar_para_login("usuario_nao_encontrado")
-        resposta.delete_cookie("sso_state")
-        return resposta
+        return _voltar_para_login("usuario_nao_encontrado")
     if not usuario.ativo:
-        resposta = _voltar_para_login("usuario_inativo")
-        resposta.delete_cookie("sso_state")
-        return resposta
+        return _voltar_para_login("usuario_inativo")
 
     # precisa_redefinir_senha NAO e' checado aqui de proposito: a flag forca a
     # troca de uma senha propria, e quem entra por SSO nao usou senha nenhuma.
@@ -255,11 +284,7 @@ def microsoft_callback(request: Request, code: str | None = None, state: str | N
         criar_access_token(sub=str(usuario.id), tipo="usuario", via="sso"),
         criar_refresh_token(sub=str(usuario.id), tipo="usuario", via="sso"),
     )
-    resposta = RedirectResponse(
-        f"{settings.FRONTEND_URL}/auth/callback?{urlencode({'ticket': ticket})}", status_code=302
-    )
-    resposta.delete_cookie("sso_state")
-    return resposta
+    return _ir_para_o_front(ticket)
 
 
 @router.post("/sso/exchange", response_model=Token)

@@ -15,12 +15,25 @@ _GRAPH_ME = "https://graph.microsoft.com/v1.0/me"
 _TIMEOUT = 10.0
 
 
+# Memoizado por chave nos valores das envs: instanciar o ConfidentialClientApplication
+# faz descoberta OIDC da autoridade, então reinstanciar a cada chamada exercitava o
+# caminho de falha duas vezes por login (uma em /auth/microsoft, outra no callback).
+# A chave inclui as quatro envs (não só as usadas na instanciação) para o cache trocar
+# de entrada sozinho quando um teste troca qualquer uma por monkeypatch.
+_app_cache: dict[tuple[str, str, str, str], ConfidentialClientApplication] = {}
+
+
 def _app() -> ConfidentialClientApplication:
-    return ConfidentialClientApplication(
-        client_id=settings.MS_CLIENT_ID,
-        client_credential=settings.MS_CLIENT_SECRET,
-        authority=f"https://login.microsoftonline.com/{settings.MS_TENANT_ID}",
-    )
+    chave = (settings.MS_CLIENT_ID, settings.MS_TENANT_ID, settings.MS_CLIENT_SECRET, settings.MS_REDIRECT_URI)
+    app = _app_cache.get(chave)
+    if app is None:
+        app = ConfidentialClientApplication(
+            client_id=settings.MS_CLIENT_ID,
+            client_credential=settings.MS_CLIENT_SECRET,
+            authority=f"https://login.microsoftonline.com/{settings.MS_TENANT_ID}",
+        )
+        _app_cache[chave] = app
+    return app
 
 
 def url_de_autorizacao(state: str) -> str:

@@ -1,3 +1,4 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -53,10 +54,19 @@ class Settings(BaseSettings):
     EQUIPAMENTO_EBS_ID: int = 37
     CLIENTE_ESTOQUE_HS_ID: int = 2
 
+    @field_validator("FRONTEND_URL")
+    @classmethod
+    def _sem_barra_final(cls, v: str) -> str:
+        """Um typo com barra no fim (ex.: no Easypanel) faria o callback
+        redirecionar para "//login" — o rstrip evita isso de forma silenciosa.
+        Não se aplica ao MS_REDIRECT_URI: ali é URL exata cadastrada no
+        Azure, então alterar o valor quebraria a comparação com o portal."""
+        return v.rstrip("/")
+
     @property
     def sso_ativo(self) -> bool:
         """As cinco preenchidas. FRONTEND_URL entra porque sem ela o callback
-        nao tem para onde redirecionar — SSO 'meio configurado' seria pior que
+        não tem para onde redirecionar — SSO 'meio configurado' seria pior que
         desligado."""
         return all(
             [

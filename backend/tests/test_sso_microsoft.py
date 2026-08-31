@@ -229,6 +229,38 @@ def test_microsoft_503_com_sso_desligado(client, sso_desligado):
     assert client.get("/auth/microsoft", follow_redirects=False).status_code == 503
 
 
+def test_microsoft_falha_na_descoberta_nao_vira_500(client, sso_ligado, monkeypatch):
+    """/auth/microsoft é navegação de página inteira: se a descoberta de
+    autoridade do MSAL falhar (rede, Entra fora do ar), o usuário tem que ver
+    a mensagem no /login, não o JSON de erro do FastAPI numa aba em branco."""
+
+    def _explode(state):
+        raise RuntimeError("descoberta OIDC fora do ar")
+
+    monkeypatch.setattr(microsoft_client, "url_de_autorizacao", _explode)
+    r = client.get("/auth/microsoft", follow_redirects=False)
+    assert r.status_code == 302
+    assert r.headers["location"] == "http://localhost:5173/login?erro=falha_microsoft"
+
+
+def test_app_e_memoizado_por_chave_de_envs(sso_ligado, monkeypatch):
+    """Reinstanciar o ConfidentialClientApplication a cada chamada refaria a
+    descoberta OIDC duas vezes por login. Mesma chave de envs -> mesma
+    instância — sem bater na rede de verdade, o construtor fica fingido."""
+    chamadas = []
+
+    class _AppFake:
+        def __init__(self, **kwargs):
+            chamadas.append(kwargs)
+
+    monkeypatch.setattr(microsoft_client, "ConfidentialClientApplication", _AppFake)
+    microsoft_client._app_cache.clear()
+    a1 = microsoft_client._app()
+    a2 = microsoft_client._app()
+    assert a1 is a2
+    assert len(chamadas) == 1
+
+
 def test_callback_feliz_redireciona_com_ticket(client, sso_ligado, usuario_admin, graph_diz, monkeypatch):
     state = _iniciar_sso(client, monkeypatch)
     graph_diz("admin@hs.com")
@@ -361,6 +393,25 @@ def test_callback_sem_parametro_state(client, sso_ligado, monkeypatch):
     """Cookie valido, mas a Microsoft (ou um atacante) nao devolveu ?state=."""
     _iniciar_sso(client, monkeypatch)
     r = client.get("/auth/microsoft/callback?code=abc", follow_redirects=False)
+    assert r.headers["location"] == "http://localhost:5173/login?erro=falha_microsoft"
+
+
+def test_callback_access_denied_volta_sem_mensagem_de_erro(client, sso_ligado, monkeypatch):
+    """Quando o próprio usuário cancela o consentimento na tela da Microsoft,
+    ela devolve ?error=access_denied e sem ?code=. Isso não é uma falha do
+    sistema — o retorno é silencioso, sem ?erro=."""
+    state = _iniciar_sso(client, monkeypatch)
+    r = client.get(f"/auth/microsoft/callback?error=access_denied&state={state}", follow_redirects=False)
+    assert r.status_code == 302
+    assert r.headers["location"] == "http://localhost:5173/login"
+
+
+def test_callback_outro_error_da_microsoft_ainda_cai_em_falha_microsoft(client, sso_ligado, monkeypatch):
+    """Um `error` diferente de access_denied (ex.: consent_required,
+    server_error) continua caindo na mensagem genérica de falha."""
+    state = _iniciar_sso(client, monkeypatch)
+    r = client.get(f"/auth/microsoft/callback?error=server_error&state={state}", follow_redirects=False)
+    assert r.status_code == 302
     assert r.headers["location"] == "http://localhost:5173/login?erro=falha_microsoft"
 
 
