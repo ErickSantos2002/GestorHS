@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom
 import { AuthProvider } from './auth/AuthContext'
 import { ProtectedRoute } from './auth/ProtectedRoute'
 import { LoginPage } from './app/pages/LoginPage'
+import { AuthCallbackPage } from './app/pages/AuthCallbackPage'
 import { Spinner } from './components/ui/Spinner'
 
 const AppRoutes = lazy(() => import('./app/routes'))
@@ -32,6 +33,7 @@ export default function App() {
           <Route path="/" element={<Navigate to="/app" replace />} />
           <Route element={<AppAuthLayout />}>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/auth/callback" element={<AuthCallbackPage />} />
             <Route path="/app/*" element={<ProtectedRoute><AppRoutes /></ProtectedRoute>} />
           </Route>
           <Route path="/portal/*" element={<PortalRoutes />} />
