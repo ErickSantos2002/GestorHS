@@ -103,3 +103,22 @@ def test_emitir_limpa_vencidos(monkeypatch):
 
 def test_tickets_sao_diferentes_a_cada_emissao():
     assert sso_tickets.emitir("a", "b") != sso_tickets.emitir("a", "b")
+
+
+def test_resgatar_remove_o_ticket_mesmo_vencido(monkeypatch):
+    """Fixa a ordem pop-antes-da-checagem: uma implementacao que checasse a
+    validade antes de dar pop deixaria o ticket vencido no dict, e duas
+    chamadas concorrentes poderiam ler o mesmo par."""
+    relogio = {"agora": 1000.0}
+    monkeypatch.setattr(sso_tickets.time, "monotonic", lambda: relogio["agora"])
+    ticket = sso_tickets.emitir("acc", "ref")
+    relogio["agora"] += sso_tickets.TTL_SEGUNDOS + 1
+
+    assert sso_tickets.resgatar(ticket) is None
+    assert ticket not in sso_tickets._tickets
+
+
+def test_resgatar_remove_o_ticket_no_caso_feliz():
+    ticket = sso_tickets.emitir("acc", "ref")
+    assert sso_tickets.resgatar(ticket) == ("acc", "ref")
+    assert ticket not in sso_tickets._tickets
