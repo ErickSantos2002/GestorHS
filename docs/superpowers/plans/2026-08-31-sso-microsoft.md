@@ -166,7 +166,7 @@ def sso_status():
 - [ ] **Step 5: Rodar e ver passar**
 
 Run: `pytest tests/test_sso_microsoft.py -v`
-Expected: PASS (7 testes).
+Expected: PASS (6 testes).
 
 - [ ] **Step 6: Rodar a suíte inteira**
 
@@ -307,7 +307,7 @@ def resgatar(ticket: str) -> tuple[str, str] | None:
 - [ ] **Step 4: Rodar e ver passar**
 
 Run: `pytest tests/test_sso_microsoft.py -v`
-Expected: PASS (13 testes no arquivo).
+Expected: PASS (12 testes no arquivo).
 
 - [ ] **Step 5: Commit**
 
