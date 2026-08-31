@@ -1,3 +1,4 @@
+import { StrictMode } from 'react'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
@@ -66,15 +67,16 @@ describe('AuthCallbackPage', () => {
     expect(apiJson).not.toHaveBeenCalled()
   })
 
-  it('troca o ticket uma vez so', async () => {
+  it('troca o ticket uma vez so mesmo com o StrictMode invocando o efeito duas vezes', async () => {
     // O ticket e' de uso unico e o StrictMode roda o efeito duas vezes em dev:
     // a segunda chamada tomaria 400 e derrubaria um login que deu certo.
     apiJson.mockResolvedValue({ access_token: 'acc', refresh_token: 'ref' })
-    const { rerender } = montar('?ticket=abc123')
-    rerender(
-      <MemoryRouter initialEntries={['/auth/callback?ticket=abc123']}>
-        <AuthCallbackPage />
-      </MemoryRouter>,
+    render(
+      <StrictMode>
+        <MemoryRouter initialEntries={['/auth/callback?ticket=abc123']}>
+          <AuthCallbackPage />
+        </MemoryRouter>
+      </StrictMode>,
     )
     await waitFor(() => expect(entrarComTokens).toHaveBeenCalled())
     expect(apiJson).toHaveBeenCalledTimes(1)
