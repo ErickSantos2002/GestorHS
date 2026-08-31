@@ -1,22 +1,38 @@
-import { useState, type FormEvent } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { useEffect, useState, type FormEvent } from 'react'
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../auth/AuthContext'
-import { ApiError } from '../../lib/api'
+import { ApiError, apiJson, apiUrl } from '../../lib/api'
 import { Input } from '../../components/ui/Input'
 import { Spinner } from '../../components/ui/Spinner'
 import { IconAlertCircle } from '../../components/ui/icons'
 import logo from '../../assets/logo.png'
 
+const MENSAGENS_SSO: Record<string, string> = {
+  usuario_nao_encontrado: 'Nenhuma conta GestorHS para este e-mail Microsoft. Fale com o administrador.',
+  usuario_inativo: 'Usuário desativado. Fale com o administrador.',
+  falha_microsoft: 'Falha na autenticação com a Microsoft. Tente novamente.',
+}
+
 export function LoginPage() {
   const { login, definirSenha, user, loading } = useAuth()
   const navigate = useNavigate()
+  const [params] = useSearchParams()
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [etapa, setEtapa] = useState<'login' | 'definir'>('login')
   const [novaSenha, setNovaSenha] = useState('')
   const [confirma, setConfirma] = useState('')
-  const [erro, setErro] = useState('')
+  const [erro, setErro] = useState(MENSAGENS_SSO[params.get('erro') ?? ''] ?? '')
   const [enviando, setEnviando] = useState(false)
+  const [ssoAtivo, setSsoAtivo] = useState(false)
+
+  useEffect(() => {
+    // O backend e' a fonte unica: um VITE_SSO_ATIVO no build duplicaria a
+    // configuracao em duas pontas que podem discordar. Falhou, esconde.
+    void apiJson<{ ativo: boolean }>('/auth/sso/status')
+      .then((r) => setSsoAtivo(r.ativo))
+      .catch(() => setSsoAtivo(false))
+  }, [])
 
   if (loading) {
     return <div className="flex h-screen items-center justify-center bg-background"><Spinner className="w-8 h-8" /></div>
@@ -70,6 +86,27 @@ export function LoginPage() {
               <button type="submit" disabled={enviando} className="w-full py-2.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary-600 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2">
                 {enviando && <Spinner className="w-4 h-4 text-white" />}Entrar
               </button>
+              {ssoAtivo && (
+                <>
+                  <div className="flex items-center gap-3 pt-2">
+                    <span className="h-px flex-1 bg-border" />
+                    <span className="text-xs text-slate-500">ou</span>
+                    <span className="h-px flex-1 bg-border" />
+                  </div>
+                  <a
+                    href={apiUrl('/auth/microsoft')}
+                    className="w-full py-2.5 rounded-lg bg-background-surface border border-border text-sm font-semibold text-slate-200 hover:bg-white/5 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 21 21" aria-hidden="true">
+                      <rect x="1" y="1" width="9" height="9" fill="#f25022" />
+                      <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
+                      <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
+                      <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
+                    </svg>
+                    Entrar com Microsoft
+                  </a>
+                </>
+              )}
             </form>
           ) : (
             <form className="space-y-4" onSubmit={onDefinir}>
