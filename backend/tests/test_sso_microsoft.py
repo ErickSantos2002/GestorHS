@@ -8,6 +8,7 @@ import pytest
 
 from app.core.config import settings
 from app.core import sso_tickets
+from app.integrations import microsoft_client
 
 
 @pytest.fixture()
@@ -122,3 +123,61 @@ def test_resgatar_remove_o_ticket_no_caso_feliz():
     ticket = sso_tickets.emitir("acc", "ref")
     assert sso_tickets.resgatar(ticket) == ("acc", "ref")
     assert ticket not in sso_tickets._tickets
+
+
+class _RespostaFake:
+    def __init__(self, status_code: int, payload: dict):
+        self.status_code = status_code
+        self._payload = payload
+
+    def json(self) -> dict:
+        return self._payload
+
+
+class _ClientFake:
+    """Substitui httpx.Client no modulo. Guarda o que recebeu para inspecao."""
+
+    def __init__(self, resposta: _RespostaFake):
+        self._resposta = resposta
+        self.url = None
+        self.headers = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        return False
+
+    def get(self, url, headers=None):
+        self.url = url
+        self.headers = headers
+        return self._resposta
+
+
+def _fingir_graph(monkeypatch, resposta: _RespostaFake) -> _ClientFake:
+    fake = _ClientFake(resposta)
+    monkeypatch.setattr(microsoft_client.httpx, "Client", lambda **_: fake)
+    return fake
+
+
+def test_email_do_usuario_le_o_campo_mail(monkeypatch):
+    fake = _fingir_graph(monkeypatch, _RespostaFake(200, {"mail": "Fulano@HealthSafetyTech.com"}))
+    assert microsoft_client.email_do_usuario("tok") == "Fulano@HealthSafetyTech.com"
+    assert fake.headers == {"Authorization": "Bearer tok"}
+
+
+def test_email_do_usuario_cai_para_upn_quando_mail_e_nulo(monkeypatch):
+    """Conta sem caixa postal vem com mail=null; o UPN e' o que sobra."""
+    _fingir_graph(monkeypatch, _RespostaFake(200, {"mail": None, "userPrincipalName": "f@healthsafetytech.com"}))
+    assert microsoft_client.email_do_usuario("tok") == "f@healthsafetytech.com"
+
+
+def test_email_do_usuario_devolve_none_se_o_graph_recusa(monkeypatch):
+    _fingir_graph(monkeypatch, _RespostaFake(401, {}))
+    assert microsoft_client.email_do_usuario("tok-ruim") is None
+
+
+def test_escopo_e_so_user_read():
+    """Ler o e-mail e' tudo o que o login precisa. Escopo a mais e' permissao
+    concedida que ninguem usa."""
+    assert microsoft_client.SCOPES == ["User.Read"]
