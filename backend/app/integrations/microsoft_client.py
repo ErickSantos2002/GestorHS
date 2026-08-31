@@ -1,8 +1,8 @@
-"""Login com Microsoft (Entra ID): so o suficiente para saber quem entrou.
+"""Login com Microsoft (Entra ID): só o suficiente para saber quem entrou.
 
-Sincrono e com erro que sobe, como o enderecos_client — o usuario esta parado
-num redirect esperando a resposta (o taskhs_client e' best-effort e engole
-tudo; nao e' o caso aqui). Nada da Microsoft e' guardado: o access_token do
+Síncrono e com erro que sobe, como o enderecos_client — o usuário está parado
+num redirect esperando a resposta (o taskhs_client é best-effort e engole
+tudo; não é o caso aqui). Nada da Microsoft é guardado: o access_token do
 Graph vive dentro do callback e morre no fim dele.
 """
 import httpx
@@ -37,9 +37,9 @@ def _app() -> ConfidentialClientApplication:
 
 
 def url_de_autorizacao(state: str) -> str:
-    """Para onde mandar o navegador. O `state` volta intacto no callback e e'
+    """Para onde mandar o navegador. O `state` volta intacto no callback e é
     conferido contra o cookie — sem ele, um atacante pode fazer o navegador da
-    vitima consumir um `code` alheio (login CSRF)."""
+    vítima consumir um `code` alheio (login CSRF)."""
     return _app().get_authorization_request_url(
         SCOPES, redirect_uri=settings.MS_REDIRECT_URI, state=state
     )
@@ -54,8 +54,8 @@ def trocar_code_por_token(code: str) -> str | None:
 
 
 def email_do_usuario(access_token: str) -> str | None:
-    """E-mail da conta que autenticou. `mail` e' nulo em conta sem caixa
-    postal, e ai o userPrincipalName e' o identificador."""
+    """E-mail da conta que autenticou. `mail` é nulo em conta sem caixa
+    postal, e aí o userPrincipalName é o identificador."""
     with httpx.Client(timeout=_TIMEOUT) as c:
         resposta = c.get(_GRAPH_ME, headers={"Authorization": f"Bearer {access_token}"})
     if resposta.status_code != 200:

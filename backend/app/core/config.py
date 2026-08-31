@@ -33,8 +33,8 @@ class Settings(BaseSettings):
     # Vazio = desligada. Nao expira; revoga trocando o valor. Header X-API-Key.
     GROWTHHS_INBOUND_API_KEY: str = ""
     # SSO Microsoft (Entra ID). Vazio = desligado (mesmo gating por env do
-    # TaskHS/GrowthHS): o botao some da tela de login e GET /auth/microsoft
-    # responde 503. App Registration proprio do GestorHS, single tenant.
+    # TaskHS/GrowthHS): o botão some da tela de login e GET /auth/microsoft
+    # responde 503. App Registration próprio do GestorHS, single tenant.
     MS_CLIENT_ID: str = ""
     MS_TENANT_ID: str = ""
     MS_CLIENT_SECRET: str = ""

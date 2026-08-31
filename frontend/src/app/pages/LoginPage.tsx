@@ -27,8 +27,8 @@ export function LoginPage() {
   const [ssoAtivo, setSsoAtivo] = useState(false)
 
   useEffect(() => {
-    // O backend e' a fonte unica: um VITE_SSO_ATIVO no build duplicaria a
-    // configuracao em duas pontas que podem discordar. Falhou, esconde.
+    // O backend é a fonte única: um VITE_SSO_ATIVO no build duplicaria a
+    // configuração em duas pontas que podem discordar. Falhou, esconde.
     void apiJson<{ ativo: boolean }>('/auth/sso/status')
       .then((r) => setSsoAtivo(r.ativo))
       .catch(() => setSsoAtivo(false))

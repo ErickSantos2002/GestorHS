@@ -1,13 +1,13 @@
-"""Tickets opacos de uso unico para o retorno do SSO Microsoft.
+"""Tickets opacos de uso único para o retorno do SSO Microsoft.
 
-O callback nao pode devolver os tokens na URL: query string entra no historico
-do navegador, no Referer da proxima requisicao e em qualquer log de proxy no
-caminho — e o que vazaria aqui e' um refresh token de 7 dias. Entao o callback
-guarda o par aqui e manda so o ticket, que o front troca num POST.
+O callback não pode devolver os tokens na URL: query string entra no histórico
+do navegador, no Referer da próxima requisição e em qualquer log de proxy no
+caminho — e o que vazaria aqui é um refresh token de 7 dias. Então o callback
+guarda o par aqui e manda só o ticket, que o front troca num POST.
 
-ASSUME PROCESSO UNICO. O estado e' um dict em memoria: com mais de um worker o
-exchange cai num processo que nao emitiu o ticket e o login falha de forma
-intermitente. Se o deploy ganhar --workers > 1, a correcao e' estado
+ASSUME PROCESSO ÚNICO. O estado é um dict em memória: com mais de um worker o
+exchange cai num processo que não emitiu o ticket e o login falha de forma
+intermitente. Se o deploy ganhar --workers > 1, a correção é estado
 compartilhado (Redis ou tabela com TTL). Reiniciar o backend descarta tickets
 pendentes — quem estava no meio do redirect clica de novo.
 """
@@ -35,8 +35,8 @@ def emitir(access_token: str, refresh_token: str) -> str:
 
 
 def resgatar(ticket: str) -> tuple[str, str] | None:
-    """Uso unico: o pop acontece antes da checagem de validade, entao um ticket
-    vencido tambem sai do dict ao ser tentado."""
+    """Uso único: o pop acontece antes da checagem de validade, então um ticket
+    vencido também sai do dict ao ser tentado."""
     registro = _tickets.pop(ticket, None)
     if registro is None:
         return None

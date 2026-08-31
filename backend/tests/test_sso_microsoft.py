@@ -1,8 +1,8 @@
 """SSO Microsoft (Entra ID).
 
-O backend/.env local esta preenchido com as credenciais reais e o `settings`
-le esse arquivo no import — entao todo teste que depende do estado do SSO
-forca os valores por monkeypatch, nunca confia no default.
+O backend/.env local está preenchido com as credenciais reais e o `settings`
+lê esse arquivo no import — então todo teste que depende do estado do SSO
+força os valores por monkeypatch, nunca confia no default.
 """
 import pytest
 
@@ -55,7 +55,7 @@ def test_status_reporta_ligado(client, sso_ligado):
 
 
 def test_status_e_publico(client, sso_ligado):
-    """Sem Authorization header: o front consulta antes de existir sessao."""
+    """Sem Authorization header: o front consulta antes de existir sessão."""
     assert client.get("/auth/sso/status").status_code == 200
 
 
@@ -167,7 +167,7 @@ def test_email_do_usuario_le_o_campo_mail(monkeypatch):
 
 
 def test_email_do_usuario_cai_para_upn_quando_mail_e_nulo(monkeypatch):
-    """Conta sem caixa postal vem com mail=null; o UPN e' o que sobra."""
+    """Conta sem caixa postal vem com mail=null; o UPN é o que sobra."""
     _fingir_graph(monkeypatch, _RespostaFake(200, {"mail": None, "userPrincipalName": "f@healthsafetytech.com"}))
     assert microsoft_client.email_do_usuario("tok") == "f@healthsafetytech.com"
 
@@ -178,8 +178,8 @@ def test_email_do_usuario_devolve_none_se_o_graph_recusa(monkeypatch):
 
 
 def test_escopo_e_so_user_read():
-    """Ler o e-mail e' tudo o que o login precisa. Escopo a mais e' permissao
-    concedida que ninguem usa."""
+    """Ler o e-mail é tudo o que o login precisa. Escopo a mais é permissão
+    concedida que ninguém usa."""
     assert microsoft_client.SCOPES == ["User.Read"]
 
 
@@ -275,13 +275,13 @@ def test_callback_feliz_redireciona_com_ticket(client, sso_ligado, usuario_admin
     payload = decodificar_token(access)
     assert payload["sub"] == str(usuario_admin.id)
     assert payload["tipo"] == "usuario"
-    # cookie de state e' de uso unico: some tambem no caminho feliz.
+    # cookie de state é de uso único: some também no caminho feliz.
     cookies_saida = r.headers.get_list("set-cookie")
     assert any("sso_state=" in c and ("Max-Age=0" in c or 'sso_state=""' in c) for c in cookies_saida)
 
 
 def test_callback_normaliza_o_email(client, sso_ligado, usuario_admin, graph_diz, monkeypatch):
-    """A Microsoft devolve com maiusculas; o usuario esta gravado minusculo."""
+    """A Microsoft devolve com maiúsculas; o usuário está gravado minúsculo."""
     state = _iniciar_sso(client, monkeypatch)
     graph_diz("  Admin@HS.com ")
     r = client.get(f"/auth/microsoft/callback?code=abc&state={state}", follow_redirects=False)
@@ -289,15 +289,15 @@ def test_callback_normaliza_o_email(client, sso_ligado, usuario_admin, graph_diz
 
 
 def test_callback_sem_usuario_volta_para_o_login(client, sso_ligado, usuario_admin, graph_diz, monkeypatch, db_session):
-    """Sem provisionamento automatico: quem nao tem conta nao entra, e a base de
-    usuarios nao muda."""
+    """Sem provisionamento automático: quem não tem conta não entra, e a base de
+    usuários não muda."""
     state = _iniciar_sso(client, monkeypatch)
     graph_diz("estranho@healthsafetytech.com")
     antes = db_session.query(Usuario).count()
     r = client.get(f"/auth/microsoft/callback?code=abc&state={state}", follow_redirects=False)
     assert r.headers["location"] == "http://localhost:5173/login?erro=usuario_nao_encontrado"
     assert db_session.query(Usuario).count() == antes
-    # cookie de state e' de uso unico: some tambem nos caminhos de erro.
+    # cookie de state é de uso único: some também nos caminhos de erro.
     cookies_saida = r.headers.get_list("set-cookie")
     assert any("sso_state=" in c and ("Max-Age=0" in c or 'sso_state=""' in c) for c in cookies_saida)
 
@@ -314,7 +314,7 @@ def test_callback_usuario_inativo(client, sso_ligado, db_session, graph_diz, mon
 
 
 def test_callback_ignora_precisa_redefinir_senha(client, sso_ligado, db_session, graph_diz, monkeypatch):
-    """A flag existe para forcar troca de senha propria; quem entra por SSO nao
+    """A flag existe para forçar troca de senha própria; quem entra por SSO não
     usou senha nenhuma. O /auth/login continua bloqueando — outro teste cobre."""
     from app.core.security import hash_senha
 
@@ -355,7 +355,7 @@ def test_callback_code_recusado_pela_microsoft(client, sso_ligado, graph_diz, mo
 
 
 def test_callback_graph_fora_do_ar(client, sso_ligado, monkeypatch):
-    """Timeout da Microsoft nao pode virar 500 na cara do usuario."""
+    """Timeout da Microsoft não pode virar 500 na cara do usuário."""
     import httpx
 
     state = _iniciar_sso(client, monkeypatch)
@@ -374,23 +374,23 @@ def test_callback_503_com_sso_desligado(client, sso_desligado):
 
 
 def test_callback_state_nao_bate_com_cookie(client, sso_ligado, monkeypatch):
-    """Login CSRF: um state que nao confere com o cookie nao pode ser aceito,
-    mesmo com code presente — senao um atacante usa o proprio code dele para
-    logar a vitima na conta errada."""
+    """Login CSRF: um state que não confere com o cookie não pode ser aceito,
+    mesmo com code presente — senão um atacante usa o próprio code dele para
+    logar a vítima na conta errada."""
     _iniciar_sso(client, monkeypatch)
     r = client.get("/auth/microsoft/callback?code=abc&state=outro-valor-qualquer", follow_redirects=False)
     assert r.headers["location"] == "http://localhost:5173/login?erro=falha_microsoft"
 
 
 def test_callback_sem_cookie_de_state(client, sso_ligado):
-    """Sem ter passado por /auth/microsoft, nao ha cookie — o callback nao
+    """Sem ter passado por /auth/microsoft, não há cookie — o callback não
     pode confiar em nenhum state que venha na URL."""
     r = client.get("/auth/microsoft/callback?code=abc&state=qualquer", follow_redirects=False)
     assert r.headers["location"] == "http://localhost:5173/login?erro=falha_microsoft"
 
 
 def test_callback_sem_parametro_state(client, sso_ligado, monkeypatch):
-    """Cookie valido, mas a Microsoft (ou um atacante) nao devolveu ?state=."""
+    """Cookie válido, mas a Microsoft (ou um atacante) não devolveu ?state=."""
     _iniciar_sso(client, monkeypatch)
     r = client.get("/auth/microsoft/callback?code=abc", follow_redirects=False)
     assert r.headers["location"] == "http://localhost:5173/login?erro=falha_microsoft"
@@ -418,7 +418,7 @@ def test_callback_outro_error_da_microsoft_ainda_cai_em_falha_microsoft(client, 
 def test_callback_state_nao_ascii_nao_derruba_o_servidor(client, sso_ligado, monkeypatch):
     """secrets.compare_digest sobre str exige ASCII dos dois lados; um state
     fora do ASCII (ex.: enviado por um visitante qualquer, sem precisar do
-    cookie certo) nao pode virar 500 — o contrato do callback e' terminar
+    cookie certo) não pode virar 500 — o contrato do callback é terminar
     sempre em redirect."""
     _iniciar_sso(client, monkeypatch)
     r = client.get("/auth/microsoft/callback?code=abc&state=%C3%A7", follow_redirects=False)
@@ -427,7 +427,7 @@ def test_callback_state_nao_ascii_nao_derruba_o_servidor(client, sso_ligado, mon
 
 
 def test_refresh_com_via_sso_ignora_precisa_redefinir(client, db_session):
-    """Quem entrou por SSO nao usou senha nenhuma; a flag nao pode expulsa-lo
+    """Quem entrou por SSO não usou senha nenhuma; a flag não pode expulsá-lo
     no primeiro refresh."""
     from app.core.security import hash_senha
 
@@ -455,7 +455,7 @@ def test_refresh_preserva_via_sso_no_token_novo(client, db_session):
 
 
 def test_refresh_sem_via_sso_ainda_bloqueia_precisa_redefinir(client, db_session):
-    """O caminho de senha continua barrado no refresh — a flag so e' ignorada
+    """O caminho de senha continua barrado no refresh — a flag só é ignorada
     para quem entrou por SSO."""
     from app.core.security import hash_senha
 
@@ -481,7 +481,7 @@ def test_exchange_devolve_os_tokens(client, sso_ligado, usuario_admin, graph_diz
 
 
 def test_tokens_do_sso_valem_no_me(client, sso_ligado, usuario_admin, graph_diz, monkeypatch):
-    """A sessao nasce diferente mas e' indistinguivel da do login por senha."""
+    """A sessão nasce diferente mas é indistinguível da do login por senha."""
     state = _iniciar_sso(client, monkeypatch)
     graph_diz("admin@hs.com")
     destino = client.get(f"/auth/microsoft/callback?code=abc&state={state}", follow_redirects=False).headers["location"]
@@ -504,7 +504,7 @@ def test_exchange_do_mesmo_ticket_duas_vezes_da_400(client, sso_ligado, usuario_
 
 
 def test_exchange_ticket_invalido_e_400_e_nao_401(client, sso_ligado):
-    """401 faria o api.ts limpar o storage e sair da pagina antes de mostrar a
+    """401 faria o api.ts limpar o storage e sair da página antes de mostrar a
     mensagem; com 400 o AuthCallbackPage consegue explicar o que houve."""
     r = client.post("/auth/sso/exchange", json={"ticket": "nao-existe"})
     assert r.status_code == 400

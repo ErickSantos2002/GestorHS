@@ -106,8 +106,8 @@ def refresh(dados: RefreshRequest, db: Session = Depends(get_db)):
     else:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh inválido")
 
-    # precisa_redefinir_senha so barra quem usou senha pra entrar: quem entrou
-    # por SSO (via="sso") nao tem senha propria pra redefinir.
+    # precisa_redefinir_senha só barra quem usou senha pra entrar: quem entrou
+    # por SSO (via="sso") não tem senha própria pra redefinir.
     via = payload.get("via")
     if registro is None or (registro.precisa_redefinir_senha and via != "sso"):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh inválido")
@@ -197,8 +197,8 @@ def _ir_para_o_front(ticket: str) -> RedirectResponse:
 
 @router.get("/microsoft")
 def microsoft_autorizar():
-    """Publico e de navegacao inteira: o botao no front e' uma ancora, nao um
-    fetch — XHR nao segue redirect cross-origin."""
+    """Público e de navegação inteira: o botão no front é uma âncora, não um
+    fetch — XHR não segue redirect cross-origin."""
     if not settings.sso_ativo:
         raise HTTPException(status_code=503, detail="SSO Microsoft não configurado.")
     state = secrets.token_urlsafe(32)
@@ -246,7 +246,7 @@ def microsoft_callback(
         or not state_cookie
         or not secrets.compare_digest(state.encode(), state_cookie.encode())
     ):
-        # Sem state (ou nao batendo com o cookie): nao da pra confiar que o
+        # Sem state (ou não batendo com o cookie): não dá pra confiar que o
         # code veio do navegador que a gente mesmo mandou pra Microsoft.
         return _voltar_para_login("falha_microsoft")
 
@@ -262,7 +262,7 @@ def microsoft_callback(
         token_ms = microsoft_client.trocar_code_por_token(code)
         email = emails.normalizar(microsoft_client.email_do_usuario(token_ms)) if token_ms else ""
     except Exception:
-        # Rede, timeout, resposta estranha: o usuario ve a mensagem no login em
+        # Rede, timeout, resposta estranha: o usuário vê a mensagem no login em
         # vez de um 500. O detalhe fica no log — e nunca inclui o token.
         logger.exception("Falha no callback do SSO Microsoft")
         return _voltar_para_login("falha_microsoft")
@@ -272,14 +272,14 @@ def microsoft_callback(
 
     usuario = db.query(Usuario).filter(Usuario.email == email).first()
     if usuario is None:
-        # Sem provisionamento automatico: o cadastro continua na tela de
-        # Usuarios, senao o tenant inteiro ganharia conta ao logar.
+        # Sem provisionamento automático: o cadastro continua na tela de
+        # Usuários, senão o tenant inteiro ganharia conta ao logar.
         return _voltar_para_login("usuario_nao_encontrado")
     if not usuario.ativo:
         return _voltar_para_login("usuario_inativo")
 
-    # precisa_redefinir_senha NAO e' checado aqui de proposito: a flag forca a
-    # troca de uma senha propria, e quem entra por SSO nao usou senha nenhuma.
+    # precisa_redefinir_senha NÃO é checado aqui de propósito: a flag força a
+    # troca de uma senha própria, e quem entra por SSO não usou senha nenhuma.
     ticket = sso_tickets.emitir(
         criar_access_token(sub=str(usuario.id), tipo="usuario", via="sso"),
         criar_refresh_token(sub=str(usuario.id), tipo="usuario", via="sso"),
@@ -290,10 +290,10 @@ def microsoft_callback(
 @router.post("/sso/exchange", response_model=Token)
 def sso_exchange(dados: SsoExchangeIn):
     """Troca o ticket do redirect pelos tokens de verdade. Responde `Token` (e
-    nao `LoginOut`): o SSO nunca devolve precisa_redefinir."""
+    não `LoginOut`): o SSO nunca devolve precisa_redefinir."""
     par = sso_tickets.resgatar(dados.ticket)
     if par is None:
-        # 400 e nao 401 de proposito — ver o teste que fixa isso.
+        # 400 e não 401 de propósito — ver o teste que fixa isso.
         raise HTTPException(status_code=400, detail="Link de acesso inválido ou expirado. Entre de novo.")
     access_token, refresh_token = par
     return Token(access_token=access_token, refresh_token=refresh_token)
@@ -301,8 +301,8 @@ def sso_exchange(dados: SsoExchangeIn):
 
 @router.get("/sso/status")
 def sso_status():
-    """Publico: o front pergunta antes de haver sessao, para decidir se mostra
-    o botao 'Entrar com Microsoft'. Uma env so, em um lugar so — um
-    VITE_SSO_ATIVO no build duplicaria a configuracao em duas pontas que podem
+    """Público: o front pergunta antes de haver sessão, para decidir se mostra
+    o botão 'Entrar com Microsoft'. Uma env só, em um lugar só — um
+    VITE_SSO_ATIVO no build duplicaria a configuração em duas pontas que podem
     discordar."""
     return {"ativo": settings.sso_ativo}

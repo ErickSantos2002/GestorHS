@@ -30,34 +30,34 @@ beforeEach(() => {
 })
 
 describe('LoginPage — SSO', () => {
-  it('mostra o botao da Microsoft como ancora para o backend', async () => {
+  it('mostra o botão da Microsoft como âncora para o backend', async () => {
     montar()
     const botao = await screen.findByText('Entrar com Microsoft')
     expect(botao.closest('a')).toHaveAttribute('href', 'http://api.teste/auth/microsoft')
   })
 
-  it('esconde o botao quando o SSO esta desligado', async () => {
+  it('esconde o botão quando o SSO está desligado', async () => {
     apiJson.mockResolvedValue({ ativo: false })
     montar()
     await waitFor(() => expect(apiJson).toHaveBeenCalledWith('/auth/sso/status'))
     expect(screen.queryByText('Entrar com Microsoft')).toBeNull()
   })
 
-  it('esconde o botao se o status falhar', async () => {
+  it('esconde o botão se o status falhar', async () => {
     apiJson.mockRejectedValue(new Error('sem rede'))
     montar()
     await waitFor(() => expect(apiJson).toHaveBeenCalled())
     expect(screen.queryByText('Entrar com Microsoft')).toBeNull()
   })
 
-  it('mostra a mensagem de usuario nao encontrado vinda do callback', async () => {
+  it('mostra a mensagem de usuário não encontrado vinda do callback', async () => {
     montar('?erro=usuario_nao_encontrado')
     expect(
       await screen.findByText(/Nenhuma conta GestorHS para este e-mail Microsoft/),
     ).toBeInTheDocument()
   })
 
-  it('mostra a mensagem de usuario inativo', async () => {
+  it('mostra a mensagem de usuário inativo', async () => {
     montar('?erro=usuario_inativo')
     expect(await screen.findByText(/Usuário desativado/)).toBeInTheDocument()
   })

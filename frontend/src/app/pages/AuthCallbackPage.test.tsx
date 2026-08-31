@@ -52,7 +52,7 @@ describe('AuthCallbackPage', () => {
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/app', { replace: true }))
   })
 
-  it('mostra a mensagem do backend quando o ticket ja foi usado', async () => {
+  it('mostra a mensagem do backend quando o ticket já foi usado', async () => {
     apiJson.mockRejectedValue(new ApiError(400, 'Link de acesso inválido ou expirado. Entre de novo.'))
     montar('?ticket=usado')
 
@@ -67,8 +67,8 @@ describe('AuthCallbackPage', () => {
     expect(apiJson).not.toHaveBeenCalled()
   })
 
-  it('troca o ticket uma vez so mesmo com o StrictMode invocando o efeito duas vezes', async () => {
-    // O ticket e' de uso unico e o StrictMode roda o efeito duas vezes em dev:
+  it('troca o ticket uma vez só mesmo com o StrictMode invocando o efeito duas vezes', async () => {
+    // O ticket é de uso único e o StrictMode roda o efeito duas vezes em dev:
     // a segunda chamada tomaria 400 e derrubaria um login que deu certo.
     apiJson.mockResolvedValue({ access_token: 'acc', refresh_token: 'ref' })
     render(
