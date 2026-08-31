@@ -183,6 +183,7 @@ def test_escopo_e_so_user_read():
     assert microsoft_client.SCOPES == ["User.Read"]
 
 
+from app.core.security import criar_refresh_token, decodificar_token
 from app.models import Usuario
 
 
@@ -197,52 +198,84 @@ def graph_diz(monkeypatch):
     return _configurar
 
 
+def _iniciar_sso(client, monkeypatch) -> str:
+    """Chama /auth/microsoft para o cookie de state ser gravado e devolve o state."""
+    monkeypatch.setattr(
+        microsoft_client, "url_de_autorizacao", lambda state: "https://login.microsoftonline.com/xyz"
+    )
+    client.get("/auth/microsoft", follow_redirects=False)
+    return client.cookies["sso_state"]
+
+
 def test_microsoft_redireciona_para_a_microsoft(client, sso_ligado, monkeypatch):
-    monkeypatch.setattr(microsoft_client, "url_de_autorizacao", lambda: "https://login.microsoftonline.com/xyz")
+    monkeypatch.setattr(
+        microsoft_client, "url_de_autorizacao", lambda state: "https://login.microsoftonline.com/xyz"
+    )
     r = client.get("/auth/microsoft", follow_redirects=False)
     assert r.status_code == 302
     assert r.headers["location"] == "https://login.microsoftonline.com/xyz"
+
+
+def test_microsoft_grava_cookie_de_state(client, sso_ligado, monkeypatch):
+    monkeypatch.setattr(
+        microsoft_client, "url_de_autorizacao", lambda state: "https://login.microsoftonline.com/xyz"
+    )
+    r = client.get("/auth/microsoft", follow_redirects=False)
+    assert "sso_state" in r.cookies
+    assert len(r.cookies["sso_state"]) > 20
 
 
 def test_microsoft_503_com_sso_desligado(client, sso_desligado):
     assert client.get("/auth/microsoft", follow_redirects=False).status_code == 503
 
 
-def test_callback_feliz_redireciona_com_ticket(client, sso_ligado, usuario_admin, graph_diz):
+def test_callback_feliz_redireciona_com_ticket(client, sso_ligado, usuario_admin, graph_diz, monkeypatch):
+    state = _iniciar_sso(client, monkeypatch)
     graph_diz("admin@hs.com")
-    r = client.get("/auth/microsoft/callback?code=abc", follow_redirects=False)
+    r = client.get(f"/auth/microsoft/callback?code=abc&state={state}", follow_redirects=False)
     assert r.status_code == 302
     destino = r.headers["location"]
     assert destino.startswith("http://localhost:5173/auth/callback?ticket=")
     ticket = destino.split("ticket=")[1]
-    assert sso_tickets.resgatar(ticket) is not None
+    par = sso_tickets.resgatar(ticket)
+    assert par is not None
+    access, _ = par
+    payload = decodificar_token(access)
+    assert payload["sub"] == str(usuario_admin.id)
+    assert payload["tipo"] == "usuario"
 
 
-def test_callback_normaliza_o_email(client, sso_ligado, usuario_admin, graph_diz):
+def test_callback_normaliza_o_email(client, sso_ligado, usuario_admin, graph_diz, monkeypatch):
     """A Microsoft devolve com maiusculas; o usuario esta gravado minusculo."""
+    state = _iniciar_sso(client, monkeypatch)
     graph_diz("  Admin@HS.com ")
-    r = client.get("/auth/microsoft/callback?code=abc", follow_redirects=False)
+    r = client.get(f"/auth/microsoft/callback?code=abc&state={state}", follow_redirects=False)
     assert "/auth/callback?ticket=" in r.headers["location"]
 
 
-def test_callback_sem_usuario_volta_para_o_login(client, sso_ligado, usuario_admin, graph_diz):
-    """Sem provisionamento automatico: quem nao tem conta nao entra."""
+def test_callback_sem_usuario_volta_para_o_login(client, sso_ligado, usuario_admin, graph_diz, monkeypatch, db_session):
+    """Sem provisionamento automatico: quem nao tem conta nao entra, e a base de
+    usuarios nao muda."""
+    state = _iniciar_sso(client, monkeypatch)
     graph_diz("estranho@healthsafetytech.com")
-    r = client.get("/auth/microsoft/callback?code=abc", follow_redirects=False)
+    antes = db_session.query(Usuario).count()
+    r = client.get(f"/auth/microsoft/callback?code=abc&state={state}", follow_redirects=False)
     assert r.headers["location"] == "http://localhost:5173/login?erro=usuario_nao_encontrado"
+    assert db_session.query(Usuario).count() == antes
 
 
-def test_callback_usuario_inativo(client, sso_ligado, db_session, graph_diz):
+def test_callback_usuario_inativo(client, sso_ligado, db_session, graph_diz, monkeypatch):
     from app.core.security import hash_senha
 
     db_session.add(Usuario(nome="Ex", email="ex@hs.com", senha=hash_senha("senha123"), ativo=False))
     db_session.commit()
+    state = _iniciar_sso(client, monkeypatch)
     graph_diz("ex@hs.com")
-    r = client.get("/auth/microsoft/callback?code=abc", follow_redirects=False)
+    r = client.get(f"/auth/microsoft/callback?code=abc&state={state}", follow_redirects=False)
     assert r.headers["location"] == "http://localhost:5173/login?erro=usuario_inativo"
 
 
-def test_callback_ignora_precisa_redefinir_senha(client, sso_ligado, db_session, graph_diz):
+def test_callback_ignora_precisa_redefinir_senha(client, sso_ligado, db_session, graph_diz, monkeypatch):
     """A flag existe para forcar troca de senha propria; quem entra por SSO nao
     usou senha nenhuma. O /auth/login continua bloqueando — outro teste cobre."""
     from app.core.security import hash_senha
@@ -251,8 +284,9 @@ def test_callback_ignora_precisa_redefinir_senha(client, sso_ligado, db_session,
         Usuario(nome="Novo", email="novo@hs.com", senha=hash_senha("senha123"), precisa_redefinir_senha=True)
     )
     db_session.commit()
+    state = _iniciar_sso(client, monkeypatch)
     graph_diz("novo@hs.com")
-    r = client.get("/auth/microsoft/callback?code=abc", follow_redirects=False)
+    r = client.get(f"/auth/microsoft/callback?code=abc&state={state}", follow_redirects=False)
     assert "/auth/callback?ticket=" in r.headers["location"]
 
 
@@ -269,14 +303,16 @@ def test_login_por_senha_ainda_bloqueia_precisa_redefinir(client, db_session):
     assert r.json()["access_token"] is None
 
 
-def test_callback_sem_code(client, sso_ligado):
-    r = client.get("/auth/microsoft/callback", follow_redirects=False)
+def test_callback_sem_code(client, sso_ligado, monkeypatch):
+    state = _iniciar_sso(client, monkeypatch)
+    r = client.get(f"/auth/microsoft/callback?state={state}", follow_redirects=False)
     assert r.headers["location"] == "http://localhost:5173/login?erro=falha_microsoft"
 
 
-def test_callback_code_recusado_pela_microsoft(client, sso_ligado, graph_diz):
+def test_callback_code_recusado_pela_microsoft(client, sso_ligado, graph_diz, monkeypatch):
+    state = _iniciar_sso(client, monkeypatch)
     graph_diz(None, token=None)
-    r = client.get("/auth/microsoft/callback?code=ruim", follow_redirects=False)
+    r = client.get(f"/auth/microsoft/callback?code=ruim&state={state}", follow_redirects=False)
     assert r.headers["location"] == "http://localhost:5173/login?erro=falha_microsoft"
 
 
@@ -284,15 +320,80 @@ def test_callback_graph_fora_do_ar(client, sso_ligado, monkeypatch):
     """Timeout da Microsoft nao pode virar 500 na cara do usuario."""
     import httpx
 
+    state = _iniciar_sso(client, monkeypatch)
     monkeypatch.setattr(microsoft_client, "trocar_code_por_token", lambda code: "tok")
 
     def _explode(_):
         raise httpx.ConnectTimeout("sem rede")
 
     monkeypatch.setattr(microsoft_client, "email_do_usuario", _explode)
-    r = client.get("/auth/microsoft/callback?code=abc", follow_redirects=False)
+    r = client.get(f"/auth/microsoft/callback?code=abc&state={state}", follow_redirects=False)
     assert r.headers["location"] == "http://localhost:5173/login?erro=falha_microsoft"
 
 
 def test_callback_503_com_sso_desligado(client, sso_desligado):
     assert client.get("/auth/microsoft/callback?code=abc", follow_redirects=False).status_code == 503
+
+
+def test_callback_state_nao_bate_com_cookie(client, sso_ligado, monkeypatch):
+    """Login CSRF: um state que nao confere com o cookie nao pode ser aceito,
+    mesmo com code presente — senao um atacante usa o proprio code dele para
+    logar a vitima na conta errada."""
+    _iniciar_sso(client, monkeypatch)
+    r = client.get("/auth/microsoft/callback?code=abc&state=outro-valor-qualquer", follow_redirects=False)
+    assert r.headers["location"] == "http://localhost:5173/login?erro=falha_microsoft"
+
+
+def test_callback_sem_cookie_de_state(client, sso_ligado):
+    """Sem ter passado por /auth/microsoft, nao ha cookie — o callback nao
+    pode confiar em nenhum state que venha na URL."""
+    r = client.get("/auth/microsoft/callback?code=abc&state=qualquer", follow_redirects=False)
+    assert r.headers["location"] == "http://localhost:5173/login?erro=falha_microsoft"
+
+
+def test_callback_sem_parametro_state(client, sso_ligado, monkeypatch):
+    """Cookie valido, mas a Microsoft (ou um atacante) nao devolveu ?state=."""
+    _iniciar_sso(client, monkeypatch)
+    r = client.get("/auth/microsoft/callback?code=abc", follow_redirects=False)
+    assert r.headers["location"] == "http://localhost:5173/login?erro=falha_microsoft"
+
+
+def test_refresh_com_via_sso_ignora_precisa_redefinir(client, db_session):
+    """Quem entrou por SSO nao usou senha nenhuma; a flag nao pode expulsa-lo
+    no primeiro refresh."""
+    from app.core.security import hash_senha
+
+    usuario = Usuario(nome="Novo", email="novo3@hs.com", senha=hash_senha("senha123"), precisa_redefinir_senha=True)
+    db_session.add(usuario)
+    db_session.commit()
+    refresh_token = criar_refresh_token(sub=str(usuario.id), tipo="usuario", via="sso")
+    r = client.post("/auth/refresh", json={"refresh_token": refresh_token})
+    assert r.status_code == 200
+    assert r.json()["access_token"] is not None
+
+
+def test_refresh_preserva_via_sso_no_token_novo(client, db_session):
+    """Sem preservar o `via`, o problema voltaria no segundo refresh."""
+    from app.core.security import hash_senha
+
+    usuario = Usuario(nome="Novo", email="novo4@hs.com", senha=hash_senha("senha123"), precisa_redefinir_senha=True)
+    db_session.add(usuario)
+    db_session.commit()
+    refresh_token = criar_refresh_token(sub=str(usuario.id), tipo="usuario", via="sso")
+    r = client.post("/auth/refresh", json={"refresh_token": refresh_token})
+    assert r.status_code == 200
+    novo_refresh = r.json()["refresh_token"]
+    assert decodificar_token(novo_refresh)["via"] == "sso"
+
+
+def test_refresh_sem_via_sso_ainda_bloqueia_precisa_redefinir(client, db_session):
+    """O caminho de senha continua barrado no refresh — a flag so e' ignorada
+    para quem entrou por SSO."""
+    from app.core.security import hash_senha
+
+    usuario = Usuario(nome="Novo", email="novo5@hs.com", senha=hash_senha("senha123"), precisa_redefinir_senha=True)
+    db_session.add(usuario)
+    db_session.commit()
+    refresh_token = criar_refresh_token(sub=str(usuario.id), tipo="usuario")
+    r = client.post("/auth/refresh", json={"refresh_token": refresh_token})
+    assert r.status_code == 401

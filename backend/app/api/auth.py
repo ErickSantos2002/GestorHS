@@ -1,7 +1,8 @@
 import logging
+import secrets
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -105,14 +106,17 @@ def refresh(dados: RefreshRequest, db: Session = Depends(get_db)):
     else:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh inválido")
 
-    if registro is None or registro.precisa_redefinir_senha:
+    # precisa_redefinir_senha so barra quem usou senha pra entrar: quem entrou
+    # por SSO (via="sso") nao tem senha propria pra redefinir.
+    via = payload.get("via")
+    if registro is None or (registro.precisa_redefinir_senha and via != "sso"):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh inválido")
     if tipo == "usuario" and not registro.ativo:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh inválido")
 
     return Token(
-        access_token=criar_access_token(sub=sub, tipo=tipo, cliente=cliente_claim),
-        refresh_token=criar_refresh_token(sub=sub, tipo=tipo, cliente=cliente_claim),
+        access_token=criar_access_token(sub=sub, tipo=tipo, cliente=cliente_claim, via=via),
+        refresh_token=criar_refresh_token(sub=sub, tipo=tipo, cliente=cliente_claim, via=via),
     )
 
 
@@ -180,17 +184,38 @@ def microsoft_autorizar():
     fetch — XHR nao segue redirect cross-origin."""
     if not settings.sso_ativo:
         raise HTTPException(status_code=503, detail="SSO Microsoft não configurado.")
-    return RedirectResponse(microsoft_client.url_de_autorizacao(), status_code=302)
+    state = secrets.token_urlsafe(32)
+    resposta = RedirectResponse(microsoft_client.url_de_autorizacao(state), status_code=302)
+    resposta.set_cookie(
+        "sso_state",
+        state,
+        max_age=600,
+        httponly=True,
+        samesite="lax",
+        secure=settings.FRONTEND_URL.startswith("https"),
+    )
+    return resposta
 
 
 @router.get("/microsoft/callback")
-def microsoft_callback(code: str | None = None, db: Session = Depends(get_db)):
+def microsoft_callback(request: Request, code: str | None = None, state: str | None = None, db: Session = Depends(get_db)):
     """Para onde a Microsoft devolve o navegador. Termina sempre em redirect:
     ou para /auth/callback com o ticket, ou para /login com ?erro=."""
     if not settings.sso_ativo:
         raise HTTPException(status_code=503, detail="SSO Microsoft não configurado.")
+
+    state_cookie = request.cookies.get("sso_state")
+    if not state or not state_cookie or not secrets.compare_digest(state, state_cookie):
+        # Sem state (ou nao batendo com o cookie): nao da pra confiar que o
+        # code veio do navegador que a gente mesmo mandou pra Microsoft.
+        resposta = _voltar_para_login("falha_microsoft")
+        resposta.delete_cookie("sso_state")
+        return resposta
+
     if not code:
-        return _voltar_para_login("falha_microsoft")
+        resposta = _voltar_para_login("falha_microsoft")
+        resposta.delete_cookie("sso_state")
+        return resposta
 
     try:
         token_ms = microsoft_client.trocar_code_por_token(code)
@@ -199,28 +224,38 @@ def microsoft_callback(code: str | None = None, db: Session = Depends(get_db)):
         # Rede, timeout, resposta estranha: o usuario ve a mensagem no login em
         # vez de um 500. O detalhe fica no log — e nunca inclui o token.
         logger.exception("Falha no callback do SSO Microsoft")
-        return _voltar_para_login("falha_microsoft")
+        resposta = _voltar_para_login("falha_microsoft")
+        resposta.delete_cookie("sso_state")
+        return resposta
 
     if not email:
-        return _voltar_para_login("falha_microsoft")
+        resposta = _voltar_para_login("falha_microsoft")
+        resposta.delete_cookie("sso_state")
+        return resposta
 
     usuario = db.query(Usuario).filter(Usuario.email == email).first()
     if usuario is None:
         # Sem provisionamento automatico: o cadastro continua na tela de
         # Usuarios, senao o tenant inteiro ganharia conta ao logar.
-        return _voltar_para_login("usuario_nao_encontrado")
+        resposta = _voltar_para_login("usuario_nao_encontrado")
+        resposta.delete_cookie("sso_state")
+        return resposta
     if not usuario.ativo:
-        return _voltar_para_login("usuario_inativo")
+        resposta = _voltar_para_login("usuario_inativo")
+        resposta.delete_cookie("sso_state")
+        return resposta
 
     # precisa_redefinir_senha NAO e' checado aqui de proposito: a flag forca a
     # troca de uma senha propria, e quem entra por SSO nao usou senha nenhuma.
     ticket = sso_tickets.emitir(
-        criar_access_token(sub=str(usuario.id), tipo="usuario"),
-        criar_refresh_token(sub=str(usuario.id), tipo="usuario"),
+        criar_access_token(sub=str(usuario.id), tipo="usuario", via="sso"),
+        criar_refresh_token(sub=str(usuario.id), tipo="usuario", via="sso"),
     )
-    return RedirectResponse(
+    resposta = RedirectResponse(
         f"{settings.FRONTEND_URL}/auth/callback?{urlencode({'ticket': ticket})}", status_code=302
     )
+    resposta.delete_cookie("sso_state")
+    return resposta
 
 
 @router.get("/sso/status")

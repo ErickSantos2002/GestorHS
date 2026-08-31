@@ -23,9 +23,13 @@ def _app() -> ConfidentialClientApplication:
     )
 
 
-def url_de_autorizacao() -> str:
-    """Para onde mandar o navegador do usuario."""
-    return _app().get_authorization_request_url(SCOPES, redirect_uri=settings.MS_REDIRECT_URI)
+def url_de_autorizacao(state: str) -> str:
+    """Para onde mandar o navegador. O `state` volta intacto no callback e e'
+    conferido contra o cookie — sem ele, um atacante pode fazer o navegador da
+    vitima consumir um `code` alheio (login CSRF)."""
+    return _app().get_authorization_request_url(
+        SCOPES, redirect_uri=settings.MS_REDIRECT_URI, state=state
+    )
 
 
 def trocar_code_por_token(code: str) -> str | None:

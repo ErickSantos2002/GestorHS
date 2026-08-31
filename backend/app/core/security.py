@@ -22,7 +22,9 @@ def verificar_senha(senha: str, hash_armazenado: str) -> bool:
         return False
 
 
-def _criar_token(sub: str, tipo: str, token_use: str, expira_em: timedelta, cliente: int | None = None) -> str:
+def _criar_token(
+    sub: str, tipo: str, token_use: str, expira_em: timedelta, cliente: int | None = None, via: str | None = None
+) -> str:
     agora = datetime.now(timezone.utc)
     payload = {
         "sub": sub,
@@ -33,15 +35,23 @@ def _criar_token(sub: str, tipo: str, token_use: str, expira_em: timedelta, clie
     }
     if cliente is not None:
         payload["cliente"] = cliente
+    if via is not None:
+        # Origem do login (ex.: "sso") — o /auth/refresh usa isso para nao
+        # barrar por precisa_redefinir_senha quem entrou sem usar senha nenhuma.
+        payload["via"] = via
     return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
 
-def criar_access_token(sub: str, tipo: str, cliente: int | None = None) -> str:
-    return _criar_token(sub, tipo, "access", timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES), cliente=cliente)
+def criar_access_token(sub: str, tipo: str, cliente: int | None = None, via: str | None = None) -> str:
+    return _criar_token(
+        sub, tipo, "access", timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES), cliente=cliente, via=via
+    )
 
 
-def criar_refresh_token(sub: str, tipo: str, cliente: int | None = None) -> str:
-    return _criar_token(sub, tipo, "refresh", timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS), cliente=cliente)
+def criar_refresh_token(sub: str, tipo: str, cliente: int | None = None, via: str | None = None) -> str:
+    return _criar_token(
+        sub, tipo, "refresh", timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS), cliente=cliente, via=via
+    )
 
 
 def decodificar_token(token: str) -> dict:
