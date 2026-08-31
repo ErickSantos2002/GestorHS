@@ -1,11 +1,15 @@
+import logging
+from urllib.parse import urlencode
+
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import RedirectResponse
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from jose import JWTError
 
 from app.models.database import get_db
 from app.models import Usuario, UsuarioCliente, Cliente
-from app.core import emails
+from app.core import emails, sso_tickets
 from app.core.config import settings
 from app.core.security import (
     hash_senha,
@@ -14,8 +18,11 @@ from app.core.security import (
     criar_refresh_token,
     decodificar_token,
 )
+from app.integrations import microsoft_client
 from app.schemas.auth import LoginRequest, PortalLoginRequest, Token, RefreshRequest, UsuarioOut, TrocarSenhaIn, LoginOut, DefinirSenhaIn, DefinirSenhaPortalIn
 from app.api.deps import get_current_usuario
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -158,6 +165,61 @@ def definir_senha_portal(dados: DefinirSenhaPortalIn, db: Session = Depends(get_
     return Token(
         access_token=criar_access_token(sub=str(cli.id), tipo="cliente", cliente=cli.cliente),
         refresh_token=criar_refresh_token(sub=str(cli.id), tipo="cliente", cliente=cli.cliente),
+    )
+
+
+def _voltar_para_login(erro: str) -> RedirectResponse:
+    return RedirectResponse(
+        f"{settings.FRONTEND_URL}/login?{urlencode({'erro': erro})}", status_code=302
+    )
+
+
+@router.get("/microsoft")
+def microsoft_autorizar():
+    """Publico e de navegacao inteira: o botao no front e' uma ancora, nao um
+    fetch — XHR nao segue redirect cross-origin."""
+    if not settings.sso_ativo:
+        raise HTTPException(status_code=503, detail="SSO Microsoft não configurado.")
+    return RedirectResponse(microsoft_client.url_de_autorizacao(), status_code=302)
+
+
+@router.get("/microsoft/callback")
+def microsoft_callback(code: str | None = None, db: Session = Depends(get_db)):
+    """Para onde a Microsoft devolve o navegador. Termina sempre em redirect:
+    ou para /auth/callback com o ticket, ou para /login com ?erro=."""
+    if not settings.sso_ativo:
+        raise HTTPException(status_code=503, detail="SSO Microsoft não configurado.")
+    if not code:
+        return _voltar_para_login("falha_microsoft")
+
+    try:
+        token_ms = microsoft_client.trocar_code_por_token(code)
+        email = emails.normalizar(microsoft_client.email_do_usuario(token_ms)) if token_ms else ""
+    except Exception:
+        # Rede, timeout, resposta estranha: o usuario ve a mensagem no login em
+        # vez de um 500. O detalhe fica no log — e nunca inclui o token.
+        logger.exception("Falha no callback do SSO Microsoft")
+        return _voltar_para_login("falha_microsoft")
+
+    if not email:
+        return _voltar_para_login("falha_microsoft")
+
+    usuario = db.query(Usuario).filter(Usuario.email == email).first()
+    if usuario is None:
+        # Sem provisionamento automatico: o cadastro continua na tela de
+        # Usuarios, senao o tenant inteiro ganharia conta ao logar.
+        return _voltar_para_login("usuario_nao_encontrado")
+    if not usuario.ativo:
+        return _voltar_para_login("usuario_inativo")
+
+    # precisa_redefinir_senha NAO e' checado aqui de proposito: a flag forca a
+    # troca de uma senha propria, e quem entra por SSO nao usou senha nenhuma.
+    ticket = sso_tickets.emitir(
+        criar_access_token(sub=str(usuario.id), tipo="usuario"),
+        criar_refresh_token(sub=str(usuario.id), tipo="usuario"),
+    )
+    return RedirectResponse(
+        f"{settings.FRONTEND_URL}/auth/callback?{urlencode({'ticket': ticket})}", status_code=302
     )
 
 

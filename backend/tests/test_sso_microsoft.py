@@ -181,3 +181,118 @@ def test_escopo_e_so_user_read():
     """Ler o e-mail e' tudo o que o login precisa. Escopo a mais e' permissao
     concedida que ninguem usa."""
     assert microsoft_client.SCOPES == ["User.Read"]
+
+
+from app.models import Usuario
+
+
+@pytest.fixture()
+def graph_diz(monkeypatch):
+    """Encurta o caminho todo da Microsoft: devolve o e-mail que voce pedir."""
+
+    def _configurar(email: str | None, token: str | None = "tok-do-graph"):
+        monkeypatch.setattr(microsoft_client, "trocar_code_por_token", lambda code: token)
+        monkeypatch.setattr(microsoft_client, "email_do_usuario", lambda tok: email)
+
+    return _configurar
+
+
+def test_microsoft_redireciona_para_a_microsoft(client, sso_ligado, monkeypatch):
+    monkeypatch.setattr(microsoft_client, "url_de_autorizacao", lambda: "https://login.microsoftonline.com/xyz")
+    r = client.get("/auth/microsoft", follow_redirects=False)
+    assert r.status_code == 302
+    assert r.headers["location"] == "https://login.microsoftonline.com/xyz"
+
+
+def test_microsoft_503_com_sso_desligado(client, sso_desligado):
+    assert client.get("/auth/microsoft", follow_redirects=False).status_code == 503
+
+
+def test_callback_feliz_redireciona_com_ticket(client, sso_ligado, usuario_admin, graph_diz):
+    graph_diz("admin@hs.com")
+    r = client.get("/auth/microsoft/callback?code=abc", follow_redirects=False)
+    assert r.status_code == 302
+    destino = r.headers["location"]
+    assert destino.startswith("http://localhost:5173/auth/callback?ticket=")
+    ticket = destino.split("ticket=")[1]
+    assert sso_tickets.resgatar(ticket) is not None
+
+
+def test_callback_normaliza_o_email(client, sso_ligado, usuario_admin, graph_diz):
+    """A Microsoft devolve com maiusculas; o usuario esta gravado minusculo."""
+    graph_diz("  Admin@HS.com ")
+    r = client.get("/auth/microsoft/callback?code=abc", follow_redirects=False)
+    assert "/auth/callback?ticket=" in r.headers["location"]
+
+
+def test_callback_sem_usuario_volta_para_o_login(client, sso_ligado, usuario_admin, graph_diz):
+    """Sem provisionamento automatico: quem nao tem conta nao entra."""
+    graph_diz("estranho@healthsafetytech.com")
+    r = client.get("/auth/microsoft/callback?code=abc", follow_redirects=False)
+    assert r.headers["location"] == "http://localhost:5173/login?erro=usuario_nao_encontrado"
+
+
+def test_callback_usuario_inativo(client, sso_ligado, db_session, graph_diz):
+    from app.core.security import hash_senha
+
+    db_session.add(Usuario(nome="Ex", email="ex@hs.com", senha=hash_senha("senha123"), ativo=False))
+    db_session.commit()
+    graph_diz("ex@hs.com")
+    r = client.get("/auth/microsoft/callback?code=abc", follow_redirects=False)
+    assert r.headers["location"] == "http://localhost:5173/login?erro=usuario_inativo"
+
+
+def test_callback_ignora_precisa_redefinir_senha(client, sso_ligado, db_session, graph_diz):
+    """A flag existe para forcar troca de senha propria; quem entra por SSO nao
+    usou senha nenhuma. O /auth/login continua bloqueando — outro teste cobre."""
+    from app.core.security import hash_senha
+
+    db_session.add(
+        Usuario(nome="Novo", email="novo@hs.com", senha=hash_senha("senha123"), precisa_redefinir_senha=True)
+    )
+    db_session.commit()
+    graph_diz("novo@hs.com")
+    r = client.get("/auth/microsoft/callback?code=abc", follow_redirects=False)
+    assert "/auth/callback?ticket=" in r.headers["location"]
+
+
+def test_login_por_senha_ainda_bloqueia_precisa_redefinir(client, db_session):
+    from app.core.security import hash_senha
+
+    db_session.add(
+        Usuario(nome="Novo", email="novo2@hs.com", senha=hash_senha("senha123"), precisa_redefinir_senha=True)
+    )
+    db_session.commit()
+    r = client.post("/auth/login", json={"email": "novo2@hs.com", "senha": "senha123"})
+    assert r.status_code == 200
+    assert r.json()["precisa_redefinir"] is True
+    assert r.json()["access_token"] is None
+
+
+def test_callback_sem_code(client, sso_ligado):
+    r = client.get("/auth/microsoft/callback", follow_redirects=False)
+    assert r.headers["location"] == "http://localhost:5173/login?erro=falha_microsoft"
+
+
+def test_callback_code_recusado_pela_microsoft(client, sso_ligado, graph_diz):
+    graph_diz(None, token=None)
+    r = client.get("/auth/microsoft/callback?code=ruim", follow_redirects=False)
+    assert r.headers["location"] == "http://localhost:5173/login?erro=falha_microsoft"
+
+
+def test_callback_graph_fora_do_ar(client, sso_ligado, monkeypatch):
+    """Timeout da Microsoft nao pode virar 500 na cara do usuario."""
+    import httpx
+
+    monkeypatch.setattr(microsoft_client, "trocar_code_por_token", lambda code: "tok")
+
+    def _explode(_):
+        raise httpx.ConnectTimeout("sem rede")
+
+    monkeypatch.setattr(microsoft_client, "email_do_usuario", _explode)
+    r = client.get("/auth/microsoft/callback?code=abc", follow_redirects=False)
+    assert r.headers["location"] == "http://localhost:5173/login?erro=falha_microsoft"
+
+
+def test_callback_503_com_sso_desligado(client, sso_desligado):
+    assert client.get("/auth/microsoft/callback?code=abc", follow_redirects=False).status_code == 503
