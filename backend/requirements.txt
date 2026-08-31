@@ -13,3 +13,4 @@ python-multipart
 playwright
 segno
 openpyxl
+msal

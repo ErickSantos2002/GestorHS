@@ -56,3 +56,7 @@ class DefinirSenhaPortalIn(BaseModel):
     login: str
     senha_atual: str
     nova_senha: str = Field(min_length=8)
+
+
+class SsoExchangeIn(BaseModel):
+    ticket: str

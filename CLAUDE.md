@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 GestorHS é o sistema de gestão de calibração de equipamentos (bafômetros) e ordens de serviço da **Health Safety**, substituindo o sistema legado. São **duas aplicações web sobre uma única API**:
 
-- **Interno** (`/app`) — equipe da Health Safety; login por usuário + senha.
+- **Interno** (`/app`) — equipe da Health Safety; login por e-mail + senha **ou "Entrar com Microsoft"** (SSO Entra ID, `MS_*` no `.env`; vazio = desligado e o botão some). Só entra quem já tem `Usuario` cadastrado — não há provisionamento automático.
 - **Portal** (`/portal`) — clientes; login por documento (CNPJ/CPF) + login + senha; vê só os dados do próprio tenant.
 
 O idioma do domínio é **português** — nomes de modelos, rotas, variáveis e mensagens são em PT-BR. Mantenha esse padrão ao escrever código novo.

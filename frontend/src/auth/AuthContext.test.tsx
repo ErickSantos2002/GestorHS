@@ -13,12 +13,15 @@ function jsonResponse(body: unknown, status = 200): Response {
 const ME = { id: 1, nome: 'Erick', email: 'erick@hs.com', funcao_id: 1, funcao: 'Administrador' }
 
 function Probe() {
-  const { user, loading, login, logout } = useAuth()
+  const { user, loading, login, logout, entrarComTokens } = useAuth()
   return (
     <div>
       <span data-testid="loading">{String(loading)}</span>
       <span data-testid="user">{user ? user.email : 'anon'}</span>
       <button onClick={() => login('erick@hs.com', 'senha')}>entrar</button>
+      <button onClick={() => entrarComTokens({ access_token: 'sso-acc', refresh_token: 'sso-ref' })}>
+        entrar por token
+      </button>
       <button onClick={() => logout()}>sair</button>
     </div>
   )
@@ -88,6 +91,19 @@ describe('AuthContext', () => {
 
     expect(screen.getByTestId('user').textContent).toBe('anon')
     expect(getTokens()).toBeNull()
+  })
+
+  it('entrarComTokens persiste o par e hidrata o usuário', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(ME)))
+    renderProbe()
+    await waitFor(() => expect(screen.getByTestId('loading').textContent).toBe('false'))
+
+    await act(async () => {
+      screen.getByText('entrar por token').click()
+    })
+
+    await waitFor(() => expect(screen.getByTestId('user').textContent).toBe('erick@hs.com'))
+    expect(getTokens()).toEqual({ access_token: 'sso-acc', refresh_token: 'sso-ref' })
   })
 })
 

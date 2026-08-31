@@ -14,6 +14,13 @@ const BASE_URL =
     ? runtimeApiUrl.trim()
     : import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
+/** URL absoluta da API. O botão do SSO é uma âncora e precisa do mesmo
+ *  BASE_URL que o apiFetch usa — que em produção vem do /config.js em runtime.
+ *  Duplicar essa cascata numa segunda função seria pedir para as duas discordarem. */
+export function apiUrl(path: string): string {
+  return `${BASE_URL}${path}`
+}
+
 let onUnauthorized: (() => void) | null = null
 export function setOnUnauthorized(cb: (() => void) | null) {
   onUnauthorized = cb
