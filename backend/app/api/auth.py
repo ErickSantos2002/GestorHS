@@ -205,7 +205,11 @@ def microsoft_callback(request: Request, code: str | None = None, state: str | N
         raise HTTPException(status_code=503, detail="SSO Microsoft não configurado.")
 
     state_cookie = request.cookies.get("sso_state")
-    if not state or not state_cookie or not secrets.compare_digest(state, state_cookie):
+    if (
+        not state
+        or not state_cookie
+        or not secrets.compare_digest(state.encode(), state_cookie.encode())
+    ):
         # Sem state (ou nao batendo com o cookie): nao da pra confiar que o
         # code veio do navegador que a gente mesmo mandou pra Microsoft.
         resposta = _voltar_para_login("falha_microsoft")

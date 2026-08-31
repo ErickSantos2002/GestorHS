@@ -243,6 +243,9 @@ def test_callback_feliz_redireciona_com_ticket(client, sso_ligado, usuario_admin
     payload = decodificar_token(access)
     assert payload["sub"] == str(usuario_admin.id)
     assert payload["tipo"] == "usuario"
+    # cookie de state e' de uso unico: some tambem no caminho feliz.
+    cookies_saida = r.headers.get_list("set-cookie")
+    assert any("sso_state=" in c and ("Max-Age=0" in c or 'sso_state=""' in c) for c in cookies_saida)
 
 
 def test_callback_normaliza_o_email(client, sso_ligado, usuario_admin, graph_diz, monkeypatch):
@@ -262,6 +265,9 @@ def test_callback_sem_usuario_volta_para_o_login(client, sso_ligado, usuario_adm
     r = client.get(f"/auth/microsoft/callback?code=abc&state={state}", follow_redirects=False)
     assert r.headers["location"] == "http://localhost:5173/login?erro=usuario_nao_encontrado"
     assert db_session.query(Usuario).count() == antes
+    # cookie de state e' de uso unico: some tambem nos caminhos de erro.
+    cookies_saida = r.headers.get_list("set-cookie")
+    assert any("sso_state=" in c and ("Max-Age=0" in c or 'sso_state=""' in c) for c in cookies_saida)
 
 
 def test_callback_usuario_inativo(client, sso_ligado, db_session, graph_diz, monkeypatch):
@@ -355,6 +361,17 @@ def test_callback_sem_parametro_state(client, sso_ligado, monkeypatch):
     """Cookie valido, mas a Microsoft (ou um atacante) nao devolveu ?state=."""
     _iniciar_sso(client, monkeypatch)
     r = client.get("/auth/microsoft/callback?code=abc", follow_redirects=False)
+    assert r.headers["location"] == "http://localhost:5173/login?erro=falha_microsoft"
+
+
+def test_callback_state_nao_ascii_nao_derruba_o_servidor(client, sso_ligado, monkeypatch):
+    """secrets.compare_digest sobre str exige ASCII dos dois lados; um state
+    fora do ASCII (ex.: enviado por um visitante qualquer, sem precisar do
+    cookie certo) nao pode virar 500 — o contrato do callback e' terminar
+    sempre em redirect."""
+    _iniciar_sso(client, monkeypatch)
+    r = client.get("/auth/microsoft/callback?code=abc&state=%C3%A7", follow_redirects=False)
+    assert r.status_code == 302
     assert r.headers["location"] == "http://localhost:5173/login?erro=falha_microsoft"
 
 
