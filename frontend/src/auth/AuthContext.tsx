@@ -26,6 +26,7 @@ interface AuthContextValue {
   login: (email: string, senha: string) => Promise<LoginResult>
   logout: () => void
   definirSenha: (email: string, senhaAtual: string, novaSenha: string) => Promise<void>
+  entrarComTokens: (tokens: Tokens) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -86,7 +87,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
   }
 
-  return <AuthContext.Provider value={{ user, loading, login, logout, definirSenha }}>{children}</AuthContext.Provider>
+  async function entrarComTokens(tokens: Tokens) {
+    setTokens(tokens)
+    const me = await apiJson<User>('/auth/me')
+    setUser(me)
+  }
+
+  return (
+    <AuthContext.Provider value={{ user, loading, login, logout, definirSenha, entrarComTokens }}>
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
