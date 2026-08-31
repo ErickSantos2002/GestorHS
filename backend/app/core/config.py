@@ -31,6 +31,15 @@ class Settings(BaseSettings):
     # Integracao INBOUND do GrowthHS (mover caixa Pos-Vendas -> Financeiro).
     # Vazio = desligada. Nao expira; revoga trocando o valor. Header X-API-Key.
     GROWTHHS_INBOUND_API_KEY: str = ""
+    # SSO Microsoft (Entra ID). Vazio = desligado (mesmo gating por env do
+    # TaskHS/GrowthHS): o botao some da tela de login e GET /auth/microsoft
+    # responde 503. App Registration proprio do GestorHS, single tenant.
+    MS_CLIENT_ID: str = ""
+    MS_TENANT_ID: str = ""
+    MS_CLIENT_SECRET: str = ""
+    MS_REDIRECT_URI: str = ""
+    # Base do front para onde o callback redireciona. Sem barra final.
+    FRONTEND_URL: str = ""
     # Origens permitidas pelo CORS (front em dev). Sobrescreva via env (JSON ou CSV).
     BACKEND_CORS_ORIGINS: list[str] = [
         "http://localhost:5173",
@@ -43,6 +52,21 @@ class Settings(BaseSettings):
     EQUIPAMENTO_PHOEBUS_ID: int = 36
     EQUIPAMENTO_EBS_ID: int = 37
     CLIENTE_ESTOQUE_HS_ID: int = 2
+
+    @property
+    def sso_ativo(self) -> bool:
+        """As cinco preenchidas. FRONTEND_URL entra porque sem ela o callback
+        nao tem para onde redirecionar — SSO 'meio configurado' seria pior que
+        desligado."""
+        return all(
+            [
+                self.MS_CLIENT_ID,
+                self.MS_TENANT_ID,
+                self.MS_CLIENT_SECRET,
+                self.MS_REDIRECT_URI,
+                self.FRONTEND_URL,
+            ]
+        )
 
     class Config:
         env_file = ".env"

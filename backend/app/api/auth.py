@@ -6,6 +6,7 @@ from jose import JWTError
 from app.models.database import get_db
 from app.models import Usuario, UsuarioCliente, Cliente
 from app.core import emails
+from app.core.config import settings
 from app.core.security import (
     hash_senha,
     verificar_senha,
@@ -158,3 +159,12 @@ def definir_senha_portal(dados: DefinirSenhaPortalIn, db: Session = Depends(get_
         access_token=criar_access_token(sub=str(cli.id), tipo="cliente", cliente=cli.cliente),
         refresh_token=criar_refresh_token(sub=str(cli.id), tipo="cliente", cliente=cli.cliente),
     )
+
+
+@router.get("/sso/status")
+def sso_status():
+    """Publico: o front pergunta antes de haver sessao, para decidir se mostra
+    o botao 'Entrar com Microsoft'. Uma env so, em um lugar so — um
+    VITE_SSO_ATIVO no build duplicaria a configuracao em duas pontas que podem
+    discordar."""
+    return {"ativo": settings.sso_ativo}
