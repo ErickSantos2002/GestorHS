@@ -63,12 +63,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  async function entrarComTokens(tokens: Tokens) {
+    setTokens(tokens)
+    const me = await apiJson<User>('/auth/me')
+    setUser(me)
+  }
+
   async function login(email: string, senha: string): Promise<LoginResult> {
     const r = await apiJson<LoginRespBody>('/auth/login', { method: 'POST', body: JSON.stringify({ email, senha }) })
     if (r.precisa_redefinir) return { precisa_redefinir: true }
-    setTokens({ access_token: r.access_token as string, refresh_token: r.refresh_token as string })
-    const me = await apiJson<User>('/auth/me')
-    setUser(me)
+    await entrarComTokens({ access_token: r.access_token as string, refresh_token: r.refresh_token as string })
     return { precisa_redefinir: false }
   }
 
@@ -77,20 +81,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       method: 'POST',
       body: JSON.stringify({ email, senha_atual: senhaAtual, nova_senha: novaSenha }),
     })
-    setTokens(tokens)
-    const me = await apiJson<User>('/auth/me')
-    setUser(me)
+    await entrarComTokens(tokens)
   }
 
   function logout() {
     clearTokens()
     setUser(null)
-  }
-
-  async function entrarComTokens(tokens: Tokens) {
-    setTokens(tokens)
-    const me = await apiJson<User>('/auth/me')
-    setUser(me)
   }
 
   return (

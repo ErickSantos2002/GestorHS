@@ -62,6 +62,13 @@ describe('LoginPage — SSO', () => {
     expect(await screen.findByText(/Usuário desativado/)).toBeInTheDocument()
   })
 
+  it('mostra a mensagem de falha_microsoft — o mais comum dos três, já que 5 ramos do callback caem nele', async () => {
+    montar('?erro=falha_microsoft')
+    expect(
+      await screen.findByText(/Falha na autenticação com a Microsoft/),
+    ).toBeInTheDocument()
+  })
+
   it('ignora ?erro= desconhecido', async () => {
     montar('?erro=chute')
     await waitFor(() => expect(apiJson).toHaveBeenCalled())

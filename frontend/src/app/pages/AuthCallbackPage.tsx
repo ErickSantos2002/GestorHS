@@ -4,7 +4,7 @@ import { useAuth } from '../../auth/AuthContext'
 import { apiJson, ApiError } from '../../lib/api'
 import { Spinner } from '../../components/ui/Spinner'
 import { IconAlertCircle } from '../../components/ui/icons'
-import type { Tokens } from '../../lib/auth-storage'
+import { clearTokens, type Tokens } from '../../lib/auth-storage'
 import logo from '../../assets/logo.png'
 
 export function AuthCallbackPage() {
@@ -19,10 +19,24 @@ export function AuthCallbackPage() {
 
   useEffect(() => {
     if (!ticket) return
-    // O ticket e' de uso unico e o StrictMode roda este efeito duas vezes em
+    // O ticket é de uso único e o StrictMode roda este efeito duas vezes em
     // dev — a segunda chamada tomaria 400 e derrubaria um login que deu certo.
+    // A trava também importa aqui: `entrarComTokens` (das deps abaixo) muda
+    // de identidade a cada render do AuthProvider, então o próprio login bem
+    // sucedido (setUser -> re-render) faria este efeito rodar de novo — sem
+    // a trava, o clearTokens() logo abaixo apagaria os tokens que acabaram
+    // de ser gravados.
     if (jaTrocou.current) return
     jaTrocou.current = true
+
+    // Chegar aqui é começar uma sessão nova: limpa qualquer token velho ANTES
+    // da troca, e antes da IIFE async. Efeito de filho roda antes do efeito
+    // de hidratação do AuthProvider (pai) — sem isso, a hidratação acha um
+    // token velho, toma 401 no /auth/me, tenta /auth/refresh, falha, e o
+    // clearTokens() dela chega atrasado: apaga os tokens novos que acabaram
+    // de ser gravados aqui e zera o usuário, jogando quem acabou de logar de
+    // volta pro /login sem mensagem nenhuma.
+    clearTokens()
 
     void (async () => {
       try {
