@@ -5,9 +5,10 @@ avanca pela API, o TaskHS e' atualizado junto (`agendar_espelhamento_caixa`). Qu
 o avanco e' feito por SQL — como no encerramento da carga retroativa de Ganho de
 25/08/2026 — o banco anda e o card do TaskHS fica para tras, parado na lista antiga.
 
-O backfill geral (`sincronizar_taskhs`) resolveria, mas mexe em TODAS as OS em fases
-ativas + Finalizada, inclusive as que ficaram desatualizadas de proposito no
-encerramento administrativo de 30/07. Este aqui toca so nas caixas que voce mandar.
+Toca so nas caixas que voce mandar — de proposito: um backfill geral mexeria tambem
+nas que ficaram desatualizadas por decisao, como no encerramento administrativo de
+30/07. E' o unico caminho de reenvio ao TaskHS desde set/2026, quando os scripts por
+OS (`sincronizar_taskhs`, `reenviar_os_taskhs`) sairam junto com o card por OS.
 
 A lista de destino sai da fase ATUAL de cada caixa (`taskhs.list_id_da_fase`), entao
 o script serve para qualquer correcao de drift, nao so para esse encerramento:

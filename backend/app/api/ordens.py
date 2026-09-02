@@ -16,8 +16,7 @@ from app.core.os_workflow import FASE_FINALIZADA
 from app.api.caixas import sincronizar_principal
 from app.api.exportar_common import carregar_ate_o_teto, resposta_xlsx
 from app.core.exportacoes import COLUNAS_ORDENS, linha_ordem
-from app.api.espelhamento import agendar_espelhamento, agendar_espelhamento_caixa
-from app.core import taskhs
+from app.api.espelhamento import agendar_espelhamento_caixa
 from app.core.taskhs import TIPO_SERVICO_LABEL
 from app.schemas.ordens import (
     OrdemListOut, OrdemPage, QuadroColuna, OrdemOut, LogOut, OrdemAbrirIn, OrdemEditarIn,
@@ -355,9 +354,12 @@ def editar_tipo_servico(ordem_id: int, dados: TipoServicoIn, background_tasks: B
     db.commit()
     db.refresh(ordem)
     # O card do TaskHS mostra o tipo no cabecalho — sem reespelhar, ele ficaria
-    # com o valor antigo ate o proximo avanco de fase.
-    agendar_espelhamento(db, background_tasks, ordem,
-                         list_id=taskhs.list_id_da_fase(ordem.fase), arquivado=False)
+    # com o valor antigo ate o proximo avanco de fase. Reespelha a CAIXA, nunca a
+    # OS: quem vira card no board e' a caixa, e um card por OS deixaria a mesma
+    # caixa com dois cards.
+    cx = db.query(Caixa).filter(Caixa.id == ordem.caixa).first() if ordem.caixa else None
+    if cx is not None:
+        agendar_espelhamento_caixa(db, background_tasks, cx)
     _anotar_modelos_faltantes(db, ordem)
     return ordem
 

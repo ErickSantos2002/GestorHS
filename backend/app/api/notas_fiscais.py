@@ -5,8 +5,8 @@ from sqlalchemy.orm import Session
 from app.models.database import get_db
 from app.models import Usuario, Ordem, Caixa
 from app.api.deps import get_current_usuario, require_funcao
-from app.api.espelhamento import agendar_espelhamento as _agendar_espelhamento, agendar_espelhamento_caixa
-from app.core import nota_fiscal, storage, taskhs, os_workflow as wf
+from app.api.espelhamento import agendar_espelhamento_caixa
+from app.core import nota_fiscal, storage, os_workflow as wf
 from app.schemas.caixas import CaixaDetalhe
 
 router = APIRouter(tags=["notas-fiscais"])
@@ -80,7 +80,11 @@ def enviar_nota_fiscal(
     o.nota_fiscal_numero = num
     db.commit()
     db.refresh(o)
-    _agendar_espelhamento(db, background_tasks, o, list_id=taskhs.list_id_da_fase(o.fase), arquivado=False)
+    # Reespelha a CAIXA da OS, nao a OS: no board existe um card por caixa, e
+    # espelhar a OS aqui criaria um segundo card para a mesma caixa.
+    cx = db.query(Caixa).filter(Caixa.id == o.caixa).first() if o.caixa else None
+    if cx is not None:
+        agendar_espelhamento_caixa(db, background_tasks, cx)
     return {"nota_fiscal": base_pdf, "nota_fiscal_xml": base_xml, "nota_fiscal_numero": num}
 
 

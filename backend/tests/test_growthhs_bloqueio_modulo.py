@@ -121,20 +121,3 @@ def test_device_de_os_comum_cancelada_nao_aparece_no_card(db_session, fases_seed
     card = bg.tarefas[0][1][0]
     seriais = [d["serial_number"] for d in card["devices"]]
     assert seriais == ["S-ATIVA"]
-
-
-def test_card_os_de_modulo_nao_agenda(growth_ligado, monkeypatch):
-    """`agendar_card_os` nao tem call site em producao hoje, mas e' gateado para
-    nao voltar furado."""
-    logs = []
-    monkeypatch.setattr(growthhs_cards, "registrar_log_integracao",
-                        lambda **kw: logs.append(kw))
-    ordem = SimpleNamespace(
-        id=77,
-        equipamento_rel=SimpleNamespace(equipamento=settings.EQUIPAMENTO_MODULO_ID),
-        equipamento_catalogo=settings.EQUIPAMENTO_MODULO_ID,
-    )
-    bg = _BG()
-    growthhs_cards.agendar_card_os(db=None, background_tasks=bg, ordem=ordem)
-    assert bg.tarefas == []
-    assert logs and logs[0]["motivo"] == "caixa_de_modulo"

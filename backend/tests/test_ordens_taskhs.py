@@ -20,6 +20,7 @@ def captura(monkeypatch):
 
 
 def test_abrir_agenda_card_recebido(client, usuario_comum, fases_seed, os_base, caixa_base, captura):
+    """O card e' da CAIXA: `external_id` e' o id dela, nunca o da OS."""
     h = _headers(client, "comum@hs.com", "senha123")
     r = client.post("/ordens", json={
         "equipamento_cliente": os_base["equipamento_cliente"], "tipo_servico": "C",
@@ -28,7 +29,9 @@ def test_abrir_agenda_card_recebido(client, usuario_comum, fases_seed, os_base, 
     assert r.status_code == 201
     assert len(captura) == 1
     p = captura[0]
-    assert p["external_id"] == str(r.json()["id"])
+    assert p["external_id"] == str(caixa_base)
+    assert p["title"].startswith(f"CX {caixa_base} ·")
+    assert "OS #" not in p["title"]
     assert p["list_id"] == 196
     assert p["archived"] is False
 
@@ -61,12 +64,15 @@ def test_abrir_obs_no_payload(client, usuario_comum, fases_seed, os_base, caixa_
 
 
 def test_upload_nota_fiscal_reagenda_card(client, usuario_financeiro, fases_seed,
-                                          os_base, db_session, upload_tmp, captura):
+                                          os_base, caixa_base, db_session, upload_tmp, captura):
     import io
-    from app.models import Ordem
-    # OS ja em Financeiro (fase 10) — upload da NF deve reespelhar o card sem precisar avancar a OS
+    from app.models import Caixa, Ordem
+    # Caixa ja em Financeiro (fase 10) — o upload da NF por OS deve reespelhar o card
+    # da CAIXA sem precisar avancar nada (e sem abrir um card por OS).
+    cx = db_session.get(Caixa, caixa_base)
+    cx.fase = 10
     o = Ordem(cliente=os_base["cliente"], equipamento_cliente=os_base["equipamento_cliente"],
-              fase=10, tipo_servico="C", situacao="E")
+              fase=10, tipo_servico="C", situacao="E", caixa=cx.id)
     db_session.add(o); db_session.commit(); db_session.refresh(o)
     h = _headers(client, "fin@hs.com", "senha123")
     captura.clear()
@@ -76,5 +82,6 @@ def test_upload_nota_fiscal_reagenda_card(client, usuario_financeiro, fases_seed
                      data={"numero": "555"}, headers=h)
     assert r.status_code == 200
     assert len(captura) == 1
+    assert captura[0]["external_id"] == str(caixa_base)
     assert captura[0]["list_id"] == 205
     assert "Nota fiscal:" in captura[0]["obs4"]

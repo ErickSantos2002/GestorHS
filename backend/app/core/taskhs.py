@@ -1,7 +1,11 @@
 """Integração GestorHS → TaskHS: lógica pura (sem I/O).
 
-Monta o payload do card a partir de uma OS: título, obs por etapa (obs1…obs6)
+Monta o payload do card a partir de uma CAIXA: título, obs por etapa (obs1…obs6)
 e mapeia fase → list_id (id da lista no TaskHS, contrato v2).
+
+A unidade do board é a caixa — os aparelhos dela viram linhas dentro das obs. Houve
+um construtor por OS até set/2026; ele foi removido porque abria um segundo card
+para a mesma caixa.
 """
 
 from app.core import os_workflow as wf
@@ -27,20 +31,6 @@ TIPO_SERVICO_LABEL: dict[str, str] = {"C": "Calibração", "M": "Manutenção", 
 
 def list_id_da_fase(fase: int) -> int | None:
     return FASE_PARA_LIST_ID.get(fase)
-
-
-def montar_titulo(ordem) -> str:
-    # A caixa vem na frente: e por ela que a expedicao acha a OS no board.
-    # OS sem caixa (nem toda tem) mantem o titulo comecando pela OS.
-    caixa = getattr(ordem, "caixa", None)
-    partes = [f"CX {caixa}"] if caixa else []
-    partes.append(f"OS #{ordem.id}")
-    if ordem.cliente_nome:
-        partes.append(ordem.cliente_nome)
-    descricao = ordem.equipamento_descricao or ordem.equipamento_serie
-    if descricao:
-        partes.append(descricao)
-    return " · ".join(partes)
 
 
 def _fmt(dt) -> str:
@@ -87,35 +77,6 @@ def _bloco(linhas: list[str | None]) -> str | None:
     if not conteudo:
         return None
     return "\n".join(conteudo)
-
-
-def _sec_recebido(ordem) -> str | None:
-    chegada = _juntar([f"Chegada: {_fmt(ordem.data_chegada)}" if ordem.data_chegada else None,
-                       f"Condição: {ordem.condicao_chegada}" if ordem.condicao_chegada else None])
-    acess = ", ".join(ordem.acessorios_presentes) if ordem.acessorios_presentes else None
-    pilhas_bocais = _juntar([f"Pilhas: {ordem.pilhas}" if ordem.pilhas else None,
-                             f"Bocais: {ordem.bocais}" if ordem.bocais else None])
-    return _bloco([
-        chegada or None,
-        f"Acessórios: {acess}" if acess else None,
-        pilhas_bocais or None,
-        f"Obs: {ordem.obs}" if ordem.obs else None,
-    ])
-
-
-def _sec_laboratorio(ordem, certificados: list[dict]) -> str | None:
-    if not certificados:
-        return None
-    calibrado = _juntar([f"Calibrado em: {_fmt(ordem.data_calibracao)}" if ordem.data_calibracao else None,
-                         f"Próxima: {_fmt(ordem.prox_calibragem)}" if ordem.prox_calibragem else None])
-    links = [f"Certificado de {TIPO_SERVICO_LABEL.get(c['tipo'], c['tipo'])}: {c['url']}"
-             for c in certificados if c.get("url")]
-    return _bloco([
-        f"Resultado: {ordem.calib_situacao}" if ordem.calib_situacao else None,
-        calibrado or None,
-        f"Certificado: {ordem.calib_cert}" if ordem.calib_cert else None,
-        *links,
-    ])
 
 
 def _sec_posvendas(ordem, *, numero_proposta=None, proposta_url=None) -> str | None:
@@ -173,47 +134,6 @@ def _sec_finalizada(ordem) -> str | None:
     linha = _juntar([f"Rastreio: {ordem.cod_retorno}",
                      f"Postado em: {_fmt(ordem.data_retorno)}" if ordem.data_retorno else None])
     return _bloco([linha or None])
-
-
-def montar_obs(ordem, *, certificados: list[dict], nota_fiscal_url: str | None = None,
-               nota_fiscal_xml_url: str | None = None) -> dict:
-    """Monta as 6 obs por etapa. Sempre retorna as 6 chaves (None quando a etapa não se aplica).
-
-    obs1 leva o cabeçalho (Cliente/Aparelho/Serviço) no topo, seguido da seção Recebido.
-    """
-    cabecalho = "\n".join(_cabecalho(ordem)) or None
-    recebido = _sec_recebido(ordem) if wf.posicao(ordem.fase) >= wf.posicao(4) else None
-    obs1 = "\n".join([x for x in (cabecalho, recebido) if x]) or None
-    return {
-        "obs1": obs1,
-        "obs2": _sec_laboratorio(ordem, certificados),
-        "obs3": _sec_posvendas(ordem),
-        "obs4": _sec_financeiro(ordem, nota_fiscal_url, nota_fiscal_xml_url),
-        "obs5": _sec_preparando(ordem),
-        "obs6": _sec_finalizada(ordem),
-    }
-
-
-def montar_payload(ordem, *, list_id: int, arquivado: bool, obs: dict) -> dict:
-    due_date = ordem.prox_calibragem.date().isoformat() if ordem.prox_calibragem else None
-    return {
-        "source": SOURCE,
-        "external_id": str(ordem.id),
-        "list_id": list_id,
-        "title": montar_titulo(ordem),
-        "obs1": obs.get("obs1"),
-        "obs2": obs.get("obs2"),
-        "obs3": obs.get("obs3"),
-        "obs4": obs.get("obs4"),
-        "obs5": obs.get("obs5"),
-        "obs6": obs.get("obs6"),
-        "due_date": due_date,
-        "priority": "medium",
-        "archived": arquivado,
-    }
-
-
-# --- Caixa (agregado de N ordens) ---------------------------------------
 
 
 def montar_titulo_caixa(caixa, ordens) -> str:

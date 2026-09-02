@@ -117,7 +117,8 @@ def test_bloqueio_registra_log_pulado(client_exp, db_session, captura, monkeypat
 def test_upload_nota_fiscal_em_os_de_modulo_nao_espelha(client, usuario_financeiro,
                                                        fases_seed, db_session,
                                                        upload_tmp, captura):
-    """O caminho por OS (upload de NF) tambem e' gateado — sem porta dos fundos."""
+    """O upload de NF por OS reespelha a CAIXA, entao herda o gate dela — sem porta
+    dos fundos."""
     import io
     cx_id, os_id = _caixa_com(db_session, catalogo_id=settings.EQUIPAMENTO_MODULO_ID,
                               fase=10, fase_os=10)
@@ -130,31 +131,3 @@ def test_upload_nota_fiscal_em_os_de_modulo_nao_espelha(client, usuario_financei
                     data={"numero": "123"}, headers=h)
     assert r.status_code == 200
     assert captura == []
-
-
-def test_espelhar_os_sync_devolve_false_para_modulo(db_session, captura, monkeypatch, fases_seed):
-    """O backfill precisa saber que pulou, senao relata como enviada uma OS que
-    nunca saiu."""
-    from app.api import espelhamento
-    from app.integrations import taskhs_client as tc
-    enviados = []
-    monkeypatch.setattr(tc, "enviar_card_sync", lambda p: enviados.append(p))
-    _, os_mod = _caixa_com(db_session, catalogo_id=settings.EQUIPAMENTO_MODULO_ID)
-    from app.models import Ordem
-    ordem = db_session.get(Ordem, os_mod)
-    assert espelhamento.espelhar_os_sync(db_session, ordem, list_id=196,
-                                         arquivado=False) is False
-    assert enviados == []
-
-
-def test_espelhar_os_sync_devolve_true_para_comum(db_session, captura, monkeypatch, fases_seed):
-    from app.api import espelhamento
-    from app.integrations import taskhs_client as tc
-    enviados = []
-    monkeypatch.setattr(tc, "enviar_card_sync", lambda p: enviados.append(p))
-    _, os_comum = _caixa_com(db_session, catalogo_id=1)
-    from app.models import Ordem
-    ordem = db_session.get(Ordem, os_comum)
-    assert espelhamento.espelhar_os_sync(db_session, ordem, list_id=196,
-                                         arquivado=False) is True
-    assert len(enviados) == 1
