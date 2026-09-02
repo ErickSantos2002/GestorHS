@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.49.1',
+    data: '02/09/2026',
+    itens: [
+      { tipo: 'correcao', texto: 'O TaskHS voltou a receber um card por caixa, e só. Corrigir o tipo de serviço no laboratório — e, por um caminho antigo, anexar a nota fiscal — ainda criava um card avulso daquela OS, então a mesma caixa aparecia duas vezes no board da expedição. Agora essas duas ações atualizam o card da própria caixa. Os cards avulsos que já foram parar no board precisam ser arquivados à mão, uma vez.' },
+    ],
+  },
+  {
     versao: '1.49.0',
     data: '02/09/2026',
     itens: [
