@@ -23,6 +23,15 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.49.0',
+    data: '02/09/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'Na proposta, os dados do cliente ficam sempre à vista: ao escolher a empresa, razão social, CNPJ, endereço, município, UF, CEP e telefone já aparecem preenchidos com o cadastro, prontos para ajustar — e o "Aos cuidados de" passou a ficar junto com eles. Antes era preciso clicar no lápis para abrir esse painel, e quem passava direto acabava salvando a proposta sem os ajustes.' },
+      { tipo: 'melhoria', texto: 'Saiu o botão "Aplicar" do painel: o que você digita já vale para a proposta, sem passo intermediário. Os campos em cinza e itálico continuam vindo do cadastro do cliente, apagar um campo devolve o valor do cadastro, e "Restaurar do cadastro" desfaz todas as edições de uma vez. Como antes, nada disso altera o cadastro do cliente — vale só naquela proposta.' },
+      { tipo: 'melhoria', texto: 'O e-mail não vem mais preenchido do cadastro: é digitado a cada proposta, para ser conferido com o cliente na hora. Junto com ele, razão social, CNPJ, endereço, município, UF e CEP passaram a ser obrigatórios e aparecem marcados com *. Tentar salvar sem algum deles avisa quais faltam e destaca os campos em vermelho, em vez de deixar a proposta sair com dado em branco. Telefone e contato continuam opcionais.' },
+    ],
+  },
+  {
     versao: '1.48.0',
     data: '31/08/2026',
     itens: [
