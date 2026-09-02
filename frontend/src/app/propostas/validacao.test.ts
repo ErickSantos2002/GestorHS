@@ -1,7 +1,18 @@
 import { describe, it, expect } from 'vitest'
-import { htmlTemTexto, validarProposta } from './validacao'
+import { camposObrigatoriosFaltando, htmlTemTexto, validarProposta } from './validacao'
+import type { CampoOverride } from './clienteOverride'
 
-const OK = { cliente: 5, documento: '36312056000552', outrosItens: '<p>Calibracao</p>' }
+const RASCUNHO_OK: Partial<Record<CampoOverride, string>> = {
+  nome: 'Cliente Teste',
+  documento: '36312056000552',
+  endereco: 'Rua X, 10',
+  municipio: 'Recife',
+  estado: 'PE',
+  cep: '50000000',
+  email: 'contato@teste.com',
+}
+
+const OK = { cliente: 5, rascunho: RASCUNHO_OK, outrosItens: '<p>Calibracao</p>' }
 
 describe('htmlTemTexto', () => {
   it('trata vazio, nulo e markup sem texto como sem texto', () => {
@@ -18,8 +29,35 @@ describe('htmlTemTexto', () => {
   })
 })
 
+describe('camposObrigatoriosFaltando', () => {
+  it('nao aponta nada com todos os obrigatorios preenchidos', () => {
+    expect(camposObrigatoriosFaltando(RASCUNHO_OK)).toEqual([])
+  })
+
+  it('telefone e contato nao sao obrigatorios', () => {
+    expect(camposObrigatoriosFaltando({ ...RASCUNHO_OK, telefone: '', contato: '' })).toEqual([])
+  })
+
+  it('aponta os campos vazios na ordem do formulario', () => {
+    expect(camposObrigatoriosFaltando({ ...RASCUNHO_OK, email: '', endereco: '' }))
+      .toEqual(['endereco', 'email'])
+  })
+
+  it('trata so espacos e campo ausente como vazio', () => {
+    expect(camposObrigatoriosFaltando({ ...RASCUNHO_OK, municipio: '   ' })).toEqual(['municipio'])
+    expect(camposObrigatoriosFaltando({})).toEqual(
+      ['nome', 'documento', 'endereco', 'municipio', 'estado', 'cep', 'email'],
+    )
+  })
+
+  it('campos de digitos so com pontuacao nao contam como preenchidos', () => {
+    expect(camposObrigatoriosFaltando({ ...RASCUNHO_OK, documento: '--' })).toEqual(['documento'])
+    expect(camposObrigatoriosFaltando({ ...RASCUNHO_OK, cep: '-' })).toEqual(['cep'])
+  })
+})
+
 describe('validarProposta', () => {
-  it('aceita proposta com cliente, documento e outros itens', () => {
+  it('aceita proposta com cliente, dados obrigatorios e outros itens', () => {
     expect(validarProposta(OK)).toBeNull()
   })
 
@@ -27,20 +65,22 @@ describe('validarProposta', () => {
     expect(validarProposta({ ...OK, cliente: null })).toMatch(/selecione o cliente/i)
   })
 
-  it('espera o carregamento do cliente antes de julgar o documento', () => {
-    expect(validarProposta({ ...OK, documento: '', carregandoCliente: true })).toMatch(/aguarde/i)
+  it('espera o carregamento do cliente antes de julgar os campos', () => {
+    expect(validarProposta({ ...OK, rascunho: {}, carregandoCliente: true })).toMatch(/aguarde/i)
   })
 
-  it('exige documento do cliente', () => {
-    expect(validarProposta({ ...OK, documento: null })).toMatch(/CNPJ\/CPF/)
-    expect(validarProposta({ ...OK, documento: '---' })).toMatch(/CNPJ\/CPF/)
+  it('lista os campos obrigatorios que faltam, pelo rotulo', () => {
+    const msg = validarProposta({ ...OK, rascunho: { ...RASCUNHO_OK, email: '', cep: '' } })
+    expect(msg).toMatch(/obrigat/i)
+    expect(msg).toContain('CEP')
+    expect(msg).toContain('E-mail')
   })
 
   it('exige o bloco de outros itens preenchido', () => {
     expect(validarProposta({ ...OK, outrosItens: '<p><br></p>' })).toMatch(/Outros Itens/)
   })
 
-  it('reporta o cliente antes do documento quando faltam os dois', () => {
-    expect(validarProposta({ cliente: null, documento: null, outrosItens: null })).toMatch(/selecione o cliente/i)
+  it('reporta o cliente antes dos campos quando faltam os dois', () => {
+    expect(validarProposta({ cliente: null, rascunho: {}, outrosItens: null })).toMatch(/selecione o cliente/i)
   })
 })

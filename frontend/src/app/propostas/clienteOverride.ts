@@ -43,6 +43,50 @@ export function valorDoCadastro(campo: CampoOverride, cliente?: Cliente | null):
 }
 
 /**
+ * Campos do painel do cliente, na ordem em que aparecem no formulario.
+ *
+ * `contato` fica de fora de proposito: "aos cuidados de" e' campo da PROPOSTA
+ * (coluna `propostas.contato`), nao um override do cadastro do cliente. Guardar
+ * o contato no override quebrava quando o valor digitado coincidia com o do
+ * cadastro — `overrideDoRascunho` descartava, a coluna ficava vazia e o PDF
+ * saia sem o "aos cuidados de".
+ */
+export const CAMPOS_RASCUNHO = [
+  'nome', 'documento', 'endereco', 'municipio', 'estado', 'cep', 'telefone', 'email',
+] as const
+
+/**
+ * Campos que NUNCA sao herdados do cadastro: nascem vazios em toda proposta e
+ * so aparecem preenchidos se aquela proposta ja gravou um valor proprio.
+ *
+ * O e-mail entrou aqui a pedido do comercial: vindo pronto do cadastro, ninguem
+ * conferia, e proposta saia com e-mail antigo do cliente. Vazio + obrigatorio
+ * (ver `validacao.ts`) forca a conferencia a cada proposta.
+ */
+const NAO_HERDADOS = new Set<CampoOverride>(['email'])
+
+/**
+ * Estado inicial do painel: cadastro do cliente por baixo, override da proposta
+ * por cima, campo a campo.
+ *
+ * O painel vive aberto, entao este rascunho e' a fonte unica dos dados do
+ * cliente na proposta — o `cliente_override` e' derivado dele
+ * (`overrideDoRascunho`), nunca o contrario.
+ */
+export function montarRascunho(
+  cliente?: Cliente | null,
+  override?: Record<string, unknown> | null,
+): Partial<Record<CampoOverride, string>> {
+  const rascunho: Partial<Record<CampoOverride, string>> = {}
+  CAMPOS_RASCUNHO.forEach((campo) => {
+    const doCadastro = NAO_HERDADOS.has(campo) ? '' : valorDoCadastro(campo, cliente)
+    const doOverride = String(override?.[campo] ?? '').trim()
+    rascunho[campo] = doOverride ? normalizarCampo(campo, doOverride) : doCadastro
+  })
+  return rascunho
+}
+
+/**
  * O que o rascunho do painel viraria no override da proposta.
  *
  * Guarda SO o que diverge do cadastro: o painel abre pre-preenchido, entao

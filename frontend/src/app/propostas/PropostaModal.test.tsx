@@ -60,7 +60,7 @@ import { descreverVencimento } from './aparelhosFrota'
 const CLIENTE = { id: 5, nome: 'Cliente Teste', cgc: '36312056000552', cpf: null, municipio: 'Recife', estado: 'PE', ativo: true }
 const CLIENTE_COMPLETO = {
   id: 5, grupo: null, nome: 'Cliente Teste', cgc: '36312056000552', cpf: null, endereco: 'Rua X, 10',
-  numero: null, complemento: null, bairro: null, municipio: 'Recife', estado: 'PE', cep: null, contato: null,
+  numero: null, complemento: null, bairro: null, municipio: 'Recife', estado: 'PE', cep: '50000000', contato: null,
   email: 'cliente@teste.com', telefones: '8130001111', celular: null, whatsapp: null, whatsapp1: null, whatsapp2: null,
   insc_mun: null, insc_est: null, datcad: null, obs: null, ativo: true,
 }
@@ -106,6 +106,14 @@ function aplicarModelo() {
   fireEvent.click(screen.getByText('Aplicar modelo'))
 }
 
+// O e-mail nasce SEMPRE vazio (nunca herda do cadastro) e e' obrigatorio, entao
+// todo teste que chega ao submit precisa digitar um. Usamos de proposito o
+// mesmo e-mail do cadastro: assim ele nao vira override e nao suja as asercoes
+// sobre `cliente_override`.
+function preencherEmail(valor = 'cliente@teste.com') {
+  fireEvent.change(screen.getByLabelText('E-mail *'), { target: { value: valor } })
+}
+
 describe('PropostaModal', () => {
   it('marcar um aparelho da frota inclui no payload ao submeter', async () => {
     const onSalvo = vi.fn()
@@ -122,6 +130,7 @@ describe('PropostaModal', () => {
 
     fireEvent.click(screen.getByLabelText('Bafômetro X'))
     aplicarModelo()
+    preencherEmail()
     fireEvent.click(screen.getByText('Criar Proposta'))
 
     await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
@@ -193,6 +202,7 @@ describe('PropostaModal', () => {
     expect(screen.getByLabelText('Phoebus 3000')).toBeInTheDocument()
 
     aplicarModelo()
+    preencherEmail()
     fireEvent.click(screen.getByText('Criar Proposta'))
     await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
     const payload = propostasCriar.mock.calls[0][0]
@@ -205,6 +215,7 @@ describe('PropostaModal', () => {
 
     fireEvent.change(screen.getByLabelText(/introdução/i), { target: { value: 'Texto de introdução digitado.' } })
     aplicarModelo()
+    preencherEmail()
     fireEvent.click(screen.getByText('Criar Proposta'))
 
     await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
@@ -294,6 +305,7 @@ describe('PropostaModal', () => {
   it('submeter sem o bloco de outros itens nao cria proposta', async () => {
     render(<PropostaModal onClose={vi.fn()} />)
     await selecionarCliente()
+    preencherEmail()
 
     fireEvent.click(screen.getByText('Criar Proposta'))
 
@@ -301,22 +313,19 @@ describe('PropostaModal', () => {
     expect(propostasCriar).not.toHaveBeenCalled()
   })
 
-  it('cliente sem CNPJ/CPF no cadastro bloqueia o salvamento ate preencher o override', async () => {
+  it('cliente sem CNPJ/CPF no cadastro bloqueia o salvamento ate preencher o campo', async () => {
     clientesObter.mockResolvedValue({ ...CLIENTE_COMPLETO, cgc: null, cpf: null })
     render(<PropostaModal onClose={vi.fn()} />)
     await selecionarCliente()
     aplicarModelo()
-
-    expect(await screen.findByText(/não tem CNPJ\/CPF no cadastro/i)).toBeInTheDocument()
+    preencherEmail()
 
     fireEvent.click(screen.getByText('Criar Proposta'))
-    expect(await screen.findByText(/nao tem CNPJ\/CPF\. Preencha o documento/i)).toBeInTheDocument()
+    expect(await screen.findByText(/obrigatórios do cliente: CNPJ \/ Documento/i)).toBeInTheDocument()
     expect(propostasCriar).not.toHaveBeenCalled()
 
-    // Preenchendo o documento no override, a proposta passa a poder ser salva.
-    fireEvent.click(screen.getByLabelText('Editar dados nesta proposta'))
-    fireEvent.change(screen.getByLabelText('CNPJ / Documento'), { target: { value: '36.312.056/0005-52' } })
-    fireEvent.click(screen.getByText('Aplicar'))
+    // Preenchendo o documento no painel, a proposta passa a poder ser salva.
+    fireEvent.change(screen.getByLabelText('CNPJ / Documento *'), { target: { value: '36.312.056/0005-52' } })
     fireEvent.click(screen.getByText('Criar Proposta'))
 
     await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
@@ -337,16 +346,14 @@ describe('PropostaModal', () => {
 
     render(<PropostaModal propostaId={900} onClose={vi.fn()} />)
     await screen.findByText(/CNPJ\/CPF:/)
-    fireEvent.click(screen.getByLabelText('Editar dados nesta proposta'))
 
-    fireEvent.change(screen.getByLabelText('CNPJ / Documento'), { target: { value: '01.258.944/0005-50' } })
+    fireEvent.change(screen.getByLabelText('CNPJ / Documento *'), { target: { value: '01.258.944/0005-50' } })
 
     // Sequencia real: ele clicou na lupa ANTES de aplicar, e a busca falhou.
     buscarCnpj.mockRejectedValue(new ApiError(502, 'servico de consulta indisponivel'))
     fireEvent.click(screen.getByLabelText('Buscar dados pelo CNPJ'))
     await screen.findByText(/indisponível/i)
 
-    fireEvent.click(screen.getByText('Aplicar'))
     fireEvent.click(screen.getByText('Salvar Alterações'))
 
     await waitFor(() => expect(propostasAtualizar).toHaveBeenCalled())
@@ -354,39 +361,8 @@ describe('PropostaModal', () => {
     expect(payload.cliente_override.documento).toBe('01258944000550')
     // os campos que ja existiam nao podem sumir na troca
     expect(payload.cliente_override.email).toBe('Tatiane.kava@rumolog.com')
-  })
-
-  it('fechar o painel com edicao pendente avisa antes de descartar', async () => {
-    // Foi assim que o CNPJ da proposta 99 se perdeu: com o erro da busca logo
-    // acima dos botoes, o X e o Cancelar jogavam fora o que tinha sido digitado
-    // sem dizer nada, e a proposta salvava com o override antigo.
-    const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(false)
-    render(<PropostaModal onClose={vi.fn()} />)
-    await selecionarCliente()
-    fireEvent.click(screen.getByLabelText('Editar dados nesta proposta'))
-
-    fireEvent.change(screen.getByLabelText('CNPJ / Documento'), { target: { value: '01.258.944/0005-50' } })
-    fireEvent.click(within(screen.getByTestId('painel-override')).getByText('Cancelar'))
-
-    expect(confirmar).toHaveBeenCalled()
-    // Recusou descartar: o painel continua aberto com o que foi digitado.
-    expect((screen.getByLabelText('CNPJ / Documento') as HTMLInputElement).value).toBe('01.258.944/0005-50')
-
-    confirmar.mockReturnValue(true)
-    fireEvent.click(within(screen.getByTestId('painel-override')).getByText('Cancelar'))
-    await waitFor(() => expect(screen.queryByLabelText('CNPJ / Documento')).not.toBeInTheDocument())
-    confirmar.mockRestore()
-  })
-
-  it('fechar o painel sem ter mudado nada nao pergunta nada', async () => {
-    const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(true)
-    render(<PropostaModal onClose={vi.fn()} />)
-    await selecionarCliente()
-    fireEvent.click(screen.getByLabelText('Editar dados nesta proposta'))
-
-    fireEvent.click(within(screen.getByTestId('painel-override')).getByText('Cancelar'))
-    expect(confirmar).not.toHaveBeenCalled()
-    confirmar.mockRestore()
+    // o contato sai do override e passa a viver na coluna da proposta
+    expect(payload.contato).toBe('Tatiane')
   })
 
   it('reabrir uma proposta com override recompoe os campos nao editados a partir do cadastro', async () => {
@@ -402,22 +378,20 @@ describe('PropostaModal', () => {
     // Espera o CADASTRO do cliente chegar: e' dele que os campos nao editados
     // sao herdados, e o botao do painel aparece antes disso.
     await screen.findByText('CNPJ/CPF: 36.312.056/0005-52')
-    fireEvent.click(screen.getByLabelText('Editar dados nesta proposta'))
 
     // Editado nesta proposta: vem do override.
-    expect((screen.getByLabelText('E-mail') as HTMLInputElement).value).toBe('contato@filial.com')
+    expect((screen.getByLabelText('E-mail *') as HTMLInputElement).value).toBe('contato@filial.com')
     // Nao editado: vem do cadastro, em vez de aparecer em branco.
-    expect((screen.getByLabelText('CNPJ / Documento') as HTMLInputElement).value).toBe('36.312.056/0005-52')
-    expect((screen.getByLabelText('Razão social / Nome') as HTMLInputElement).value).toBe('Cliente Teste')
-    expect((screen.getByLabelText('Endereço') as HTMLInputElement).value).toBe('Rua X, 10')
+    expect((screen.getByLabelText('CNPJ / Documento *') as HTMLInputElement).value).toBe('36.312.056/0005-52')
+    expect((screen.getByLabelText('Razão social / Nome *') as HTMLInputElement).value).toBe('Cliente Teste')
+    expect((screen.getByLabelText('Endereço *') as HTMLInputElement).value).toBe('Rua X, 10')
   })
 
   it('campo herdado do cadastro fica marcado; editado perde a marcacao na hora', async () => {
     render(<PropostaModal onClose={vi.fn()} />)
     await selecionarCliente()
-    fireEvent.click(screen.getByLabelText('Editar dados nesta proposta'))
 
-    const nome = screen.getByLabelText('Razão social / Nome')
+    const nome = screen.getByLabelText('Razão social / Nome *')
     expect(nome.className).toMatch(/italic/)
 
     fireEvent.change(nome, { target: { value: 'Filial Recife' } })
@@ -428,20 +402,18 @@ describe('PropostaModal', () => {
     render(<PropostaModal onClose={vi.fn()} />)
     await selecionarCliente()
 
-    fireEvent.click(screen.getByLabelText('Editar dados nesta proposta'))
-    const documentoInput = screen.getByLabelText('CNPJ / Documento') as HTMLInputElement
+    const documentoInput = screen.getByLabelText('CNPJ / Documento *') as HTMLInputElement
     expect(documentoInput.value).toBe('36.312.056/0005-52')
 
     fireEvent.change(documentoInput, { target: { value: '123.456.789-09' } })
     expect(documentoInput.value).toBe('123.456.789-09')
 
-    fireEvent.click(screen.getByText('Aplicar'))
-
-    // O override e' aberto pre-preenchido com o cadastro inteiro, mas o aviso
-    // deve apontar so o que de fato mudou.
+    // O painel nasce preenchido com o cadastro inteiro, mas o aviso deve
+    // apontar so o que de fato mudou.
     expect(await screen.findByText(/Editados só nesta proposta: CNPJ \/ Documento\./)).toBeInTheDocument()
 
     aplicarModelo()
+    preencherEmail()
     fireEvent.click(screen.getByText('Criar Proposta'))
 
     await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
@@ -451,17 +423,15 @@ describe('PropostaModal', () => {
     expect(Object.keys(payload.cliente_override)).toEqual(['documento'])
   })
 
-  it('aplicar override sem mudar nada nao grava override', async () => {
+  it('nao mexer em campo nenhum nao grava override', async () => {
     render(<PropostaModal onClose={vi.fn()} />)
     await selecionarCliente()
-
-    fireEvent.click(screen.getByLabelText('Editar dados nesta proposta'))
-    fireEvent.click(screen.getByText('Aplicar'))
 
     // nada divergiu do cadastro: a proposta nao pode ficar marcada como editada
     expect(screen.queryByText(/Editados só nesta proposta/)).not.toBeInTheDocument()
 
     aplicarModelo()
+    preencherEmail()
     fireEvent.click(screen.getByText('Criar Proposta'))
     await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
     expect(propostasCriar.mock.calls[0][0].cliente_override).toBeNull()
@@ -523,6 +493,121 @@ describe('PropostaModal', () => {
   })
 })
 
+describe('PropostaModal — painel do cliente sempre visivel', () => {
+  it('selecionar o cliente ja mostra os dados preenchidos, sem clicar em lapis nenhum', async () => {
+    render(<PropostaModal onClose={vi.fn()} />)
+    await selecionarCliente()
+
+    expect(screen.queryByLabelText('Editar dados nesta proposta')).not.toBeInTheDocument()
+    expect((screen.getByLabelText('Razão social / Nome *') as HTMLInputElement).value).toBe('Cliente Teste')
+    expect((screen.getByLabelText('CNPJ / Documento *') as HTMLInputElement).value).toBe('36.312.056/0005-52')
+    expect((screen.getByLabelText('Endereço *') as HTMLInputElement).value).toBe('Rua X, 10')
+    expect((screen.getByLabelText('Município *') as HTMLInputElement).value).toBe('Recife')
+    expect((screen.getByLabelText('CEP *') as HTMLInputElement).value).toBe('50000-000')
+  })
+
+  it('sem cliente escolhido nao mostra o painel', async () => {
+    render(<PropostaModal onClose={vi.fn()} />)
+    await waitFor(() => expect(servicosListar).toHaveBeenCalled())
+
+    expect(screen.queryByLabelText('Razão social / Nome *')).not.toBeInTheDocument()
+  })
+
+  it('o e-mail nasce vazio mesmo com o cadastro tendo um', async () => {
+    render(<PropostaModal onClose={vi.fn()} />)
+    await selecionarCliente()
+
+    expect((screen.getByLabelText('E-mail *') as HTMLInputElement).value).toBe('')
+  })
+
+  it('trocar de cliente repoe os campos a partir do novo cadastro', async () => {
+    const OUTRO = { id: 7, nome: 'Outra Empresa', cgc: '11222333000144', cpf: null, municipio: 'Olinda', estado: 'PE', ativo: true }
+    clientesListar.mockResolvedValue({ items: [CLIENTE, OUTRO], total: 2 })
+    clientesObter.mockImplementation((id: number) => Promise.resolve(
+      id === 7
+        ? { ...CLIENTE_COMPLETO, id: 7, nome: 'Outra Empresa', cgc: '11222333000144', endereco: 'Av. Nova, 99' }
+        : CLIENTE_COMPLETO,
+    ))
+    render(<PropostaModal onClose={vi.fn()} />)
+    await selecionarCliente()
+    expect((screen.getByLabelText('Razão social / Nome *') as HTMLInputElement).value).toBe('Cliente Teste')
+
+    fireEvent.click(screen.getByLabelText('Remover empresa'))
+    fireEvent.change(screen.getByPlaceholderText('Buscar cliente por nome, CNPJ ou CPF'), { target: { value: 'Outra' } })
+    fireEvent.click(await screen.findByText('Outra Empresa'))
+
+    await waitFor(() => expect((screen.getByLabelText('Razão social / Nome *') as HTMLInputElement).value).toBe('Outra Empresa'))
+    expect((screen.getByLabelText('Endereço *') as HTMLInputElement).value).toBe('Av. Nova, 99')
+  })
+
+  it('editar um campo e salvar direto grava o override, sem passo intermediario', async () => {
+    render(<PropostaModal onClose={vi.fn()} />)
+    await selecionarCliente()
+
+    fireEvent.change(screen.getByLabelText('Razão social / Nome *'), { target: { value: 'Filial Recife' } })
+    aplicarModelo()
+    preencherEmail()
+    fireEvent.click(screen.getByText('Criar Proposta'))
+
+    await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
+    expect(propostasCriar.mock.calls[0][0].cliente_override).toEqual({ nome: 'Filial Recife' })
+  })
+
+  it('salvar sem o e-mail avisa e nao cria a proposta', async () => {
+    render(<PropostaModal onClose={vi.fn()} />)
+    await selecionarCliente()
+    aplicarModelo()
+
+    fireEvent.click(screen.getByText('Criar Proposta'))
+
+    expect(await screen.findByText(/obrigatórios do cliente: E-mail/i)).toBeInTheDocument()
+    expect(propostasCriar).not.toHaveBeenCalled()
+  })
+
+  it('telefone e contato em branco nao impedem o salvamento', async () => {
+    render(<PropostaModal onClose={vi.fn()} />)
+    await selecionarCliente()
+
+    fireEvent.change(screen.getByLabelText('Telefone'), { target: { value: '' } })
+    fireEvent.change(screen.getByLabelText('Contato (aos cuidados de)'), { target: { value: '' } })
+    aplicarModelo()
+    preencherEmail()
+    fireEvent.click(screen.getByText('Criar Proposta'))
+
+    await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
+  })
+
+  it('o contato digitado vai na coluna da proposta, nao no override', async () => {
+    render(<PropostaModal onClose={vi.fn()} />)
+    await selecionarCliente()
+
+    fireEvent.change(screen.getByLabelText('Contato (aos cuidados de)'), { target: { value: 'Joana' } })
+    aplicarModelo()
+    preencherEmail()
+    fireEvent.click(screen.getByText('Criar Proposta'))
+
+    await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
+    const payload = propostasCriar.mock.calls[0][0]
+    expect(payload.contato).toBe('Joana')
+    expect(payload.cliente_override).toBeNull()
+  })
+
+  it('Restaurar do cadastro desfaz as edicoes e zera o e-mail de novo', async () => {
+    render(<PropostaModal onClose={vi.fn()} />)
+    await selecionarCliente()
+
+    fireEvent.change(screen.getByLabelText('Razão social / Nome *'), { target: { value: 'Filial Recife' } })
+    preencherEmail('outro@teste.com')
+    expect(await screen.findByText(/Editados só nesta proposta/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Restaurar do cadastro'))
+
+    expect((screen.getByLabelText('Razão social / Nome *') as HTMLInputElement).value).toBe('Cliente Teste')
+    expect((screen.getByLabelText('E-mail *') as HTMLInputElement).value).toBe('')
+    expect(screen.queryByText(/Editados só nesta proposta/)).not.toBeInTheDocument()
+  })
+})
+
 describe('PropostaModal — busca de CEP e CNPJ', () => {
   const RESULTADO_CNPJ = {
     documento: '36312056000552', nome: 'Acme Industria Ltda', endereco: 'Rua Nova, 10',
@@ -532,29 +617,28 @@ describe('PropostaModal — busca de CEP e CNPJ', () => {
     cep: '53000000', endereco: 'Rua Nova', municipio: 'Olinda', estado: 'PE',
   }
 
-  async function abrirOverride() {
+  async function renderComCliente() {
     render(<PropostaModal onClose={vi.fn()} />)
     await selecionarCliente()
-    fireEvent.click(screen.getByLabelText('Editar dados nesta proposta'))
   }
 
   it('lupa do CNPJ preenche razao social, endereco, municipio, estado e CEP', async () => {
     buscarCnpj.mockResolvedValue(RESULTADO_CNPJ)
-    await abrirOverride()
+    await renderComCliente()
 
     fireEvent.click(screen.getByLabelText('Buscar dados pelo CNPJ'))
 
     await waitFor(() => expect(buscarCnpj).toHaveBeenCalledWith('36312056000552'))
-    expect((screen.getByLabelText('Razão social / Nome') as HTMLInputElement).value).toBe('Acme Industria Ltda')
-    expect((screen.getByLabelText('Endereço') as HTMLInputElement).value).toBe('Rua Nova, 10')
-    expect((screen.getByLabelText('Município') as HTMLInputElement).value).toBe('Olinda')
-    expect((screen.getByLabelText('CEP') as HTMLInputElement).value).toBe('53000-000')
+    expect((screen.getByLabelText('Razão social / Nome *') as HTMLInputElement).value).toBe('Acme Industria Ltda')
+    expect((screen.getByLabelText('Endereço *') as HTMLInputElement).value).toBe('Rua Nova, 10')
+    expect((screen.getByLabelText('Município *') as HTMLInputElement).value).toBe('Olinda')
+    expect((screen.getByLabelText('CEP *') as HTMLInputElement).value).toBe('53000-000')
   })
 
   it('lupa do CNPJ nao altera telefone nem e-mail', async () => {
     buscarCnpj.mockResolvedValue(RESULTADO_CNPJ)
-    await abrirOverride()
-    const email = screen.getByLabelText('E-mail') as HTMLInputElement
+    await renderComCliente()
+    const email = screen.getByLabelText('E-mail *') as HTMLInputElement
     const antes = email.value
 
     fireEvent.click(screen.getByLabelText('Buscar dados pelo CNPJ'))
@@ -565,7 +649,7 @@ describe('PropostaModal — busca de CEP e CNPJ', () => {
 
   it('mostra os campos preenchidos e a situacao cadastral', async () => {
     buscarCnpj.mockResolvedValue(RESULTADO_CNPJ)
-    await abrirOverride()
+    await renderComCliente()
 
     fireEvent.click(screen.getByLabelText('Buscar dados pelo CNPJ'))
 
@@ -575,8 +659,8 @@ describe('PropostaModal — busca de CEP e CNPJ', () => {
 
   it('Desfazer restaura os valores anteriores a busca', async () => {
     buscarCnpj.mockResolvedValue(RESULTADO_CNPJ)
-    await abrirOverride()
-    const nome = screen.getByLabelText('Razão social / Nome') as HTMLInputElement
+    await renderComCliente()
+    const nome = screen.getByLabelText('Razão social / Nome *') as HTMLInputElement
     const antes = nome.value
 
     fireEvent.click(screen.getByLabelText('Buscar dados pelo CNPJ'))
@@ -588,31 +672,31 @@ describe('PropostaModal — busca de CEP e CNPJ', () => {
     expect(screen.queryByText(/Preenchido pelo CNPJ:/)).not.toBeInTheDocument()
   })
 
-  it('o painel abre com o CEP do cadastro ja preenchido', async () => {
+  it('o CEP do cadastro ja aparece preenchido no painel', async () => {
     clientesObter.mockResolvedValue({ ...CLIENTE_COMPLETO, cep: '50030230' })
-    await abrirOverride()
-    expect((screen.getByLabelText('CEP') as HTMLInputElement).value).toBe('50030-230')
+    await renderComCliente()
+    expect((screen.getByLabelText('CEP *') as HTMLInputElement).value).toBe('50030-230')
   })
 
   it('lupa do CEP preenche endereco, municipio e estado sem tocar no nome', async () => {
     buscarCep.mockResolvedValue(RESULTADO_CEP)
-    await abrirOverride()
-    const nome = screen.getByLabelText('Razão social / Nome') as HTMLInputElement
+    await renderComCliente()
+    const nome = screen.getByLabelText('Razão social / Nome *') as HTMLInputElement
     const antes = nome.value
 
-    fireEvent.change(screen.getByLabelText('CEP'), { target: { value: '53000-000' } })
+    fireEvent.change(screen.getByLabelText('CEP *'), { target: { value: '53000-000' } })
     fireEvent.click(screen.getByLabelText('Buscar endereço pelo CEP'))
 
     await waitFor(() => expect(buscarCep).toHaveBeenCalledWith('53000000'))
-    expect((screen.getByLabelText('Endereço') as HTMLInputElement).value).toBe('Rua Nova')
+    expect((screen.getByLabelText('Endereço *') as HTMLInputElement).value).toBe('Rua Nova')
     expect(nome.value).toBe(antes)
   })
 
   it('CNPJ nao encontrado mostra mensagem e nao altera campo nenhum', async () => {
     const { ApiError } = await import('../../lib/api')
     buscarCnpj.mockRejectedValue(new ApiError(404, 'nao encontrado'))
-    await abrirOverride()
-    const nome = screen.getByLabelText('Razão social / Nome') as HTMLInputElement
+    await renderComCliente()
+    const nome = screen.getByLabelText('Razão social / Nome *') as HTMLInputElement
     const antes = nome.value
 
     fireEvent.click(screen.getByLabelText('Buscar dados pelo CNPJ'))
@@ -624,9 +708,9 @@ describe('PropostaModal — busca de CEP e CNPJ', () => {
   it('provedor fora do ar mostra mensagem de indisponivel', async () => {
     const { ApiError } = await import('../../lib/api')
     buscarCep.mockRejectedValue(new ApiError(502, 'fora'))
-    await abrirOverride()
+    await renderComCliente()
 
-    fireEvent.change(screen.getByLabelText('CEP'), { target: { value: '53000-000' } })
+    fireEvent.change(screen.getByLabelText('CEP *'), { target: { value: '53000-000' } })
     fireEvent.click(screen.getByLabelText('Buscar endereço pelo CEP'))
 
     expect(await screen.findByText(/indisponível/i)).toBeInTheDocument()
@@ -638,7 +722,7 @@ describe('PropostaModal — busca de CEP e CNPJ', () => {
     let resolverCnpj: (r: typeof RESULTADO_CNPJ) => void = () => {}
     const promessaCnpj = new Promise<typeof RESULTADO_CNPJ>((resolve) => { resolverCnpj = resolve })
     buscarCnpj.mockReturnValue(promessaCnpj)
-    await abrirOverride()
+    await renderComCliente()
 
     fireEvent.click(screen.getByLabelText('Buscar dados pelo CNPJ'))
 

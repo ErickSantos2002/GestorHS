@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   camposAlterados, temOverride, valorDoCadastro, mesmoValorDoCadastro,
-  overrideDoRascunho, mesmoOverride,
+  overrideDoRascunho, mesmoOverride, montarRascunho,
 } from './clienteOverride'
 import type { Cliente } from '../clientes/api'
 
@@ -141,5 +141,53 @@ describe('mesmoOverride', () => {
     expect(mesmoOverride({ documento: '1' }, { documento: '2' })).toBe(false)
     expect(mesmoOverride(null, {})).toBe(true)
     expect(mesmoOverride(null, { documento: '1' })).toBe(false)
+  })
+})
+
+describe('montarRascunho', () => {
+  it('preenche o rascunho com os dados do cadastro do cliente', () => {
+    expect(montarRascunho(CLIENTE, null)).toEqual({
+      nome: 'Cliente Teste',
+      documento: '36312056000552',
+      endereco: 'Rua X, 10',
+      municipio: 'Recife',
+      estado: 'PE',
+      cep: '',
+      telefone: '8130001111',
+      email: '',
+    })
+  })
+
+  it('nunca traz o e-mail do cadastro — ele e digitado a cada proposta', () => {
+    const r = montarRascunho({ ...CLIENTE, email: 'cadastro@teste.com' }, null)
+    expect(r.email).toBe('')
+  })
+
+  it('deixa o contato de fora: ele e campo da proposta, nao override do cliente', () => {
+    expect(montarRascunho(CLIENTE, null)).not.toHaveProperty('contato')
+  })
+
+  it('poe o override por cima do cadastro, campo a campo', () => {
+    const r = montarRascunho(CLIENTE, { nome: 'Filial Recife', email: 'filial@teste.com' })
+    expect(r.nome).toBe('Filial Recife')
+    expect(r.email).toBe('filial@teste.com')
+    expect(r.municipio).toBe('Recife')
+  })
+
+  it('ignora campo em branco no override e mantem o do cadastro', () => {
+    const r = montarRascunho(CLIENTE, { nome: '   ' })
+    expect(r.nome).toBe('Cliente Teste')
+  })
+
+  it('normaliza documento e CEP para digitos', () => {
+    const r = montarRascunho({ ...CLIENTE, cep: '50.000-000' }, { documento: '11.222.333/0001-44' })
+    expect(r.documento).toBe('11222333000144')
+    expect(r.cep).toBe('50000000')
+  })
+
+  it('sem cliente devolve os campos vazios', () => {
+    expect(montarRascunho(null, null)).toEqual({
+      nome: '', documento: '', endereco: '', municipio: '', estado: '', cep: '', telefone: '', email: '',
+    })
   })
 })
