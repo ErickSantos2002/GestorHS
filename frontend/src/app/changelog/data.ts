@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.49.3',
+    data: '03/09/2026',
+    itens: [
+      { tipo: 'melhoria', texto: 'Telefone e contato seguiram o mesmo caminho do e-mail: não vêm mais preenchidos do cadastro do cliente e passaram a ser obrigatórios, marcados com *. Os três são digitados a cada proposta, para serem conferidos com o cliente na hora — antes o telefone vinha do cadastro e o "aos cuidados de" era copiado do contato cadastrado, e a proposta saía com dado antigo sem ninguém perceber. Tentar salvar sem algum deles avisa quais faltam e destaca os campos em vermelho.' },
+    ],
+  },
+  {
     versao: '1.49.2',
     data: '03/09/2026',
     itens: [
