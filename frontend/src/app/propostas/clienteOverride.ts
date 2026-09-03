@@ -59,11 +59,13 @@ export const CAMPOS_RASCUNHO = [
  * Campos que NUNCA sao herdados do cadastro: nascem vazios em toda proposta e
  * so aparecem preenchidos se aquela proposta ja gravou um valor proprio.
  *
- * O e-mail entrou aqui a pedido do comercial: vindo pronto do cadastro, ninguem
- * conferia, e proposta saia com e-mail antigo do cliente. Vazio + obrigatorio
- * (ver `validacao.ts`) forca a conferencia a cada proposta.
+ * E-mail e telefone entraram aqui a pedido do comercial: vindo prontos do
+ * cadastro, ninguem conferia, e a proposta saia com o contato antigo do
+ * cliente. Vazio + obrigatorio (ver `validacao.ts`) forca a conferencia a cada
+ * proposta. O "aos cuidados de" segue a mesma regra, mas do lado do form —
+ * ele e' coluna da proposta, nao override (ver PropostaModal).
  */
-const NAO_HERDADOS = new Set<CampoOverride>(['email'])
+const NAO_HERDADOS = new Set<CampoOverride>(['email', 'telefone'])
 
 /**
  * Estado inicial do painel: cadastro do cliente por baixo, override da proposta

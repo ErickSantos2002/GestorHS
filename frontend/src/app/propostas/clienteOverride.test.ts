@@ -153,14 +153,15 @@ describe('montarRascunho', () => {
       municipio: 'Recife',
       estado: 'PE',
       cep: '',
-      telefone: '8130001111',
+      telefone: '',
       email: '',
     })
   })
 
-  it('nunca traz o e-mail do cadastro — ele e digitado a cada proposta', () => {
-    const r = montarRascunho({ ...CLIENTE, email: 'cadastro@teste.com' }, null)
+  it('nunca traz e-mail nem telefone do cadastro — sao digitados a cada proposta', () => {
+    const r = montarRascunho({ ...CLIENTE, email: 'cadastro@teste.com', telefones: '8130001111' }, null)
     expect(r.email).toBe('')
+    expect(r.telefone).toBe('')
   })
 
   it('deixa o contato de fora: ele e campo da proposta, nao override do cliente', () => {

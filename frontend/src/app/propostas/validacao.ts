@@ -21,13 +21,17 @@ export function htmlTemTexto(html?: string | null): boolean {
  * Campos do cliente que a proposta nao pode levar em branco, na ordem em que
  * aparecem no formulario.
  *
- * Telefone e contato ficam de fora a pedido do comercial: nem todo cliente tem
- * um, e travar a proposta por isso atrapalharia mais do que ajuda. O e-mail,
- * que nasce vazio de proposito (ver `NAO_HERDADOS` em clienteOverride), so e'
- * conferido a cada proposta porque esta nesta lista.
+ * Telefone, e-mail e contato entraram a pedido do comercial: os tres nascem
+ * vazios de proposito (ver `NAO_HERDADOS` em clienteOverride) e so sao
+ * conferidos a cada proposta porque estao nesta lista — herdados do cadastro,
+ * ninguem olhava e a proposta saia com o contato velho do cliente.
+ *
+ * `contato` nao e' campo do rascunho do override (mora em `propostas.contato`,
+ * ver CAMPOS_RASCUNHO): quem valida injeta o valor do form no rascunho so para
+ * esta checagem — ver PropostaModal.
  */
 export const CAMPOS_OBRIGATORIOS: readonly CampoOverride[] = [
-  'nome', 'documento', 'endereco', 'municipio', 'estado', 'cep', 'email',
+  'nome', 'documento', 'endereco', 'municipio', 'estado', 'cep', 'telefone', 'email', 'contato',
 ]
 
 // Campos guardados como digitos: pontuacao sozinha nao e' preenchimento.

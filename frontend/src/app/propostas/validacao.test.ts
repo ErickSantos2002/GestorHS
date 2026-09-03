@@ -9,7 +9,9 @@ const RASCUNHO_OK: Partial<Record<CampoOverride, string>> = {
   municipio: 'Recife',
   estado: 'PE',
   cep: '50000000',
+  telefone: '8130001111',
   email: 'contato@teste.com',
+  contato: 'Joana',
 }
 
 const OK = { cliente: 5, rascunho: RASCUNHO_OK, outrosItens: '<p>Calibracao</p>' }
@@ -34,8 +36,9 @@ describe('camposObrigatoriosFaltando', () => {
     expect(camposObrigatoriosFaltando(RASCUNHO_OK)).toEqual([])
   })
 
-  it('telefone e contato nao sao obrigatorios', () => {
-    expect(camposObrigatoriosFaltando({ ...RASCUNHO_OK, telefone: '', contato: '' })).toEqual([])
+  it('telefone e contato tambem sao obrigatorios', () => {
+    expect(camposObrigatoriosFaltando({ ...RASCUNHO_OK, telefone: '', contato: '' }))
+      .toEqual(['telefone', 'contato'])
   })
 
   it('aponta os campos vazios na ordem do formulario', () => {
@@ -46,7 +49,7 @@ describe('camposObrigatoriosFaltando', () => {
   it('trata so espacos e campo ausente como vazio', () => {
     expect(camposObrigatoriosFaltando({ ...RASCUNHO_OK, municipio: '   ' })).toEqual(['municipio'])
     expect(camposObrigatoriosFaltando({})).toEqual(
-      ['nome', 'documento', 'endereco', 'municipio', 'estado', 'cep', 'email'],
+      ['nome', 'documento', 'endereco', 'municipio', 'estado', 'cep', 'telefone', 'email', 'contato'],
     )
   })
 

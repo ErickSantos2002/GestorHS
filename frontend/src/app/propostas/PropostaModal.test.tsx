@@ -106,12 +106,20 @@ function aplicarModelo() {
   fireEvent.click(screen.getByText('Aplicar modelo'))
 }
 
-// O e-mail nasce SEMPRE vazio (nunca herda do cadastro) e e' obrigatorio, entao
-// todo teste que chega ao submit precisa digitar um. Usamos de proposito o
-// mesmo e-mail do cadastro: assim ele nao vira override e nao suja as asercoes
-// sobre `cliente_override`.
+// E-mail, telefone e contato nascem SEMPRE vazios (nunca herdam do cadastro) e
+// sao obrigatorios, entao todo teste que chega ao submit precisa digitar os
+// tres. Usamos de proposito os mesmos valores do cadastro: assim eles nao viram
+// override e nao sujam as asercoes sobre `cliente_override`. O contato nao tem
+// equivalente no cadastro (o cliente de teste vem com `contato: null`), mas ele
+// vai para a coluna da proposta, nao para o override.
 function preencherEmail(valor = 'cliente@teste.com') {
   fireEvent.change(screen.getByLabelText('E-mail *'), { target: { value: valor } })
+}
+
+function preencherObrigatorios(email = 'cliente@teste.com') {
+  preencherEmail(email)
+  fireEvent.change(screen.getByLabelText('Telefone *'), { target: { value: '8130001111' } })
+  fireEvent.change(screen.getByLabelText('Contato (aos cuidados de) *'), { target: { value: 'Joana' } })
 }
 
 describe('PropostaModal', () => {
@@ -130,7 +138,7 @@ describe('PropostaModal', () => {
 
     fireEvent.click(screen.getByLabelText('Bafômetro X'))
     aplicarModelo()
-    preencherEmail()
+    preencherObrigatorios()
     fireEvent.click(screen.getByText('Criar Proposta'))
 
     await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
@@ -202,7 +210,7 @@ describe('PropostaModal', () => {
     expect(screen.getByLabelText('Phoebus 3000')).toBeInTheDocument()
 
     aplicarModelo()
-    preencherEmail()
+    preencherObrigatorios()
     fireEvent.click(screen.getByText('Criar Proposta'))
     await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
     const payload = propostasCriar.mock.calls[0][0]
@@ -215,7 +223,7 @@ describe('PropostaModal', () => {
 
     fireEvent.change(screen.getByLabelText(/introdução/i), { target: { value: 'Texto de introdução digitado.' } })
     aplicarModelo()
-    preencherEmail()
+    preencherObrigatorios()
     fireEvent.click(screen.getByText('Criar Proposta'))
 
     await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
@@ -305,7 +313,7 @@ describe('PropostaModal', () => {
   it('submeter sem o bloco de outros itens nao cria proposta', async () => {
     render(<PropostaModal onClose={vi.fn()} />)
     await selecionarCliente()
-    preencherEmail()
+    preencherObrigatorios()
 
     fireEvent.click(screen.getByText('Criar Proposta'))
 
@@ -318,7 +326,7 @@ describe('PropostaModal', () => {
     render(<PropostaModal onClose={vi.fn()} />)
     await selecionarCliente()
     aplicarModelo()
-    preencherEmail()
+    preencherObrigatorios()
 
     fireEvent.click(screen.getByText('Criar Proposta'))
     expect(await screen.findByText(/obrigatórios do cliente: CNPJ \/ Documento/i)).toBeInTheDocument()
@@ -413,7 +421,7 @@ describe('PropostaModal', () => {
     expect(await screen.findByText(/Editados só nesta proposta: CNPJ \/ Documento\./)).toBeInTheDocument()
 
     aplicarModelo()
-    preencherEmail()
+    preencherObrigatorios()
     fireEvent.click(screen.getByText('Criar Proposta'))
 
     await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
@@ -431,7 +439,7 @@ describe('PropostaModal', () => {
     expect(screen.queryByText(/Editados só nesta proposta/)).not.toBeInTheDocument()
 
     aplicarModelo()
-    preencherEmail()
+    preencherObrigatorios()
     fireEvent.click(screen.getByText('Criar Proposta'))
     await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
     expect(propostasCriar.mock.calls[0][0].cliente_override).toBeNull()
@@ -546,7 +554,7 @@ describe('PropostaModal — painel do cliente sempre visivel', () => {
 
     fireEvent.change(screen.getByLabelText('Razão social / Nome *'), { target: { value: 'Filial Recife' } })
     aplicarModelo()
-    preencherEmail()
+    preencherObrigatorios()
     fireEvent.click(screen.getByText('Criar Proposta'))
 
     await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
@@ -560,30 +568,45 @@ describe('PropostaModal — painel do cliente sempre visivel', () => {
 
     fireEvent.click(screen.getByText('Criar Proposta'))
 
-    expect(await screen.findByText(/obrigatórios do cliente: E-mail/i)).toBeInTheDocument()
+    expect(await screen.findByText(/obrigatórios do cliente: .*E-mail/i)).toBeInTheDocument()
     expect(propostasCriar).not.toHaveBeenCalled()
   })
 
-  it('telefone e contato em branco nao impedem o salvamento', async () => {
+  it('telefone e contato nascem vazios, mesmo com o cadastro tendo telefone', async () => {
     render(<PropostaModal onClose={vi.fn()} />)
     await selecionarCliente()
 
-    fireEvent.change(screen.getByLabelText('Telefone'), { target: { value: '' } })
-    fireEvent.change(screen.getByLabelText('Contato (aos cuidados de)'), { target: { value: '' } })
+    expect((screen.getByLabelText('Telefone *') as HTMLInputElement).value).toBe('')
+    expect((screen.getByLabelText('Contato (aos cuidados de) *') as HTMLInputElement).value).toBe('')
+  })
+
+  it('o cadastro ter contato nao preenche o "aos cuidados de" da proposta', async () => {
+    clientesObter.mockResolvedValue({ ...CLIENTE_COMPLETO, contato: 'Contato Antigo' })
+    render(<PropostaModal onClose={vi.fn()} />)
+    await selecionarCliente()
+
+    expect((screen.getByLabelText('Contato (aos cuidados de) *') as HTMLInputElement).value).toBe('')
+  })
+
+  it('salvar sem telefone e sem contato avisa e nao cria a proposta', async () => {
+    render(<PropostaModal onClose={vi.fn()} />)
+    await selecionarCliente()
     aplicarModelo()
     preencherEmail()
+
     fireEvent.click(screen.getByText('Criar Proposta'))
 
-    await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
+    expect(await screen.findByText(/obrigatórios do cliente: Telefone, Contato/i)).toBeInTheDocument()
+    expect(propostasCriar).not.toHaveBeenCalled()
   })
 
   it('o contato digitado vai na coluna da proposta, nao no override', async () => {
     render(<PropostaModal onClose={vi.fn()} />)
     await selecionarCliente()
 
-    fireEvent.change(screen.getByLabelText('Contato (aos cuidados de)'), { target: { value: 'Joana' } })
     aplicarModelo()
-    preencherEmail()
+    preencherObrigatorios()
+    fireEvent.change(screen.getByLabelText('Contato (aos cuidados de) *'), { target: { value: 'Joana' } })
     fireEvent.click(screen.getByText('Criar Proposta'))
 
     await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
@@ -592,18 +615,33 @@ describe('PropostaModal — painel do cliente sempre visivel', () => {
     expect(payload.cliente_override).toBeNull()
   })
 
-  it('Restaurar do cadastro desfaz as edicoes e zera o e-mail de novo', async () => {
+  it('telefone digitado diferente do cadastro vira override', async () => {
+    render(<PropostaModal onClose={vi.fn()} />)
+    await selecionarCliente()
+
+    aplicarModelo()
+    preencherObrigatorios()
+    fireEvent.change(screen.getByLabelText('Telefone *'), { target: { value: '81988887777' } })
+    fireEvent.click(screen.getByText('Criar Proposta'))
+
+    await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
+    expect(propostasCriar.mock.calls[0][0].cliente_override).toEqual({ telefone: '81988887777' })
+  })
+
+  it('Restaurar do cadastro desfaz as edicoes e zera e-mail e telefone de novo', async () => {
     render(<PropostaModal onClose={vi.fn()} />)
     await selecionarCliente()
 
     fireEvent.change(screen.getByLabelText('Razão social / Nome *'), { target: { value: 'Filial Recife' } })
     preencherEmail('outro@teste.com')
+    fireEvent.change(screen.getByLabelText('Telefone *'), { target: { value: '81988887777' } })
     expect(await screen.findByText(/Editados só nesta proposta/)).toBeInTheDocument()
 
     fireEvent.click(screen.getByText('Restaurar do cadastro'))
 
     expect((screen.getByLabelText('Razão social / Nome *') as HTMLInputElement).value).toBe('Cliente Teste')
     expect((screen.getByLabelText('E-mail *') as HTMLInputElement).value).toBe('')
+    expect((screen.getByLabelText('Telefone *') as HTMLInputElement).value).toBe('')
     expect(screen.queryByText(/Editados só nesta proposta/)).not.toBeInTheDocument()
   })
 })

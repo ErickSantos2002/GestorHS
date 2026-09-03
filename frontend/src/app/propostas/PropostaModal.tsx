@@ -350,9 +350,8 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
       setOverrideDraft(montarRascunho(cli, sementeOverride))
       setTentouSalvar(false)
       limparBusca()
-      if (cli?.contato) {
-        setForm((f) => (f.contato ? f : { ...f, contato: cli.contato ?? '' }))
-      }
+      // O "aos cuidados de" NAO e' puxado do cadastro: como o e-mail e o
+      // telefone, nasce vazio e obrigatorio para ser conferido a cada proposta.
     })
     return () => { vivo = false }
     // `form.cliente_override` fica de fora de proposito: e' semente, nao dependencia.
@@ -411,7 +410,14 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
     [overrideDraft, clienteSelecionado],
   )
   const camposEditados = camposAlterados(overrideAtual, clienteSelecionado)
-  const obrigatoriosFaltando = camposObrigatoriosFaltando(overrideDraft)
+  /** Rascunho SO para conferir os obrigatorios: o "aos cuidados de" mora no
+   *  form (coluna `propostas.contato`), mas e' obrigatorio junto com os demais.
+   *  Nao pode voltar para `overrideDraft` — la ele viraria `cliente_override`. */
+  const rascunhoConferido = useMemo(
+    () => ({ ...overrideDraft, contato: form.contato ?? '' }),
+    [overrideDraft, form.contato],
+  )
+  const obrigatoriosFaltando = camposObrigatoriosFaltando(rascunhoConferido)
 
   /** Rotulo do campo no painel; os obrigatorios levam asterisco. */
   function rotuloCampo(campo: CampoOverride): string {
@@ -578,7 +584,7 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
     e.preventDefault()
     const problema = validarProposta({
       cliente: form.cliente ?? null,
-      rascunho: overrideDraft,
+      rascunho: rascunhoConferido,
       outrosItens: form.outros_itens,
       carregandoCliente: form.cliente != null && clienteSelecionado == null && carregandoFrota,
     })
@@ -703,7 +709,7 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
                   Estes dados valem só para esta proposta e não alteram o cadastro do cliente.
                   Os campos em <span className="italic text-slate-400">cinza e itálico</span> vêm do cadastro do cliente;
                   ao alterar um deles, ele passa a valer só aqui. Apagar um campo devolve o valor do cadastro.
-                  Os marcados com <span className="font-semibold">*</span> são obrigatórios — o e-mail é sempre digitado, nunca vem do cadastro.
+                  Os marcados com <span className="font-semibold">*</span> são obrigatórios — e-mail, telefone e contato são sempre digitados, nunca vêm do cadastro.
                 </p>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <Input id="ov-nome" label={rotuloCampo('nome')} value={overrideDraft.nome ?? ''} onChange={(e) => definirOverride('nome', e.target.value)} className={classeOverride('nome', 'sm:col-span-2')} />
@@ -723,7 +729,14 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
                   <Input id="ov-email" label={rotuloCampo('email')} value={overrideDraft.email ?? ''} onChange={(e) => definirOverride('email', e.target.value)} className={classeOverride('email')} />
                   {/* "Aos cuidados de" e' campo da PROPOSTA (coluna `contato`), nao um
                       override do cadastro — ver CAMPOS_RASCUNHO em clienteOverride.ts. */}
-                  <Input id="ov-contato" label="Contato (aos cuidados de)" value={form.contato ?? ''} onChange={(e) => setField('contato', e.target.value)} className="sm:col-span-2" placeholder="Nome do contato no cliente" />
+                  <Input
+                    id="ov-contato"
+                    label="Contato (aos cuidados de) *"
+                    value={form.contato ?? ''}
+                    onChange={(e) => setField('contato', e.target.value)}
+                    className={cn('sm:col-span-2', tentouSalvar && obrigatoriosFaltando.includes('contato') && 'border-danger')}
+                    placeholder="Nome do contato no cliente"
+                  />
                 </div>
                 {erroBusca && (
                   <p className="text-xs font-medium text-danger">{erroBusca}</p>
