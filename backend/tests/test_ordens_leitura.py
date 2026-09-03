@@ -102,10 +102,10 @@ def test_detalhe_traz_garantias_derivando_manutencao(
     ec.ult_calibragem = date.today()
     db_session.commit()
 
-    # OS de manutencao FINALIZADA recente -> vira a ultima manutencao
+    # OS de manutencao com o LABORATORIO CONCLUIDO -> vira a ultima manutencao
     _ordem(
         db_session, os_base["cliente"], os_base["equipamento_cliente"], 8,
-        tipo_servico="M",
+        tipo_servico="M", desfecho_lab="concluido",
         data_calibracao=datetime.now(timezone.utc),
     )
     # OS atual (em andamento) que estamos consultando
@@ -216,3 +216,84 @@ def test_sem_filtro_de_data_traz_tudo_inclusive_sem_chegada(client, usuario_admi
     _ordem(db_session, os_base["cliente"], os_base["equipamento_cliente"], 5)  # sem data_chegada
     h = _headers(client, "admin@hs.com", "senha123")
     assert client.get("/ordens", headers=h).json()["total"] == 2
+
+
+# ── Garantia de manutencao: vale desde a CONCLUSAO DO LABORATORIO ─────────────
+# Antes ela so existia com a OS na fase 8 (Finalizada) — de 40 OS de manutencao
+# do banco, UMA chegava la. Enquanto isso a garantia de calibracao ja valia desde
+# a conclusao do laboratorio, e o laboratorio via a de calibracao mudar no lugar
+# da de manutencao (OS 11166 / caixa 997).
+
+def _garantias(client, ordem_id):
+    h = _headers(client, "admin@hs.com", "senha123")
+    return client.get(f"/ordens/{ordem_id}", headers=h).json()["garantias"]
+
+
+def test_manutencao_vale_com_o_laboratorio_concluido_antes_de_finalizar(
+    client, usuario_admin, fases_seed, os_base, db_session
+):
+    from datetime import datetime, timezone
+    # OS de manutencao concluida no lab, ainda em Pos-Vendas (fase 6)
+    _ordem(db_session, os_base["cliente"], os_base["equipamento_cliente"], 6,
+           tipo_servico="M", desfecho_lab="concluido",
+           data_calibracao=datetime.now(timezone.utc))
+    o = _ordem(db_session, os_base["cliente"], os_base["equipamento_cliente"], 6,
+               tipo_servico="M", desfecho_lab="concluido",
+               data_calibracao=datetime.now(timezone.utc))
+    g = _garantias(client, o.id)
+    assert g["manutencao"]["estado"] == "em_garantia"
+
+
+def test_manutencao_usa_a_data_do_registro_de_manutencao(
+    client, usuario_admin, fases_seed, os_base, db_session
+):
+    """`manutencoes.data_manutencao` e a data real do servico; a da OS e so o fallback."""
+    from datetime import date, datetime, timezone
+    from app.models import Manutencao
+    o = _ordem(db_session, os_base["cliente"], os_base["equipamento_cliente"], 6,
+               tipo_servico="M", desfecho_lab="concluido",
+               data_calibracao=datetime(2026, 8, 31, tzinfo=timezone.utc))
+    db_session.add(Manutencao(os=o.id, data_manutencao=date(2026, 8, 25)))
+    db_session.commit()
+    g = _garantias(client, o.id)
+    assert g["manutencao"]["data_base"] == "2026-08-25"
+
+
+def test_manutencao_sem_registro_cai_na_data_da_os(
+    client, usuario_admin, fases_seed, os_base, db_session
+):
+    """OS anterior ao registro de manutencao nao pode perder a garantia."""
+    from datetime import datetime, timezone
+    o = _ordem(db_session, os_base["cliente"], os_base["equipamento_cliente"], 6,
+               tipo_servico="M", desfecho_lab="concluido",
+               data_calibracao=datetime(2026, 7, 7, tzinfo=timezone.utc))
+    g = _garantias(client, o.id)
+    assert g["manutencao"]["data_base"] == "2026-07-07"
+
+
+def test_lab_sem_conserto_ou_liberado_nao_da_garantia_de_manutencao(
+    client, usuario_admin, fases_seed, os_base, db_session
+):
+    """Sem servico feito nao ha o que garantir."""
+    from datetime import datetime, timezone
+    for desfecho in ("sem_conserto", "liberado", "pendente"):
+        _ordem(db_session, os_base["cliente"], os_base["equipamento_cliente"], 6,
+               tipo_servico="M", desfecho_lab=desfecho,
+               data_calibracao=datetime.now(timezone.utc))
+    o = _ordem(db_session, os_base["cliente"], os_base["equipamento_cliente"], 5,
+               tipo_servico="C")
+    g = _garantias(client, o.id)
+    assert g["manutencao"]["estado"] == "sem_registro"
+
+
+def test_os_cancelada_nao_da_garantia_de_manutencao(
+    client, usuario_admin, fases_seed, os_base, db_session
+):
+    from datetime import datetime, timezone
+    _ordem(db_session, os_base["cliente"], os_base["equipamento_cliente"], 9,
+           tipo_servico="M", desfecho_lab="concluido",
+           data_calibracao=datetime.now(timezone.utc))
+    o = _ordem(db_session, os_base["cliente"], os_base["equipamento_cliente"], 5,
+               tipo_servico="C")
+    g = _garantias(client, o.id)
+    assert g["manutencao"]["estado"] == "sem_registro"

@@ -5,14 +5,14 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.models.database import get_db
-from app.models import Usuario, Ordem, Cliente, Fase, LogOS, EquipamentoCliente, Caixa, OSCertificado
+from app.models import (Usuario, Ordem, Cliente, Fase, LogOS, EquipamentoCliente, Caixa,
+                        OSCertificado, Manutencao)
 from app.api.deps import get_current_usuario, require_funcao
 from app.api.ordens_acoes import agora, registrar_log, exige_funcao_da_fase, concluir_laboratorio
 from app.core import os_workflow as wf
 from app.core import recebimento as rec
 from app.core.garantia import garantias as _calc_garantias
 from app.core.certificado_gerar import tipos_para, tipos_sem_modelo
-from app.core.os_workflow import FASE_FINALIZADA
 from app.api.caixas import sincronizar_principal
 from app.api.exportar_common import carregar_ate_o_teto, resposta_xlsx
 from app.core.exportacoes import COLUNAS_ORDENS, linha_ordem
@@ -153,20 +153,39 @@ def _anotar_modelos_faltantes(db: Session, ordem) -> None:
 
 
 def _ultima_manutencao(db: Session, equipamento_cliente_id: int) -> date | None:
-    """Data da última manutenção: data_calibracao da OS finalizada mais recente
-    com tipo_servico em ('M', 'A') para o aparelho."""
-    o = (
-        db.query(Ordem)
+    """Data da última manutenção do aparelho, base da garantia de manutenção.
+
+    Vale a partir da CONCLUSÃO DO LABORATÓRIO — o mesmo momento em que a
+    calibração é espelhada no aparelho. Exigir a fase Finalizada deixava a
+    garantia de manutenção praticamente invisível: das 40 OS de manutenção do
+    banco, uma só tinha chegado lá (03/09/2026).
+
+    `desfecho_lab == concluido` é o que separa manutenção FEITA de OS que saíram
+    do laboratório sem serviço (`liberado`/`sem_conserto`) — essas não geram
+    garantia, nem as canceladas.
+
+    A data é a do registro de manutenção (`manutencoes.data_manutencao`, a data
+    real do serviço, que pode ser anterior à conclusão da OS); OS abertas antes
+    desse registro existir caem na data da própria OS.
+    """
+    linhas = (
+        db.query(Manutencao.data_manutencao, Ordem.data_calibracao)
+        .select_from(Ordem)
+        .outerjoin(Manutencao, Manutencao.os == Ordem.id)
         .filter(
             Ordem.equipamento_cliente == equipamento_cliente_id,
             Ordem.tipo_servico.in_(("M", "A")),
-            Ordem.fase == FASE_FINALIZADA,
-            Ordem.data_calibracao.isnot(None),
+            Ordem.desfecho_lab == wf.DESFECHO_CONCLUIDO,
+            Ordem.fase != wf.FASE_CANCELADA,
         )
-        .order_by(Ordem.data_calibracao.desc())
-        .first()
+        .all()
     )
-    return o.data_calibracao.date() if o is not None else None
+    datas = [
+        m if m is not None else (d.date() if d is not None else None)
+        for m, d in linhas
+    ]
+    datas = [d for d in datas if d is not None]
+    return max(datas) if datas else None
 
 
 @router.get("/{ordem_id}", response_model=OrdemOut)
