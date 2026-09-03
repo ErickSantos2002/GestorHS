@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.49.2',
+    data: '03/09/2026',
+    itens: [
+      { tipo: 'correcao', texto: 'Nos Logs de Integração, a coluna "OS" virou "Referência" e o número agora leva ao lugar certo: como o card é da caixa, clicar em "CX 916" abre a caixa 916 — antes abria a OS 916, que é outro registro. As linhas que de fato apontam para uma ordem aparecem como "OS #123" e continuam abrindo a OS.' },
+    ],
+  },
+  {
     versao: '1.49.1',
     data: '02/09/2026',
     itens: [
