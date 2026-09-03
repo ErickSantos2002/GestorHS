@@ -72,7 +72,8 @@ Verificação completa antes de commitar frontend: `npm run lint && npx tsc -b -
 > ℹ️ **Scripts de uso único** ficam em `app/scripts/` junto com os recorrentes, mas
 > não precisam rodar de novo — são o registro do que foi corrigido à mão em produção
 > e todos são idempotentes: `corrigir_cnpj_proposta_99`, `corrigir_prox_calibragem`,
-> `resgatar_os_sem_caixa`, `importar_servicos_manutencao`, `normalizar_servicos_manutencao`.
+> `resgatar_os_sem_caixa`, `importar_servicos_manutencao`, `normalizar_servicos_manutencao`,
+> `corrigir_calibracao_de_os_manutencao`, `unificar_markx_mercury`.
 > **Todos simulam por padrão** e só gravam com `--aplicar`.
 
 ## Arquitetura
@@ -95,6 +96,8 @@ As fases são IDs fixos (`FASE_RECEBIDO=4`, `FASE_LABORATORIO=5`, `FASE_FINANCEI
 
 Ao concluir o laboratório, os dados de calibração são **espelhados** no registro da frota do cliente (`equipamento_cliente`/`historico_equipamento`).
 
+⚠️ **O espelhamento é só para OS que TÊM calibração** (`"C" in tipos_para(ordem)` — tipos `C`, `A` e o legado sem tipo). Numa OS só de manutenção (`M`) ele renovava `ult_calibragem`/`prox_calibragem` com a data da manutenção: a próxima calibração era empurrada e a garantia que mudava era a de **calibração**, não a de manutenção — 6 aparelhos afetados até 03/09/2026 (OS 11166 / caixa 997). A **garantia de manutenção** é derivada em `_ultima_manutencao` ([ordens.py](backend/app/api/ordens.py)) e vale desde `desfecho_lab == concluido`, simétrica à de calibração; a data base é `manutencoes.data_manutencao` (a data real do serviço), com a da OS como fallback.
+
 ### Autorização (dois mundos de token)
 [backend/app/api/deps.py](backend/app/api/deps.py) define a autorização. O JWT carrega `tipo` (`usuario` interno vs `cliente` portal) e `token_use` (`access`/`refresh`):
 - `get_current_usuario` / `get_current_cliente` — separam os dois públicos; o token do cliente também valida o campo `cliente` (isolamento de tenant **pelo token, nunca por parâmetro de URL**).
@@ -108,6 +111,10 @@ A geração de certificado é o subsistema mais elaborado:
 - **Overrides por OS**: a coluna `ordens.cert_overrides` (JSON, migração `0008`) guarda ajustes de campos válidos só para aquela OS. `montar_contexto` sobrepõe esses overrides sem alterar o cadastro do cliente/aparelho. O endpoint `certificado-campos` ([certificados_os.py](backend/app/api/certificados_os.py)) entrega os campos pré-preenchidos e editáveis; o modal do frontend grava os overrides ao gerar/regerar.
 - Certificado pode ser gerado em **qualquer OS pós-laboratório (fases 5–8)**, inclusive sob demanda em OS antigas.
 - [certificado_pdf.py](backend/app/core/certificado_pdf.py) gera o PDF; [storage.py](backend/app/core/storage.py) lida com upload de imagens/PDF (limite 10 MB; `UPLOAD_DIR` em config).
+
+⚠️ **O token `[modelo]` vem de `equipamentos.descricao`** (`modelo_marca()`), mas **os modelos de certificado de calibração trazem o modelo FIXO no HTML** — nenhum deles usa o token. Só o modelo único de **manutenção** usa `[modelo]`, então renomear um equipamento do catálogo muda o relatório de manutenção e **não** o certificado de calibração. Foi o que permitiu unificar em set/2026 os cadastros duplicados de **Mark-X** (ids 3 + 1) e **Mercury** (ids 4 + 29) — duplicados só pela impressora, distinção que o certificado não faz. Sobraram os ids **3 (`Mark-X`)** e **4 (`Mercury`)**; `unificar_markx_mercury` fez a migração e recusa o par se os modelos divergirem.
+
+⚠️ **Quatro FKs referenciam `equipamentos.id`**: `equipamentos_cliente`, `certificados` e as **legadas `documentos` e `links`** (sem model aqui — nada no GestorHS as lê, mas a FK existe). Apagar um cadastro sem tratar as quatro morre em `documentos_equipamento_fkey`. Levante FK sempre por **`pg_constraint`**: uma consulta ao `information_schema` juntando `constraint_column_usage` devolve vazio e dá a falsa impressão de que não há FK nenhuma.
 
 `status_calibracao()` em [calibracao.py](backend/app/core/calibracao.py) classifica a próxima calibração (`sem_data`/`vencido`/`vencendo`/`em_dia`, janela padrão 90 dias) — reutilize-o em vez de recalcular.
 
