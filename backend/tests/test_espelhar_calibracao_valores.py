@@ -131,3 +131,86 @@ def test_os_sem_data_de_calibracao_nao_inventa_proxima(db_session):
     espelhar_calibracao(db_session, ordem)
     db_session.commit(); db_session.refresh(ec)
     assert ec.prox_calibragem == date(2026, 7, 25), "sem calibracao, nada a recalcular"
+
+
+# ── Tipo de servico: manutencao NAO mexe na calibracao ────────────────────────
+# A conclusao do laboratorio espelhava calibracao para QUALQUER OS. Numa OS tipo
+# 'M' isso renovava `ult_calibragem`/`prox_calibragem` do aparelho com a data da
+# manutencao — empurrando a proxima calibracao e fazendo a garantia de calibracao
+# aparecer no lugar da de manutencao (OS 11166 / caixa 997, 03/09/2026).
+
+def test_os_de_manutencao_nao_toca_na_calibracao_do_aparelho(db_session):
+    from app.api.ordens_acoes import espelhar_calibracao
+    from app.models import Ordem
+    ec = _aparelho(db_session)
+    ec.ult_calibragem = date(2026, 7, 28)
+    ec.prox_calibragem = date(2027, 7, 28)
+    db_session.commit()
+    _seed_fase_laboratorio(db_session)
+    ordem = Ordem(cliente=ec.cliente, equipamento_cliente=ec.id, situacao="E",
+                  tipo_servico="M", fase=5,
+                  data_calibracao=datetime(2026, 9, 3, tzinfo=timezone.utc),
+                  prox_calibragem=None)
+    db_session.add(ordem); db_session.commit()
+
+    espelhar_calibracao(db_session, ordem)
+    db_session.commit(); db_session.refresh(ec); db_session.refresh(ordem)
+
+    assert ec.ult_calibragem == date(2026, 7, 28), "manutencao nao renova a calibracao"
+    assert ec.prox_calibragem == date(2027, 7, 28), "manutencao nao empurra a proxima calibracao"
+    assert ordem.prox_calibragem is None, "OS de manutencao nao inventa proxima calibracao"
+
+
+def test_os_de_manutencao_nao_espelha_os_campos_de_calibracao(db_session):
+    from app.api.ordens_acoes import espelhar_calibracao
+    from app.models import Ordem
+    ec = _aparelho(db_session)
+    ec.calib_cert = "HF02429"
+    db_session.commit()
+    _seed_fase_laboratorio(db_session)
+    ordem = Ordem(cliente=ec.cliente, equipamento_cliente=ec.id, situacao="E",
+                  tipo_servico="M", fase=5, calib_cert="NAO-DEVE-ENTRAR",
+                  data_calibracao=datetime(2026, 9, 3, tzinfo=timezone.utc))
+    db_session.add(ordem); db_session.commit()
+
+    espelhar_calibracao(db_session, ordem)
+    db_session.commit(); db_session.refresh(ec)
+
+    assert ec.calib_cert == "HF02429"
+
+
+def test_os_ambas_continua_espelhando_a_calibracao(db_session):
+    """Tipo 'A' faz os dois servicos — a calibracao dele vale."""
+    from app.api.ordens_acoes import espelhar_calibracao
+    from app.models import Ordem
+    ec = _aparelho(db_session)
+    _seed_fase_laboratorio(db_session)
+    ordem = Ordem(cliente=ec.cliente, equipamento_cliente=ec.id, situacao="E",
+                  tipo_servico="A", fase=5, calib_cert="OS-A",
+                  data_calibracao=datetime(2026, 9, 3, tzinfo=timezone.utc))
+    db_session.add(ordem); db_session.commit()
+
+    espelhar_calibracao(db_session, ordem)
+    db_session.commit(); db_session.refresh(ec)
+
+    assert ec.calib_cert == "OS-A"
+    assert ec.ult_calibragem == date(2026, 9, 3)
+    assert ec.prox_calibragem == date(2027, 9, 3)
+
+
+def test_os_legada_sem_tipo_servico_continua_espelhando(db_session):
+    """`tipo_servico` nulo = calibracao (mesma regra de `tipos_para`)."""
+    from app.api.ordens_acoes import espelhar_calibracao
+    from app.models import Ordem
+    ec = _aparelho(db_session)
+    _seed_fase_laboratorio(db_session)
+    ordem = Ordem(cliente=ec.cliente, equipamento_cliente=ec.id, situacao="E",
+                  tipo_servico=None, fase=5, calib_cert="OS-LEGADA",
+                  data_calibracao=datetime(2026, 9, 3, tzinfo=timezone.utc))
+    db_session.add(ordem); db_session.commit()
+
+    espelhar_calibracao(db_session, ordem)
+    db_session.commit(); db_session.refresh(ec)
+
+    assert ec.calib_cert == "OS-LEGADA"
+    assert ec.ult_calibragem == date(2026, 9, 3)

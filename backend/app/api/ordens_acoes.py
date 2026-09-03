@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.models import Ordem, Fase, LogOS, Usuario
 from app.core import os_workflow as wf
 from app.core.calibracao import proxima_calibracao
+from app.core.certificado_gerar import tipos_para
 
 ADMIN = "Administrador"
 
@@ -57,9 +58,17 @@ def espelhar_calibracao(db: Session, ordem) -> None:
     calibracao) e gravada tambem na OS. Sem isso o aparelho ficava com a data do
     ciclo anterior e aparecia como "Vencido" recem-calibrado — era o caso de 150
     das 156 OS concluidas desde o go-live.
+
+    So espelha quando a OS TEM calibracao (tipos 'C', 'A' e o legado sem tipo —
+    a mesma regra de `tipos_para`). Numa OS so de manutencao ('M') isto renovava
+    `ult_calibragem`/`prox_calibragem` com a data da manutencao: a proxima
+    calibracao era empurrada e a garantia de calibracao aparecia no lugar da de
+    manutencao (OS 11166 / caixa 997, 03/09/2026 — 6 aparelhos afetados).
     """
     from app.models import EquipamentoCliente
     if not ordem.equipamento_cliente:
+        return
+    if "C" not in tipos_para(ordem):
         return
     ec = db.query(EquipamentoCliente).filter(EquipamentoCliente.id == ordem.equipamento_cliente).first()
     if ec is None:
