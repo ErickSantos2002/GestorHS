@@ -65,3 +65,39 @@ def test_reenviar_ok(client, usuario_admin, db_session, monkeypatch):
 def test_reenviar_exige_admin(client, usuario_comum, db_session):
     h = _headers(client, "comum@hs.com", "senha123")
     assert client.post("/logs-integracao/1/reenviar", headers=h).status_code == 403
+
+
+def test_referencia_tipo_separa_caixa_de_os(client, usuario_admin, db_session):
+    """A tela linka para a caixa ou para a OS conforme o que o numero representa."""
+    from app.models import LogIntegracao
+    db_session.add_all([
+        # card de caixa (o normal desde set/2026)
+        LogIntegracao(integracao="taskhs", tipo="os_espelho", external_id="916",
+                      referencia_os=916, status="sucesso", http_status=200,
+                      payload={"external_id": "916", "title": "CX 916 · ACME · 2 aparelhos"}),
+        # linha antiga, de quando existia card por OS
+        LogIntegracao(integracao="taskhs", tipo="os_espelho", external_id="10992",
+                      referencia_os=10992, status="sucesso", http_status=200,
+                      payload={"external_id": "10992", "title": "CX 916 · OS #10992 · ACME"}),
+        # pulo por modulo: sem payload, referencia gravada com o id da OS
+        LogIntegracao(integracao="taskhs", tipo="os_espelho", referencia_os=11181,
+                      status="pulado", motivo="caixa_de_modulo"),
+    ])
+    db_session.commit()
+    h = _headers(client, "admin@hs.com", "senha123")
+    itens = client.get("/logs-integracao", headers=h).json()["items"]
+    por_ref = {i["referencia_os"]: i["referencia_tipo"] for i in itens}
+    assert por_ref[916] == "caixa"
+    assert por_ref[10992] == "os"
+    assert por_ref[11181] == "os"
+
+
+def test_referencia_tipo_none_quando_linha_nao_referencia_nada(client, usuario_admin, db_session):
+    from app.models import LogIntegracao
+    db_session.add(LogIntegracao(integracao="growthhs", tipo="vencendo",
+                                 external_id="7794:2027-07", status="sucesso",
+                                 payload={"external_id": "7794:2027-07"}))
+    db_session.commit()
+    h = _headers(client, "admin@hs.com", "senha123")
+    itens = client.get("/logs-integracao", headers=h).json()["items"]
+    assert itens[0]["referencia_tipo"] is None

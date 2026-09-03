@@ -95,7 +95,7 @@ export function LogsIntegracaoPage() {
       ) : (
         <Table
           head={<>
-            <TH>Quando</TH><TH>Integração</TH><TH>Tipo</TH><TH>OS</TH>
+            <TH>Quando</TH><TH>Integração</TH><TH>Tipo</TH><TH>Referência</TH>
             <TH>Status</TH><TH>Detalhe</TH><TH>Ação</TH>
           </>}
           footer={total > 0 ? <Pagination page={page} totalPages={totalPages} total={total} pageSize={pageSize} onPageChange={setPage} itemLabel="logs" /> : undefined}
@@ -107,7 +107,14 @@ export function LogsIntegracaoPage() {
               <TD>{log.tipo}</TD>
               <TD>
                 {log.referencia_os
-                  ? <Link className="text-primary" to={`/app/ordens/${log.referencia_os}`}>#{log.referencia_os}</Link>
+                  ? <Link
+                      className="text-primary"
+                      to={log.referencia_tipo === 'caixa'
+                        ? `/app/caixas/${log.referencia_os}`
+                        : `/app/ordens/${log.referencia_os}`}
+                    >
+                      {log.referencia_tipo === 'caixa' ? `CX ${log.referencia_os}` : `OS #${log.referencia_os}`}
+                    </Link>
                   : (log.external_id ?? '—')}
               </TD>
               <TD><Badge tone={TONE_STATUS[log.status]}>{log.status}</Badge></TD>

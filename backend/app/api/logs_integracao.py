@@ -7,6 +7,7 @@ from app.models import Usuario, LogIntegracao, Ordem, Caixa
 from app.api.deps import require_funcao
 from app.core import fluxo_modulo
 from app.core.caixa import ordens_do_card
+from app.core.log_integracao import referencia_e_de_caixa
 from app.integrations import taskhs_client, hsgrowth_client
 from app.schemas.logs_integracao import LogsPage, LogIntegracaoOut, EstadoIntegracoes, ReenvioOut
 
@@ -41,6 +42,14 @@ def _payload_de_modulo(db: Session, payload: dict) -> bool:
     return False
 
 
+def _saida(row: LogIntegracao) -> LogIntegracaoOut:
+    """Linha do banco -> linha da tela, com o tipo da referencia resolvido."""
+    out = LogIntegracaoOut.model_validate(row)
+    if out.referencia_os is not None:
+        out.referencia_tipo = "caixa" if referencia_e_de_caixa(row.payload) else "os"
+    return out
+
+
 @router.get("", response_model=LogsPage)
 def listar(
     integracao: str | None = None,
@@ -72,8 +81,7 @@ def listar(
         taskhs_ativo=taskhs_client.integracao_ativa(),
         growthhs_ativo=hsgrowth_client.integracao_ativa(),
     )
-    return LogsPage(items=[LogIntegracaoOut.model_validate(i) for i in items],
-                    total=total, estado=estado)
+    return LogsPage(items=[_saida(i) for i in items], total=total, estado=estado)
 
 
 @router.post("/{log_id}/reenviar", response_model=ReenvioOut)

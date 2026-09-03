@@ -9,6 +9,9 @@ export interface LogIntegracao {
   tipo: string
   external_id: string | null
   referencia_os: number | null
+  // Para onde a referencia aponta: o card e' da caixa, mas os pulos por modulo
+  // guardam o id da OS. Null quando a linha nao tem referencia.
+  referencia_tipo: 'os' | 'caixa' | null
   status: StatusLog
   motivo: string | null
   http_status: number | null

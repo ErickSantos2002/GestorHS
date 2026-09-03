@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel
 
@@ -11,6 +11,10 @@ class LogIntegracaoOut(BaseModel):
     tipo: str
     external_id: Optional[str] = None
     referencia_os: Optional[int] = None
+    # Para onde o numero da referencia aponta. O card e' da caixa desde set/2026, mas
+    # os pulos por modulo continuam guardando o id da OS — a tela precisa saber qual
+    # dos dois esta olhando para montar o link certo. None quando nao ha referencia.
+    referencia_tipo: Optional[Literal["os", "caixa"]] = None
     status: str
     motivo: Optional[str] = None
     http_status: Optional[int] = None
