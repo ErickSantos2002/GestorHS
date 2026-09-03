@@ -23,6 +23,15 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.50.0',
+    data: '03/09/2026',
+    itens: [
+      { tipo: 'correcao', texto: 'Concluir o laboratório de uma OS de Manutenção não mexe mais na calibração do aparelho. Antes a conclusão gravava a data do serviço como "última calibração" do aparelho e empurrava a próxima calibração junto — o aparelho aparecia calibrado num dia em que só foi feita manutenção, e quem entrava em garantia era a calibração, não a manutenção. OS de Calibração e de Ambas seguem espelhando normalmente.' },
+      { tipo: 'melhoria', texto: 'Mark-X e Mercury tinham dois cadastros cada um no catálogo, separados só pela impressora ("Bafômetro Mark X - Plus" e "Bafômetro Mark X - Plus - COM IMPRESSORA"; "Bafômetro Mercury" e "Mercury com impressora sem fio - Bluetooth"). Viraram um cadastro só cada, com o nome que o certificado já usa: Mark-X e Mercury. Os aparelhos da frota foram todos reapontados, nada se perdeu, e o relatório de manutenção passa a imprimir o mesmo nome do certificado — antes saía a descrição comprida.' },
+      { tipo: 'correcao', texto: 'A garantia de manutenção passa a valer assim que o laboratório conclui a OS, do mesmo jeito que a de calibração — antes ela só aparecia depois de a OS ser finalizada, o que na prática deixava a garantia invisível. A data usada é a do relatório de manutenção (a data real do serviço), e OS liberadas, sem conserto ou canceladas não geram garantia, porque nelas não houve serviço.' },
+    ],
+  },
+  {
     versao: '1.49.3',
     data: '03/09/2026',
     itens: [
