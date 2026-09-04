@@ -17,7 +17,7 @@ import { ClientePrincipalModal } from './ClientePrincipalModal'
 import { SemConsertoModal } from './SemConsertoModal'
 import { NotaFiscalCaixaModal } from './NotaFiscalCaixaModal'
 import { PropostaCaixaCard } from './PropostaCaixaCard'
-import { TRANSICOES, faseAtiva } from '../ordens/api'
+import { TRANSICOES, faseAtiva, posicaoFase } from '../ordens/api'
 import { STATUS_CALIBRACAO, type StatusCalibracao } from '../frota/api'
 import { PageContainer, DetailGrid, DetailMain, DetailAside } from '../../components/ui/Page'
 
@@ -74,8 +74,9 @@ export function CaixaDetailPage() {
   // Sem conserto (por OS, fase 5)
   const [semConsertoOsId, setSemConsertoOsId] = useState<number | null>(null)
 
-  // Anexar nota fiscal da caixa (fase 10 — Financeiro)
+  // Anexar nota fiscal da caixa (janela Financeiro..Preparando Retorno)
   const [notaFiscalAberta, setNotaFiscalAberta] = useState(false)
+  const [removendoNota, setRemovendoNota] = useState<number | null>(null)
 
   // Modal: Mover OS para outra caixa
   const [moverOsId, setMoverOsId] = useState<number | null>(null)
@@ -222,6 +223,17 @@ export function CaixaDetailPage() {
     }
   }
 
+  async function onRemoverNota(notaId: number) {
+    setErroAcao('')
+    try {
+      await caixasApi.removerNotaFiscalCaixa(caixaId, notaId)
+      setRemovendoNota(null)
+      carregar()
+    } catch (err) {
+      setErroAcao(err instanceof ApiError ? err.message : 'Falha ao remover a nota fiscal')
+    }
+  }
+
   async function buscarEquipamentos(q: string) {
     setPickerCarregando(true)
     setPickerErro('')
@@ -290,6 +302,11 @@ export function CaixaDetailPage() {
   // espelha exige_funcao_da_fase no backend, não podeAbrirOS (Expedição/Admin).
   const podeAvancar = podeAvancarCaixa(user, caixa.fase)
 
+  // A janela de correcao da nota vai do Financeiro (10) ate Preparando Retorno (7).
+  // Comparacao por POSICAO, nunca por ID: o 10 e' maior que o 7 mas vem antes dele.
+  const posCaixa = posicaoFase(caixa.fase)
+  const naJanelaDaNota = posCaixa >= posicaoFase(10) && posCaixa <= posicaoFase(7)
+
   return (
     <PageContainer>
       {/* Cabeçalho */}
@@ -351,15 +368,65 @@ export function CaixaDetailPage() {
       <DetailGrid>
         <DetailMain>
           {/* Ações do lote */}
-          {(podeEscrever || (caixa.fase === 10 && podeAnexarNF)) && (
+          {(podeEscrever || (naJanelaDaNota && podeAnexarNF)) && (
             <div className="flex gap-2 flex-wrap">
               {podeEscrever && <Button onClick={abrirPicker}>Abrir OS</Button>}
-              {caixa.fase === 10 && podeAnexarNF && (
+              {naJanelaDaNota && podeAnexarNF && (
                 <Button variant="secondary" onClick={() => setNotaFiscalAberta(true)}>
                   Anexar nota fiscal
                 </Button>
               )}
             </div>
+          )}
+
+          {/* Notas fiscais da caixa */}
+          {(caixa.notas_fiscais.length > 0 || naJanelaDaNota) && (
+            <section className="space-y-3">
+              <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wide">
+                Notas fiscais ({caixa.notas_fiscais.length})
+              </h2>
+              {caixa.notas_fiscais.length === 0 ? (
+                <p className="text-sm text-slate-500">Nenhuma nota fiscal anexada ainda.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {caixa.notas_fiscais.map((nf) => (
+                    <li key={nf.id} className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2">
+                      <span className="text-sm text-slate-200">NF {nf.numero}</span>
+                      <div className="flex items-center gap-3">
+                        <button onClick={() => caixasApi.baixarNotaFiscalCaixa(caixa.id, nf.id, nf.numero, 'pdf')}
+                                className="text-xs font-semibold text-primary hover:underline">
+                          Baixar PDF
+                        </button>
+                        <button onClick={() => caixasApi.baixarNotaFiscalCaixa(caixa.id, nf.id, nf.numero, 'xml')}
+                                className="text-xs font-semibold text-primary hover:underline">
+                          Baixar XML
+                        </button>
+                        {naJanelaDaNota && podeAnexarNF && (
+                          removendoNota === nf.id ? (
+                            <>
+                              <button onClick={() => onRemoverNota(nf.id)}
+                                      className="text-xs font-semibold text-danger hover:underline">
+                                Confirmar
+                              </button>
+                              <button onClick={() => setRemovendoNota(null)}
+                                      className="text-xs font-semibold text-slate-400 hover:underline">
+                                Cancelar
+                              </button>
+                            </>
+                          ) : (
+                            <button aria-label={`Remover nota ${nf.numero}`}
+                                    onClick={() => setRemovendoNota(nf.id)}
+                                    className="text-xs font-semibold text-danger hover:underline">
+                              Remover
+                            </button>
+                          )
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
           )}
 
           {/* Tabela de OS vinculadas */}
@@ -547,7 +614,7 @@ export function CaixaDetailPage() {
         />
       )}
 
-      {/* Modal: Anexar nota fiscal da caixa (fase 10 — Financeiro) */}
+      {/* Modal: Anexar nota fiscal da caixa (janela Financeiro..Preparando Retorno) */}
       {notaFiscalAberta && (
         <NotaFiscalCaixaModal
           caixaId={caixaId}

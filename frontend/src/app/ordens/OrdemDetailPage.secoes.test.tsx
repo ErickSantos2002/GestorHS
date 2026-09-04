@@ -42,7 +42,7 @@ function baseOs(over: Record<string, unknown> = {}) {
     calib_cert: null, calib_temp: null, calib_pressao: null, calib_teste1: null,
     calib_teste2: null, calib_teste3: null, calib_teste_media: null,
     calib_situacao: null, pdf_certificado: null, nota_fiscal: null,
-    nota_fiscal_xml: null, nota_fiscal_numero: null,
+    nota_fiscal_xml: null, nota_fiscal_numero: null, notas_fiscais: [],
     certificado_modelos_faltantes: [], pilhas: 0, bocais: 0, checklist_ids: [],
     acessorios_presentes: [], garantias: null, desfecho_lab: null, desfecho_lab_obs: null,
     ...over,
@@ -145,5 +145,51 @@ describe('OrdemDetailPage — seções de certificado', () => {
     tela()
     expect(await screen.findByText(/Liberado sem certificado/)).toBeInTheDocument()
     expect(screen.queryByText(/Registre a manutenção antes de gerar/)).not.toBeInTheDocument()
+  })
+})
+
+// A seção só aparece a partir do Financeiro (posLaboratorio/posicaoFase >= 10) e é
+// sempre só leitura — anexar/remover é exclusivo da tela da caixa.
+describe('OrdemDetailPage — seção de nota fiscal', () => {
+  beforeEach(() => {
+    mockUser = { funcao: 'Laboratório' }
+    obter.mockReset(); logs.mockReset(); certificados.mockReset(); obterManutencao.mockReset()
+    logs.mockResolvedValue([]); certificados.mockResolvedValue([])
+    obterManutencao.mockRejectedValue(new Error('404'))
+  })
+
+  it('OS cuja caixa tem notas lista as duas, com download, e sem botão de anexar/remover', async () => {
+    obter.mockResolvedValue(baseOs({
+      fase: 10, fase_descricao: 'Financeiro',
+      notas_fiscais: [
+        { id: 1, numero: '111', criado_em: null },
+        { id: 2, numero: '222', criado_em: null },
+      ],
+    }))
+    tela()
+    expect(await screen.findByText('111')).toBeInTheDocument()
+    expect(screen.getByText('222')).toBeInTheDocument()
+    expect(screen.getAllByText('Baixar PDF')).toHaveLength(2)
+    expect(screen.getAllByText('Baixar XML')).toHaveLength(2)
+    expect(screen.queryByRole('button', { name: /anexar/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /remover/i })).not.toBeInTheDocument()
+  })
+
+  it('OS antiga sem notas na tabela nova cai no fallback legado', async () => {
+    obter.mockResolvedValue(baseOs({
+      fase: 10, fase_descricao: 'Financeiro',
+      notas_fiscais: [], nota_fiscal: 'nf.pdf', nota_fiscal_numero: '999',
+    }))
+    tela()
+    expect(await screen.findByText('999')).toBeInTheDocument()
+  })
+
+  it('OS sem nota nenhuma mostra a mensagem de que não há nota anexada', async () => {
+    obter.mockResolvedValue(baseOs({
+      fase: 10, fase_descricao: 'Financeiro',
+      notas_fiscais: [], nota_fiscal: null,
+    }))
+    tela()
+    expect(await screen.findByText(/nenhuma nota fiscal anexada/i)).toBeInTheDocument()
   })
 })

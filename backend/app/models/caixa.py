@@ -16,6 +16,9 @@ class Caixa(Base):
     ordens = relationship("Ordem", back_populates="caixa_rel", lazy="selectin")
     fase_rel = relationship("Fase", lazy="joined")
     cliente_principal_rel = relationship("Cliente", lazy="joined", foreign_keys=[cliente_principal])
+    # selectin, nao lazy padrao: a exportacao para Excel percorre muitas caixas e
+    # o lazy load viraria uma consulta por linha da planilha.
+    notas_fiscais = relationship("NotaFiscal", lazy="selectin", order_by="NotaFiscal.id")
 
     @property
     def total_os(self) -> int:

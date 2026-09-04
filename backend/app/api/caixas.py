@@ -5,7 +5,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.models.database import get_db
-from app.models import Usuario, Caixa, Ordem, Fase, Proposta
+from app.models import Usuario, Caixa, Ordem, Fase, Proposta, NotaFiscal
 from app.core import os_workflow as wf
 from app.core.caixa import cliente_unico, contar_outros, principal_valido
 from app.core import proposta_servico
@@ -206,6 +206,19 @@ def _ordens_ativas(cx: Caixa) -> list[Ordem]:
     return [o for o in cx.ordens if wf.eh_ativa(o.fase)]
 
 
+def _tem_nota_fiscal(db: Session, cx: Caixa, ativas: list[Ordem]) -> bool:
+    """Aceita as DUAS fontes de proposito.
+
+    A tabela `notas_fiscais` e' a fonte nova. A coluna legada entra porque caixa
+    antiga com PDF e sem XML ficou fora do backfill da 0029 (`arquivo_xml` e'
+    NOT NULL) — sem esse segundo termo ela travaria no Financeiro sem ter o que
+    corrigir.
+    """
+    if db.query(NotaFiscal.id).filter(NotaFiscal.caixa == cx.id).first() is not None:
+        return True
+    return any(o.nota_fiscal for o in ativas)
+
+
 def executar_avanco_caixa(db, cx, *, origem, destino, ativas, usuario, obs, cod_retorno,
                           background_tasks, sem_nota_fiscal: bool = False):
     """Aplica o efeito de avancar a caixa de `origem` para `destino` (fan-out por OS,
@@ -213,6 +226,7 @@ def executar_avanco_caixa(db, cx, *, origem, destino, ativas, usuario, obs, cod_
     if origem == 7:  # Preparando -> Finalizada
         if not (cod_retorno and cod_retorno.strip()):
             raise HTTPException(status_code=422, detail="cod_retorno é obrigatório para finalizar")
+    tem_nf = _tem_nota_fiscal(db, cx, ativas) if origem == 10 else False
     for o in ativas:
         if origem == wf.FASE_LABORATORIO:
             if o.desfecho_lab == wf.DESFECHO_CONCLUIDO:
@@ -223,7 +237,7 @@ def executar_avanco_caixa(db, cx, *, origem, destino, ativas, usuario, obs, cod_
         elif origem == 10:     # Financeiro -> Preparando
             # `sem_nota_fiscal` so chega aqui como True se o chamador ja conferiu
             # que quem pediu e' Administrador (ver avancar_caixa).
-            if not o.nota_fiscal and not sem_nota_fiscal:
+            if not tem_nf and not sem_nota_fiscal:
                 raise HTTPException(status_code=409, detail="anexe a nota fiscal da caixa antes de confirmar o pagamento")
             o.pago = True
             o.data_pagamento = agora()
@@ -233,7 +247,7 @@ def executar_avanco_caixa(db, cx, *, origem, destino, ativas, usuario, obs, cod_
             o.situacao = "F"
         o.fase = destino
         texto = f"Caixa #{cx.id}: {origem} -> {destino}"
-        if sem_nota_fiscal and origem == 10 and not o.nota_fiscal:
+        if sem_nota_fiscal and origem == 10 and not tem_nf:
             texto = f"{texto} (sem nota fiscal, dispensada pelo Administrador)"
         if obs and obs.strip():
             texto = f"{texto} - {obs.strip()}"

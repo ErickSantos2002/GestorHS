@@ -7,10 +7,13 @@ vi.mock('../../auth/AuthContext', () => ({
   useAuth: () => ({ user: mockUser })
 }))
 
-const { obter, desvincularOrdem, avancar } = vi.hoisted(() => ({ obter: vi.fn(), desvincularOrdem: vi.fn(), avancar: vi.fn() }))
+const { obter, desvincularOrdem, avancar, removerNotaFiscalCaixa, baixarNotaFiscalCaixa } = vi.hoisted(() => ({
+  obter: vi.fn(), desvincularOrdem: vi.fn(), avancar: vi.fn(),
+  removerNotaFiscalCaixa: vi.fn(), baixarNotaFiscalCaixa: vi.fn(),
+}))
 vi.mock('./api', async (orig) => {
   const real = await orig<typeof import('./api')>()
-  return { ...real, caixasApi: { ...real.caixasApi, obter, desvincularOrdem, avancar } }
+  return { ...real, caixasApi: { ...real.caixasApi, obter, desvincularOrdem, avancar, removerNotaFiscalCaixa, baixarNotaFiscalCaixa } }
 })
 
 import { ApiError } from '../../lib/api'
@@ -22,6 +25,7 @@ const CAIXA = {
     { id: 10, cliente: 1, cliente_nome: 'ACME', equipamento_descricao: 'Bafômetro', equipamento_serie: 'S1', fase: 7, fase_descricao: 'Preparando Retorno', fase_cor: 'abc' },
     { id: 11, cliente: 1, cliente_nome: 'ACME', equipamento_descricao: 'Bafômetro', equipamento_serie: 'S2', fase: 5, fase_descricao: 'Laboratório', fase_cor: 'def' },
   ],
+  notas_fiscais: [],
 }
 
 function tela() {
@@ -64,6 +68,7 @@ describe('CaixaDetailPage — avançar/cancelar caixa e sem conserto', () => {
       id: 7, fase: 5, ordens: [
         { id: 1, desfecho_lab: 'concluido', fase: 5 },
         { id: 2, desfecho_lab: 'pendente', fase: 5 }],
+      notas_fiscais: [],
     })
     render(<MemoryRouter initialEntries={['/app/caixas/7']}><Routes><Route path="/app/caixas/:id" element={<CaixaDetailPage />} /></Routes></MemoryRouter>)
     const btn = await screen.findByRole('button', { name: /avançar caixa/i })
@@ -85,6 +90,7 @@ describe('CaixaDetailPage — gating por funcao (role-based)', () => {
       ordens: [
         { id: 10, cliente: 1, cliente_nome: 'ACME', equipamento_descricao: 'Bafômetro', equipamento_serie: 'S1', fase: 5, fase_descricao: 'Laboratório', fase_cor: 'abc', desfecho_lab: 'concluido' },
       ],
+      notas_fiscais: [],
     })
 
     // Teste 1: Laboratório pode ver e clicar em "Avançar caixa"
@@ -106,6 +112,7 @@ describe('CaixaDetailPage — gating por funcao (role-based)', () => {
       ordens: [
         { id: 10, cliente: 1, cliente_nome: 'ACME', equipamento_descricao: 'Bafômetro', equipamento_serie: 'S1', fase: 5, fase_descricao: 'Laboratório', fase_cor: 'abc', desfecho_lab: 'concluido' },
       ],
+      notas_fiscais: [],
     })
     render(
       <MemoryRouter initialEntries={['/app/caixas/5']}>
@@ -124,6 +131,7 @@ describe('CaixaDetailPage — gating por funcao (role-based)', () => {
       ordens: [
         { id: 10, cliente: 1, cliente_nome: 'ACME', equipamento_descricao: 'Bafômetro', equipamento_serie: 'S1', fase: 6, fase_descricao: 'Pós-Vendas', fase_cor: 'abc' },
       ],
+      notas_fiscais: [],
     })
 
     // Teste 1: Comercial pode ver "Avançar caixa" em fase 6
@@ -145,6 +153,7 @@ describe('CaixaDetailPage — gating por funcao (role-based)', () => {
       ordens: [
         { id: 10, cliente: 1, cliente_nome: 'ACME', equipamento_descricao: 'Bafômetro', equipamento_serie: 'S1', fase: 6, fase_descricao: 'Pós-Vendas', fase_cor: 'abc' },
       ],
+      notas_fiscais: [],
     })
     render(
       <MemoryRouter initialEntries={['/app/caixas/6']}>
@@ -163,6 +172,7 @@ describe('CaixaDetailPage — gating por funcao (role-based)', () => {
       ordens: [
         { id: 10, cliente: 1, cliente_nome: 'ACME', equipamento_descricao: 'Bafômetro', equipamento_serie: 'S1', fase: 4, fase_descricao: 'Recebido', fase_cor: 'abc' },
       ],
+      notas_fiscais: [],
     })
 
     // Teste 1: Expedição pode ver "Avançar caixa" em fase 4
@@ -184,6 +194,7 @@ describe('CaixaDetailPage — gating por funcao (role-based)', () => {
       ordens: [
         { id: 10, cliente: 1, cliente_nome: 'ACME', equipamento_descricao: 'Bafômetro', equipamento_serie: 'S1', fase: 4, fase_descricao: 'Recebido', fase_cor: 'abc' },
       ],
+      notas_fiscais: [],
     })
     render(
       <MemoryRouter initialEntries={['/app/caixas/4']}>
@@ -202,6 +213,7 @@ describe('CaixaDetailPage — gating por funcao (role-based)', () => {
       ordens: [
         { id: 10, cliente: 1, cliente_nome: 'ACME', equipamento_descricao: 'Bafômetro', equipamento_serie: 'S1', fase: 10, fase_descricao: 'Financeiro', fase_cor: 'abc' },
       ],
+      notas_fiscais: [],
     })
 
     // Teste 1: Financeiro pode ver "Avançar caixa" em fase 10
@@ -223,6 +235,7 @@ describe('CaixaDetailPage — gating por funcao (role-based)', () => {
       ordens: [
         { id: 10, cliente: 1, cliente_nome: 'ACME', equipamento_descricao: 'Bafômetro', equipamento_serie: 'S1', fase: 10, fase_descricao: 'Financeiro', fase_cor: 'abc' },
       ],
+      notas_fiscais: [],
     })
     render(
       <MemoryRouter initialEntries={['/app/caixas/10']}>
@@ -241,6 +254,7 @@ describe('CaixaDetailPage — gating por funcao (role-based)', () => {
       ordens: [
         { id: 10, cliente: 1, cliente_nome: 'ACME', equipamento_descricao: 'Bafômetro', equipamento_serie: 'S1', fase: 5, fase_descricao: 'Laboratório', fase_cor: 'abc', desfecho_lab: 'pendente' },
       ],
+      notas_fiscais: [],
     })
 
     // Teste 1: Laboratório pode ver botão "Sem conserto"
@@ -262,6 +276,7 @@ describe('CaixaDetailPage — gating por funcao (role-based)', () => {
       ordens: [
         { id: 10, cliente: 1, cliente_nome: 'ACME', equipamento_descricao: 'Bafômetro', equipamento_serie: 'S1', fase: 5, fase_descricao: 'Laboratório', fase_cor: 'abc', desfecho_lab: 'pendente' },
       ],
+      notas_fiscais: [],
     })
     render(
       <MemoryRouter initialEntries={['/app/caixas/5']}>
@@ -284,6 +299,7 @@ describe('CaixaDetailPage — cliente principal ao avancar Recebido multi-client
       id: 7, fase: 4, ordens: [
         { id: 1, cliente: 10, cliente_nome: 'A', fase: 4, desfecho_lab: 'pendente' },
         { id: 2, cliente: 20, cliente_nome: 'B', fase: 4, desfecho_lab: 'pendente' }],
+      notas_fiscais: [],
     })
     render(<MemoryRouter initialEntries={['/app/caixas/7']}><Routes><Route path="/app/caixas/:id" element={<CaixaDetailPage />} /></Routes></MemoryRouter>)
     const btn = await screen.findByRole('button', { name: /avançar caixa/i })
@@ -297,6 +313,7 @@ describe('CaixaDetailPage — cliente principal ao avancar Recebido multi-client
       id: 8, fase: 4, ordens: [
         { id: 1, cliente: 10, cliente_nome: 'A', fase: 4, desfecho_lab: 'pendente' },
         { id: 2, cliente: 10, cliente_nome: 'A', fase: 4, desfecho_lab: 'pendente' }],
+      notas_fiscais: [],
     })
     avancar.mockResolvedValue({ id: 8, fase: 5, ordens: [] })
     render(<MemoryRouter initialEntries={['/app/caixas/8']}><Routes><Route path="/app/caixas/:id" element={<CaixaDetailPage />} /></Routes></MemoryRouter>)
@@ -317,6 +334,7 @@ describe('CaixaDetailPage — avancar sem nota fiscal', () => {
     ordens: [
       { id: 10, cliente: 1, cliente_nome: 'ACME', equipamento_descricao: 'Bafômetro', equipamento_serie: 'S1', fase: 10, fase_descricao: 'Financeiro', fase_cor: 'abc' },
     ],
+    notas_fiscais: [],
   }
 
   function telaFin() {
@@ -373,5 +391,82 @@ describe('CaixaDetailPage — avancar sem nota fiscal', () => {
     expect(confirmar).not.toHaveBeenCalled()
     expect(avancar).toHaveBeenCalledTimes(1)
     confirmar.mockRestore()
+  })
+})
+
+// ── Seção de notas fiscais na tela da caixa ─────────────────────────────────
+// Listar, baixar e remover. A janela de correção (anexar/remover) vai do
+// Financeiro (10) até Preparando Retorno (7) — por POSIÇÃO, não por ID cru.
+
+describe('CaixaDetailPage — seção de notas fiscais', () => {
+  const CAIXA_NOTAS = {
+    id: 1, data: '2026-07-16', obs: null, total_os: 1, clientes: ['ACME'], fase: 10,
+    ordens: [
+      { id: 10, cliente: 1, cliente_nome: 'ACME', equipamento_descricao: 'Bafômetro', equipamento_serie: 'S1', fase: 10, fase_descricao: 'Financeiro', fase_cor: 'abc' },
+    ],
+    notas_fiscais: [
+      { id: 111, numero: '111', criado_em: '2026-09-01T10:00:00' },
+      { id: 222, numero: '222', criado_em: '2026-09-02T10:00:00' },
+    ],
+  }
+
+  function telaNotas() {
+    return render(
+      <MemoryRouter initialEntries={['/app/caixas/1']}>
+        <Routes><Route path="/app/caixas/:id" element={<CaixaDetailPage />} /></Routes>
+      </MemoryRouter>,
+    )
+  }
+
+  beforeEach(() => {
+    mockUser = { funcao: 'Administrador' }
+    vi.clearAllMocks()
+  })
+
+  it('lista as notas fiscais da caixa', async () => {
+    // caixa em fase 10 com duas notas
+    obter.mockResolvedValue(CAIXA_NOTAS)
+    telaNotas()
+    expect(await screen.findByText('NF 111')).toBeInTheDocument()
+    expect(screen.getByText('NF 222')).toBeInTheDocument()
+  })
+
+  it('remover chama a API e recarrega', async () => {
+    obter.mockResolvedValue(CAIXA_NOTAS)
+    removerNotaFiscalCaixa.mockResolvedValue({ ...CAIXA_NOTAS, notas_fiscais: [CAIXA_NOTAS.notas_fiscais[1]] })
+    telaNotas()
+    await screen.findByText('NF 111')
+
+    fireEvent.click(screen.getByRole('button', { name: /remover nota 111/i }))
+    // Nome exato: a caixa em fase 10 tambem tem "Avançar caixa — Confirmar
+    // pagamento", que bateria com /confirmar/i.
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }))
+    await waitFor(() => expect(removerNotaFiscalCaixa).toHaveBeenCalledWith(1, 111))
+  })
+
+  it('o botao de anexar aparece em preparando retorno', async () => {
+    // caixa em fase 7: a janela de correcao vai ate aqui
+    obter.mockResolvedValue({ ...CAIXA_NOTAS, fase: 7 })
+    telaNotas()
+    expect(await screen.findByRole('button', { name: /anexar nota fiscal/i })).toBeInTheDocument()
+  })
+
+  it('o botao de anexar some em finalizada', async () => {
+    // caixa em fase 8
+    obter.mockResolvedValue({ ...CAIXA_NOTAS, fase: 8 })
+    telaNotas()
+    await screen.findByText(/ordens de serviço/i)
+    expect(screen.queryByRole('button', { name: /anexar nota fiscal/i })).not.toBeInTheDocument()
+  })
+
+  it('usuario sem permissao (Laboratorio) nao ve anexar nem remover, mesmo dentro da janela', async () => {
+    // caixa em fase 10 (dentro da janela) — a condicao e' naJanelaDaNota && podeAnexarNF,
+    // e so o primeiro fator era exercitado ate aqui.
+    mockUser = { funcao: 'Laboratório' }
+    obter.mockResolvedValue(CAIXA_NOTAS)
+    telaNotas()
+    await screen.findByText('NF 111')
+    expect(screen.queryByRole('button', { name: /anexar nota fiscal/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /remover nota/i })).not.toBeInTheDocument()
   })
 })

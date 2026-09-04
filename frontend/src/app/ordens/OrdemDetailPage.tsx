@@ -8,6 +8,7 @@ import {
   IconCheck, IconSearch, IconBattery, IconWrench, IconCaixas, IconX, IconCertificado, IconPencil,
 } from '../../components/ui/icons'
 import { ApiError } from '../../lib/api'
+import { caixasApi } from '../caixas/api'
 import { useAuth } from '../../auth/AuthContext'
 import { isAdmin, podeAbrirOS, podeMarcarSemConserto, podeEditarTipoServico, podeRegistrarManutencao } from '../../auth/roles'
 import { ordensApi, fotosApi, TIPO_SERVICO, FLUXO_FASES, posicaoFase, posLaboratorio, formatData, garantiaBadge, garantiasAtivas, type OrdemDetalhe, type GarantiaItem, type LogOS, type Foto, type OSCertificado, type TipoServico } from './api'
@@ -239,6 +240,18 @@ export function OrdemDetailPage() {
     setErroNF('')
     try {
       await ordensApi.baixarNotaFiscal(os.id, basename, tipo)
+    } catch (e) {
+      setErroNF(e instanceof ApiError ? e.message : 'Falha ao baixar nota fiscal')
+    }
+  }
+
+  // A OS conhece a propria caixa por `os.caixa` — o download em si e' o mesmo
+  // endpoint que a tela da caixa usa.
+  async function onBaixarNotaDaCaixa(notaId: number, numero: string, tipo: 'pdf' | 'xml') {
+    if (!os || os.caixa == null) return
+    setErroNF('')
+    try {
+      await caixasApi.baixarNotaFiscalCaixa(os.caixa, notaId, numero, tipo)
     } catch (e) {
       setErroNF(e instanceof ApiError ? e.message : 'Falha ao baixar nota fiscal')
     }
@@ -629,7 +642,31 @@ export function OrdemDetailPage() {
           icon={<IconCertificado className="w-4 h-4" />}
           titulo="Nota fiscal"
         >
-          {os.nota_fiscal ? (
+          {os.notas_fiscais.length > 0 ? (
+            <ul className="space-y-2">
+              {os.notas_fiscais.map((nf) => (
+                <li key={nf.id} className="flex items-center justify-between gap-3">
+                  <Campo label="Número" valor={nf.numero} />
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => onBaixarNotaDaCaixa(nf.id, nf.numero, 'pdf')}
+                      className="text-xs font-semibold text-primary hover:underline"
+                    >
+                      Baixar PDF
+                    </button>
+                    <button
+                      onClick={() => onBaixarNotaDaCaixa(nf.id, nf.numero, 'xml')}
+                      className="text-xs font-semibold text-primary hover:underline"
+                    >
+                      Baixar XML
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : os.nota_fiscal ? (
+            // Fallback legado: OS antiga, sem linha na tabela nova. Inclusive o
+            // XML condicional, porque OS anexada antes da migracao 0026 so tem PDF.
             <div className="flex items-center justify-between gap-3">
               <Campo label="Número" valor={os.nota_fiscal_numero} />
               <div className="flex items-center gap-3">
@@ -653,8 +690,8 @@ export function OrdemDetailPage() {
             </div>
           ) : (
             <p className="text-sm text-slate-500">
-              Nenhuma nota fiscal anexada ainda — é anexada na tela da caixa (fase Financeiro), para
-              todas as OS de uma vez.
+              Nenhuma nota fiscal anexada ainda — é anexada na tela da caixa, no Financeiro
+              ou em Preparando Retorno.
             </p>
           )}
           {erroNF && <p className="text-sm text-danger">{erroNF}</p>}

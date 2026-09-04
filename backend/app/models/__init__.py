@@ -33,6 +33,7 @@ from app.models.produto import Produto
 from app.models.proposta import Proposta, PropostaItem, PropostaAparelho
 from app.models.proposta_versao import PropostaVersao
 from app.models.manutencao import Manutencao, ManutencaoServico, ManutencaoItem  # noqa: F401
+from app.models.nota_fiscal import NotaFiscal
 
 __all__ = [
     "Funcao", "Usuario", "UsuarioCliente", "Setor", "Categoria",
@@ -45,4 +46,5 @@ __all__ = [
     "InstalacaoModulo", "LogIntegracao",
     "Servico", "Produto", "Proposta", "PropostaItem", "PropostaAparelho", "PropostaVersao",
     "Manutencao", "ManutencaoServico", "ManutencaoItem",
+    "NotaFiscal",
 ]

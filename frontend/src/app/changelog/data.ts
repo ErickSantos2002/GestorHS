@@ -23,6 +23,14 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.51.0',
+    data: '04/09/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'Uma caixa pode ter mais de uma nota fiscal — o botão "+ Adicionar nota" anexa quantas forem necessárias de uma vez (por exemplo, a nota do serviço e a de remessa). A tela da caixa lista todas, com download de PDF e XML de cada uma.' },
+      { tipo: 'melhoria', texto: 'A nota errada pode ser removida e reanexada, no Financeiro e também em Preparando Retorno. A tela da OS passa a mostrar as notas da própria caixa; o card do TaskHS é atualizado sozinho.' },
+    ],
+  },
+  {
     versao: '1.50.0',
     data: '03/09/2026',
     itens: [

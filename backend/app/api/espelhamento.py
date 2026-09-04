@@ -16,7 +16,7 @@ from app.core import taskhs
 from app.core.caixa import ordens_do_card, principal_valido
 from app.integrations import taskhs_client
 from app.integrations.log_integracao import registrar_log_integracao
-from app.models import OSCertificado, Proposta
+from app.models import NotaFiscal, OSCertificado, Proposta
 
 
 def _montar_payload_caixa(db, caixa, *, list_id, arquivado) -> dict:
@@ -32,6 +32,14 @@ def _montar_payload_caixa(db, caixa, *, list_id, arquivado) -> dict:
         certificados_por_os[o.id] = [
             {"tipo": c.tipo, "url": certificado_link.link_certificado(o.id, c.tipo)} for c in certs
         ]
+    # Fonte nova: uma linha por nota da CAIXA, com os dois links assinados.
+    notas = [
+        {"numero": nf.numero,
+         "pdf": nota_fiscal_link.link_nota(nf.id),
+         "xml": nota_fiscal_link.link_nota(nf.id, nota_fiscal_link.XML)}
+        for nf in db.query(NotaFiscal).filter(NotaFiscal.caixa == caixa.id)
+                    .order_by(NotaFiscal.id).all()
+    ]
     nf_url = nf_xml_url = None
     # o MESMO representante para os dois links: PDF de uma OS e XML de outra seriam
     # notas diferentes no mesmo card.
@@ -49,7 +57,7 @@ def _montar_payload_caixa(db, caixa, *, list_id, arquivado) -> dict:
             proposta_url = proposta_link.link_proposta(p.id)
     obs = taskhs.montar_obs_caixa(caixa, ordens, certificados_por_os=certificados_por_os,
                                    nota_fiscal_url=nf_url, nota_fiscal_xml_url=nf_xml_url,
-                                   proposta_url=proposta_url)
+                                   proposta_url=proposta_url, notas=notas)
     return taskhs.montar_payload_caixa(caixa, ordens, list_id=list_id, arquivado=arquivado, obs=obs)
 
 

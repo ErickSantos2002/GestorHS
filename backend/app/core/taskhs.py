@@ -102,7 +102,15 @@ def _sec_posvendas(ordem, *, numero_proposta=None, proposta_url=None) -> str | N
     ])
 
 
-def _sec_financeiro(ordem, nota_fiscal_url: str | None = None,
+def _linha_nota(nota: dict) -> str:
+    links = _juntar([f"PDF: {nota.get('pdf')}" if nota.get("pdf") else None,
+                     f"XML: {nota.get('xml')}" if nota.get("xml") else None])
+    base = f"NF {nota['numero']}"
+    return f"{base} — {links}" if links else base
+
+
+def _sec_financeiro(ordem, notas: list[dict] | None = None,
+                    nota_fiscal_url: str | None = None,
                     nota_fiscal_xml_url: str | None = None) -> str | None:
     if wf.posicao(ordem.fase) < wf.posicao(10):
         return None
@@ -110,15 +118,23 @@ def _sec_financeiro(ordem, nota_fiscal_url: str | None = None,
         pagamento = f"Pagamento: confirmado em {_fmt(ordem.data_pagamento)}" if ordem.data_pagamento else "Pagamento: confirmado"
     else:
         pagamento = "Pagamento: pendente"
-    nota = f"Nota fiscal: {ordem.nota_fiscal_numero}" if ordem.nota_fiscal_numero else None
-    # Cada arquivo na sua linha: o Financeiro anexa o par PDF+XML e a expedicao
-    # precisa clicar nos dois. OS antiga so tem PDF, entao nenhum dos dois e' fixo.
-    return _bloco([
-        pagamento,
-        nota,
-        f"NF em PDF: {nota_fiscal_url}" if nota_fiscal_url else None,
-        f"NF em XML: {nota_fiscal_xml_url}" if nota_fiscal_xml_url else None,
-    ])
+    if notas:
+        # uma linha por nota: alem da nota do servico, a caixa pode levar a de
+        # remessa do envio, e a expedicao precisa clicar em todas.
+        linhas = [_linha_nota(n) for n in notas]
+    else:
+        # Caixa sem linha na tabela `notas_fiscais` (legado, ou nota antiga sem
+        # XML que ficou fora do backfill da 0029): formato de antes, alimentado
+        # pelas colunas de `ordens`. E' o card que a expedicao ja conhece.
+        # Cada arquivo na sua linha: o Financeiro anexa o par PDF+XML e a
+        # expedicao precisa clicar nos dois; OS antiga so tem PDF, entao nenhum
+        # dos dois e' fixo.
+        linhas = [
+            f"Nota fiscal: {ordem.nota_fiscal_numero}" if ordem.nota_fiscal_numero else None,
+            f"NF em PDF: {nota_fiscal_url}" if nota_fiscal_url else None,
+            f"NF em XML: {nota_fiscal_xml_url}" if nota_fiscal_xml_url else None,
+        ]
+    return _bloco([pagamento, *linhas])
 
 
 def _sec_preparando(ordem) -> str | None:
@@ -164,7 +180,7 @@ def _linha_aparelho_lab(ordem, certificados: list[dict]) -> str:
 
 
 def montar_obs_caixa(caixa, ordens, *, certificados_por_os: dict, nota_fiscal_url=None,
-                     nota_fiscal_xml_url=None, proposta_url=None) -> dict:
+                     nota_fiscal_xml_url=None, proposta_url=None, notas=None) -> dict:
     cliente_os = next((o for o in ordens if o.cliente_nome), ordens[0] if ordens else None)
     cabecalho = "\n".join(_cabecalho(cliente_os)) if cliente_os else None
     aparelhos = _bloco([
@@ -180,7 +196,7 @@ def montar_obs_caixa(caixa, ordens, *, certificados_por_os: dict, nota_fiscal_ur
         "obs1": obs1,
         "obs2": obs2,
         "obs3": _sec_posvendas(rep, numero_proposta=numero_proposta, proposta_url=proposta_url) if rep else None,
-        "obs4": _sec_financeiro(rep, nota_fiscal_url, nota_fiscal_xml_url) if rep else None,
+        "obs4": _sec_financeiro(rep, notas, nota_fiscal_url, nota_fiscal_xml_url) if rep else None,
         "obs5": _sec_preparando(rep) if rep else None,
         "obs6": _sec_finalizada(rep) if rep else None,
     }

@@ -63,12 +63,20 @@ def test_abrir_obs_no_payload(client, usuario_comum, fases_seed, os_base, caixa_
     assert "description" not in p
 
 
-def test_upload_nota_fiscal_reagenda_card(client, usuario_financeiro, fases_seed,
+def test_anexar_nota_fiscal_reagenda_card(client, usuario_financeiro, fases_seed,
                                           os_base, caixa_base, db_session, upload_tmp, captura):
+    """Anexar a nota reespelha o card da CAIXA sem precisar avancar nada — e um
+    card so, nunca um por OS.
+
+    O `POST /ordens/{id}/nota-fiscal` que este teste usava sumiu; o caminho de
+    anexo agora e' o da caixa. A linha do NUMERO no `obs4` deixou de vir da
+    coluna legada e passa pela tabela `notas_fiscais`; a FORMATACAO dessa linha
+    tem cobertura de unidade em `test_taskhs_caixa.py` (chamada direta a
+    `montar_obs_caixa`) — o que se afirma AQUI e' outra coisa: que a nota anexada
+    chega mesmo ao card.
+    """
     import io
     from app.models import Caixa, Ordem
-    # Caixa ja em Financeiro (fase 10) — o upload da NF por OS deve reespelhar o card
-    # da CAIXA sem precisar avancar nada (e sem abrir um card por OS).
     cx = db_session.get(Caixa, caixa_base)
     cx.fase = 10
     o = Ordem(cliente=os_base["cliente"], equipamento_cliente=os_base["equipamento_cliente"],
@@ -76,12 +84,16 @@ def test_upload_nota_fiscal_reagenda_card(client, usuario_financeiro, fases_seed
     db_session.add(o); db_session.commit(); db_session.refresh(o)
     h = _headers(client, "fin@hs.com", "senha123")
     captura.clear()
-    r = client.post(f"/ordens/{o.id}/nota-fiscal",
-                     files={"arquivo_pdf": ("nf.pdf", io.BytesIO(b"%PDF-1.4 fake"), "application/pdf"),
-                            "arquivo_xml": ("nf.xml", io.BytesIO(b"<nfse/>"), "application/xml")},
-                     data={"numero": "555"}, headers=h)
+    r = client.post(f"/caixas/{caixa_base}/notas-fiscais",
+                    files=[("arquivos_pdf", ("nf.pdf", io.BytesIO(b"%PDF-1.4 fake"), "application/pdf")),
+                           ("arquivos_xml", ("nf.xml", io.BytesIO(b"<nfse/>"), "application/xml"))],
+                    data={"numeros": ["555"]}, headers=h)
     assert r.status_code == 200
     assert len(captura) == 1
     assert captura[0]["external_id"] == str(caixa_base)
     assert captura[0]["list_id"] == 205
-    assert "Nota fiscal:" in captura[0]["obs4"]
+    # Cobertura de INTEGRACAO, nao de unidade: e' o unico teste que percorre
+    # HTTP -> agendar_espelhamento_caixa -> _montar_payload_caixa -> obs4. Os
+    # testes de `test_taskhs_caixa.py` chamam montar_obs_caixa direto e nao
+    # pegariam um `notas=notas` esquecido na chamada de espelhamento.py.
+    assert "NF 555" in captura[0]["obs4"]
