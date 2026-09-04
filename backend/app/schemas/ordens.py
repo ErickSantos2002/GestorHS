@@ -2,6 +2,8 @@ from datetime import datetime, date
 from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.caixas import NotaFiscalOut
+
 
 class OrdemListOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -91,6 +93,9 @@ class OrdemOut(BaseModel):
     nota_fiscal: str | None = None
     nota_fiscal_xml: str | None = None
     nota_fiscal_numero: str | None = None
+    # As notas da CAIXA da OS. As tres colunas acima ficam por causa do legado:
+    # OS antiga sem linha na tabela nova continua exibindo por elas.
+    notas_fiscais: list[NotaFiscalOut] = []
     # Tipos de certificado ("C"/"M") sem modelo cadastrado para o aparelho. Vazio = pode gerar.
     certificado_modelos_faltantes: list[str] = []
     checklist_ids: list[int] = []

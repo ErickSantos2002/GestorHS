@@ -32,3 +32,26 @@ def test_obs2_lista_por_aparelho_com_sem_conserto():
                                   nota_fiscal_url=None)
     assert "S1" in obs["obs2"] and "S2" in obs["obs2"]
     assert "sem conserto" in obs["obs2"].lower()
+
+
+def test_obs4_uma_linha_por_nota():
+    """A caixa pode levar a nota do servico e a de remessa: a expedicao precisa
+    dos dois pares de link, um por linha."""
+    cx = SimpleNamespace(id=7, numero_proposta=None)
+    obs = taskhs.montar_obs_caixa(
+        cx, [_os(fase=10, pago=True)], certificados_por_os={},
+        notas=[{"numero": "111", "pdf": "u1", "xml": "u2"},
+               {"numero": "222", "pdf": "u3", "xml": "u4"}])
+    assert "NF 111 — PDF: u1 · XML: u2" in obs["obs4"]
+    assert "NF 222 — PDF: u3 · XML: u4" in obs["obs4"]
+
+
+def test_obs4_cai_no_formato_legado_sem_notas():
+    """Caixa antiga, sem linha na tabela nova, mantem o card que a expedicao ja
+    conhece — alimentado pelas colunas de `ordens`."""
+    cx = SimpleNamespace(id=7, numero_proposta=None)
+    obs = taskhs.montar_obs_caixa(
+        cx, [_os(fase=10, nota_fiscal_numero="999")], certificados_por_os={},
+        nota_fiscal_url="u1", nota_fiscal_xml_url="u2")
+    assert "Nota fiscal: 999" in obs["obs4"]
+    assert "NF em PDF: u1" in obs["obs4"]

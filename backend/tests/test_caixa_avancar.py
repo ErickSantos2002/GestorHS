@@ -151,16 +151,20 @@ def test_avancar_posvendas_marca_aceite_em_todas_as_os(client_com, caixa_posvend
 
 
 def test_avancar_financeiro_sem_nota_fiscal_falha(client_fin, caixa_financeiro):
-    """O gate de NF barra o avanco Financeiro->Preparando (10->7) quando alguma OS
-    ativa da caixa ainda nao tem `nota_fiscal` anexada."""
+    """O gate de NF barra o avanco Financeiro->Preparando (10->7) quando a caixa nao
+    tem nota nenhuma — nem na tabela `notas_fiscais`, nem na coluna legada.
+
+    O lado positivo pelo caminho NOVO (anexar por caixa e avancar) esta em
+    `test_notas_fiscais_caixa.py`; aqui fica o legado.
+    """
     r = client_fin.post(f"/caixas/{caixa_financeiro}/avancar", json={})
     assert r.status_code == 409
     assert "nota fiscal" in r.json()["detail"].lower()
 
 
 def test_avancar_financeiro_com_nota_fiscal_marca_pago(client_fin, caixa_financeiro_com_nf, db_session):
-    """Com a NF ja anexada em todas as OS ativas, o avanco (10->7) marca `pago=True`
-    e `data_pagamento` em cada uma."""
+    """Caixa antiga, com a NF so na coluna legada: o avanco (10->7) marca `pago=True`
+    e `data_pagamento` em cada OS ativa."""
     from app.models import Ordem
 
     r = client_fin.post(f"/caixas/{caixa_financeiro_com_nf}/avancar", json={})
@@ -232,25 +236,6 @@ def test_avancar_fora_do_lab_nao_agenda_growthhs(client_exp, caixa_recebido, mon
     assert r.json()["fase"] == 5
     assert chamadas_taskhs == [caixa_recebido]
     assert chamadas_growthhs == []
-
-
-def test_nf_caixa_replica_em_todas(client_fin, caixa_financeiro, upload_tmp):
-    pdf = ("nf.pdf", b"%PDF-1.4 fake", "application/pdf")
-    xml = ("nf.xml", b"<nfse/>", "application/xml")
-    r = client_fin.post(f"/caixas/{caixa_financeiro}/nota-fiscal",
-                        data={"numero": "12345"}, files={"arquivo_pdf": pdf, "arquivo_xml": xml})
-    assert r.status_code == 200
-    ordens = r.json()["ordens"]
-    assert len(ordens) == 2
-    baixadas = 0
-    for o in ordens:
-        det = client_fin.get(f"/ordens/{o['id']}").json()
-        assert det["nota_fiscal_numero"] == "12345"
-        resp_download = client_fin.get(f"/ordens/{o['id']}/nota-fiscal")
-        if resp_download.status_code == 200:
-            baixadas += 1
-    # prova que a NF foi fisicamente replicada no subdir de cada OS, nao so o numero no banco
-    assert baixadas == 2
 
 
 def test_quadro_caixas_agrupa_por_fase(client_lab, caixa_lab_um_pendente):

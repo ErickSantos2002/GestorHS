@@ -71,6 +71,33 @@ describe('caixasApi', () => {
     expect(apiJson).toHaveBeenCalledWith('/ordens/9/desfecho-lab', { method: 'POST', body: JSON.stringify({ desfecho: 'concluido', obs: null }) })
   })
 
+  // A costura frontend<->backend desta rota: os tres nomes de campo do FormData
+  // ('numeros', 'arquivos_pdf', 'arquivos_xml') precisam bater com os parametros
+  // Form/File do endpoint em app/api/notas_fiscais.py. Sao string dos dois lados
+  // — um typo passa por lint, tsc e build e so aparece como 422 em producao.
+  it('enviarNotasFiscaisCaixa posta o FormData com as tres listas paralelas', async () => {
+    apiFetch.mockResolvedValue({ ok: true, json: async () => ({ id: 7, notas_fiscais: [] }) })
+    const pdf1 = new File([new Uint8Array([1])], 'nf1.pdf', { type: 'application/pdf' })
+    const xml1 = new File([new Uint8Array([2])], 'nf1.xml', { type: 'application/xml' })
+    const pdf2 = new File([new Uint8Array([3])], 'nf2.pdf', { type: 'application/pdf' })
+    const xml2 = new File([new Uint8Array([4])], 'nf2.xml', { type: 'application/xml' })
+
+    await caixasApi.enviarNotasFiscaisCaixa(7, [
+      { numero: '111', pdf: pdf1, xml: xml1 },
+      { numero: '222', pdf: pdf2, xml: xml2 },
+    ])
+
+    const [url, init] = apiFetch.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('/caixas/7/notas-fiscais')
+    expect(init.method).toBe('POST')
+    const fd = init.body as FormData
+    expect(fd.getAll('numeros')).toEqual(['111', '222'])
+    const pdfs = fd.getAll('arquivos_pdf') as File[]
+    const xmls = fd.getAll('arquivos_xml') as File[]
+    expect(pdfs.map((f) => f.name)).toEqual(['nf1.pdf', 'nf2.pdf'])
+    expect(xmls.map((f) => f.name)).toEqual(['nf1.xml', 'nf2.xml'])
+  })
+
   it('avancar envia cliente_principal', async () => {
     await caixasApi.avancar(7, { cliente_principal: 3, obs: null, cod_retorno: null })
     expect(apiJson).toHaveBeenCalledWith('/caixas/7/avancar', { method: 'POST', body: JSON.stringify({ cliente_principal: 3, obs: null, cod_retorno: null }) })

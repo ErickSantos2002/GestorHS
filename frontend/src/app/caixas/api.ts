@@ -53,8 +53,23 @@ export interface CaixaListItem {
 
 export interface CaixaPage { items: CaixaListItem[]; total: number }
 
+export interface NotaFiscalCaixa {
+  id: number
+  numero: string
+  criado_em: string | null
+}
+
+/** Um bloco do modal: numero + o par de arquivos. O par e' obrigatorio — a nota
+ *  so esta completa com os dois, regra que vem da migracao 0026. */
+export interface NotaParaEnviar {
+  numero: string
+  pdf: File
+  xml: File
+}
+
 export interface CaixaDetalhe extends CaixaListItem {
   ordens: OrdemResumoCaixa[]
+  notas_fiscais: NotaFiscalCaixa[]
 }
 
 export interface CaixasParams { q?: string; incluir_concluidas?: boolean; offset?: number; limit?: number }
@@ -120,15 +135,17 @@ export const caixasApi = {
     apiJson<CaixaDetalhe>(`/caixas/${id}/cancelar`, { method: 'POST', body: JSON.stringify(payload) }),
   desfechoLab: (osId: number, payload: { desfecho: 'concluido' | 'sem_conserto' | 'liberado'; obs: string | null }): Promise<unknown> =>
     apiJson(`/ordens/${osId}/desfecho-lab`, { method: 'POST', body: JSON.stringify(payload) }),
-  // Anexa a mesma nota fiscal para todas as OS ativas da caixa (evita anexar aparelho-por-aparelho).
-  // Mirror de ordensApi.enviarNotaFiscal em ../ordens/api.ts. PDF e XML sempre
-  // juntos, espelhando o Form do backend em app/api/notas_fiscais.py.
-  enviarNotaFiscalCaixa: async (id: number, pdf: File, xml: File, numero: string): Promise<CaixaDetalhe> => {
+  // Anexa N notas da caixa numa chamada so — a caixa pode levar a nota do servico
+  // e a de remessa. As tres listas vao PARALELAS (numero[i] casa com pdf[i] e
+  // xml[i]), espelhando o Form do backend em app/api/notas_fiscais.py.
+  enviarNotasFiscaisCaixa: async (id: number, notas: NotaParaEnviar[]): Promise<CaixaDetalhe> => {
     const fd = new FormData()
-    fd.append('arquivo_pdf', pdf)
-    fd.append('arquivo_xml', xml)
-    fd.append('numero', numero)
-    const res = await apiFetch(`/caixas/${id}/nota-fiscal`, { method: 'POST', body: fd })
+    for (const n of notas) {
+      fd.append('numeros', n.numero)
+      fd.append('arquivos_pdf', n.pdf)
+      fd.append('arquivos_xml', n.xml)
+    }
+    const res = await apiFetch(`/caixas/${id}/notas-fiscais`, { method: 'POST', body: fd })
     if (!res.ok) {
       let detail = res.statusText
       try {
@@ -140,5 +157,24 @@ export const caixasApi = {
       throw new ApiError(res.status, detail)
     }
     return (await res.json()) as CaixaDetalhe
+  },
+  removerNotaFiscalCaixa: (id: number, notaId: number): Promise<CaixaDetalhe> =>
+    apiJson<CaixaDetalhe>(`/caixas/${id}/notas-fiscais/${notaId}`, { method: 'DELETE' }),
+  // Nunca abrir o arquivo numa aba (blob: herda a origem do app — um XML malicioso
+  // executaria <script>). Forca download via link com atributo `download`, como o
+  // PDF do certificado. A extensao vem do `tipo`, nao do Content-Disposition, que
+  // so e legivel via JS cross-origin se o backend expuser o header no CORS.
+  baixarNotaFiscalCaixa: async (id: number, notaId: number, numero: string, tipo: 'pdf' | 'xml'): Promise<void> => {
+    const res = await apiFetch(`/caixas/${id}/notas-fiscais/${notaId}/${tipo}`)
+    if (!res.ok) throw new ApiError(res.status, 'Falha ao baixar nota fiscal')
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `nota-fiscal-${numero}.${tipo}`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
   },
 }

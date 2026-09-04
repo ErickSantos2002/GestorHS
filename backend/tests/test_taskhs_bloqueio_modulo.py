@@ -114,20 +114,20 @@ def test_bloqueio_registra_log_pulado(client_exp, db_session, captura, monkeypat
     assert logs[0]["integracao"] == "taskhs"
 
 
-def test_upload_nota_fiscal_em_os_de_modulo_nao_espelha(client, usuario_financeiro,
-                                                       fases_seed, db_session,
-                                                       upload_tmp, captura):
-    """O upload de NF por OS reespelha a CAIXA, entao herda o gate dela — sem porta
-    dos fundos."""
+def test_anexar_nota_fiscal_em_caixa_de_modulo_nao_espelha(client, usuario_financeiro,
+                                                          fases_seed, db_session,
+                                                          upload_tmp, captura):
+    """Anexar a NF reespelha a CAIXA, entao herda o gate dela — sem porta dos
+    fundos. Antes o anexo era por OS; o caminho mudou, o gate e' o mesmo."""
     import io
-    cx_id, os_id = _caixa_com(db_session, catalogo_id=settings.EQUIPAMENTO_MODULO_ID,
-                              fase=10, fase_os=10)
+    cx_id, _os_id = _caixa_com(db_session, catalogo_id=settings.EQUIPAMENTO_MODULO_ID,
+                               fase=10, fase_os=10)
     tok = client.post("/auth/login",
                       json={"email": "fin@hs.com", "senha": "senha123"}).json()
     h = {"Authorization": f"Bearer {tok['access_token']}"}
-    r = client.post(f"/ordens/{os_id}/nota-fiscal",
-                    files={"arquivo_pdf": ("nf.pdf", io.BytesIO(b"%PDF-1.4 x"), "application/pdf"),
-                           "arquivo_xml": ("nf.xml", io.BytesIO(b"<nfse/>"), "application/xml")},
-                    data={"numero": "123"}, headers=h)
+    r = client.post(f"/caixas/{cx_id}/notas-fiscais",
+                    files=[("arquivos_pdf", ("nf.pdf", io.BytesIO(b"%PDF-1.4 x"), "application/pdf")),
+                           ("arquivos_xml", ("nf.xml", io.BytesIO(b"<nfse/>"), "application/xml"))],
+                    data={"numeros": ["123"]}, headers=h)
     assert r.status_code == 200
     assert captura == []

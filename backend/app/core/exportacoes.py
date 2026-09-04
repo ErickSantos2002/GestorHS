@@ -77,7 +77,7 @@ COLUNAS_ORDENS = [
     Coluna("Proxima calibracao", "prox_calibragem", 18, "datahora"),
     Coluna("No. do certificado", "calib_cert", 20),
     Coluna("Situacao", "calib_situacao", 18),
-    Coluna("Nota fiscal", "nota_fiscal_numero", 14),
+    Coluna("Nota fiscal", "nota_fiscal_numero", 24),
     Coluna("Valor", "valor", 12, "numero"),
     Coluna("Frete envio", "frete_envio", 12, "numero"),
     Coluna("Frete retorno", "frete_retorno", 12, "numero"),
@@ -133,6 +133,19 @@ def linha_frota(e) -> dict:
     }
 
 
+def _numeros_nota(o) -> str | None:
+    """Os numeros das notas da CAIXA da OS, ou a coluna legada da propria OS.
+
+    A caixa pode levar mais de uma nota (servico + remessa), e a planilha e' por
+    OS: os numeros entram na mesma celula, separados por virgula.
+    """
+    cx = getattr(o, "caixa_rel", None)
+    notas = getattr(cx, "notas_fiscais", None) if cx is not None else None
+    if notas:
+        return ", ".join(n.numero for n in notas)
+    return o.nota_fiscal_numero
+
+
 def linha_ordem(o) -> dict:
     return {
         "id": o.id, "etiqueta": o.etiqueta, "cliente_nome": o.cliente_nome,
@@ -143,7 +156,7 @@ def linha_ordem(o) -> dict:
         "data_chegada": o.data_chegada, "data_calibracao": o.data_calibracao,
         "data_retorno": o.data_retorno, "data_entrega": o.data_entrega,
         "prox_calibragem": o.prox_calibragem, "calib_cert": o.calib_cert,
-        "calib_situacao": o.calib_situacao, "nota_fiscal_numero": o.nota_fiscal_numero,
+        "calib_situacao": o.calib_situacao, "nota_fiscal_numero": _numeros_nota(o),
         "valor": o.valor, "frete_envio": o.frete_envio,
         "frete_retorno": o.frete_retorno, "pago": o.pago, "caixa": o.caixa,
         "garantia": o.garantia,

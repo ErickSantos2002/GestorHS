@@ -13,6 +13,24 @@ class _Fake:
             setattr(self, k, v)
 
 
+def _ordem_falsa(**over):
+    """OS falsa com os campos que `linha_ordem` le, para nao repetir a lista inteira
+    em cada teste. Campos default cobrem o caso feliz; sobrescreva so' o que o teste
+    precisa variar."""
+    campos = dict(
+        id=1, etiqueta=None, cliente_nome="X", cliente_rel=None,
+        equipamento_descricao=None, equipamento_serie=None,
+        fase_descricao=None, tipo_servico="C", data_chegada=None,
+        data_calibracao=None, data_retorno=None, data_entrega=None,
+        prox_calibragem=None, calib_cert=None, calib_situacao=None,
+        nota_fiscal_numero=None, valor=None, frete_envio=None,
+        frete_retorno=None, pago=False, caixa=1, garantia=False,
+        caixa_rel=None,
+    )
+    campos.update(over)
+    return _Fake(**campos)
+
+
 def test_todo_campo_de_coluna_tem_titulo_e_largura():
     for colunas in (COLUNAS_CLIENTES, COLUNAS_FROTA, COLUNAS_ORDENS, COLUNAS_CERTIFICADOS):
         assert colunas, "conjunto de colunas vazio"
@@ -76,6 +94,23 @@ def test_linha_ordem_traz_os_campos_das_colunas():
     for coluna in COLUNAS_ORDENS:
         assert coluna.campo in linha, coluna.campo
     assert linha["tipo_servico"] == "Calibracao"
+
+
+def test_linha_ordem_junta_os_numeros_das_notas_da_caixa():
+    cx = _Fake(notas_fiscais=[_Fake(numero="111"), _Fake(numero="222")])
+    o = _ordem_falsa(caixa_rel=cx, nota_fiscal_numero=None)
+    assert linha_ordem(o)["nota_fiscal_numero"] == "111, 222"
+
+
+def test_linha_ordem_cai_na_coluna_legada_sem_notas():
+    o = _ordem_falsa(caixa_rel=_Fake(notas_fiscais=[]), nota_fiscal_numero="999")
+    assert linha_ordem(o)["nota_fiscal_numero"] == "999"
+
+
+def test_linha_ordem_com_os_sem_caixa():
+    """OS solta nao existe mais no fluxo, mas o legado tem -- nao pode explodir."""
+    o = _ordem_falsa(caixa_rel=None, nota_fiscal_numero="999")
+    assert linha_ordem(o)["nota_fiscal_numero"] == "999"
 
 
 def test_linha_certificado_os_traz_os_campos_das_colunas():

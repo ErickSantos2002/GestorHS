@@ -1,62 +1,117 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
-const { enviarNotaFiscalCaixa } = vi.hoisted(() => ({ enviarNotaFiscalCaixa: vi.fn() }))
+const { enviarNotasFiscaisCaixa } = vi.hoisted(() => ({ enviarNotasFiscaisCaixa: vi.fn() }))
 vi.mock('./api', async (orig) => {
   const real = await orig<typeof import('./api')>()
-  return { ...real, caixasApi: { ...real.caixasApi, enviarNotaFiscalCaixa } }
+  return { ...real, caixasApi: { ...real.caixasApi, enviarNotasFiscaisCaixa } }
 })
 
 import { NotaFiscalCaixaModal } from './NotaFiscalCaixaModal'
 
-const pdf = () => new File([new Uint8Array([1])], 'nf.pdf', { type: 'application/pdf' })
-const xml = () => new File([new Uint8Array([2])], 'nf.xml', { type: 'application/xml' })
+function arquivo(nome: string, tipo: string) {
+  return new File(['x'], nome, { type: tipo })
+}
 
-function preencher(campo: RegExp, arquivo: File) {
-  fireEvent.change(screen.getByLabelText(campo), { target: { files: [arquivo] } })
+function preencherBloco(i: number, numero: string) {
+  fireEvent.change(screen.getByLabelText(`Número da nota fiscal ${i + 1}`), { target: { value: numero } })
+  fireEvent.change(screen.getByLabelText(`PDF da nota ${i + 1}`), {
+    target: { files: [arquivo('a.pdf', 'application/pdf')] },
+  })
+  fireEvent.change(screen.getByLabelText(`XML da nota ${i + 1}`), {
+    target: { files: [arquivo('a.xml', 'application/xml')] },
+  })
+}
+
+// Como preencherBloco, mas com nomes de arquivo distinguiveis por bloco — para
+// os testes que precisam provar que o arquivo certo fica com o numero certo
+// (nao so que "algum" arquivo foi anexado).
+function preencherBlocoDistinto(i: number, numero: string, letra: string) {
+  fireEvent.change(screen.getByLabelText(`Número da nota fiscal ${i + 1}`), { target: { value: numero } })
+  fireEvent.change(screen.getByLabelText(`PDF da nota ${i + 1}`), {
+    target: { files: [arquivo(`${letra}.pdf`, 'application/pdf')] },
+  })
+  fireEvent.change(screen.getByLabelText(`XML da nota ${i + 1}`), {
+    target: { files: [arquivo(`${letra}.xml`, 'application/xml')] },
+  })
 }
 
 describe('NotaFiscalCaixaModal', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    enviarNotaFiscalCaixa.mockResolvedValue({})
+    enviarNotasFiscaisCaixa.mockResolvedValue({})
   })
 
-  it('envia o PDF e o XML juntos', async () => {
+  it('abre com um bloco so, e sem botao de remover', () => {
+    render(<NotaFiscalCaixaModal caixaId={1} onClose={vi.fn()} onEnviado={vi.fn()} />)
+    expect(screen.getByLabelText('Número da nota fiscal 1')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Número da nota fiscal 2')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /remover nota 1/i })).not.toBeInTheDocument()
+  })
+
+  it('o + acrescenta um bloco e o X tira', () => {
+    render(<NotaFiscalCaixaModal caixaId={1} onClose={vi.fn()} onEnviado={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: /adicionar nota/i }))
+    expect(screen.getByLabelText('Número da nota fiscal 2')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /remover nota 2/i }))
+    expect(screen.queryByLabelText('Número da nota fiscal 2')).not.toBeInTheDocument()
+  })
+
+  it('o erro diz QUAL bloco esta incompleto', async () => {
+    render(<NotaFiscalCaixaModal caixaId={1} onClose={vi.fn()} onEnviado={vi.fn()} />)
+    preencherBloco(0, '111')
+    fireEvent.click(screen.getByRole('button', { name: /adicionar nota/i }))
+    fireEvent.change(screen.getByLabelText('Número da nota fiscal 2'), { target: { value: '222' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Anexar' }))
+    // Ancorado no inicio: "PDF da nota 2"/"XML da nota 2" (labels sempre visiveis)
+    // tambem contem a substring "nota 2" e ambiguam um findByText solto.
+    expect(await screen.findByText(/^nota 2:/i)).toBeInTheDocument()
+    expect(enviarNotasFiscaisCaixa).not.toHaveBeenCalled()
+  })
+
+  it('com um bloco so o erro nao leva prefixo e comeca com maiuscula', async () => {
+    render(<NotaFiscalCaixaModal caixaId={1} onClose={vi.fn()} onEnviado={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Anexar' }))
+    expect(await screen.findByText('Informe o número da nota fiscal.')).toBeInTheDocument()
+    expect(enviarNotasFiscaisCaixa).not.toHaveBeenCalled()
+  })
+
+  it('envia as duas notas numa chamada so', async () => {
     const onEnviado = vi.fn()
-    render(<NotaFiscalCaixaModal caixaId={3} onClose={vi.fn()} onEnviado={onEnviado} />)
-
-    fireEvent.change(screen.getByLabelText(/Número da nota fiscal/i), { target: { value: '12345' } })
-    preencher(/PDF da nota/i, pdf())
-    preencher(/XML da nota/i, xml())
-    fireEvent.click(screen.getByText('Anexar'))
-
-    await waitFor(() => expect(enviarNotaFiscalCaixa).toHaveBeenCalled())
-    const [id, arquivoPdf, arquivoXml, numero] = enviarNotaFiscalCaixa.mock.calls[0]
-    expect(id).toBe(3)
-    expect(arquivoPdf.name).toBe('nf.pdf')
-    expect(arquivoXml.name).toBe('nf.xml')
-    expect(numero).toBe('12345')
+    render(<NotaFiscalCaixaModal caixaId={9} onClose={vi.fn()} onEnviado={onEnviado} />)
+    preencherBloco(0, '111')
+    fireEvent.click(screen.getByRole('button', { name: /adicionar nota/i }))
+    preencherBloco(1, '222')
+    fireEvent.click(screen.getByRole('button', { name: 'Anexar' }))
+    await waitFor(() => expect(enviarNotasFiscaisCaixa).toHaveBeenCalledTimes(1))
+    const [id, notas] = enviarNotasFiscaisCaixa.mock.calls[0]
+    expect(id).toBe(9)
+    expect(notas.map((n: { numero: string }) => n.numero)).toEqual(['111', '222'])
     expect(onEnviado).toHaveBeenCalled()
   })
 
-  it('so com o PDF nao envia — os dois sempre vao juntos', async () => {
-    render(<NotaFiscalCaixaModal caixaId={3} onClose={vi.fn()} onEnviado={vi.fn()} />)
-    fireEvent.change(screen.getByLabelText(/Número da nota fiscal/i), { target: { value: '1' } })
-    preencher(/PDF da nota/i, pdf())
-    fireEvent.click(screen.getByText('Anexar'))
+  it('remover o bloco do meio nao troca os arquivos dos que sobram', async () => {
+    render(<NotaFiscalCaixaModal caixaId={9} onClose={vi.fn()} onEnviado={vi.fn()} />)
+    // Tres blocos, arquivos distinguiveis: A, B, C.
+    preencherBlocoDistinto(0, '111', 'a')
+    fireEvent.click(screen.getByRole('button', { name: /adicionar nota/i }))
+    preencherBlocoDistinto(1, '222', 'b')
+    fireEvent.click(screen.getByRole('button', { name: /adicionar nota/i }))
+    preencherBlocoDistinto(2, '333', 'c')
 
-    expect(await screen.findByText(/Escolha o XML/i)).toBeInTheDocument()
-    expect(enviarNotaFiscalCaixa).not.toHaveBeenCalled()
-  })
+    // Remove o do meio (nota 2 = bloco B).
+    fireEvent.click(screen.getByRole('button', { name: /remover nota 2/i }))
 
-  it('so com o XML nao envia', async () => {
-    render(<NotaFiscalCaixaModal caixaId={3} onClose={vi.fn()} onEnviado={vi.fn()} />)
-    fireEvent.change(screen.getByLabelText(/Número da nota fiscal/i), { target: { value: '1' } })
-    preencher(/XML da nota/i, xml())
-    fireEvent.click(screen.getByText('Anexar'))
+    fireEvent.click(screen.getByRole('button', { name: 'Anexar' }))
+    await waitFor(() => expect(enviarNotasFiscaisCaixa).toHaveBeenCalledTimes(1))
+    const [, notas] = enviarNotasFiscaisCaixa.mock.calls[0] as [number, { numero: string; pdf: File; xml: File }[]]
 
-    expect(await screen.findByText(/Escolha o PDF/i)).toBeInTheDocument()
-    expect(enviarNotaFiscalCaixa).not.toHaveBeenCalled()
+    expect(notas).toHaveLength(2)
+    expect(notas[0].numero).toBe('111')
+    expect(notas[0].pdf.name).toBe('a.pdf')
+    expect(notas[0].xml.name).toBe('a.xml')
+    expect(notas[1].numero).toBe('333')
+    expect(notas[1].pdf.name).toBe('c.pdf')
+    expect(notas[1].xml.name).toBe('c.xml')
   })
 })

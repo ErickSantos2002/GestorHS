@@ -13,7 +13,7 @@ from app.core import (
     storage,
 )
 from app.core.certificado_pdf import html_para_pdf
-from app.models import CertificadoGeral, OSCertificado, Ordem, Proposta
+from app.models import CertificadoGeral, NotaFiscal, OSCertificado, Ordem, Proposta
 from app.models.database import get_db
 
 router = APIRouter(prefix="/publico", tags=["publico"])
@@ -62,6 +62,46 @@ def _servir_nota_fiscal(ordem_id: int, basename: str | None):
         filename=nota_fiscal.nome_download(ordem_id, basename),
         headers={"X-Content-Type-Options": "nosniff"},
     )
+
+
+def _servir_nota_da_caixa(db: Session, nota_id: int, tipo: str):
+    nf = db.query(NotaFiscal).filter(NotaFiscal.id == nota_id).first()
+    if nf is None:
+        raise HTTPException(status_code=404, detail="nota fiscal não encontrada")
+    basename = nf.arquivo_pdf if tipo == nota_fiscal_link.PDF else nf.arquivo_xml
+    try:
+        caminho = storage.caminho_arquivo(nota_fiscal.subdir_nota(nf.ordem, nf.caixa), basename)
+    except storage.ArquivoInvalido:
+        raise HTTPException(status_code=404, detail="nota fiscal não encontrada")
+    if not caminho.exists():
+        raise HTTPException(status_code=404, detail="arquivo não encontrado")
+    return FileResponse(
+        caminho,
+        media_type=nota_fiscal.media_type(basename),
+        filename=nota_fiscal.nome_download_nota(nf.numero, basename),
+        headers={"X-Content-Type-Options": "nosniff"},
+    )
+
+
+# Rotas da nota da CAIXA declaradas ANTES das de OS por higiene: a rota mais
+# especifica primeiro, para quem le achar o caminho literal antes do parametrico.
+# NAO ha risco de colisao aqui — o Starlette casa por contagem de segmentos, e
+# `/nota-fiscal/nota/{nota_id}` tem 3 contra os 2 de `/nota-fiscal/{ordem_id}`.
+# (A ordem passaria a importar se algum dia existisse rota parametrica de MESMO
+# numero de segmentos, ex.: `/nota-fiscal/{ordem_id}/{algo}`.)
+@router.get("/nota-fiscal/nota/{nota_id}")
+def baixar_nota_da_caixa_publica(nota_id: int, t: str = "", db: Session = Depends(get_db)):
+    if not nota_fiscal_link.verificar_nota(nota_id, t):
+        raise HTTPException(status_code=403, detail="link inválido")
+    return _servir_nota_da_caixa(db, nota_id, nota_fiscal_link.PDF)
+
+
+@router.get("/nota-fiscal/nota/{nota_id}/xml")
+def baixar_nota_da_caixa_xml_publica(nota_id: int, t: str = "", db: Session = Depends(get_db)):
+    """Token separado do PDF: sao dois arquivos distintos."""
+    if not nota_fiscal_link.verificar_nota(nota_id, t, nota_fiscal_link.XML):
+        raise HTTPException(status_code=403, detail="link inválido")
+    return _servir_nota_da_caixa(db, nota_id, nota_fiscal_link.XML)
 
 
 @router.get("/nota-fiscal/{ordem_id}")

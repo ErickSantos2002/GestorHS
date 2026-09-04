@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from pydantic import BaseModel, ConfigDict
 
 
@@ -42,8 +42,18 @@ class CaixaOut(BaseModel):
     numero_proposta: int | None = None
 
 
+class NotaFiscalOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    numero: str
+    criado_em: datetime | None = None
+
+
 class CaixaDetalhe(CaixaOut):
     ordens: list[OrdemResumoCaixa] = []
+    # Os basenames em disco NAO vao para o schema: o download e' por rota
+    # dedicada, o frontend nao precisa saber o nome do arquivo.
+    notas_fiscais: list[NotaFiscalOut] = []
 
 
 class CaixaPage(BaseModel):

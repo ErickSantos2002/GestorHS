@@ -177,6 +177,9 @@ export interface OrdemDetalhe extends OrdemListItem {
   nota_fiscal: string | null
   nota_fiscal_xml: string | null
   nota_fiscal_numero: string | null
+  /** Notas da CAIXA da OS. Os tres campos acima ficam para OS antiga, que nao
+   *  tem linha na tabela nova — e' o fallback exibido quando esta lista vem vazia. */
+  notas_fiscais: { id: number; numero: string; criado_em: string | null }[]
   /** Tipos ("C"/"M") sem modelo de certificado cadastrado para o aparelho. Vazio = pode gerar. */
   certificado_modelos_faltantes: string[]
   /** Desfecho do laboratorio: 'pendente' | 'concluido' | 'sem_conserto' | 'liberado'. */
@@ -382,19 +385,6 @@ export const ordensApi = {
       if (!res.ok) throw new ApiError(res.status, 'Falha ao baixar PDF')
       return res.blob()
     })
-  },
-  // PDF e XML sempre juntos — e' o par que a contabilidade emite.
-  enviarNotaFiscal: async (ordemId: number, pdf: File, xml: File, numero: string): Promise<void> => {
-    const fd = new FormData()
-    fd.append('arquivo_pdf', pdf)
-    fd.append('arquivo_xml', xml)
-    fd.append('numero', numero)
-    const res = await apiFetch(`/ordens/${ordemId}/nota-fiscal`, { method: 'POST', body: fd })
-    if (!res.ok) {
-      let detail = res.statusText
-      try { const b = await res.json(); if (b.detail) detail = b.detail } catch { /* sem corpo */ }
-      throw new ApiError(res.status, detail)
-    }
   },
   // Nunca abrir o arquivo numa aba (blob: herda a origem do app — um XML malicioso
   // executaria <script>). Forca download via link com atributo `download`, como o PDF do certificado.

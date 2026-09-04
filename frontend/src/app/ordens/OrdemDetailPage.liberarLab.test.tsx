@@ -39,7 +39,7 @@ function baseOs(over: Record<string, unknown> = {}) {
     calib_cert: null, calib_temp: null, calib_pressao: null, calib_teste1: null,
     calib_teste2: null, calib_teste3: null, calib_teste_media: null,
     calib_situacao: null, pdf_certificado: null, nota_fiscal: null,
-    nota_fiscal_numero: null, certificado_modelos_faltantes: [], pilhas: 0,
+    nota_fiscal_numero: null, notas_fiscais: [], certificado_modelos_faltantes: [], pilhas: 0,
     bocais: 0, checklist_ids: [], acessorios_presentes: [], garantias: null,
     desfecho_lab: 'pendente', desfecho_lab_obs: null,
     ...over,

@@ -105,6 +105,14 @@ class Ordem(Base):
         return self.caixa_rel.obs if self.caixa_rel else None
 
     @property
+    def notas_fiscais(self):
+        # Atalho de LEITURA para as notas da caixa desta OS — a nota e' da caixa,
+        # nunca da OS. Nao confundir com `NotaFiscal.ordem`, que e' o inverso e
+        # significa outra coisa: la a OS so marca em que subdir antigo os arquivos
+        # daquela nota ficaram (backfill da 0029), nao de quem a nota e'.
+        return self.caixa_rel.notas_fiscais if self.caixa_rel else []
+
+    @property
     def checklist_ids(self):
         from app.core.recebimento import checklist_csv_para_ids
         return checklist_csv_para_ids(self.checklist)
