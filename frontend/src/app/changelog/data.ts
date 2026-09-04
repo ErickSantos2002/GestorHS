@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.51.1',
+    data: '04/09/2026',
+    itens: [
+      { tipo: 'melhoria', texto: 'O Financeiro passa a poder desfazer o faturamento de uma proposta — antes só o Administrador conseguia, e quem marca o faturamento é justamente quem descobre o engano. O botão "Desfazer faturamento" agora aparece para o Financeiro tanto na tela de Propostas quanto no card da proposta dentro da caixa.' },
+    ],
+  },
+  {
     versao: '1.51.0',
     data: '04/09/2026',
     itens: [
