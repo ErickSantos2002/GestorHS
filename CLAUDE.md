@@ -128,6 +128,18 @@ Documento irmão do certificado de calibração, gerado pelo **mesmo motor** (mo
 - **O resumo editado à mão fica congelado.** O modal guarda a última composição automática e só recompõe enquanto o texto for igual a ela. Ao reabrir, `composicao` é **recalculada a partir dos serviços salvos**, nunca copiada do texto salvo — copiar fazia o texto do técnico ser sobrescrito ao marcar qualquer serviço.
 - Gerar sem manutenção registrada é recusado com 409: documento em branco não deve sair.
 
+### Nota fiscal: N por CAIXA, colunas antigas congeladas
+A nota fiscal foi de **uma por OS** (três colunas em `ordens`) para **N por CAIXA** (tabela `notas_fiscais`, migração `0029`) em set/2026 — o Financeiro precisa anexar, além da nota do serviço, a de remessa do envio.
+
+- **Anexar é em lote e ACUMULA.** `POST /caixas/{id}/notas-fiscais` recebe três **listas paralelas** (`numeros`, `arquivos_pdf`, `arquivos_xml`) e grava tudo-ou-nada: se um arquivo do lote for inválido, os já gravados são apagados do disco antes do erro subir. O comportamento antigo *substituía* a nota anterior; o novo acrescenta.
+- **Anexar e remover valem nas fases 10 e 7** (`FASES_NOTA` em [notas_fiscais.py](backend/app/api/notas_fiscais.py)) — é a janela em que o Financeiro ainda corrige a nota errada. Lista explícita, nunca `fase >= 7`.
+- ⚠️ **As colunas `ordens.nota_fiscal`, `nota_fiscal_xml` e `nota_fiscal_numero` estão CONGELADAS**: existem, mas nenhum caminho novo escreve nelas. Servem só para manter de pé `GET /ordens/{id}/nota-fiscal` e o link público `nf:{ordem_id}`, cujos links já estão publicados em cards do TaskHS. **Não volte a escrever nelas** — dual-write criaria duas fontes de verdade para o mesmo dado.
+- **O subdir depende da origem da nota.** `nota_fiscal.subdir_nota(ordem_id, caixa_id)`: nota criada pela tela vive em `notas-fiscais/caixa/{caixa_id}`; nota vinda do backfill tem `ordem` preenchido e aponta para `notas-fiscais/{ordem_id}`, onde o arquivo já estava. A `0029` **não move arquivo nenhum**.
+- ⚠️ **`NotaFiscal.ordem` e `Ordem.notas_fiscais` são nomes simétricos com sentidos OPOSTOS**: o primeiro é "os arquivos desta nota ficaram no subdir daquela OS" (marca do backfill); o segundo é "as notas da minha caixa".
+- **O guard de avanço aceita DUAS fontes** (`_tem_nota_fiscal` em [caixas.py](backend/app/api/caixas.py)): linha em `notas_fiscais` **ou** coluna legada em alguma OS ativa. O segundo termo existe para caixa antiga com PDF sem XML, que ficou fora do backfill (`arquivo_xml` é NOT NULL). A semântica é **"alguma OS tem nota"**, não "todas" — mudou em set/2026 e tem teste próprio.
+- **Link público por nota** é `nf:n:{nota_id}` ([nota_fiscal_link.py](backend/app/core/nota_fiscal_link.py)), com prefixo próprio para não colidir com o `nf:{ordem_id}`, que **não pode mudar**. PDF e XML assinam mensagens distintas.
+- **A obs4 do card do TaskHS** tem uma linha por nota (`NF <numero> — PDF: ... · XML: ...`) e cai no formato legado quando a caixa não tem linha na tabela. O único teste que percorre a corrente inteira (HTTP → `agendar_espelhamento_caixa` → `_montar_payload_caixa` → obs4) é `test_anexar_nota_fiscal_reagenda_card`; os demais chamam `montar_obs_caixa` direto e **não pegariam** um `notas=notas` esquecido na chamada.
+
 ### Exportação para Excel
 A exportação para Excel tem o motor puro em [backend/app/core/planilha.py](backend/app/core/planilha.py) (formatação do xlsx, sem domínio) e as colunas de cada planilha em [backend/app/core/exportacoes.py](backend/app/core/exportacoes.py). Cada endpoint `GET .../exportar` reaproveita o mesmo helper `_query_*` da listagem correspondente — é o que impede a planilha de divergir da tela. No frontend, o componente compartilhado é [frontend/src/components/ui/BotaoExportar.tsx](frontend/src/components/ui/BotaoExportar.tsx).
 
@@ -184,4 +196,4 @@ Esta máquina tem plugins do Claude Code que ampliam o que está disponível —
 - **gh** (GitHub CLI) — autenticado; usado por `commit-push-pr` para abrir PRs (branches `feat/<nome>`).
 
 ## Migrações Alembic
-Migrações já aplicadas (`0001`–`0028`) cobrem auth, schema de OS, solicitações, caixas, certificados (modelo, por-OS, cert_overrides, configuração e cilindros), propostas, nota fiscal em PDF+XML e o registro de manutenção. Cada migração tem um propósito único e nomeado — siga o padrão `NNNN_descricao.py`.
+Migrações já aplicadas (`0001`–`0029`) cobrem auth, schema de OS, solicitações, caixas, certificados (modelo, por-OS, cert_overrides, configuração e cilindros), propostas, nota fiscal em PDF+XML, o registro de manutenção e as notas fiscais por caixa (`0029`, com backfill). Cada migração tem um propósito único e nomeado — siga o padrão `NNNN_descricao.py`.
