@@ -1,4 +1,4 @@
-"""Testes do fluxo faturar/desfaturar de Proposta (Financeiro marca, so Admin desfaz)."""
+"""Testes do fluxo faturar/desfaturar de Proposta (Financeiro e Admin fazem os dois)."""
 
 
 def _criar_proposta(client_comercial):
@@ -47,11 +47,28 @@ def test_admin_desfatura_proposta(client_comercial, client_fin, client_admin, db
     assert p.faturada_por is None
 
 
-def test_financeiro_nao_pode_desfaturar(client_comercial, client_fin):
+def test_financeiro_pode_desfaturar(client_comercial, client_fin):
+    """Desfazer era exclusivo do Administrador ate 04/09/2026. Quem marca o
+    faturamento e' quem descobre o engano, entao desfaz tambem."""
     pid = _criar_proposta(client_comercial)
     assert client_fin.post(f"/propostas/{pid}/faturar").status_code == 200
 
     r = client_fin.post(f"/propostas/{pid}/desfaturar")
+    assert r.status_code == 200
+    assert r.json()["faturada"] is False
+
+
+def test_comercial_nao_pode_desfaturar(client_comercial):
+    """O gate afrouxou para o Financeiro, nao para todo mundo: o Comercial cria a
+    proposta mas nao mexe no faturamento dela.
+
+    So `client_comercial` na assinatura de proposito: as fixtures de client mutam
+    o MESMO objeto, entao pedir `client_fin` junto trocaria a identidade e o teste
+    passaria a exercitar o Financeiro. O gate barra antes de olhar o estado da
+    proposta, entao nem precisa fatura-la.
+    """
+    pid = _criar_proposta(client_comercial)
+    r = client_comercial.post(f"/propostas/{pid}/desfaturar")
     assert r.status_code == 403
 
 

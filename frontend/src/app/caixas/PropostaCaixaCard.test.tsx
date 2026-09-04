@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 
 let mockUser: { funcao: string } = { funcao: 'Financeiro' }
 vi.mock('../../auth/AuthContext', () => ({ useAuth: () => ({ user: mockUser }) }))
@@ -86,15 +86,23 @@ describe('PropostaCaixaCard', () => {
     expect(screen.queryByText('Marcar como faturada')).toBeNull()
   })
 
-  it('so o Admin ve o desfazer de uma proposta ja faturada', async () => {
+  it('Financeiro e Admin veem o desfazer de uma proposta ja faturada; Laboratorio nao', async () => {
+    // Desfazer era exclusivo do Admin ate 04/09/2026: quem marca o faturamento e'
+    // quem descobre o engano, entao desfaz tambem.
     proposta.mockResolvedValue({ ...PROPOSTA, faturada: true, faturada_em: '2026-08-27T12:00:00Z', faturada_por: 'Fulano' })
-    render(<PropostaCaixaCard caixaId={952} numeroProposta={189} />)
-    await screen.findByText('Faturada')
-    expect(screen.queryByText('Desfazer faturamento')).toBeNull()
 
-    mockUser = { funcao: 'Administrador' }
-    render(<PropostaCaixaCard caixaId={952} numeroProposta={189} />)
-    expect(await screen.findByText('Desfazer faturamento')).toBeTruthy()
+    // cada render tem o seu container: nao dependo de os renders anteriores
+    // continuarem no document.
+    async function veODesfazer(funcao: string) {
+      mockUser = { funcao }
+      const { container } = render(<PropostaCaixaCard caixaId={952} numeroProposta={189} />)
+      await within(container).findByText('Faturada')
+      return within(container).queryByText('Desfazer faturamento') !== null
+    }
+
+    expect(await veODesfazer('Financeiro')).toBe(true)
+    expect(await veODesfazer('Administrador')).toBe(true)
+    expect(await veODesfazer('Laboratório')).toBe(false)
   })
 
   it('proposta desabilitada aparece marcada e sem o faturar', async () => {

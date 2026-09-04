@@ -207,7 +207,7 @@ describe('PropostasPage', () => {
     await waitFor(() => expect(faturar).toHaveBeenCalledWith(10))
   })
 
-  it('"Desfazer faturamento" só aparece para Admin numa proposta faturada', async () => {
+  it('"Desfazer faturamento" aparece para o Admin numa proposta faturada', async () => {
     listar.mockResolvedValue({ items: [{ ...PROPOSTA, faturada: true }], total: 1, page: 1, page_size: 25, total_pages: 1 })
     useAuth.mockReturnValue({ user: USUARIO_ADMIN })
     render(<PropostasPage />)
@@ -215,12 +215,14 @@ describe('PropostasPage', () => {
     expect(screen.getByRole('button', { name: /desfazer faturamento/i })).toBeInTheDocument()
   })
 
-  it('"Desfazer faturamento" não aparece para Financeiro mesmo numa proposta faturada', async () => {
+  it('"Desfazer faturamento" aparece para o Financeiro numa proposta faturada', async () => {
+    // Era exclusivo do Admin ate 04/09/2026: quem marca o faturamento e' quem
+    // descobre o engano, entao desfaz tambem.
     listar.mockResolvedValue({ items: [{ ...PROPOSTA, faturada: true }], total: 1, page: 1, page_size: 25, total_pages: 1 })
     useAuth.mockReturnValue({ user: USUARIO_FINANCEIRO })
     render(<PropostasPage />)
     await screen.findByText('#42')
-    expect(screen.queryByRole('button', { name: /desfazer faturamento/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /desfazer faturamento/i })).toBeInTheDocument()
   })
 
   it('proposta sem dados editados nao mostra o selo', async () => {

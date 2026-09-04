@@ -172,7 +172,10 @@ describe('auth/roles — podeFaturarProposta', () => {
 
 describe('auth/roles — podeDesfaturarProposta', () => {
   it('Admin pode desfaturar', () => expect(podeDesfaturarProposta(u('Administrador'))).toBe(true))
-  it('Financeiro não pode desfaturar', () => expect(podeDesfaturarProposta(u('Financeiro'))).toBe(false))
+  // Desfazer era exclusivo do Admin ate 04/09/2026: quem marca o faturamento e'
+  // quem descobre o engano, entao desfaz tambem.
+  it('Financeiro pode desfaturar', () => expect(podeDesfaturarProposta(u('Financeiro'))).toBe(true))
+  it('Comercial Pós-Vendas não pode desfaturar', () => expect(podeDesfaturarProposta(u('Comercial Pós-Vendas'))).toBe(false))
   it('null não pode desfaturar', () => expect(podeDesfaturarProposta(null)).toBe(false))
 })
 

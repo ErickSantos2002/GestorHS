@@ -26,9 +26,11 @@ router = APIRouter(prefix="/propostas", tags=["propostas"])
 # Quem pode criar/alterar/excluir/duplicar propostas.
 _escrever = require_funcao("Comercial Pós-Vendas", "Administrador", "Financeiro")
 
-# Quem pode marcar/desfazer a proposta como faturada.
+# Quem pode marcar/desfazer a proposta como faturada. Desfazer era exclusivo do
+# Administrador ate 04/09/2026; o Financeiro pediu para fazer os dois, ja que e'
+# ele quem marca e quem descobre o engano.
 _faturar_gate = require_funcao("Financeiro", "Administrador")
-_desfaturar_gate = require_funcao("Administrador")
+_desfaturar_gate = require_funcao("Financeiro", "Administrador")
 
 # Quem pode devolver uma proposta desabilitada à circulação.
 _reativar_gate = require_funcao("Administrador")

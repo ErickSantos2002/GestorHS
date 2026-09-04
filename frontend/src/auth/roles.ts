@@ -123,10 +123,12 @@ export function podeFaturarProposta(user: User | null): boolean {
   return isAdmin(user) || user?.funcao === FUNCAO_FINANCEIRO
 }
 
-// Espelha require_funcao("Administrador") em backend/app/api/propostas.py
-// (POST /propostas/{id}/desfaturar) — reversão de faturamento é exclusiva do Admin.
+// Espelha require_funcao("Financeiro", "Administrador") em
+// backend/app/api/propostas.py (POST /propostas/{id}/desfaturar) — mudou lá, mude
+// aqui. Mesma regra de `podeFaturarProposta`: quem marca o faturamento e' quem
+// descobre o engano, entao desfaz tambem. Era exclusivo do Admin ate 04/09/2026.
 export function podeDesfaturarProposta(user: User | null): boolean {
-  return isAdmin(user)
+  return isAdmin(user) || user?.funcao === FUNCAO_FINANCEIRO
 }
 
 // Espelha require_funcao("Administrador") em backend/app/api/propostas.py
