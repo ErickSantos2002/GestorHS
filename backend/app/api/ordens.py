@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.models.database import get_db
 from app.models import (Usuario, Ordem, Cliente, Fase, LogOS, EquipamentoCliente, Caixa,
                         OSCertificado, Manutencao)
-from app.api.deps import get_current_usuario, require_funcao
+from app.api.deps import ADMIN, get_current_usuario, require_funcao
 from app.api.ordens_acoes import agora, registrar_log, exige_funcao_da_fase, concluir_laboratorio
 from app.core import os_workflow as wf
 from app.core import recebimento as rec
@@ -432,8 +432,44 @@ def marcar_desfecho_lab(ordem_id: int, dados: DesfechoLabIn, db: Session = Depen
 
 @router.post("/{ordem_id}/cancelar", response_model=OrdemOut)
 def cancelar(ordem_id: int, dados: CancelarIn, background_tasks: BackgroundTasks,
-             db: Session = Depends(get_db), usuario: Usuario = Depends(get_current_usuario)):
+             db: Session = Depends(get_db),
+             usuario: Usuario = Depends(require_funcao(ADMIN))):
+    """Cancela UMA OS — o caminho normal e' cancelar a CAIXA inteira.
+
+    Existe para a OS que nao deveria ter sido aberta e atrapalha uma caixa que
+    segue viva: cancelada, ela some das contas (`_ordens_ativas`, que decide o
+    avanco) e do card do TaskHS (`ordens_do_card`). O vinculo com a caixa
+    CONTINUA — e' o rastro de que o aparelho passou por ali, e OS sem caixa foi o
+    beco sem saida de 24/08/2026.
+
+    So o Administrador: cancelar a caixa e' da funcao da fase, mas tirar um
+    aparelho do meio de uma caixa viva e' correcao de cadastro.
+
+    Nao desfaz o que a OS ja produziu — calibracao espelhada na frota e
+    certificado emitido continuam de pe. Por isso so vale para fase ATIVA.
+    """
     ordem = db.query(Ordem).filter(Ordem.id == ordem_id).first()
     if ordem is None:
         raise HTTPException(status_code=404, detail="OS não encontrada")
-    raise HTTPException(status_code=409, detail="a OS anda pela caixa; use /caixas/{id}/avancar")
+    if not wf.eh_ativa(ordem.fase):
+        raise HTTPException(status_code=409, detail="só uma OS ativa pode ser cancelada")
+    ordem.fase = wf.FASE_CANCELADA
+    ordem.situacao = "C"
+    registrar_log(db, ordem, usuario, f"OS cancelada: {dados.motivo}")
+    cx = db.get(Caixa, ordem.caixa) if ordem.caixa is not None else None
+    origem = cx.fase if cx is not None else None
+    arquivada = False
+    if cx is not None:
+        db.flush()
+        # Caixa que ficou sem nenhuma OS ativa nao tem mais o que avancar: arquiva,
+        # igual ao fim de `cancelar_caixa`. Sem isto ela ficaria parada na fase,
+        # com botao de avancar que nao move nada.
+        if not any(wf.eh_ativa(o.fase) for o in cx.ordens):
+            cx.fase = None
+            arquivada = True
+        sincronizar_principal(db, cx)
+    db.commit()
+    db.refresh(ordem)
+    if cx is not None:
+        agendar_espelhamento_caixa(db, background_tasks, cx, origem=origem, arquivado=arquivada)
+    return ordem

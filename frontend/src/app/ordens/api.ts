@@ -63,6 +63,14 @@ export interface OrdemPage {
 // Fases ativas (em andamento) da OS — espelha ATIVAS do backend (os_workflow).
 export const FASES_ATIVAS = [4, 5, 6, 10, 7]
 
+// Espelha FASE_CANCELADA do backend (os_workflow).
+export const FASE_CANCELADA = 9
+
+/** OS cancelada: sai das contas da caixa e do card do TaskHS, mas continua vinculada. */
+export function faseCancelada(fase: number | null): boolean {
+  return fase === FASE_CANCELADA
+}
+
 /**
  * Fluxo linear da OS, na ordem LOGICA (nao na ordem dos ids!).
  * O Financeiro tem id 10, numericamente maior que Preparando Retorno (7) e

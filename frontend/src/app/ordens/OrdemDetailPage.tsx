@@ -10,9 +10,10 @@ import {
 import { ApiError } from '../../lib/api'
 import { caixasApi } from '../caixas/api'
 import { useAuth } from '../../auth/AuthContext'
-import { isAdmin, podeAbrirOS, podeMarcarSemConserto, podeEditarTipoServico, podeRegistrarManutencao } from '../../auth/roles'
+import { isAdmin, podeAbrirOS, podeCancelarOS, podeMarcarSemConserto, podeEditarTipoServico, podeRegistrarManutencao } from '../../auth/roles'
 import { ordensApi, fotosApi, TIPO_SERVICO, FLUXO_FASES, posicaoFase, posLaboratorio, formatData, garantiaBadge, garantiasAtivas, type OrdemDetalhe, type GarantiaItem, type LogOS, type Foto, type OSCertificado, type TipoServico } from './api'
 import { GerarCertificadoModal } from './GerarCertificadoModal'
+import { CancelarOSModal } from './CancelarOSModal'
 import { LiberarLabModal } from './LiberarLabModal'
 import { EditarOSModal } from './EditarOSModal'
 import { ManutencaoModal } from './ManutencaoModal'
@@ -108,6 +109,7 @@ export function OrdemDetailPage() {
   const [acao, setAcao] = useState<'gerar' | null>(null)
   const [liberarLabAberto, setLiberarLabAberto] = useState(false)
   const [editarAberto, setEditarAberto] = useState(false)
+  const [cancelarAberto, setCancelarAberto] = useState(false)
   const [fotos, setFotos] = useState<Foto[]>([])
   const [certs, setCerts] = useState<OSCertificado[]>([])
   const [erroFoto, setErroFoto] = useState('')
@@ -208,6 +210,12 @@ export function OrdemDetailPage() {
 
   function aoLiberarLab() {
     setLiberarLabAberto(false)
+    void ordensApi.obter(osId).then(setOs).catch(() => {})
+    void ordensApi.logs(osId).then(setLogs).catch(() => {})
+  }
+
+  function aoCancelarOS() {
+    setCancelarAberto(false)
     void ordensApi.obter(osId).then(setOs).catch(() => {})
     void ordensApi.logs(osId).then(setLogs).catch(() => {})
   }
@@ -359,6 +367,9 @@ export function OrdemDetailPage() {
             <Button variant="secondary" onClick={() => navigate('/app/ordens')}>Voltar</Button>
             {isAdmin(user) && (
               <Button variant="secondary" onClick={() => setEditarAberto(true)}>Editar OS</Button>
+            )}
+            {podeCancelarOS(user, os.fase) && (
+              <Button variant="danger" onClick={() => setCancelarAberto(true)}>Cancelar OS</Button>
             )}
             {podeLiberarLab && (
               <Button variant="primary" onClick={() => setLiberarLabAberto(true)}>Liberar do Laboratório</Button>
@@ -730,6 +741,10 @@ export function OrdemDetailPage() {
 
       {editarAberto && (
         <EditarOSModal os={os} onClose={() => setEditarAberto(false)} onSalvo={aoEditarOS} />
+      )}
+
+      {cancelarAberto && (
+        <CancelarOSModal osId={osId} onClose={() => setCancelarAberto(false)} onConcluido={aoCancelarOS} />
       )}
 
       {manutencaoAberta && (

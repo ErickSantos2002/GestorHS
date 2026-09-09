@@ -17,7 +17,7 @@ import { ClientePrincipalModal } from './ClientePrincipalModal'
 import { SemConsertoModal } from './SemConsertoModal'
 import { NotaFiscalCaixaModal } from './NotaFiscalCaixaModal'
 import { PropostaCaixaCard } from './PropostaCaixaCard'
-import { TRANSICOES, faseAtiva, posicaoFase } from '../ordens/api'
+import { TRANSICOES, faseAtiva, faseCancelada, posicaoFase } from '../ordens/api'
 import { STATUS_CALIBRACAO, type StatusCalibracao } from '../frota/api'
 import { PageContainer, DetailGrid, DetailMain, DetailAside } from '../../components/ui/Page'
 
@@ -294,6 +294,10 @@ export function CaixaDetailPage() {
 
   // Progresso do laboratório (só faz sentido com a caixa em fase 5) — OS ativas apenas,
   // as terminais/canceladas não contam como pendência.
+  // A OS cancelada continua vinculada (e' o rastro), mas sai da lista: uma caixa
+  // que segue viva com um aparelho cancelado no meio confunde quem opera.
+  const ordensCanceladas = caixa.ordens.filter((o) => faseCancelada(o.fase))
+  const ordensVisiveis = caixa.ordens.filter((o) => !faseCancelada(o.fase))
   const ordensAtivasLab = caixa.fase === 5 ? caixa.ordens.filter((o) => faseAtiva(o.fase)) : []
   const prontosLab = ordensAtivasLab.filter((o) => o.desfecho_lab === 'concluido' || o.desfecho_lab === 'sem_conserto' || o.desfecho_lab === 'liberado').length
   const pendentesLab = ordensAtivasLab.filter((o) => o.desfecho_lab === 'pendente').length
@@ -432,9 +436,9 @@ export function CaixaDetailPage() {
           {/* Tabela de OS vinculadas */}
           <section className="space-y-3">
             <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wide">
-              Ordens de serviço ({caixa.ordens.length})
+              Ordens de serviço ({ordensVisiveis.length})
             </h2>
-            {caixa.ordens.length === 0 ? (
+            {ordensVisiveis.length === 0 ? (
               <p className="text-sm text-slate-500">Nenhuma OS vinculada.</p>
             ) : (
               <Table head={
@@ -446,7 +450,7 @@ export function CaixaDetailPage() {
                   {(podeEscrever || podeSemConserto) && <TH>Ações</TH>}
                 </>
               }>
-                {caixa.ordens.map((o) => (
+                {ordensVisiveis.map((o) => (
                   <tr key={o.id} className="hover:bg-background-elevated transition-colors">
                     <TD>
                       <Link to={`/app/ordens/${o.id}`} className="font-semibold text-primary hover:underline">
@@ -501,6 +505,26 @@ export function CaixaDetailPage() {
                   </tr>
                 ))}
               </Table>
+            )}
+            {ordensCanceladas.length > 0 && (
+              <details className="text-sm text-slate-500">
+                <summary className="cursor-pointer select-none hover:text-slate-400">
+                  {ordensCanceladas.length === 1
+                    ? '1 OS cancelada'
+                    : `${ordensCanceladas.length} OS canceladas`}
+                </summary>
+                <ul className="mt-2 space-y-1 pl-4">
+                  {ordensCanceladas.map((o) => (
+                    <li key={o.id} className="flex gap-2 line-through">
+                      <Link to={`/app/ordens/${o.id}`} className="hover:text-slate-300">#{o.id}</Link>
+                      <span>
+                        {o.equipamento_descricao ?? '—'}
+                        {o.equipamento_serie && ` · ${o.equipamento_serie}`}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </details>
             )}
           </section>
         </DetailMain>

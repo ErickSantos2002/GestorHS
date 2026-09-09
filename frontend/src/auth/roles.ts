@@ -1,5 +1,5 @@
 import { type User } from './AuthContext'
-import { posLaboratorio } from '../app/ordens/api'
+import { faseAtiva, posLaboratorio } from '../app/ordens/api'
 
 export const FUNCAO_ADMIN = 'Administrador'
 
@@ -87,6 +87,16 @@ export const FUNCAO_RESPONSAVEL_POR_FASE: Record<number, string> = {
 // Admin sempre passa — espelha o early-return de exige_funcao_da_fase para Administrador.
 export function podeAvancarCaixa(user: User | null, fase: number | null): boolean {
   return isAdmin(user) || (fase != null && user?.funcao === FUNCAO_RESPONSAVEL_POR_FASE[fase])
+}
+
+/** Cancelar UMA OS, tirando ela do meio de uma caixa que segue viva.
+ *
+ * So o Administrador — cancelar a CAIXA e' da funcao da fase, mas cancelar um
+ * aparelho sozinho e' correcao de cadastro. So em fase ATIVA: cancelada ja esta
+ * cancelada, e finalizada ja produziu certificado e cobranca.
+ * Espelha require_funcao(ADMIN) + o guard de `eh_ativa` em app/api/ordens.py. */
+export function podeCancelarOS(user: User | null, fase: number | null): boolean {
+  return isAdmin(user) && faseAtiva(fase)
 }
 
 export function podeMarcarSemConserto(user: User | null): boolean {

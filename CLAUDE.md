@@ -92,6 +92,8 @@ As fases são IDs fixos (`FASE_RECEBIDO=4`, `FASE_LABORATORIO=5`, `FASE_FINANCEI
 
 **A OS anda pela CAIXA, não sozinha.** Quem avança de fase é a caixa; a OS acompanha. Por isso a OS nunca pode ficar sem caixa — uma OS solta fica parada para sempre, sem aparecer em caixa nenhuma. Abrir OS sem informar caixa **cria** uma (mesma transação, para não sobrar caixa vazia se a abertura falhar), e tirar a OS de uma caixa é **mover** para outra: desvincular foi removido.
 
+**Cancelar UMA OS é a única saída individual** (`POST /ordens/{id}/cancelar`, só Administrador, motivo obrigatório, só em fase ativa). É para a OS aberta por engano no meio de uma caixa que segue viva: a OS vira fase 9 e **mantém o vínculo com a caixa** — some das contas (`_ordens_ativas`) e do card do TaskHS (`ordens_do_card`), mas o rastro fica. Se sobrar a caixa sem nenhuma OS ativa, ela é arquivada (`fase = None`), igual ao fim de `cancelar_caixa`. Não desfaz calibração já espelhada na frota nem certificado emitido — por isso a fase precisa ser ativa. A tela da caixa esconde as canceladas num bloco recolhido; `/ordens/{id}/avancar` continua 409.
+
 **Concluir o laboratório exige o certificado do tipo de serviço da OS** (`C` → certificado de calibração, `M` → relatório de manutenção, `A` → os dois). Os desfechos `liberado` e `sem_conserto` saem sem documento — é para isso que existem.
 
 Ao concluir o laboratório, os dados de calibração são **espelhados** no registro da frota do cliente (`equipamento_cliente`/`historico_equipamento`).

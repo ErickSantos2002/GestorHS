@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 
 let mockUser = { funcao: 'Administrador' }
@@ -468,5 +468,47 @@ describe('CaixaDetailPage — seção de notas fiscais', () => {
     await screen.findByText('NF 111')
     expect(screen.queryByRole('button', { name: /anexar nota fiscal/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /remover nota/i })).not.toBeInTheDocument()
+  })
+})
+
+describe('CaixaDetailPage — OS cancelada sai da lista', () => {
+  const CAIXA_COM_CANCELADA = {
+    id: 3, data: '2026-09-09', obs: null, fase: 5, total_os: 2, clientes: ['ACME'],
+    ordens: [
+      { id: 10, cliente: 1, cliente_nome: 'ACME', equipamento_descricao: 'Bafômetro', equipamento_serie: 'S1', fase: 5, fase_descricao: 'Laboratório', fase_cor: 'abc', desfecho_lab: 'concluido' },
+      { id: 11, cliente: 1, cliente_nome: 'ACME', equipamento_descricao: 'Bafômetro', equipamento_serie: 'S2', fase: 9, fase_descricao: 'Cancelada', fase_cor: 'def', desfecho_lab: 'pendente' },
+    ],
+    notas_fiscais: [],
+  }
+
+  beforeEach(() => {
+    mockUser = { funcao: 'Administrador' }
+    vi.clearAllMocks()
+    obter.mockResolvedValue(CAIXA_COM_CANCELADA)
+  })
+
+  it('conta e lista so as OS ativas', async () => {
+    tela()
+    expect(await screen.findByText('Ordens de serviço (1)')).toBeInTheDocument()
+    // A cancelada nao esta na TABELA (o jsdom nao esconde o conteudo de um
+    // <details> fechado, entao a busca precisa ser dentro da tabela).
+    const tabela = within(screen.getByRole('table'))
+    expect(tabela.getByRole('link', { name: '#10' })).toBeInTheDocument()
+    expect(tabela.queryByRole('link', { name: '#11' })).toBeNull()
+  })
+
+  it('mostra as canceladas num bloco dobrado, fora da tabela', async () => {
+    const { container } = tela()
+    expect(await screen.findByText('1 OS cancelada')).toBeInTheDocument()
+    const bloco = container.querySelector('details')
+    expect(bloco).not.toBeNull()
+    expect(within(bloco as HTMLElement).getByRole('link', { name: '#11' })).toBeInTheDocument()
+  })
+
+  it('nao mostra o bloco quando nao ha cancelada', async () => {
+    obter.mockResolvedValue({ ...CAIXA_COM_CANCELADA, ordens: [CAIXA_COM_CANCELADA.ordens[0]] })
+    tela()
+    await screen.findByText('Ordens de serviço (1)')
+    expect(screen.queryByText(/OS cancelada/)).toBeNull()
   })
 })
