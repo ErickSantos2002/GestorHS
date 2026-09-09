@@ -23,6 +23,14 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.52.0',
+    data: '09/09/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'O Administrador pode cancelar uma OS sozinha, pelo botão "Cancelar OS" na tela da ordem de serviço. Serve para a OS aberta por engano no meio de uma caixa que segue viva: ela sai das contas da caixa (que passa a avançar sem ela) e some do card do TaskHS. O motivo é obrigatório e fica no histórico da OS.' },
+      { tipo: 'melhoria', texto: 'A tela da caixa deixa de misturar OS cancelada com as demais: a lista conta e mostra só as ordens em andamento, e as canceladas ficam num bloco recolhido no rodapé.' },
+    ],
+  },
+  {
     versao: '1.51.1',
     data: '04/09/2026',
     itens: [
