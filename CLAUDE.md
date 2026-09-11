@@ -28,6 +28,8 @@ python -m app.scripts.enviar_atrasados_growthhs --enviar          # carga real n
 python -m app.scripts.enviar_vencendo_growthhs --dry-run          # SIMULA o job mensal (mes corrente + seguinte)
 python -m app.scripts.enviar_vencendo_growthhs                    # roda o job mensal a mao
 python -m app.scripts.publicar_modelo_manutencao                 # compara o modelo do relatorio com o banco (--aplicar grava)
+python -m app.scripts.unificar_clientes --cgc <cnpj>              # unifica cadastro duplicado do mesmo CNPJ (--aplicar grava)
+python -m app.scripts.renumerar_patrimonios --cliente <id>        # resolve patrimonio repetido na frota (--aplicar grava)
 ```
 
 > ⚠️ **`enviar_atrasados_growthhs` nao envia nada sem `--enviar`.** A chave do card e
@@ -40,6 +42,16 @@ python -m app.scripts.publicar_modelo_manutencao                 # compara o mod
 > com a data da execucao**, entao repetir devolve `created: false` e nao duplica; alem disso o
 > agendamento chama esse mesmo caminho, e um default que nao envia viraria um job inutil em
 > silencio.
+
+> ℹ️ **CNPJ duplicado: `unificar_clientes` simula por padrao** (`--aplicar` grava). Duplicado
+> e' o **CNPJ inteiro** repetido — matriz e filial tem CNPJs diferentes com a mesma raiz e sao
+> clientes de verdade (a Fertilizantes Tocantins tem 7 cadastros na raiz `05571228`). O script
+> reaponta as **13 colunas** que apontam para `clientes.id` — levantadas por `pg_constraint`, e
+> ele **recusa** se achar FK fora da lista — e so entao apaga o absorvido. Junte
+> `--renumerar-patrimonios`: as duas numeracoes comecavam em 1 e a frota unificada fica com
+> patrimonio repetido. Os **17 pares** da base foram unificados em 11/09/2026 — cadastro novo
+> duplicado continua aparecendo, entao rode a consulta da doc de vez em quando. Procedimento inteiro
+> em [docs/operacao-unificar-clientes-duplicados.md](docs/operacao-unificar-clientes-duplicados.md).
 
 > ℹ️ **O job de vencendo roda sozinho dentro da API**, nao por cron: `app/tarefas/vencendo.py`
 > cria uma task de fundo no lifespan que dispara **todo dia 1 as 8h** (fuso de SP) sobre o
