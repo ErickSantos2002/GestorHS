@@ -104,3 +104,41 @@ def test_linha_endereco():
     assert empresa.linha_endereco({"endereco": "BR 101", "numero": "S/N", "complemento": "KM 196", "bairro": "Zona Rural"}) == "BR 101, S/N KM 196 - Zona Rural"
     assert empresa.linha_endereco({"endereco": "Rua X, 10", "numero": None}) == "Rua X, 10"
     assert empresa.linha_endereco({}) == ""
+
+
+def test_model_empresa_com_matriz(db_session):
+    from app.models import Cliente, Empresa
+    cli = Cliente(nome="ACME", cgc="08857492000148")
+    db_session.add(cli); db_session.flush()
+    e = Empresa(nome="ACME Filial", cgc="36312056000552", cliente=cli.id)
+    db_session.add(e); db_session.flush()
+    db_session.refresh(e)
+    assert e.ativo is True
+    assert e.matriz_rel.nome == "ACME"
+
+
+def test_model_empresa_cgc_unico(db_session):
+    from sqlalchemy.exc import IntegrityError
+    from app.models import Empresa
+    db_session.add(Empresa(nome="A", cgc="36312056000552")); db_session.flush()
+    db_session.add(Empresa(nome="B", cgc="36312056000552"))
+    with pytest.raises(IntegrityError):
+        db_session.flush()
+
+
+def test_model_empresa_exige_exatamente_um_documento(db_session):
+    from sqlalchemy.exc import IntegrityError
+    from app.models import Empresa
+    db_session.add(Empresa(nome="Sem documento"))
+    with pytest.raises(IntegrityError):
+        db_session.flush()
+
+
+def test_model_proposta_aponta_para_empresa(db_session):
+    from app.models import Empresa, Proposta
+    e = Empresa(nome="Filial", cpf="12345678909")
+    db_session.add(e); db_session.flush()
+    p = Proposta(numero=1, empresa=e.id, destinatario={"tipo": "empresa", "id": e.id})
+    db_session.add(p); db_session.flush(); db_session.refresh(p)
+    assert p.empresa_rel.nome == "Filial"
+    assert p.destinatario["tipo"] == "empresa"

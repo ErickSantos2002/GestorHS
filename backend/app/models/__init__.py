@@ -7,6 +7,7 @@ from app.models.marca import Marca
 from app.models.grupo import Grupo
 from app.models.equipamento import Equipamento
 from app.models.cliente import Cliente
+from app.models.empresa import Empresa
 from app.models.funcionario import Funcionario
 from app.models.equipamento_cliente import EquipamentoCliente
 from app.models.historico_equipamento import HistoricoEquipamento
@@ -37,7 +38,7 @@ from app.models.nota_fiscal import NotaFiscal
 
 __all__ = [
     "Funcao", "Usuario", "UsuarioCliente", "Setor", "Categoria",
-    "Marca", "Grupo", "Equipamento", "Cliente", "Funcionario",
+    "Marca", "Grupo", "Equipamento", "Cliente", "Empresa", "Funcionario",
     "EquipamentoCliente", "HistoricoEquipamento",
     "Fase", "LogOS", "Ordem", "TipoCalibragem", "Solicitacao", "Foto",
     "Caixa", "CertificadoModelo", "CertificadoImagem", "OSCertificado",
