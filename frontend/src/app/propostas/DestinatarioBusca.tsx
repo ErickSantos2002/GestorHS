@@ -21,19 +21,22 @@ export function DestinatarioBusca({ onEscolher, onCadastrarEmpresa }: {
   const [termo, setTermo] = useState('')
   const [resultados, setResultados] = useState<DestinatarioResultado[] | null>(null)
   const [buscando, setBuscando] = useState(false)
+  const [erro, setErro] = useState(false)
 
   useEffect(() => {
     const q = termo.trim()
     if (q.length < 2) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setResultados(null)
+      setErro(false)
       return
     }
     let vivo = true
     setBuscando(true)
+    setErro(false)
     destinatariosApi.buscar(q)
       .then((r) => { if (vivo) setResultados(r) })
-      .catch(() => { if (vivo) setResultados([]) })
+      .catch(() => { if (vivo) { setErro(true); setResultados(null) } })
       .finally(() => { if (vivo) setBuscando(false) })
     return () => { vivo = false }
   }, [termo])
@@ -46,6 +49,7 @@ export function DestinatarioBusca({ onEscolher, onCadastrarEmpresa }: {
       <input value={termo} onChange={(e) => setTermo(e.target.value)} className={inputClass}
         placeholder="Buscar cliente ou empresa por nome, CNPJ ou CPF" />
       {buscando && <p className="mt-1 text-xs text-slate-500">Buscando…</p>}
+      {!buscando && erro && <p className="mt-1 text-xs text-danger">Falha ao buscar. Tente de novo.</p>}
       {!buscando && resultados && resultados.length > 0 && (
         <ul className="mt-1.5 divide-y divide-border rounded-lg border border-border overflow-hidden max-h-60 overflow-y-auto">
           {resultados.map((r) => (
@@ -66,7 +70,7 @@ export function DestinatarioBusca({ onEscolher, onCadastrarEmpresa }: {
           ))}
         </ul>
       )}
-      {!buscando && resultados && resultados.length === 0 && (
+      {!buscando && !erro && resultados && resultados.length === 0 && (
         <div className="mt-1.5 flex flex-wrap items-center gap-3">
           <p className="text-xs text-slate-500">Nenhum cliente ou empresa encontrado.</p>
           {documento && (

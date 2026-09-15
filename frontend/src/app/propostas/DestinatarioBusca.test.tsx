@@ -40,4 +40,13 @@ describe('DestinatarioBusca', () => {
     expect(await screen.findByText('Nenhum cliente ou empresa encontrado.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Cadastrar empresa/ })).toBeNull()
   })
+
+  it('erro na busca nao oferece cadastro de empresa', async () => {
+    buscar.mockRejectedValue(new Error('rede'))
+    render(<DestinatarioBusca onEscolher={vi.fn()} onCadastrarEmpresa={vi.fn()} />)
+    fireEvent.change(screen.getByPlaceholderText(/Buscar cliente ou empresa/), { target: { value: '36312056000552' } })
+    await waitFor(() => expect(buscar).toHaveBeenCalled())
+    expect(await screen.findByText('Falha ao buscar. Tente de novo.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Cadastrar empresa/ })).toBeNull()
+  })
 })
