@@ -29,6 +29,13 @@ export function podeGerenciarPropostas(user: User | null): boolean {
   return isAdmin(user) || user?.funcao === FUNCAO_COMERCIAL || user?.funcao === FUNCAO_FINANCEIRO
 }
 
+// Espelha `_escrever` de backend/app/api/empresas.py. Hoje e' o mesmo trio de
+// propostas (o modal da proposta cria e edita Empresa), mas com nome proprio
+// para as duas regras poderem divergir.
+export function podeGerenciarEmpresas(user: User | null): boolean {
+  return isAdmin(user) || user?.funcao === FUNCAO_COMERCIAL || user?.funcao === FUNCAO_FINANCEIRO
+}
+
 export function podeAnexarNotaFiscal(user: User | null): boolean {
   return isAdmin(user) || user?.funcao === FUNCAO_FINANCEIRO
 }
