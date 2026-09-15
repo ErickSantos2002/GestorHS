@@ -335,6 +335,16 @@ Bloco "Empresas vinculadas": lista `GET /empresas?cliente={id}` com link para ca
   `downgrade`.
 - `CLAUDE.md`: seção curta sobre Empresas, a cópia congelada e `cliente_override` congelado.
 
+## Ajustes decididos no plano (15/09/2026)
+
+Ao ler o código para o plano de implementação, cinco pontos mudaram em relação ao texto acima:
+
+1. **O backfill da cópia congelada sai da migração e vai para `migrar_filiais_propostas`.** Nenhuma migração do repo importa `app/`, e a regra precisa ser a mesma do PDF. Enquanto a cópia estiver nula, a API e o PDF usam `destinatario_legado` (cadastro + override), com resultado idêntico ao de hoje.
+2. **`destinatario` é opcional também no `POST` do backend** — há propostas sem cliente em produção e nos testes. Quem exige é o modal.
+3. **O 409 de documento duplicado devolve `detail` string**, não objeto: o cliente HTTP do frontend só lê string. O modal acha o cadastro existente chamando `/propostas/destinatarios`.
+4. **A busca da listagem de propostas usa JOIN** em `clientes` e `empresas`, não operador JSON.
+5. **`unificar_clientes.REFERENCIAS` ganha `("empresas", "cliente")`**, senão o script recusa rodar.
+
 ## Fase 2 (fora desta spec)
 
 Cadastro automático no Tiny ERP a cada Empresa nova. Começa pela documentação da API. Perguntas em
