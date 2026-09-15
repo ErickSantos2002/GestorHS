@@ -2,7 +2,7 @@
 // aceita quase tudo opcional e o submit implicito do browser (Enter) chegou a
 // criar propostas em branco — ver PropostaModal.
 
-import { camposFaltando, OBRIGATORIOS_PROPOSTA, ROTULOS_DADOS, type DadosEmpresa } from '../empresas/dadosEmpresa'
+import { camposFaltando, OBRIGATORIOS_PROPOSTA, ROTULOS_DADOS, type CampoDados, type DadosEmpresa } from '../empresas/dadosEmpresa'
 import type { Selecao } from './destinatario'
 
 /**
@@ -17,12 +17,20 @@ export function htmlTemTexto(html?: string | null): boolean {
 export const ROTULO_CONTATO = 'Contato (aos cuidados de)'
 
 /**
+ * O documento so e' exigido de empresa NOVA: no cadastro existente ele e'
+ * somente leitura, e Cliente antigo sem CNPJ/CPF nao pode virar beco sem saida.
+ */
+export function obrigatoriosDaProposta(exigirDocumento: boolean): readonly CampoDados[] {
+  return exigirDocumento ? OBRIGATORIOS_PROPOSTA : OBRIGATORIOS_PROPOSTA.filter((c) => c !== 'documento')
+}
+
+/**
  * Rotulos dos obrigatorios vazios, na ordem do formulario. E-mail, telefone e
  * "aos cuidados de" nascem vazios de proposito e so sao conferidos porque estao
  * aqui — herdados do cadastro, ninguem olhava (pedido do comercial).
  */
-export function camposObrigatoriosFaltando(dados: DadosEmpresa, contato: string): string[] {
-  const faltando = camposFaltando(dados, OBRIGATORIOS_PROPOSTA).map((c) => ROTULOS_DADOS[c])
+export function camposObrigatoriosFaltando(dados: DadosEmpresa, contato: string, exigirDocumento: boolean): string[] {
+  const faltando = camposFaltando(dados, obrigatoriosDaProposta(exigirDocumento)).map((c) => ROTULOS_DADOS[c])
   if (contato.trim() === '') faltando.push(ROTULO_CONTATO)
   return faltando
 }
@@ -40,7 +48,7 @@ export interface PropostaValidavel {
 export function validarProposta(p: PropostaValidavel): string | null {
   if (p.selecao == null) return 'Escolha o destinatário antes de salvar a proposta.'
   if (p.carregando) return 'Aguarde o carregamento dos dados do destinatário.'
-  const faltando = camposObrigatoriosFaltando(p.dados, p.contato)
+  const faltando = camposObrigatoriosFaltando(p.dados, p.contato, p.selecao.tipo === 'nova_empresa')
   if (faltando.length) return `Preencha os campos obrigatórios: ${faltando.join(', ')}.`
   if (!htmlTemTexto(p.outrosItens)) return 'Preencha "Outros Itens ou Serviços" — use o botao Aplicar modelo.'
   return null

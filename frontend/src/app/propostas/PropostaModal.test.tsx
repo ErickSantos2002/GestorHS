@@ -120,10 +120,8 @@ function aplicarModelo() {
 
 // E-mail, telefone e contato nascem SEMPRE vazios (nunca herdam do cadastro) e
 // sao obrigatorios, entao todo teste que chega ao submit precisa digitar os
-// tres. Usamos de proposito os mesmos valores do cadastro: assim eles nao viram
-// override e nao sujam as asercoes sobre `cliente_override`. O contato nao tem
-// equivalente no cadastro (o cliente de teste vem com `contato: null`), mas ele
-// vai para a coluna da proposta, nao para o override.
+// tres. Usamos os mesmos valores do cadastro; o contato vai para a coluna da
+// proposta.
 function preencherEmail(valor = 'cliente@teste.com') {
   fireEvent.change(screen.getByLabelText('E-mail *'), { target: { value: valor } })
 }
@@ -264,7 +262,6 @@ describe('PropostaModal', () => {
       descricao_entrega: null,
       endereco_entrega_diferente: false,
       endereco_entrega: null,
-      cliente_override: null,
       observacoes: null,
       assinatura: null,
       itens: [],
@@ -395,8 +392,10 @@ describe('PropostaModal — destinatario', () => {
     preencherObrigatorios('filial@teste.com')
     aplicarModelo()
     fireEvent.click(screen.getByText('Criar Proposta'))
+    expect(await screen.findByText('Documento já cadastrado como Empresa: Filial Norte')).toBeInTheDocument()
     fireEvent.click(await screen.findByRole('button', { name: 'Usar este cadastro' }))
     await waitFor(() => expect(empresasObter).toHaveBeenCalledWith(9))
+    expect(screen.queryByText('Documento já cadastrado como Empresa: Filial Norte')).toBeNull()
     expect((await screen.findByLabelText(/Razão social/) as HTMLInputElement).value).toBe('Filial Norte')
     expect((screen.getByLabelText('E-mail *') as HTMLInputElement).value).toBe('filial@teste.com')   // o digitado fica
   })
@@ -416,6 +415,42 @@ describe('PropostaModal — destinatario', () => {
     expect((await screen.findByLabelText(/Razão social/) as HTMLInputElement).value).toBe('Filial Norte')
     expect(empresasObter).toHaveBeenCalledWith(9)
     expect(clientesObter).not.toHaveBeenCalled()
+  })
+
+  it('editar proposta mantem os aparelhos salvos que estao na frota', async () => {
+    propostasObter.mockResolvedValue({ ...PROPOSTA_BASE, aparelhos: [{ id: 1, equipamento_cliente: 42 }] })
+    propostasAtualizar.mockResolvedValue({ id: 900 })
+    render(<PropostaModal propostaId={900} onClose={vi.fn()} />)
+    const caixa = (await screen.findByLabelText('Bafômetro X')) as HTMLInputElement
+    expect(caixa.checked).toBe(true)
+    expect(screen.queryByText(/não estão mais na frota/)).toBeNull()
+    aplicarModelo()
+    preencherObrigatorios()
+    fireEvent.click(screen.getByText('Salvar Alterações'))
+    await waitFor(() => expect(propostasAtualizar).toHaveBeenCalled())
+    expect(propostasAtualizar.mock.calls[0][1].aparelhos).toEqual([{ equipamento_cliente: 42 }])
+  })
+
+  it('aparelho salvo que saiu da frota e retirado da proposta com aviso', async () => {
+    propostasObter.mockResolvedValue({
+      ...PROPOSTA_BASE, aparelhos: [{ id: 1, equipamento_cliente: 42 }, { id: 2, equipamento_cliente: 77 }],
+    })
+    propostasAtualizar.mockResolvedValue({ id: 900 })
+    render(<PropostaModal propostaId={900} onClose={vi.fn()} />)
+    await screen.findByLabelText('Bafômetro X')
+    expect(await screen.findByText('1 aparelho(s) não estão mais na frota e foram retirados da proposta.')).toBeInTheDocument()
+    aplicarModelo()
+    preencherObrigatorios()
+    fireEvent.click(screen.getByText('Salvar Alterações'))
+    await waitFor(() => expect(propostasAtualizar).toHaveBeenCalled())
+    expect(propostasAtualizar.mock.calls[0][1].aparelhos).toEqual([{ equipamento_cliente: 42 }])
+  })
+
+  it('empresa sem matriz retira os aparelhos salvos com aviso', async () => {
+    propostasObter.mockResolvedValue({ ...PROPOSTA_BASE, empresa: 9, cliente: null, aparelhos: [{ id: 1, equipamento_cliente: 42 }] })
+    empresasObter.mockResolvedValue({ ...EMPRESA, cliente: null, matriz_nome: null })
+    render(<PropostaModal propostaId={900} onClose={vi.fn()} />)
+    expect(await screen.findByText('1 aparelho(s) não estão mais na frota e foram retirados da proposta.')).toBeInTheDocument()
   })
 
   it('submeter sem destinatario nao cria proposta', async () => {

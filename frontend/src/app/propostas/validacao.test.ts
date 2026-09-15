@@ -28,7 +28,7 @@ describe('validacao', () => {
 
   it('lista os obrigatorios faltando, incluindo o contato', () => {
     const dados = { ...COMPLETO, email: '', telefone: ' ' }
-    expect(camposObrigatoriosFaltando(dados, '')).toEqual(['Telefone', 'E-mail', 'Contato (aos cuidados de)'])
+    expect(camposObrigatoriosFaltando(dados, '', true)).toEqual(['Telefone', 'E-mail', 'Contato (aos cuidados de)'])
     expect(validarProposta({ selecao: SELECAO, dados, contato: '', outrosItens: '<p>x</p>' }))
       .toBe('Preencha os campos obrigatórios: Telefone, E-mail, Contato (aos cuidados de).')
   })
@@ -36,6 +36,13 @@ describe('validacao', () => {
   it('exige outros itens', () => {
     expect(validarProposta({ selecao: SELECAO, dados: COMPLETO, contato: 'Maria', outrosItens: '<p><br></p>' }))
       .toBe('Preencha "Outros Itens ou Serviços" — use o botao Aplicar modelo.')
+  })
+
+  it('documento so e obrigatorio para empresa nova', () => {
+    const semDoc = { ...COMPLETO, documento: '' }
+    expect(validarProposta({ selecao: SELECAO, dados: semDoc, contato: 'Maria', outrosItens: '<p>x</p>' })).toBeNull()
+    expect(validarProposta({ selecao: { tipo: 'nova_empresa', matriz: null }, dados: semDoc, contato: 'Maria', outrosItens: '<p>x</p>' }))
+      .toBe('Preencha os campos obrigatórios: CNPJ / CPF.')
   })
 
   it('ok', () => {

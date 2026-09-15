@@ -19,7 +19,7 @@ import { descreverVencimento } from './aparelhosFrota'
 import { clientesApi, type Cliente } from '../clientes/api'
 import { empresasApi, destinatariosApi, type DestinatarioResultado, type Empresa } from '../empresas/api'
 import {
-  dadosDeCliente, dadosDeEmpresa, dadosVazios, OBRIGATORIOS_PROPOSTA, sugestoesDeCliente, sugestoesDeEmpresa,
+  dadosDeCliente, dadosDeEmpresa, dadosVazios, sugestoesDeCliente, sugestoesDeEmpresa,
   type DadosEmpresa,
 } from '../empresas/dadosEmpresa'
 import { DadosEmpresaForm } from '../empresas/DadosEmpresaForm'
@@ -32,7 +32,7 @@ import {
 import { buildDefaultOtherItems, buildPhoebusOtherItems, DEFAULT_NOTES } from './propostaDefaults'
 import { DestinatarioBusca } from './DestinatarioBusca'
 import { clienteDaFrota, descreverSelecao, montarDestinatario, type Selecao } from './destinatario'
-import { camposObrigatoriosFaltando, htmlTemTexto, ROTULO_CONTATO, validarProposta } from './validacao'
+import { camposObrigatoriosFaltando, htmlTemTexto, obrigatoriosDaProposta, ROTULO_CONTATO, validarProposta } from './validacao'
 
 const sanitizarDecimal = (v: string) => v.replace(/[^0-9,]/g, '').replace(/(,.*),/g, '$1')
 const converterDecimal = (v: string) => parseFloat(v.replace(',', '.')) || 0
@@ -124,6 +124,8 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
   const [carregandoFrota, setCarregandoFrota] = useState(false)
   const [aparelhosSelecionados, setAparelhosSelecionados] = useState<number[]>([])
   const [buscaAparelho, setBuscaAparelho] = useState('')
+  /** Aparelhos salvos que nao estao mais na frota e foram retirados ao abrir. */
+  const [aparelhosRetirados, setAparelhosRetirados] = useState(0)
 
   // ─── Catálogo (Serviços + Produtos) para busca por linha de item ──────
   // A própria Descrição é a busca: digitar já filtra o catálogo; não existe
@@ -152,14 +154,27 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
 
   // ─── Destinatario de proposta ja salva (edicao/duplicacao) ────────────
   // Abre com o cadastro ATUAL, nao com a copia congelada: salvar refaz a copia.
-  async function carregarDestinatario(p: { empresa: number | null; cliente: number | null }) {
-    if (p.empresa == null && p.cliente == null) return
+  // Aparelho salvo sem frota para conferir (sem destinatario, empresa sem
+  // matriz) sairia invisivel no payload e o servidor recusaria (422).
+  async function carregarDestinatario(p: {
+    empresa: number | null; cliente: number | null; aparelhos: { equipamento_cliente: number | null }[]
+  }) {
+    const salvos = p.aparelhos.filter((a) => a.equipamento_cliente != null).length
+    const retirarTodos = () => {
+      setAparelhosSelecionados([])
+      setAparelhosRetirados(salvos)
+    }
+    if (p.empresa == null && p.cliente == null) {
+      retirarTodos()
+      return
+    }
     setCarregandoDestinatario(true)
     try {
       if (p.empresa != null) {
         const empresa = await empresasApi.obter(p.empresa)
         setSelecao({ tipo: 'empresa', empresa })
         setDados(dadosDeEmpresa(empresa))
+        if (empresa.cliente == null) retirarTodos()
       } else if (p.cliente != null) {
         const cliente = await clientesApi.obter(p.cliente)
         setSelecao({ tipo: 'cliente', cliente })
@@ -167,6 +182,7 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
         setDados(dadosDeCliente(cliente))
       }
     } catch {
+      setAparelhosSelecionados([])
       setErro('Falha ao carregar os dados do destinatário')
     } finally {
       setCarregandoDestinatario(false)
@@ -302,6 +318,21 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
     return () => { vivo = false }
   }, [frotaClienteId])
 
+  // ─── Aparelhos salvos que sairam da frota ─────────────────────────────
+  // Transferido, matriz trocada: o aparelho continuaria marcado sem aparecer
+  // na lista e o servidor recusaria salvar. Roda so quando a frota chega —
+  // numa troca de destinatario a selecao ja foi limpa antes.
+  useEffect(() => {
+    if (!frota) return
+    const ids = new Set(frota.map((a) => a.id))
+    const fora = aparelhosSelecionados.filter((id) => !ids.has(id))
+    if (fora.length === 0) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setAparelhosSelecionados((cur) => cur.filter((id) => ids.has(id)))
+    setAparelhosRetirados(fora.length)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [frota])
+
   // ─── Detecção heurística de Phoebus entre os aparelhos marcados ───────
   useEffect(() => {
     if (!frota) return
@@ -335,6 +366,8 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
   // ─── Destinatario handlers ────────────────────────────────────────────
   async function escolherDestinatario(r: DestinatarioResultado, manterContato?: { email: string; telefone: string }) {
     setConflito(null)
+    setErro('')
+    setAparelhosRetirados(0)
     setTentouSalvar(false)
     setCarregandoDestinatario(true)
     try {
@@ -357,6 +390,8 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
 
   function cadastrarEmpresa(documento: string) {
     setConflito(null)
+    setErro('')
+    setAparelhosRetirados(0)
     setTentouSalvar(false)
     setSelecao({ tipo: 'nova_empresa', matriz: ultimoCliente ? { id: ultimoCliente.id, nome: ultimoCliente.nome } : null })
     setDados(dadosVazios(documento))
@@ -366,6 +401,8 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
     setSelecao(null)
     setDados(dadosVazios())
     setConflito(null)
+    setErro('')
+    setAparelhosRetirados(0)
     setTentouSalvar(false)
   }
 
@@ -375,7 +412,8 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
   const nomeDoCadastro = selecao?.tipo === 'cliente'
     ? selecao.cliente.nome
     : selecao?.tipo === 'empresa' ? selecao.empresa.nome : null
-  const faltandoContato = tentouSalvar && camposObrigatoriosFaltando(dados, form.contato ?? '').includes(ROTULO_CONTATO)
+  const exigirDocumento = selecao?.tipo === 'nova_empresa'
+  const faltandoContato = tentouSalvar && camposObrigatoriosFaltando(dados, form.contato ?? '', exigirDocumento).includes(ROTULO_CONTATO)
 
   // ─── Aparelhos ─────────────────────────────────────────────────────────
   function toggleAparelho(id: number) {
@@ -543,7 +581,7 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
                     onChange={setDados}
                     documentoTravado={selecao.tipo !== 'nova_empresa'}
                     sugestoes={sugestoes}
-                    obrigatorios={OBRIGATORIOS_PROPOSTA}
+                    obrigatorios={obrigatoriosDaProposta(exigirDocumento)}
                     destacarFaltando={tentouSalvar}
                     idPrefixo="dest"
                   >
@@ -614,6 +652,11 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
           </Secao>
 
           {/* ── Aparelhos ── */}
+          {aparelhosRetirados > 0 && (
+            <p className="text-sm font-medium text-warning">
+              {aparelhosRetirados} aparelho(s) não estão mais na frota e foram retirados da proposta.
+            </p>
+          )}
           {frotaClienteId != null && (
             <Secao titulo="Aparelhos" icon={<IconFrota className="w-3.5 h-3.5" />}>
               {carregandoFrota ? (
