@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.core.certificado_pdf import renderizar_pdf
 from app.core.config import settings
+from app.core.empresa import destinatario_legado, linha_endereco
 from app.models.proposta import Proposta
 
 UPLOAD_DIR = Path(settings.UPLOAD_DIR)
@@ -358,56 +359,25 @@ def montar_html(proposta, cliente) -> str:
     (com `.itens` carregado); `cliente` é o `Cliente` vinculado (ou None)."""
     itens = proposta.itens or []
 
-    # ── Dados do cliente ──
-    cliente_display = "—"
-    cliente_documento = ""
-    cliente_endereco = ""
+    # ── Dados do destinatario ──
+    # A proposta guarda a copia congelada do destinatario (Cliente ou Empresa)
+    # de quando foi salva: o PDF nao muda quando o cadastro muda. Proposta
+    # anterior as Empresas, ainda nao congelada, cai no cadastro + override —
+    # exatamente o que este PDF mostrava antes.
+    dest = proposta.destinatario or destinatario_legado(cliente, proposta.cliente_override)
+    cliente_display = _esc(dest.get("nome") or "—")
+    cliente_documento = _fmt_documento(dest.get("documento"))
+    cliente_endereco = _esc(linha_endereco(dest))
+    municipio = dest.get("municipio") or ""
+    estado = dest.get("estado") or ""
+    cliente_email = _esc(dest.get("email") or "")
+    cliente_telefone = _esc(dest.get("telefone") or "")
+    cliente_cep = _fmt_cep(dest.get("cep"))
     cliente_cidade_estado = ""
-    cliente_telefone = ""
-    cliente_email = ""
-    cliente_cep = ""
 
-    municipio = ""
-    estado = ""
-
-    if cliente:
-        cliente_display = _esc(cliente.nome or "—")
-        cliente_documento = _fmt_documento(cliente.cgc or cliente.cpf)
-        cliente_endereco = _esc(cliente.endereco or "")
-        municipio = cliente.municipio or ""
-        estado = cliente.estado or ""
-        cliente_email = _esc(cliente.email or "")
-        cliente_telefone = _esc(cliente.celular or cliente.whatsapp or cliente.telefones or "")
-        cliente_cep = _fmt_cep(cliente.cep)
-
-    # ── "Aos cuidados de" — sem entidade Person no Gestor: campo texto da proposta ──
-    aos_cuidados = proposta.contato or ""
-
-    # ── Override editável (dados editados só nesta proposta) ──
-    # Campos preenchidos substituem os do cadastro; os vazios mantêm o do Cliente.
-    ov = proposta.cliente_override or {}
-    if ov.get("nome"):
-        cliente_display = _esc(ov["nome"])
-    if ov.get("documento"):
-        cliente_documento = _fmt_documento(ov["documento"])
-    if ov.get("endereco"):
-        cliente_endereco = _esc(ov["endereco"])
-    # Municipio e estado sao resolvidos INDEPENDENTEMENTE: o override pode
-    # trazer so um dos dois (ex.: a lupa de CEP preenche so o municipio
-    # quando o estado ja bate com o cadastro) — o outro precisa continuar
-    # vindo do cadastro em vez de sumir da proposta (ACHADO 1 do review).
-    if ov.get("municipio"):
-        municipio = ov["municipio"]
-    if ov.get("estado"):
-        estado = ov["estado"]
-    if ov.get("email"):
-        cliente_email = _esc(ov["email"])
-    if ov.get("telefone"):
-        cliente_telefone = _esc(ov["telefone"])
-    if ov.get("contato"):
-        aos_cuidados = ov["contato"]
-    if ov.get("cep"):
-        cliente_cep = _fmt_cep(ov["cep"])
+    # "Aos cuidados de" e' coluna da proposta. Proposta antiga que gravou o
+    # contato dentro do cliente_override (congelado) continua saindo com ele.
+    aos_cuidados = (proposta.cliente_override or {}).get("contato") or proposta.contato or ""
 
     if municipio and estado:
         cliente_cidade_estado = _esc(f"{municipio} - {estado}")
