@@ -10,7 +10,15 @@ const CLIENTE = { tipo: 'cliente', id: 5, nome: 'Rumo Matriz', documento: '08857
 const EMPRESA = { tipo: 'empresa', id: 9, nome: 'Rumo Filial', documento: '36312056000552', municipio: 'Curitiba', estado: 'PR', matriz_id: 5, matriz_nome: 'Rumo Matriz' }
 
 describe('DestinatarioBusca', () => {
-  beforeEach(() => buscar.mockReset())
+  // Bloco (nao arrow de expressao unica): `mockReset()` retorna o proprio mock, e um
+  // beforeEach que RETORNA uma funcao faz o vitest tratar essa funcao como teardown do
+  // teste e chama-la sozinha, sem argumentos, apos o teste — reinvocando `buscar()` por
+  // fora do componente. Nos testes de sucesso isso e inofensivo (promise resolvida sem
+  // handler nao da erro); no teste de erro essa segunda chamada devolve uma promise
+  // rejeitada que ninguem trata, e o vitest reporta como falha do teste ja finalizado.
+  beforeEach(() => {
+    buscar.mockReset()
+  })
 
   it('marca cada resultado como Cliente ou Empresa e escolhe', async () => {
     buscar.mockResolvedValue([CLIENTE, EMPRESA])
