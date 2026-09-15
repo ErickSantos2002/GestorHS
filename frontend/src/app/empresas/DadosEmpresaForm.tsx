@@ -155,7 +155,7 @@ export function DadosEmpresaForm({
           <span className="text-slate-400">Preenchido pelo {resultado.origem}: {resultado.campos.join(', ')}.</span>
           {resultado.situacao && (
             <span className={resultado.situacao === 'ATIVA' ? 'text-slate-500' : 'font-semibold text-warning'}>
-              Situacao na Receita: {resultado.situacao}
+              Situação na Receita: {resultado.situacao}
             </span>
           )}
           <button type="button" onClick={desfazer} className="font-semibold text-primary hover:underline">Desfazer</button>
