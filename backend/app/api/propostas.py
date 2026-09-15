@@ -146,7 +146,10 @@ def buscar_destinatarios(
     """Busca unica do modal: Clientes e Empresas ATIVOS por nome ou documento.
     Lista vazia para um documento completo e' o que faz o modal oferecer
     "Cadastrar empresa"."""
-    termo = f"%{q.strip()}%"
+    q = q.strip()
+    if len(q) < 2:
+        raise HTTPException(status_code=422, detail="termo de busca muito curto")
+    termo = f"%{q}%"
     digitos = re.sub(r"\D", "", q)
 
     def filtro(model):
@@ -263,7 +266,7 @@ def duplicar(
     proposta nasce sem histórico."""
     original = _para_escrita(db, proposta_id)
     dados = PropostaCreate(
-        contato=original.contato,
+        contato=original.contato or (original.cliente_override or {}).get("contato"),
         vendedor=usuario.nome,
         data=date.today(),
         intro=original.intro,

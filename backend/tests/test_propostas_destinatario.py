@@ -247,3 +247,37 @@ def test_busca_de_destinatario_sem_resultado(client_lab):
 
 def test_busca_de_destinatario_exige_termo(client_lab):
     assert client_lab.get("/propostas/destinatarios", params={"q": "a"}).status_code == 422
+
+
+def test_get_proposta_legada_traz_o_contato_do_override(client_comercial, db_session):
+    cli = _cliente(db_session)
+    p = Proposta(numero=62, cliente=cli.id, contato=None,
+                 cliente_override={"nome": "ACME", "contato": "Tatiane"})
+    db_session.add(p); db_session.commit(); db_session.refresh(p)
+    r = client_comercial.get(f"/propostas/{p.id}")
+    assert r.status_code == 200, r.text
+    assert r.json()["contato"] == "Tatiane"
+
+
+def test_get_proposta_prefere_o_contato_da_coluna(client_comercial, db_session):
+    cli = _cliente(db_session)
+    p = Proposta(numero=64, cliente=cli.id, contato="Joana",
+                 cliente_override={"nome": "ACME", "contato": "Tatiane"})
+    db_session.add(p); db_session.commit(); db_session.refresh(p)
+    assert client_comercial.get(f"/propostas/{p.id}").json()["contato"] == "Joana"
+
+
+def test_duplicar_proposta_legada_leva_o_contato_do_override(client_comercial, db_session):
+    cli = _cliente(db_session)
+    p = Proposta(numero=63, cliente=cli.id, contato="",
+                 cliente_override={"nome": "ACME", "contato": "Tatiane"})
+    db_session.add(p); db_session.commit(); db_session.refresh(p)
+    r = client_comercial.post(f"/propostas/{p.id}/duplicar")
+    assert r.status_code == 201, r.text
+    assert r.json()["contato"] == "Tatiane"
+
+
+def test_busca_de_destinatario_so_espacos_e_422(client_lab):
+    r = client_lab.get("/propostas/destinatarios", params={"q": "   "})
+    assert r.status_code == 422
+    assert client_lab.get("/propostas/destinatarios", params={"q": " a "}).status_code == 422

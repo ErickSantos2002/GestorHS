@@ -376,8 +376,9 @@ def montar_html(proposta, cliente) -> str:
     cliente_cidade_estado = ""
 
     # "Aos cuidados de" e' coluna da proposta. Proposta antiga que gravou o
-    # contato dentro do cliente_override (congelado) continua saindo com ele.
-    aos_cuidados = (proposta.cliente_override or {}).get("contato") or proposta.contato or ""
+    # contato so dentro do cliente_override continua saindo com ele — mas o
+    # contato digitado de novo no modal (coluna) vence.
+    aos_cuidados = proposta.contato or (proposta.cliente_override or {}).get("contato") or ""
 
     if municipio and estado:
         cliente_cidade_estado = _esc(f"{municipio} - {estado}")

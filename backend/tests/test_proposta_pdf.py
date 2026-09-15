@@ -227,3 +227,12 @@ def test_montar_html_contato_legado_do_override_continua_valendo():
     cli = Cliente(nome="ACME", cgc="08857492000148")
     p = Proposta(id=4, numero=102, contato="", cliente_override={"contato": "Tatiane"})
     assert "Tatiane" in proposta_pdf.montar_html(p, cli)
+
+
+def test_montar_html_contato_da_coluna_vence_o_do_override():
+    from app.core import proposta_pdf
+    from app.models import Cliente, Proposta
+    cli = Cliente(nome="ACME", cgc="08857492000148")
+    p = Proposta(id=5, numero=103, contato="Joana", cliente_override={"contato": "Tatiane"})
+    html = proposta_pdf.montar_html(p, cli)
+    assert "Joana" in html and "Tatiane" not in html

@@ -276,6 +276,9 @@ def montar_saida(db: Session, proposta: Proposta) -> PropostaOut:
     saida.destinatario = dest
     saida.cliente_nome = (dest or {}).get("nome")
     saida.cliente_documento = (dest or {}).get("documento")
+    # proposta antiga com o contato so no override: o modal abre com ele
+    if not proposta.contato:
+        saida.contato = (proposta.cliente_override or {}).get("contato") or saida.contato
     return saida
 
 
