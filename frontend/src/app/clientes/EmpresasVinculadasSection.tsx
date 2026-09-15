@@ -18,8 +18,8 @@ export function EmpresasVinculadasSection({ clienteId }: { clienteId: number }) 
   if (empresas.length === 0) return null
 
   return (
-    <section className="rounded-2xl border border-border bg-background-surface p-5 space-y-3">
-      <h2 className="text-sm font-bold text-slate-200">Empresas vinculadas</h2>
+    <div className="rounded-2xl bg-background-surface border border-border p-5 space-y-4">
+      <h2 className="text-sm font-semibold text-slate-100">Empresas vinculadas</h2>
       <ul className="divide-y divide-border">
         {empresas.map((e) => (
           <li key={e.id} className="py-2">
@@ -30,6 +30,6 @@ export function EmpresasVinculadasSection({ clienteId }: { clienteId: number }) 
           </li>
         ))}
       </ul>
-    </section>
+    </div>
   )
 }
