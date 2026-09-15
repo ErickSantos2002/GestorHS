@@ -44,8 +44,44 @@ export interface PropostaAparelhoCreate {
   equipamento_cliente: number
 }
 
+/** O que o modal manda: o servidor grava no cadastro e monta a copia. */
+export interface DestinatarioIn {
+  tipo: 'cliente' | 'empresa' | 'nova_empresa'
+  id: number | null
+  matriz: number | null
+  nome: string
+  documento: string | null
+  cep: string | null
+  endereco: string | null
+  numero: string | null
+  complemento: string | null
+  bairro: string | null
+  municipio: string | null
+  estado: string | null
+  email: string
+  telefone: string
+}
+
+/** Copia congelada devolvida pela API (`propostas.destinatario`). */
+export interface DestinatarioCopia {
+  tipo: 'cliente' | 'empresa'
+  id: number | null
+  nome: string | null
+  documento: string | null
+  cep: string | null
+  endereco: string | null
+  numero: string | null
+  complemento: string | null
+  bairro: string | null
+  municipio: string | null
+  estado: string | null
+  email: string | null
+  telefone: string | null
+  matriz_id?: number | null
+  matriz_nome?: string | null
+}
+
 export interface PropostaBase {
-  cliente: number | null
   contato: string | null
   vendedor: string | null
   data: string | null
@@ -62,12 +98,12 @@ export interface PropostaBase {
   descricao_entrega: string | null
   endereco_entrega_diferente: boolean
   endereco_entrega: Record<string, unknown> | null
-  cliente_override: Record<string, unknown> | null
   observacoes: string | null
   assinatura: string | null
 }
 
 export interface PropostaCreate extends PropostaBase {
+  destinatario?: DestinatarioIn | null
   itens: PropostaItemCreate[]
   aparelhos: PropostaAparelhoCreate[]
 }
@@ -77,6 +113,9 @@ export type PropostaUpdate = Partial<PropostaCreate>
 export interface Proposta extends PropostaBase {
   id: number
   numero: number
+  cliente: number | null
+  empresa: number | null
+  destinatario: DestinatarioCopia | null
   itens: PropostaItem[]
   aparelhos: PropostaAparelho[]
   total_itens: number
