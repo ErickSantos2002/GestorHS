@@ -260,7 +260,9 @@ def duplicar(
         ],
     )
     with _erros_de_destinatario(db):
-        nova = ps.criar_proposta(db, dados, vendedor=usuario.nome, vinculo=(original.cliente, original.empresa))
+        nova = ps.criar_proposta(db, dados, vendedor=usuario.nome,
+                                 vinculo=(original.cliente, original.empresa),
+                                 copia=ps.destinatario_atual(original))
     return ps.montar_saida(db, nova)
 
 

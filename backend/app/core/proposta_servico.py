@@ -163,12 +163,19 @@ def _aplicar_aparelhos(db: Session, proposta: Proposta, aparelhos) -> None:
 
 
 def criar_proposta(db: Session, dados: PropostaCreate, vendedor: str, *,
-                   vinculo: Optional[tuple[Optional[int], Optional[int]]] = None) -> Proposta:
+                   vinculo: Optional[tuple[Optional[int], Optional[int]]] = None,
+                   copia: Optional[dict] = None) -> Proposta:
     """Cria a proposta com número sequencial. Vendedor = quem criou (imutável).
 
     `dados.destinatario` grava no cadastro e acerta as FKs, tudo na MESMA
-    transacao da proposta. `vinculo=(cliente, empresa)` e' o caminho do duplicar:
-    repete as FKs da original sem mexer em cadastro.
+    transacao da proposta — a copia congelada, nesse caso, vem SEMPRE do
+    cadastro que acabou de ser gravado (`_congelar_destinatario`).
+
+    `vinculo=(cliente, empresa)` e' o caminho do duplicar: repete as FKs da
+    original sem mexer em cadastro. A copia congelada, nesse caso, vem de
+    `copia` (o `destinatario_atual` da original, calculado pelo chamador) —
+    NUNCA recongelada do cadastro, senao uma proposta legada (override
+    congelado, sem `destinatario`) perderia o override ao duplicar.
 
     Retry anti-corrida: dois requests podem calcular o mesmo `proximo_numero`;
     `numero` e' UNIQUE, entao o segundo commit estoura IntegrityError e tenta de
@@ -189,7 +196,12 @@ def criar_proposta(db: Session, dados: PropostaCreate, vendedor: str, *,
         try:
             # add + flush DENTRO do try: o `numero` repetido estoura ja no flush.
             db.add(proposta)
-            _congelar_destinatario(db, proposta)
+            if dados.destinatario is not None:
+                _congelar_destinatario(db, proposta)
+            else:
+                db.flush()
+                if vinculo is not None:
+                    proposta.destinatario = copia
             db.commit()
             db.refresh(proposta)
             return proposta
@@ -239,7 +251,12 @@ def atualizar_proposta(db: Session, proposta: Proposta, dados: PropostaUpdate,
         _aplicar_aparelhos(db, proposta, dados.aparelhos)
     if versao is not None:
         db.add(versao)
-    _congelar_destinatario(db, proposta)
+    # So recongela quando o destinatario veio no payload: um PUT que so mexe em
+    # desconto/itens/etc nao pode reescrever a copia (perderia o override
+    # legado de uma proposta anterior as Empresas, que nao tem `destinatario`
+    # gravado e cai no legado so enquanto a coluna continuar nula).
+    if dados.destinatario is not None:
+        _congelar_destinatario(db, proposta)
     db.commit()
     db.refresh(proposta)
     return proposta

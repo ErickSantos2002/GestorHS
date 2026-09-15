@@ -138,13 +138,40 @@ def test_destinatario_do_payload_nao_e_gravado_como_copia(client_comercial, db_s
     assert "matriz" not in p.destinatario and p.destinatario["documento"] == CNPJ_MATRIZ
 
 
-def test_put_sem_destinatario_refaz_a_copia_com_o_cadastro_atual(client_comercial, db_session):
+def test_put_sem_destinatario_nao_mexe_na_copia(client_comercial, db_session):
     cli = _cliente(db_session)
     pid = client_comercial.post("/propostas", json={"destinatario": _dest("cliente", id=cli.id)}).json()["id"]
     cli.municipio = "Olinda"; db_session.commit()
     r = client_comercial.put(f"/propostas/{pid}", json={"desconto": 10})
     assert r.status_code == 200
-    assert r.json()["destinatario"]["municipio"] == "Olinda"
+    # PUT sem destinatario nao recongela: a copia continua com o municipio de
+    # quando a proposta foi criada, mesmo o cadastro tendo mudado depois.
+    assert r.json()["destinatario"]["municipio"] == "Recife"
+
+
+def test_put_sem_destinatario_preserva_override_legado(client_comercial, db_session):
+    cli = _cliente(db_session)
+    p = Proposta(numero=60, cliente=cli.id,
+                 cliente_override={"nome": "ACME Filial", "documento": "99988877000166"})
+    db_session.add(p); db_session.commit(); db_session.refresh(p)
+
+    r = client_comercial.put(f"/propostas/{p.id}", json={"desconto": 1})
+    assert r.status_code == 200, r.text
+    assert r.json()["cliente_nome"] == "ACME Filial"
+
+    db_session.expire_all()
+    assert db_session.get(Proposta, p.id).destinatario is None
+
+
+def test_duplicar_proposta_legada_leva_os_dados_do_override(client_comercial, db_session):
+    cli = _cliente(db_session)
+    p = Proposta(numero=61, cliente=cli.id,
+                 cliente_override={"nome": "ACME Filial", "documento": "99988877000166"})
+    db_session.add(p); db_session.commit(); db_session.refresh(p)
+
+    r = client_comercial.post(f"/propostas/{p.id}/duplicar")
+    assert r.status_code == 201, r.text
+    assert r.json()["cliente_nome"] == "ACME Filial"
 
 
 def test_trocar_para_empresa_sem_matriz_com_aparelhos_antigos_422(client_comercial, db_session):
