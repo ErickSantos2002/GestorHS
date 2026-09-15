@@ -169,3 +169,14 @@ class PropostaListOut(BaseModel):
     page: int
     page_size: int
     total_pages: int
+
+
+class DestinatarioBuscaOut(BaseModel):
+    tipo: Literal["cliente", "empresa"]
+    id: int
+    nome: Optional[str] = None
+    documento: Optional[str] = None
+    municipio: Optional[str] = None
+    estado: Optional[str] = None
+    matriz_id: Optional[int] = None
+    matriz_nome: Optional[str] = None

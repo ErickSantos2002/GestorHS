@@ -22,7 +22,7 @@ from app.core.empresa import DocumentoInvalido
 from app.core.empresa_servico import DocumentoDuplicado, MatrizInexistente
 from app.schemas.proposta import (
     PropostaCreate, PropostaUpdate, PropostaOut, PropostaListOut, PropostaVersaoOut,
-    PropostaItemCreate, PropostaAparelhoCreate,
+    PropostaItemCreate, PropostaAparelhoCreate, DestinatarioBuscaOut,
 )
 
 router = APIRouter(prefix="/propostas", tags=["propostas"])
@@ -132,6 +132,40 @@ def listar(
         page_size=page_size,
         total_pages=total_pages,
     )
+
+
+_LIMITE_BUSCA = 20
+
+
+@router.get("/destinatarios", response_model=list[DestinatarioBuscaOut])
+def buscar_destinatarios(
+    q: str = Query(..., min_length=2),
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(get_current_usuario),
+):
+    """Busca unica do modal: Clientes e Empresas ATIVOS por nome ou documento.
+    Lista vazia para um documento completo e' o que faz o modal oferecer
+    "Cadastrar empresa"."""
+    termo = f"%{q.strip()}%"
+    digitos = re.sub(r"\D", "", q)
+
+    def filtro(model):
+        filtros = [model.nome.ilike(termo)]
+        if digitos:
+            filtros += [model.cgc.ilike(f"%{digitos}%"), model.cpf.ilike(f"%{digitos}%")]
+        return or_(*filtros)
+
+    clientes = (db.query(Cliente).filter(Cliente.ativo.is_(True), filtro(Cliente))
+                .order_by(Cliente.nome).limit(_LIMITE_BUSCA).all())
+    empresas = (db.query(Empresa).filter(Empresa.ativo.is_(True), filtro(Empresa))
+                .order_by(Empresa.nome).limit(_LIMITE_BUSCA).all())
+    return [
+        *(DestinatarioBuscaOut(tipo="cliente", id=c.id, nome=c.nome, documento=c.cgc or c.cpf,
+                               municipio=c.municipio, estado=c.estado) for c in clientes),
+        *(DestinatarioBuscaOut(tipo="empresa", id=e.id, nome=e.nome, documento=e.cgc or e.cpf,
+                               municipio=e.municipio, estado=e.estado, matriz_id=e.cliente,
+                               matriz_nome=e.matriz_rel.nome if e.matriz_rel else None) for e in empresas),
+    ]
 
 
 @router.post("", response_model=PropostaOut, status_code=status.HTTP_201_CREATED)

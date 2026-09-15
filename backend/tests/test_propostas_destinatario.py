@@ -221,3 +221,29 @@ def test_duplicar_copia_o_vinculo_com_a_empresa(client_comercial, db_session):
     assert nova["empresa"] == emp.id and nova["cliente"] == cli.id
     assert nova["destinatario"]["tipo"] == "empresa"
     assert len(nova["aparelhos"]) == 1
+
+
+def test_busca_de_destinatario_mistura_clientes_e_empresas_ativos(client_lab, db_session):
+    cli = _cliente(db_session, nome="Rumo Matriz")
+    _cliente(db_session, nome="Rumo Inativo", cgc="11222333000181", ativo=False)
+    db_session.add(Empresa(nome="Rumo Filial PR", cgc=CNPJ_FILIAL, cliente=cli.id, municipio="Curitiba", estado="PR"))
+    db_session.commit()
+    r = client_lab.get("/propostas/destinatarios", params={"q": "rumo"})
+    assert r.status_code == 200
+    itens = r.json()
+    assert [(i["tipo"], i["nome"]) for i in itens] == [("cliente", "Rumo Matriz"), ("empresa", "Rumo Filial PR")]
+    assert itens[1]["matriz_id"] == cli.id and itens[1]["matriz_nome"] == "Rumo Matriz"
+
+
+def test_busca_de_destinatario_por_documento_com_mascara(client_lab, db_session):
+    db_session.add(Empresa(nome="Filial", cgc=CNPJ_FILIAL)); db_session.commit()
+    itens = client_lab.get("/propostas/destinatarios", params={"q": "36.312.056/0005-52"}).json()
+    assert len(itens) == 1 and itens[0]["documento"] == CNPJ_FILIAL
+
+
+def test_busca_de_destinatario_sem_resultado(client_lab):
+    assert client_lab.get("/propostas/destinatarios", params={"q": "36312056000552"}).json() == []
+
+
+def test_busca_de_destinatario_exige_termo(client_lab):
+    assert client_lab.get("/propostas/destinatarios", params={"q": "a"}).status_code == 422
