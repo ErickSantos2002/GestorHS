@@ -16,8 +16,15 @@ cópia congelada (`propostas.destinatario`); `cliente_override` fica congelado.
    Esperado na base de 15/09/2026: ~258 propostas a congelar, ~14 empresas a criar, 15
    propostas a ligar. Conferir a lista de **RECUSADOS** (documento que já é de um Cliente —
    decidir à mão se aquela proposta deveria apontar para o cliente) e de **INVALIDOS**
-   (documento com dígito errado ou override sem nome — ficam só congeladas).
-4. **Gravar**: `python -m app.scripts.migrar_filiais_propostas --aplicar`. Idempotente.
+   (documento com dígito errado ou override sem nome — ficam só congeladas). Conferir também
+   o bloco **AVISOS (conferir antes do --aplicar)**: o mesmo documento de override em
+   propostas de clientes diferentes (vira UMA Empresa, com a matriz da primeira proposta) e
+   cliente sem CNPJ/CPF cujo override traz um documento (pode ser o próprio cliente, não uma
+   filial). Os avisos não bloqueiam nada — é para decidir antes de gravar.
+4. **Gravar**: `python -m app.scripts.migrar_filiais_propostas --aplicar`. Idempotente, e
+   rodar de novo **não toca proposta já salva no modelo novo**: só proposta sem cópia
+   congelada (`destinatario` nulo) é candidata a virar filial, então a cópia gravada pelo
+   modal nunca é sobrescrita pelo override antigo.
 
 ## Voltar a versão (downgrade)
 
