@@ -162,7 +162,7 @@ A exportação para Excel tem o motor puro em [backend/app/core/planilha.py](bac
 **Empresa** é uma filial: só dados cadastrais, com matriz **opcional** em `empresas.cliente` — os aparelhos da proposta vêm da frota da matriz. A proposta tem como destinatário um Cliente (`propostas.cliente`) **ou** uma Empresa (`propostas.empresa`, e aí `cliente` é a matriz dela).
 
 - **Não existe mais "dados só nesta proposta".** O modal manda um bloco `destinatario` e o servidor, na mesma transação, grava no cadastro de origem (ou cria a Empresa), acerta as FKs, valida os aparelhos contra a frota e congela a cópia. Núcleo puro em [app/core/empresa.py](backend/app/core/empresa.py).
-- ⚠️ **`propostas.destinatario` é a cópia congelada e só o servidor escreve.** O PDF lê dela; proposta antiga ainda sem cópia cai em `destinatario_legado` (cadastro + override), que reproduz o PDF de antes.
+- ⚠️ **`propostas.destinatario` é a cópia congelada e só o servidor escreve.** Ela só é (re)escrita quando o payload traz `destinatario` — `PUT` sem ele não mexe na cópia (o modal sempre manda). **Duplicar** grava na nova proposta o destinatário atual da original (a cópia, ou o legado), sem recongelar do cadastro. O PDF lê dela; proposta antiga ainda sem cópia cai em `destinatario_legado` (cadastro + override), que reproduz o PDF de antes.
 - ⚠️ **`propostas.cliente_override` está CONGELADA**, como as colunas legadas de nota fiscal: nenhum caminho novo escreve nela.
 - **Documento único somando `clientes` e `empresas`** (`checar_documento_livre`); do lado de Clientes a trava só olha Empresas.
 - **Documento de cadastro existente não muda pela proposta** — o servidor ignora; corrige-se na página de Clientes/Empresas.
