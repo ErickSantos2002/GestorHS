@@ -21,6 +21,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Usuários', icon: <IconUsers />, to: '/app/usuarios', adminOnly: true },
   { label: 'Cadastros', icon: <IconCadastros />, to: '/app/cadastros', adminOnly: true },
   { label: 'Clientes', icon: <IconClientes />, to: '/app/clientes' },
+  { label: 'Empresas', icon: <IconClientes />, to: '/app/empresas' },
   { label: 'Equipamentos', icon: <IconFrota />, to: '/app/equipamentos' },
   { label: 'Ordens', icon: <IconOrdens />, to: '/app/ordens' },
   { label: 'Certificados', icon: <IconCertificado />, to: '/app/certificados' },
