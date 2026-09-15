@@ -103,3 +103,27 @@ def test_gestores_continuam_editando_cliente(client, usuario_admin, usuario_comu
     cid = client.post("/clientes", json={"nome": "ACME 2"}, headers=adm).json()["id"]
     exp = _headers(client, "comum@hs.com", "senha123")
     assert client.patch(f"/clientes/{cid}", json={"bairro": "Centro"}, headers=exp).status_code == 200
+
+
+def test_criar_cliente_com_documento_de_empresa_409(client_admin, db_session):
+    from app.models import Empresa
+    db_session.add(Empresa(nome="Filial X", cgc="36312056000552")); db_session.commit()
+    r = client_admin.post("/clientes", json={"nome": "Novo", "cgc": "36.312.056/0005-52"})
+    assert r.status_code == 409
+    assert r.json()["detail"] == "Documento já cadastrado como Empresa: Filial X"
+
+
+def test_editar_cliente_para_documento_de_empresa_409(client_admin, db_session):
+    from app.models import Cliente, Empresa
+    cli = Cliente(nome="ACME", cgc="08857492000148")
+    db_session.add_all([cli, Empresa(nome="Filial X", cgc="36312056000552")]); db_session.commit()
+    r = client_admin.patch(f"/clientes/{cli.id}", json={"cgc": "36312056000552"})
+    assert r.status_code == 409
+
+
+def test_editar_cliente_com_duplicata_antiga_entre_clientes_continua_permitido(client_admin, db_session):
+    from app.models import Cliente
+    a = Cliente(nome="A", cgc="08857492000148")
+    db_session.add_all([a, Cliente(nome="B", cgc="08857492000148")]); db_session.commit()
+    r = client_admin.patch(f"/clientes/{a.id}", json={"cgc": "08857492000148", "nome": "A2"})
+    assert r.status_code == 200
