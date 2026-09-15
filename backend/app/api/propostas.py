@@ -4,18 +4,22 @@ versionamento) e `core/proposta_pdf.py` (geração/arquivamento de PDF via
 Playwright) — sem regra de negócio aqui, só orquestração HTTP.
 """
 import re
+from contextlib import contextmanager
 from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from pydantic import ValidationError
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.models.database import get_db
-from app.models import Usuario, Cliente, Proposta, PropostaVersao
+from app.models import Usuario, Cliente, Empresa, Proposta, PropostaVersao
 from app.api.deps import get_current_usuario, require_funcao
 from app.api.ordens_acoes import agora
 from app.core import proposta_servico as ps
 from app.core import proposta_pdf
+from app.core.empresa import DocumentoInvalido
+from app.core.empresa_servico import DocumentoDuplicado, MatrizInexistente
 from app.schemas.proposta import (
     PropostaCreate, PropostaUpdate, PropostaOut, PropostaListOut, PropostaVersaoOut,
     PropostaItemCreate, PropostaAparelhoCreate,
@@ -63,6 +67,23 @@ def _content_disposition(download: int, filename: str) -> str:
     return f'{tipo}; filename="{filename}"'
 
 
+@contextmanager
+def _erros_de_destinatario(db: Session):
+    """Traduz as recusas do destinatario em HTTP, desfazendo o que o servico ja
+    tinha escrito na sessao (cadastro editado, empresa nova)."""
+    try:
+        yield
+    except (DocumentoInvalido, MatrizInexistente, ps.DestinatarioInvalido) as e:
+        db.rollback()
+        raise HTTPException(status_code=422, detail=str(e))
+    except ValidationError as e:
+        db.rollback()
+        raise HTTPException(status_code=422, detail=e.errors()[0]["msg"])
+    except (DocumentoDuplicado, ps.DestinatarioInativo) as e:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(e))
+
+
 # ---------------------------------------------------------------------------
 # Listar / criar
 # ---------------------------------------------------------------------------
@@ -82,14 +103,19 @@ def listar(
     if q:
         qs = q.strip()
         termo = f"%{qs}%"
-        filtros = [Cliente.nome.ilike(termo)]
+        filtros = [Cliente.nome.ilike(termo), Empresa.nome.ilike(termo)]
         digitos = re.sub(r"\D", "", qs)
         if digitos and (not qs.isdigit() or len(digitos) >= 11):
             termo_doc = f"%{digitos}%"
-            filtros += [Cliente.cgc.ilike(termo_doc), Cliente.cpf.ilike(termo_doc)]
+            filtros += [Cliente.cgc.ilike(termo_doc), Cliente.cpf.ilike(termo_doc),
+                        Empresa.cgc.ilike(termo_doc), Empresa.cpf.ilike(termo_doc)]
         if qs.isdigit():
             filtros.append(Proposta.numero == int(qs))
-        query = query.outerjoin(Cliente, Proposta.cliente == Cliente.id).filter(or_(*filtros))
+        query = (
+            query.outerjoin(Cliente, Proposta.cliente == Cliente.id)
+            .outerjoin(Empresa, Proposta.empresa == Empresa.id)
+            .filter(or_(*filtros))
+        )
 
     total = query.count()
     total_pages = (total + page_size - 1) // page_size
@@ -114,7 +140,8 @@ def criar(
     db: Session = Depends(get_db),
     usuario: Usuario = Depends(_escrever),
 ):
-    proposta = ps.criar_proposta(db, dados, vendedor=usuario.nome)
+    with _erros_de_destinatario(db):
+        proposta = ps.criar_proposta(db, dados, vendedor=usuario.nome)
     return ps.montar_saida(db, proposta)
 
 
@@ -202,7 +229,6 @@ def duplicar(
     proposta nasce sem histórico."""
     original = _para_escrita(db, proposta_id)
     dados = PropostaCreate(
-        cliente=original.cliente,
         contato=original.contato,
         vendedor=usuario.nome,
         data=date.today(),
@@ -219,7 +245,6 @@ def duplicar(
         descricao_entrega=original.descricao_entrega,
         endereco_entrega_diferente=original.endereco_entrega_diferente,
         endereco_entrega=original.endereco_entrega,
-        cliente_override=original.cliente_override,
         observacoes=original.observacoes,
         assinatura=original.assinatura,
         itens=[
@@ -234,7 +259,8 @@ def duplicar(
             for a in original.aparelhos if a.equipamento_cliente is not None
         ],
     )
-    nova = ps.criar_proposta(db, dados, vendedor=usuario.nome)
+    with _erros_de_destinatario(db):
+        nova = ps.criar_proposta(db, dados, vendedor=usuario.nome, vinculo=(original.cliente, original.empresa))
     return ps.montar_saida(db, nova)
 
 
@@ -296,7 +322,8 @@ def atualizar(
     usuario: Usuario = Depends(_escrever),
 ):
     proposta = _para_escrita(db, proposta_id)
-    atualizado = ps.atualizar_proposta(db, proposta, dados, alterado_por=usuario.nome)
+    with _erros_de_destinatario(db):
+        atualizado = ps.atualizar_proposta(db, proposta, dados, alterado_por=usuario.nome)
     return ps.montar_saida(db, atualizado)
 
 

@@ -33,7 +33,7 @@ def _proposta(client_comercial, db_session, *, cgc="01899414000167"):
     db_session.refresh(cli)
     _logar(client_comercial, "comercial@hs.com")
     r = client_comercial.post("/propostas", json={
-        "cliente": cli.id,
+        "destinatario": {"tipo": "cliente", "id": cli.id, "nome": "CONCREFER", "email": "a@a.com", "telefone": "81999990000"},
         "data": "2026-08-20",
         "itens": [{"descricao": "Calibracao", "quantidade": 2, "preco_un": 395}],
     })
