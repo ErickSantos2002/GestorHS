@@ -20,7 +20,11 @@ e' de um Cliente — decidir a mao —, quando o documento e' invalido e quando 
 override nao tem nome (`empresas.nome` e' NOT NULL).
 
 Idempotente: proposta congelada nao e' congelada de novo, proposta ligada nao
-e' ligada de novo, e o documento que ja virou Empresa e' reaproveitado.
+e' ligada de novo, e o documento que ja virou Empresa e' reaproveitado. Proposta
+que ja tem copia congelada (salva no modelo novo) nunca e' ligada.
+
+AVISOS (so impressos): o mesmo documento de override em propostas de clientes
+diferentes e cliente sem documento cujo override traz um — conferir antes.
 """
 import argparse
 from dataclasses import dataclass, field
@@ -38,6 +42,7 @@ class Plano:
     recusados: dict[str, tuple[int, str]] = field(default_factory=dict)
     invalidos: dict[int, str] = field(default_factory=dict)
     ligar: dict[int, str] = field(default_factory=dict)
+    avisos: list[str] = field(default_factory=list)
 
 
 def _documento_do_override(p: Proposta) -> str:
@@ -45,8 +50,10 @@ def _documento_do_override(p: Proposta) -> str:
 
 
 def _eh_filial(p: Proposta) -> bool:
+    # proposta ja salva no modelo novo (tem copia congelada) nao e' mexida:
+    # religar sobrescreveria a copia nova com o override antigo
     doc = _documento_do_override(p)
-    if not doc or p.empresa is not None:
+    if not doc or p.empresa is not None or p.destinatario is not None:
         return False
     cli = p.cliente_rel
     return cli is None or doc != (cli.cgc or cli.cpf or "")
@@ -56,10 +63,10 @@ def planejar(db) -> Plano:
     plano = Plano()
     propostas = db.query(Proposta).order_by(Proposta.id).all()
     plano.congelar = [p.id for p in propostas if p.destinatario is None]
+    candidatas = [p for p in propostas if _eh_filial(p)]
+    plano.avisos = _avisos(candidatas)
 
-    for p in propostas:
-        if not _eh_filial(p):
-            continue
+    for p in candidatas:
         doc = _documento_do_override(p)
         try:
             normalizar_documento(doc)
@@ -82,6 +89,22 @@ def planejar(db) -> Plano:
             plano.criar[doc] = p.id
         plano.ligar[p.id] = doc
     return plano
+
+
+def _avisos(candidatas: list[Proposta]) -> list[str]:
+    avisos = []
+    clientes_por_doc: dict[str, set] = {}
+    for p in candidatas:
+        clientes_por_doc.setdefault(_documento_do_override(p), set()).add(p.cliente)
+    for doc, clientes in clientes_por_doc.items():
+        if len(clientes) > 1:
+            ids = ", ".join(str(c) for c in sorted(clientes, key=lambda c: (c is None, c or 0)))
+            avisos.append(f"documento {doc} aparece em propostas de clientes diferentes: {ids}")
+    for p in candidatas:
+        cli = p.cliente_rel
+        if cli is not None and not (cli.cgc or cli.cpf):
+            avisos.append(f"proposta id {p.id}: cliente {cli.id} sem documento, override traz {_documento_do_override(p)}")
+    return avisos
 
 
 def _texto(v, limite=None):
@@ -147,6 +170,10 @@ def _imprimir(plano: Plano) -> None:
     for doc, eid in plano.reaproveitar.items():
         print(f"  = {doc} -> empresa {eid}")
     print(f"Propostas a ligar: {len(plano.ligar)}")
+    if plano.avisos:
+        print("AVISOS (conferir antes do --aplicar):")
+        for aviso in plano.avisos:
+            print(f"  * {aviso}")
     if plano.recusados:
         print("RECUSADOS (documento ja e' de um Cliente — decidir a mao):")
         for doc, (cid, nome) in plano.recusados.items():

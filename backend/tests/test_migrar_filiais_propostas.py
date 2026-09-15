@@ -94,3 +94,33 @@ def test_main_sem_aplicar_so_simula(db_session, monkeypatch, capsys):
     mig.main([])
     assert "SIMULACAO" in capsys.readouterr().out
     assert db_session.query(Empresa).count() == 0
+
+
+def test_proposta_ja_salva_no_modelo_novo_nao_e_religada(db_session):
+    cli = Cliente(nome="ACME", cgc=MATRIZ); db_session.add(cli); db_session.flush()
+    salva = Proposta(numero=20, cliente=cli.id, empresa=None,
+                     cliente_override={"nome": "ACME Filial", "documento": FILIAL},
+                     destinatario={"tipo": "cliente", "id": cli.id, "nome": "ACME"})
+    db_session.add(salva); db_session.commit()
+    plano = mig.planejar(db_session)
+    assert plano.ligar == {} and plano.criar == {}
+    mig.aplicar(db_session, plano)
+    db_session.expire_all()
+    p = db_session.get(Proposta, salva.id)
+    assert p.empresa is None and p.destinatario["nome"] == "ACME"
+
+
+def test_avisos_documento_em_clientes_diferentes_e_cliente_sem_documento(db_session):
+    a = Cliente(nome="ACME", cgc=MATRIZ)
+    b = Cliente(nome="Outra", cgc="11222333000181")
+    sem_doc = Cliente(nome="Sem Doc")
+    db_session.add_all([a, b, sem_doc]); db_session.flush()
+    ov = {"nome": "Filial", "documento": FILIAL}
+    pa = Proposta(numero=30, cliente=a.id, cliente_override=ov)
+    pb = Proposta(numero=31, cliente=b.id, cliente_override=dict(ov))
+    pc = Proposta(numero=32, cliente=sem_doc.id, cliente_override={"nome": "X", "documento": "11444777000161"})
+    db_session.add_all([pa, pb, pc]); db_session.commit()
+    plano = mig.planejar(db_session)
+    avisos = "\n".join(plano.avisos)
+    assert FILIAL in avisos and str(a.id) in avisos and str(b.id) in avisos
+    assert f"proposta id {pc.id}" in avisos and "11444777000161" in avisos
