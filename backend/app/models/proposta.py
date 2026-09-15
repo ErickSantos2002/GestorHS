@@ -31,8 +31,8 @@ class Proposta(Base):
     endereco_entrega = Column(JSON, nullable=True)
     # CONGELADA desde as Empresas (set/2026): nenhum caminho novo escreve aqui.
     # Proposta antiga ainda e' lida por core/empresa.destinatario_legado.
-    # Copia dos dados do destinatario no momento do salvamento — escrita so pelo servidor.
     cliente_override = Column(JSON, nullable=True)
+    # Copia dos dados do destinatario no momento do salvamento — escrita so pelo servidor.
     destinatario = Column(JSON, nullable=True)
     observacoes = Column(Text, nullable=True)
     assinatura = Column(String(255), nullable=True)
