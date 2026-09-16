@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Modal } from '../../components/ui/Modal'
 import { Input } from '../../components/ui/Input'
@@ -7,36 +7,32 @@ import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { Spinner } from '../../components/ui/Spinner'
 import { IconButton } from '../../components/ui/IconButton'
-import { IconSearch, IconPlus, IconTrash, IconX, IconClientes, IconFrota, IconTag, IconNote } from '../../components/ui/icons'
+import { IconSearch, IconPlus, IconTrash, IconClientes, IconFrota, IconTag, IconNote } from '../../components/ui/icons'
 import { RichText } from '../../components/ui/RichText'
 import { useAuth } from '../../auth/AuthContext'
 import { ApiError } from '../../lib/api'
 import { hojeISO } from '../../lib/datas'
-import { formatarDocumento, soDigitos, mascararCEP } from '../../lib/documento'
+import { soDigitos } from '../../lib/documento'
 import { cn } from '../../lib/utils'
 import { formatarMoeda } from '../../lib/moeda'
 import { descreverVencimento } from './aparelhosFrota'
-import { clientesApi, type Cliente, type ClienteListItem } from '../clientes/api'
+import { clientesApi, type Cliente } from '../clientes/api'
+import { empresasApi, destinatariosApi, type DestinatarioResultado, type Empresa } from '../empresas/api'
+import {
+  dadosDeCliente, dadosDeEmpresa, dadosVazios, sugestoesDeCliente, sugestoesDeEmpresa,
+  type DadosEmpresa,
+} from '../empresas/dadosEmpresa'
+import { DadosEmpresaForm } from '../empresas/DadosEmpresaForm'
+import { MatrizSelect } from '../empresas/MatrizSelect'
 import { STATUS_CALIBRACAO, type StatusCalibracao } from '../frota/api'
 import {
   propostasApi, frotaDoCliente, servicosApi, produtosApi,
   type PropostaCreate, type PropostaItemCreate, type EquipamentoClienteFrota,
 } from './api'
 import { buildDefaultOtherItems, buildPhoebusOtherItems, DEFAULT_NOTES } from './propostaDefaults'
-import { camposObrigatoriosFaltando, CAMPOS_OBRIGATORIOS, htmlTemTexto, validarProposta } from './validacao'
-import {
-  camposAlterados, mesmoValorDoCadastro, montarRascunho,
-  overrideDoRascunho, ROTULOS_OVERRIDE, type CampoOverride,
-} from './clienteOverride'
-import {
-  buscaApi, aplicarResultadoCep, aplicarResultadoCnpj, mensagemErroBusca,
-  type DraftOverride,
-} from './buscaEndereco'
-
-const UFS = [
-  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG',
-  'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
-]
+import { DestinatarioBusca } from './DestinatarioBusca'
+import { clienteDaFrota, descreverSelecao, montarDestinatario, type Selecao } from './destinatario'
+import { camposObrigatoriosFaltando, htmlTemTexto, obrigatoriosDaProposta, ROTULO_CONTATO, validarProposta } from './validacao'
 
 const sanitizarDecimal = (v: string) => v.replace(/[^0-9,]/g, '').replace(/(,.*),/g, '$1')
 const converterDecimal = (v: string) => parseFloat(v.replace(',', '.')) || 0
@@ -45,7 +41,6 @@ const numeroParaTexto = (n?: number | null) => (n ? String(n).replace('.', ',') 
 const ITEM_VAZIO = (): PropostaItemCreate => ({ descricao: '', sku: '', quantidade: 1, unidade: 'Unid', preco_un: 0 })
 
 const EMPTY_FORM = (): PropostaCreate => ({
-  cliente: null,
   contato: '',
   vendedor: '',
   data: '',
@@ -62,7 +57,6 @@ const EMPTY_FORM = (): PropostaCreate => ({
   descricao_entrega: '',
   endereco_entrega_diferente: false,
   endereco_entrega: null,
-  cliente_override: null,
   observacoes: '',
   assinatura: '',
   itens: [],
@@ -78,33 +72,6 @@ function Secao({ titulo, icon, primeira, children }: { titulo: string; icon?: Re
       </div>
       {children}
     </section>
-  )
-}
-
-function ComLupa({ aoBuscar, carregando, desabilitado, rotulo, children }: {
-  aoBuscar: () => void
-  /** Spinner nesta lupa especifica — so a que de fato esta buscando. */
-  carregando: boolean
-  /** Desabilita o clique — vale para as duas lupas enquanto qualquer busca estiver em andamento,
-   * pra evitar que uma segunda busca dispare com um draft ja desatualizado pela primeira. */
-  desabilitado: boolean
-  rotulo: string
-  children: ReactNode
-}) {
-  return (
-    <div className="flex items-end gap-2">
-      <div className="flex-1 min-w-0">{children}</div>
-      <button
-        type="button"
-        onClick={aoBuscar}
-        disabled={desabilitado}
-        aria-label={rotulo}
-        title={rotulo}
-        className="mb-0.5 shrink-0 rounded-lg border border-border bg-background-elevated p-2.5 text-slate-400 hover:text-primary hover:border-primary/40 disabled:opacity-50 transition-colors"
-      >
-        {carregando ? <Spinner className="w-4 h-4" /> : <IconSearch className="w-4 h-4" />}
-      </button>
-    </div>
   )
 }
 
@@ -135,34 +102,32 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
 
-  // ─── Cliente ──────────────────────────────────────────────────────────
-  const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null)
-  const [clienteBusca, setClienteBusca] = useState('')
-  const [resultadosCliente, setResultadosCliente] = useState<ClienteListItem[]>([])
-  const [buscandoCliente, setBuscandoCliente] = useState(false)
-  const clienteAnteriorRef = useRef<number | null>(null)
+  // ─── Destinatario ─────────────────────────────────────────────────────
+  // Os dados editados aqui ATUALIZAM o cadastro de origem (Cliente/Empresa) ao
+  // salvar — nao existe mais "dados so nesta proposta". A proposta guarda uma
+  // copia congelada, montada pelo servidor.
+  const [selecao, setSelecao] = useState<Selecao | null>(null)
+  const [dados, setDados] = useState<DadosEmpresa>(dadosVazios())
+  const [carregandoDestinatario, setCarregandoDestinatario] = useState(false)
+  /** Ultimo Cliente escolhido: vira a matriz sugerida de uma empresa nova. */
+  const [ultimoCliente, setUltimoCliente] = useState<Cliente | null>(null)
+  /** Cadastro existente com o documento recusado (409) — oferece "Usar este cadastro". */
+  const [conflito, setConflito] = useState<DestinatarioResultado | null>(null)
+  // Marca em vermelho os obrigatorios em branco, mas so depois da primeira
+  // tentativa de salvar: campo vazio ainda nao visitado nao e' erro.
+  const [tentouSalvar, setTentouSalvar] = useState(false)
+  const frotaClienteId = clienteDaFrota(selecao)
+  const frotaAnteriorRef = useRef<number | null | undefined>(undefined)
 
   // ─── Frota / Aparelhos ────────────────────────────────────────────────
   const [frota, setFrota] = useState<EquipamentoClienteFrota[] | null>(null)
   const [carregandoFrota, setCarregandoFrota] = useState(false)
+  /** A busca da frota falhou — diferente de frota vazia (ver o efeito da frota). */
+  const [erroFrota, setErroFrota] = useState(false)
   const [aparelhosSelecionados, setAparelhosSelecionados] = useState<number[]>([])
   const [buscaAparelho, setBuscaAparelho] = useState('')
-
-  // ─── Dados do cliente nesta proposta ──────────────────────────────────
-  // O painel vive aberto: este rascunho E' o estado dos dados do cliente na
-  // proposta, e o `cliente_override` sai DELE (ver `overrideAtual`), nunca o
-  // contrario. Antes era um rascunho paralelo que so entrava na proposta no
-  // botao "Aplicar" — e quem esquecia de clicar salvava sem as edicoes.
-  const [overrideDraft, setOverrideDraft] = useState<Partial<Record<CampoOverride, string>>>({})
-  // Marca em vermelho os obrigatorios em branco, mas so depois da primeira
-  // tentativa de salvar: campo vazio ainda nao visitado nao e' erro.
-  const [tentouSalvar, setTentouSalvar] = useState(false)
-  const [buscando, setBuscando] = useState<'cep' | 'cnpj' | null>(null)
-  const [erroBusca, setErroBusca] = useState('')
-  const [resultadoBusca, setResultadoBusca] = useState<
-    { origem: 'CEP' | 'CNPJ'; campos: string[]; situacao?: string } | null
-  >(null)
-  const [draftAnterior, setDraftAnterior] = useState<DraftOverride | null>(null)
+  /** Aparelhos salvos que nao estao mais na frota e foram retirados ao abrir. */
+  const [aparelhosRetirados, setAparelhosRetirados] = useState(0)
 
   // ─── Catálogo (Serviços + Produtos) para busca por linha de item ──────
   // A própria Descrição é a busca: digitar já filtra o catálogo; não existe
@@ -189,6 +154,43 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
       .catch(() => setCatalogo({ servicos: [], produtos: [] }))
   }, [])
 
+  // ─── Destinatario de proposta ja salva (edicao/duplicacao) ────────────
+  // Abre com o cadastro ATUAL, nao com a copia congelada: salvar refaz a copia.
+  // Aparelho salvo sem frota para conferir (sem destinatario, empresa sem
+  // matriz) sairia invisivel no payload e o servidor recusaria (422).
+  async function carregarDestinatario(p: {
+    empresa: number | null; cliente: number | null; aparelhos: { equipamento_cliente: number | null }[]
+  }) {
+    const salvos = p.aparelhos.filter((a) => a.equipamento_cliente != null).length
+    const retirarTodos = () => {
+      setAparelhosSelecionados([])
+      setAparelhosRetirados(salvos)
+    }
+    if (p.empresa == null && p.cliente == null) {
+      retirarTodos()
+      return
+    }
+    setCarregandoDestinatario(true)
+    try {
+      if (p.empresa != null) {
+        const empresa = await empresasApi.obter(p.empresa)
+        setSelecao({ tipo: 'empresa', empresa })
+        setDados(dadosDeEmpresa(empresa))
+        if (empresa.cliente == null) retirarTodos()
+      } else if (p.cliente != null) {
+        const cliente = await clientesApi.obter(p.cliente)
+        setSelecao({ tipo: 'cliente', cliente })
+        setUltimoCliente(cliente)
+        setDados(dadosDeCliente(cliente))
+      }
+    } catch {
+      setAparelhosSelecionados([])
+      setErro('Falha ao carregar os dados do destinatário')
+    } finally {
+      setCarregandoDestinatario(false)
+    }
+  }
+
   // ─── Carrega proposta existente (edição) ──────────────────────────────
   useEffect(() => {
     if (!propostaId) return
@@ -199,10 +201,7 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
       .then((p) => {
         if (!vivo) return
         setForm({
-          cliente: p.cliente,
-          // "Aos cuidados de" agora vive so na coluna da proposta; proposta
-          // antiga que gravou o contato dentro do override abre com ele aqui.
-          contato: p.contato || String(p.cliente_override?.contato ?? ''),
+          contato: p.contato ?? '',
           vendedor: p.vendedor ?? '',
           data: p.data ?? '',
           intro: p.intro ?? '',
@@ -218,7 +217,6 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
           descricao_entrega: p.descricao_entrega ?? '',
           endereco_entrega_diferente: p.endereco_entrega_diferente ?? false,
           endereco_entrega: p.endereco_entrega ?? null,
-          cliente_override: p.cliente_override ?? null,
           observacoes: p.observacoes ?? '',
           assinatura: p.assinatura ?? '',
           itens: [],
@@ -230,6 +228,7 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
         setFreteStr(numeroParaTexto(p.frete))
         setNumero(p.numero)
         setEditorKey((k) => k + 1)
+        void carregarDestinatario(p)
       })
       .catch(() => { if (vivo) setErro('Falha ao carregar a proposta') })
       .finally(() => { if (vivo) setCarregando(false) })
@@ -250,8 +249,7 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
       .then((p) => {
         if (!vivo) return
         setForm({
-          cliente: p.cliente,
-          contato: p.contato || String(p.cliente_override?.contato ?? ''),
+          contato: p.contato ?? '',
           vendedor: user?.nome ?? '',
           data: hojeISO(),
           intro: p.intro ?? '',
@@ -267,7 +265,6 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
           descricao_entrega: p.descricao_entrega ?? '',
           endereco_entrega_diferente: p.endereco_entrega_diferente ?? false,
           endereco_entrega: p.endereco_entrega ?? null,
-          cliente_override: p.cliente_override ?? null,
           observacoes: p.observacoes ?? '',
           assinatura: `Atenciosamente,\n${user?.nome ?? ''}`,
           itens: [],
@@ -278,6 +275,7 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
         setDescontoStr(numeroParaTexto(p.desconto))
         setFreteStr(numeroParaTexto(p.frete))
         setEditorKey((k) => k + 1)
+        void carregarDestinatario(p)
       })
       .catch(() => { if (vivo) setErro('Falha ao carregar a proposta para duplicar') })
       .finally(() => { if (vivo) setCarregando(false) })
@@ -298,65 +296,48 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // ─── Busca de cliente ──────────────────────────────────────────────────
+  // ─── Frota do cliente matriz ──────────────────────────────────────────
+  // Muda com o destinatario: Cliente -> a propria frota; Empresa -> a da matriz.
+  // Na primeira carga (edicao) os aparelhos salvos sao mantidos; numa troca de
+  // verdade eles sao limpos, porque eram de outra frota.
   useEffect(() => {
-    if (clienteSelecionado || !clienteBusca.trim()) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setResultadosCliente([])
-      return
-    }
-    let vivo = true
-    setBuscandoCliente(true)
-    clientesApi.listar({ q: clienteBusca.trim(), limit: 20 })
-      .then((r) => { if (vivo) setResultadosCliente(r.items) })
-      .catch(() => { if (vivo) setResultadosCliente([]) })
-      .finally(() => { if (vivo) setBuscandoCliente(false) })
-    return () => { vivo = false }
-  }, [clienteBusca, clienteSelecionado])
-
-  // ─── Carrega dados completos do cliente + frota ao trocar `form.cliente` ──
-  useEffect(() => {
-    const trocouDeCliente = clienteAnteriorRef.current !== null && clienteAnteriorRef.current !== form.cliente
-    clienteAnteriorRef.current = form.cliente
-    if (trocouDeCliente) {
+    const anterior = frotaAnteriorRef.current
+    frotaAnteriorRef.current = frotaClienteId
+    if (anterior !== undefined && anterior !== null && anterior !== frotaClienteId) {
       setAparelhosSelecionados([])
       setBuscaAparelho('')
     }
-
-    if (form.cliente == null) {
+    if (frotaClienteId == null) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setClienteSelecionado(null)
       setFrota(null)
-      setOverrideDraft({})
       return
     }
     let vivo = true
     setCarregandoFrota(true)
-    const clienteId = form.cliente
-    // SEMENTE do painel: o override que veio do servidor (edição) ou da
-    // duplicação. Lido so aqui, quando o cliente muda — dali em diante quem
-    // manda e' o que a pessoa digita, e `cliente_override` sai do rascunho.
-    const sementeOverride = form.cliente_override
-    Promise.all([
-      clientesApi.obter(clienteId).catch(() => null),
-      frotaDoCliente(clienteId).catch(() => []),
-    ]).then(([cli, itensFrota]) => {
-      if (!vivo) return
-      setClienteSelecionado(cli)
-      setFrota(itensFrota)
-      setCarregandoFrota(false)
-      // O painel vive aberto: nasce preenchido com o cadastro por baixo e o
-      // override da proposta por cima, no mesmo render do card do cliente.
-      setOverrideDraft(montarRascunho(cli, sementeOverride))
-      setTentouSalvar(false)
-      limparBusca()
-      // O "aos cuidados de" NAO e' puxado do cadastro: como o e-mail e o
-      // telefone, nasce vazio e obrigatorio para ser conferido a cada proposta.
-    })
+    setErroFrota(false)
+    frotaDoCliente(frotaClienteId)
+      .then((itensFrota) => { if (vivo) { setFrota(itensFrota); setCarregandoFrota(false) } })
+      // Frota que NAO carregou nao e' frota vazia: deixar `frota` nula mantem os
+      // aparelhos marcados de fora da conferencia abaixo — senao uma queda de rede
+      // apagaria em silencio os aparelhos que a proposta ja tinha.
+      .catch(() => { if (vivo) { setFrota(null); setErroFrota(true); setCarregandoFrota(false) } })
     return () => { vivo = false }
-    // `form.cliente_override` fica de fora de proposito: e' semente, nao dependencia.
+  }, [frotaClienteId])
+
+  // ─── Aparelhos salvos que sairam da frota ─────────────────────────────
+  // Transferido, matriz trocada: o aparelho continuaria marcado sem aparecer
+  // na lista e o servidor recusaria salvar. Roda so quando a frota chega —
+  // numa troca de destinatario a selecao ja foi limpa antes.
+  useEffect(() => {
+    if (!frota) return
+    const ids = new Set(frota.map((a) => a.id))
+    const fora = aparelhosSelecionados.filter((id) => !ids.has(id))
+    if (fora.length === 0) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setAparelhosSelecionados((cur) => cur.filter((id) => ids.has(id)))
+    setAparelhosRetirados(fora.length)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.cliente])
+  }, [frota])
 
   // ─── Detecção heurística de Phoebus entre os aparelhos marcados ───────
   useEffect(() => {
@@ -388,130 +369,57 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
     }
   }, [linhaAberta])
 
-  // ─── Cliente handlers ──────────────────────────────────────────────────
-  function selecionarCliente(c: ClienteListItem) {
-    setField('cliente', c.id)
-    setClienteBusca('')
-    setResultadosCliente([])
-  }
-
-  function removerCliente() {
-    setField('cliente', null)
-    setClienteBusca('')
-    setResultadosCliente([])
-  }
-
-  // ─── Painel do cliente ─────────────────────────────────────────────────
-  /** O que este rascunho vira no `cliente_override` da proposta: so o que
-   *  diverge do cadastro. Derivado a cada render — e' a unica fonte do aviso,
-   *  do payload e da tela. */
-  const overrideAtual = useMemo(
-    () => overrideDoRascunho(overrideDraft, clienteSelecionado),
-    [overrideDraft, clienteSelecionado],
-  )
-  const camposEditados = camposAlterados(overrideAtual, clienteSelecionado)
-  /** Rascunho SO para conferir os obrigatorios: o "aos cuidados de" mora no
-   *  form (coluna `propostas.contato`), mas e' obrigatorio junto com os demais.
-   *  Nao pode voltar para `overrideDraft` — la ele viraria `cliente_override`. */
-  const rascunhoConferido = useMemo(
-    () => ({ ...overrideDraft, contato: form.contato ?? '' }),
-    [overrideDraft, form.contato],
-  )
-  const obrigatoriosFaltando = camposObrigatoriosFaltando(rascunhoConferido)
-
-  /** Rotulo do campo no painel; os obrigatorios levam asterisco. */
-  function rotuloCampo(campo: CampoOverride): string {
-    return CAMPOS_OBRIGATORIOS.includes(campo) ? `${ROTULOS_OVERRIDE[campo]} *` : ROTULOS_OVERRIDE[campo]
-  }
-
-  /** Campo mostrando o valor do cadastro, sem edicao propria desta proposta.
-   *
-   * Derivado do rascunho a cada render em vez de guardado em estado: assim que o
-   * usuario digita algo diferente, o campo deixa de ser herdado sozinho — e o que
-   * ele ve bate exatamente com a regra que `overrideDoRascunho` usa para decidir
-   * o que vira override. */
-  function herdadoDoCadastro(campo: CampoOverride): boolean {
-    const v = overrideDraft[campo] ?? ''
-    return v.trim() !== '' && mesmoValorDoCadastro(campo, v, clienteSelecionado)
-  }
-
-  /** Estilo do campo: apagado e em italico quando herdado do cadastro; borda
-   *  vermelha quando e' obrigatorio, esta vazio e ja houve tentativa de salvar. */
-  function classeOverride(campo: CampoOverride, extra?: string): string {
-    return cn(
-      extra,
-      herdadoDoCadastro(campo) && 'italic text-slate-400',
-      tentouSalvar && obrigatoriosFaltando.includes(campo) && 'border-danger',
-    )
-  }
-
-  function definirOverride(campo: CampoOverride, valor: string) {
-    setOverrideDraft((d) => ({ ...d, [campo]: valor }))
-  }
-
-  function limparBusca() {
-    setErroBusca('')
-    setResultadoBusca(null)
-    setDraftAnterior(null)
-  }
-
-  async function buscarPorCnpj() {
-    // As duas lupas ficam desabilitadas enquanto qualquer busca esta em andamento
-    // (ver ComLupa), mas a guarda fica aqui tambem: sem ela, uma segunda chamada
-    // capturaria overrideDraft desatualizado e sobrescreveria silenciosamente o
-    // que a outra busca acabou de preencher.
-    if (buscando) return
-    setErroBusca('')
-    setBuscando('cnpj')
-    const anterior = overrideDraft
+  // ─── Destinatario handlers ────────────────────────────────────────────
+  async function escolherDestinatario(r: DestinatarioResultado, manterContato?: { email: string; telefone: string }) {
+    setConflito(null)
+    setErro('')
+    setAparelhosRetirados(0)
+    setTentouSalvar(false)
+    setCarregandoDestinatario(true)
     try {
-      const r = await buscaApi.cnpj(soDigitos(overrideDraft.documento ?? ''))
-      const { draft, preenchidos } = aplicarResultadoCnpj(overrideDraft, r)
-      setOverrideDraft(draft)
-      setDraftAnterior(anterior)
-      setResultadoBusca({
-        origem: 'CNPJ',
-        campos: preenchidos.map((c) => ROTULOS_OVERRIDE[c]),
-        situacao: r.situacao || undefined,
-      })
-    } catch (e) {
-      setResultadoBusca(null)
-      setErroBusca(mensagemErroBusca(e, 'CNPJ'))
+      if (r.tipo === 'cliente') {
+        const cliente = await clientesApi.obter(r.id)
+        setSelecao({ tipo: 'cliente', cliente })
+        setUltimoCliente(cliente)
+        setDados({ ...dadosDeCliente(cliente), ...manterContato })
+      } else {
+        const empresa: Empresa = await empresasApi.obter(r.id)
+        setSelecao({ tipo: 'empresa', empresa })
+        setDados({ ...dadosDeEmpresa(empresa), ...manterContato })
+      }
+    } catch {
+      setErro('Falha ao carregar os dados do destinatário')
     } finally {
-      setBuscando(null)
+      setCarregandoDestinatario(false)
     }
   }
 
-  async function buscarPorCep() {
-    if (buscando) return
-    setErroBusca('')
-    setBuscando('cep')
-    const anterior = overrideDraft
-    try {
-      const r = await buscaApi.cep(soDigitos(overrideDraft.cep ?? ''))
-      const { draft, preenchidos } = aplicarResultadoCep(overrideDraft, r)
-      setOverrideDraft({ ...draft, cep: r.cep || draft.cep })
-      setDraftAnterior(anterior)
-      setResultadoBusca({ origem: 'CEP', campos: preenchidos.map((c) => ROTULOS_OVERRIDE[c]) })
-    } catch (e) {
-      setResultadoBusca(null)
-      setErroBusca(mensagemErroBusca(e, 'CEP'))
-    } finally {
-      setBuscando(null)
-    }
+  function cadastrarEmpresa(documento: string) {
+    setConflito(null)
+    setErro('')
+    setAparelhosRetirados(0)
+    setTentouSalvar(false)
+    setSelecao({ tipo: 'nova_empresa', matriz: ultimoCliente ? { id: ultimoCliente.id, nome: ultimoCliente.nome } : null })
+    setDados(dadosVazios(documento))
   }
 
-  function desfazerBusca() {
-    if (draftAnterior) setOverrideDraft(draftAnterior)
-    limparBusca()
+  function trocarDestinatario() {
+    setSelecao(null)
+    setDados(dadosVazios())
+    setConflito(null)
+    setErro('')
+    setAparelhosRetirados(0)
+    setTentouSalvar(false)
   }
 
-  /** Joga fora as edicoes desta proposta e volta ao cadastro do cliente.
-   *  O e-mail volta a ficar em branco: ele nunca e' herdado (ver montarRascunho). */
-  function restaurarOverride() {
-    setOverrideDraft(montarRascunho(clienteSelecionado, null))
-    limparBusca()
-  }
+  const sugestoes = selecao?.tipo === 'cliente'
+    ? sugestoesDeCliente(selecao.cliente)
+    : selecao?.tipo === 'empresa' ? sugestoesDeEmpresa(selecao.empresa) : undefined
+  const nomeDoCadastro = selecao?.tipo === 'cliente'
+    ? selecao.cliente.nome
+    : selecao?.tipo === 'empresa' ? selecao.empresa.nome : null
+  const exigirDocumento = selecao?.tipo === 'nova_empresa'
+  const faltandoContato = tentouSalvar && camposObrigatoriosFaltando(dados, form.contato ?? '', exigirDocumento).includes(ROTULO_CONTATO)
 
   // ─── Aparelhos ─────────────────────────────────────────────────────────
   function toggleAparelho(id: number) {
@@ -583,10 +491,11 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
   async function submeter(e: FormEvent) {
     e.preventDefault()
     const problema = validarProposta({
-      cliente: form.cliente ?? null,
-      rascunho: rascunhoConferido,
+      selecao,
+      dados,
+      contato: form.contato ?? '',
       outrosItens: form.outros_itens,
-      carregandoCliente: form.cliente != null && clienteSelecionado == null && carregandoFrota,
+      carregando: carregandoDestinatario,
     })
     if (problema) {
       setTentouSalvar(true)
@@ -605,8 +514,7 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
         frete: Number(form.frete) || 0,
         validade_dias: form.validade_dias ? Number(form.validade_dias) : null,
         endereco_entrega: form.endereco_entrega_diferente ? (form.endereco_entrega ?? null) : null,
-        // O painel e' a fonte: o override sai do rascunho, nao de um estado paralelo.
-        cliente_override: overrideAtual,
+        destinatario: selecao ? montarDestinatario(selecao, dados) : null,
         itens: itens.map((i) => ({ ...i, quantidade: Number(i.quantidade) || 0, preco_un: Number(i.preco_un) || 0 })),
         aparelhos: aparelhosSelecionados.map((id) => ({ equipamento_cliente: id })),
       }
@@ -617,6 +525,12 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
       onClose()
     } catch (err) {
       setErro(err instanceof ApiError ? err.message : 'Falha ao salvar a proposta')
+      // Documento de empresa nova ja existe: acha o cadastro para oferecer usa-lo.
+      if (err instanceof ApiError && err.status === 409 && selecao?.tipo === 'nova_empresa') {
+        const doc = soDigitos(dados.documento)
+        const achados = await destinatariosApi.buscar(doc).catch(() => [])
+        setConflito(achados.find((r) => soDigitos(r.documento) === doc) ?? null)
+      }
     } finally {
       setSalvando(false)
     }
@@ -646,119 +560,64 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
       ) : (
         <form id="form-proposta" onSubmit={submeter} onKeyDown={aoTeclarNoForm} className="space-y-6">
 
-          {/* ── Cliente ── */}
-          <Secao titulo="Cliente" icon={<IconClientes className="w-3.5 h-3.5" />} primeira>
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">Empresa / Cliente</label>
-              {clienteSelecionado ? (
-                <div className="flex items-start justify-between gap-3 rounded-lg border border-primary/40 bg-primary/10 p-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-semibold text-slate-100">{clienteSelecionado.nome}</p>
-                    {(clienteSelecionado.cgc || clienteSelecionado.cpf) && (
-                      <p className="mt-0.5 text-xs text-slate-400">CNPJ/CPF: {formatarDocumento(clienteSelecionado.cgc || clienteSelecionado.cpf)}</p>
-                    )}
+          {/* ── Destinatário ── */}
+          <Secao titulo="Destinatário" icon={<IconClientes className="w-3.5 h-3.5" />} primeira>
+            {selecao == null ? (
+              <DestinatarioBusca onEscolher={(r) => void escolherDestinatario(r)} onCadastrarEmpresa={cadastrarEmpresa} />
+            ) : (
+              <div className="space-y-3 rounded-lg border border-border bg-background-elevated/40 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-slate-100">{nomeDoCadastro ?? (dados.nome || 'Nova empresa')}</p>
+                    <Badge tone={selecao.tipo === 'cliente' ? 'primary' : 'info'}>{descreverSelecao(selecao)}</Badge>
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <IconButton label="Remover empresa" tone="excluir" onClick={removerCliente}><IconX className="w-4 h-4" /></IconButton>
-                  </div>
+                  <Button type="button" variant="ghost" onClick={trocarDestinatario}>Trocar destinatário</Button>
                 </div>
-              ) : (
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"><IconSearch className="w-4 h-4" /></span>
-                  <input
-                    value={clienteBusca}
-                    onChange={(e) => setClienteBusca(e.target.value)}
-                    placeholder="Buscar cliente por nome, CNPJ ou CPF"
-                    className={`pl-9 ${inputClass}`}
-                  />
-                  {buscandoCliente && <p className="mt-1 text-xs text-slate-500">Buscando…</p>}
-                  {resultadosCliente.length > 0 && (
-                    <ul className="mt-1.5 divide-y divide-border rounded-lg border border-border overflow-hidden max-h-52 overflow-y-auto">
-                      {resultadosCliente.map((c) => (
-                        <li key={c.id}>
-                          <button type="button" onClick={() => selecionarCliente(c)} className="w-full text-left px-3 py-2.5 text-sm hover:bg-background-elevated transition-colors">
-                            <span className="block font-semibold text-slate-200">{c.nome ?? `Cliente #${c.id}`}</span>
-                            {(c.cgc || c.cpf) && <span className="block text-xs text-slate-500">{formatarDocumento(c.cgc || c.cpf)}</span>}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {camposEditados.some((c) => c.mudou) && (
-              <p className="text-xs font-medium text-warning">
-                Editados só nesta proposta: {camposEditados.filter((c) => c.mudou).map((c) => c.rotulo).join(', ')}.
-              </p>
-            )}
-
-            {clienteSelecionado && (
-              <div
-                data-testid="painel-override"
-                className={cn(
-                  'space-y-3 rounded-lg border p-4',
-                  camposEditados.some((c) => c.mudou)
-                    ? 'border-warning/40 bg-warning/5'
-                    : 'border-border bg-background-elevated/40',
-                )}
-              >
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Dados desta proposta</p>
                 <p className="text-xs text-slate-500">
-                  Estes dados valem só para esta proposta e não alteram o cadastro do cliente.
-                  Os campos em <span className="italic text-slate-400">cinza e itálico</span> vêm do cadastro do cliente;
-                  ao alterar um deles, ele passa a valer só aqui. Apagar um campo devolve o valor do cadastro.
-                  Os marcados com <span className="font-semibold">*</span> são obrigatórios — e-mail, telefone e contato são sempre digitados, nunca vêm do cadastro.
+                  {selecao.tipo === 'nova_empresa'
+                    ? `Ao salvar a proposta, a empresa ${dados.nome || 'nova'} é cadastrada com estes dados.`
+                    : `Alterações nestes dados atualizam o cadastro de ${nomeDoCadastro ?? ''}.`}
+                  {' '}E-mail, telefone e contato são sempre conferidos a cada proposta.
                 </p>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <Input id="ov-nome" label={rotuloCampo('nome')} value={overrideDraft.nome ?? ''} onChange={(e) => definirOverride('nome', e.target.value)} className={classeOverride('nome', 'sm:col-span-2')} />
-                  <ComLupa aoBuscar={buscarPorCnpj} carregando={buscando === 'cnpj'} desabilitado={buscando !== null} rotulo="Buscar dados pelo CNPJ">
-                    <Input id="ov-documento" label={rotuloCampo('documento')} value={formatarDocumento(overrideDraft.documento ?? '')} onChange={(e) => definirOverride('documento', soDigitos(e.target.value))} className={classeOverride('documento')} />
-                  </ComLupa>
-                  <ComLupa aoBuscar={buscarPorCep} carregando={buscando === 'cep'} desabilitado={buscando !== null} rotulo="Buscar endereço pelo CEP">
-                    <Input id="ov-cep" label={rotuloCampo('cep')} value={mascararCEP(overrideDraft.cep ?? '')} onChange={(e) => definirOverride('cep', soDigitos(e.target.value))} className={classeOverride('cep')} />
-                  </ComLupa>
-                  <Input id="ov-endereco" label={rotuloCampo('endereco')} value={overrideDraft.endereco ?? ''} onChange={(e) => definirOverride('endereco', e.target.value)} className={classeOverride('endereco', 'sm:col-span-2')} />
-                  <Input id="ov-municipio" label={rotuloCampo('municipio')} value={overrideDraft.municipio ?? ''} onChange={(e) => definirOverride('municipio', e.target.value)} className={classeOverride('municipio')} />
-                  <Select id="ov-estado" label={rotuloCampo('estado')} value={overrideDraft.estado ?? ''} onChange={(e) => definirOverride('estado', e.target.value)} className={classeOverride('estado')}>
-                    <option value="">—</option>
-                    {UFS.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
-                  </Select>
-                  <Input id="ov-telefone" label={rotuloCampo('telefone')} value={overrideDraft.telefone ?? ''} onChange={(e) => definirOverride('telefone', e.target.value)} className={classeOverride('telefone')} />
-                  <Input id="ov-email" label={rotuloCampo('email')} value={overrideDraft.email ?? ''} onChange={(e) => definirOverride('email', e.target.value)} className={classeOverride('email')} />
-                  {/* "Aos cuidados de" e' campo da PROPOSTA (coluna `contato`), nao um
-                      override do cadastro — ver CAMPOS_RASCUNHO em clienteOverride.ts. */}
-                  <Input
-                    id="ov-contato"
-                    label="Contato (aos cuidados de) *"
-                    value={form.contato ?? ''}
-                    onChange={(e) => setField('contato', e.target.value)}
-                    className={cn('sm:col-span-2', tentouSalvar && obrigatoriosFaltando.includes('contato') && 'border-danger')}
-                    placeholder="Nome do contato no cliente"
-                  />
-                </div>
-                {erroBusca && (
-                  <p className="text-xs font-medium text-danger">{erroBusca}</p>
-                )}
-                {resultadoBusca && (
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-                    <span className="text-slate-400">
-                      Preenchido pelo {resultadoBusca.origem}: {resultadoBusca.campos.join(', ')}.
-                    </span>
-                    {resultadoBusca.situacao && (
-                      <span className={resultadoBusca.situacao === 'ATIVA' ? 'text-slate-500' : 'font-semibold text-warning'}>
-                        Situação na Receita: {resultadoBusca.situacao}
-                      </span>
+                {carregandoDestinatario ? (
+                  <div className="flex justify-center py-6"><Spinner className="w-6 h-6" /></div>
+                ) : (
+                  <DadosEmpresaForm
+                    dados={dados}
+                    onChange={setDados}
+                    documentoTravado={selecao.tipo !== 'nova_empresa'}
+                    sugestoes={sugestoes}
+                    obrigatorios={obrigatoriosDaProposta(exigirDocumento)}
+                    destacarFaltando={tentouSalvar}
+                    idPrefixo="dest"
+                  >
+                    {selecao.tipo === 'nova_empresa' && (
+                      <MatrizSelect valor={selecao.matriz} onChange={(matriz) => setSelecao({ tipo: 'nova_empresa', matriz })} />
                     )}
-                    <button type="button" onClick={desfazerBusca} className="font-semibold text-primary hover:underline">
-                      Desfazer
-                    </button>
+                    {/* "Aos cuidados de" e' coluna da PROPOSTA, nao do cadastro. */}
+                    <div className="sm:col-span-2">
+                      <Input
+                        id="dest-contato"
+                        label={`${ROTULO_CONTATO} *`}
+                        value={form.contato ?? ''}
+                        onChange={(e) => setField('contato', e.target.value)}
+                        className={cn(faltandoContato && 'border-danger')}
+                        placeholder="Nome do contato no cliente"
+                      />
+                    </div>
+                  </DadosEmpresaForm>
+                )}
+                {conflito && (
+                  <div className="flex flex-wrap items-center gap-3 rounded-lg border border-warning/40 bg-warning/5 px-3 py-2 text-xs">
+                    <span className="text-slate-300">
+                      Este documento já é {conflito.tipo === 'cliente' ? 'do cliente' : 'da empresa'} <strong>{conflito.nome}</strong>.
+                    </span>
+                    <Button type="button" variant="secondary"
+                      onClick={() => void escolherDestinatario(conflito, { email: dados.email, telefone: dados.telefone })}>
+                      Usar este cadastro
+                    </Button>
                   </div>
                 )}
-                <div className="border-t border-border pt-3">
-                  <Button type="button" variant="ghost" onClick={restaurarOverride}>Restaurar do cadastro</Button>
-                </div>
               </div>
             )}
 
@@ -799,10 +658,19 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
           </Secao>
 
           {/* ── Aparelhos ── */}
-          {form.cliente != null && (
+          {aparelhosRetirados > 0 && (
+            <p className="text-sm font-medium text-warning">
+              {aparelhosRetirados} aparelho(s) não estão mais na frota e foram retirados da proposta.
+            </p>
+          )}
+          {frotaClienteId != null && (
             <Secao titulo="Aparelhos" icon={<IconFrota className="w-3.5 h-3.5" />}>
               {carregandoFrota ? (
                 <div className="flex justify-center py-6"><Spinner className="w-6 h-6" /></div>
+              ) : erroFrota ? (
+                <p className="text-sm font-medium text-danger">
+                  Não foi possível carregar a frota. Os aparelhos já marcados na proposta continuam valendo.
+                </p>
               ) : !frota || frota.length === 0 ? (
                 <p className="text-sm text-slate-500">Nenhum aparelho cadastrado para este cliente.</p>
               ) : (

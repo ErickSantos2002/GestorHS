@@ -1,13 +1,13 @@
-// Busca de dados publicos (CEP/CNPJ) para preencher o override da proposta.
-// A regra de QUAL campo cada busca preenche mora aqui, pura e testavel; o
-// PropostaModal so orquestra a UI.
+// Busca de dados publicos (CEP/CNPJ) para preencher o formulario de dados da
+// empresa. A regra de QUAL campo cada busca preenche mora aqui, pura e testavel.
 
 import { apiJson, ApiError } from '../../lib/api'
-import type { CampoOverride } from './clienteOverride'
+import type { CampoDados, DadosEmpresa } from './dadosEmpresa'
 
 export interface ResultadoCep {
   cep: string
   endereco: string
+  bairro: string
   municipio: string
   estado: string
 }
@@ -15,6 +15,8 @@ export interface ResultadoCep {
 export interface ResultadoCnpj extends ResultadoCep {
   documento: string
   nome: string
+  numero: string
+  complemento: string
   situacao: string
 }
 
@@ -23,38 +25,36 @@ export const buscaApi = {
   cnpj: (cnpj: string) => apiJson<ResultadoCnpj>(`/integracoes/cnpj/${encodeURIComponent(cnpj)}`),
 }
 
-export type DraftOverride = Partial<Record<CampoOverride, string>>
-
 export interface Preenchimento {
-  draft: DraftOverride
-  preenchidos: CampoOverride[]
+  dados: DadosEmpresa
+  preenchidos: CampoDados[]
 }
 
 /** Campo vazio na resposta nao apaga o que ja estava preenchido. */
-function aplicar(draft: DraftOverride, valores: DraftOverride): Preenchimento {
-  const novo = { ...draft }
-  const preenchidos: CampoOverride[] = []
-  for (const [campo, valor] of Object.entries(valores) as [CampoOverride, string | undefined][]) {
+function aplicar(dados: DadosEmpresa, valores: Partial<DadosEmpresa>): Preenchimento {
+  const novo = { ...dados }
+  const preenchidos: CampoDados[] = []
+  for (const [campo, valor] of Object.entries(valores) as [CampoDados, string | undefined][]) {
     if (valor == null || valor.trim() === '') continue
     novo[campo] = valor
     preenchidos.push(campo)
   }
-  return { draft: novo, preenchidos }
+  return { dados: novo, preenchidos }
 }
 
 /** O CEP chega no nivel da rua — o numero continua sendo digitado a mao. */
-export function aplicarResultadoCep(draft: DraftOverride, r: ResultadoCep): Preenchimento {
-  return aplicar(draft, { endereco: r.endereco, municipio: r.municipio, estado: r.estado })
+export function aplicarResultadoCep(dados: DadosEmpresa, r: ResultadoCep): Preenchimento {
+  return aplicar(dados, { cep: r.cep, endereco: r.endereco, bairro: r.bairro, municipio: r.municipio, estado: r.estado })
 }
 
 /**
- * O CNPJ traz endereco completo (logradouro + numero + complemento).
  * Telefone e e-mail ficam de fora de proposito: na Receita costumam estar
  * desatualizados, e sao justamente os que a Health Safety tem bons no cadastro.
  */
-export function aplicarResultadoCnpj(draft: DraftOverride, r: ResultadoCnpj): Preenchimento {
-  return aplicar(draft, {
-    nome: r.nome, endereco: r.endereco, municipio: r.municipio, estado: r.estado, cep: r.cep,
+export function aplicarResultadoCnpj(dados: DadosEmpresa, r: ResultadoCnpj): Preenchimento {
+  return aplicar(dados, {
+    nome: r.nome, cep: r.cep, endereco: r.endereco, numero: r.numero, complemento: r.complemento,
+    bairro: r.bairro, municipio: r.municipio, estado: r.estado,
   })
 }
 

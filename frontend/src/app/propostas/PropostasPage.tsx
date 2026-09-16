@@ -18,8 +18,6 @@ import { propostasApi, type Proposta } from './api'
 import { PropostaModal } from './PropostaModal'
 import { HistoricoModal } from './HistoricoModal'
 import { VisualizarPropostaModal } from './VisualizarPropostaModal'
-import { OverrideDetalheModal } from './OverrideDetalhe'
-import { temOverride } from './clienteOverride'
 
 const PAGE = 25
 
@@ -39,7 +37,6 @@ export function PropostasPage() {
   const [modalId, setModalId] = useState<number | null | undefined>(undefined)
   const [historico, setHistorico] = useState<{ id: number; numero: number } | null>(null)
   const [visualizar, setVisualizar] = useState<{ id: number; numero: number } | null>(null)
-  const [overrideDe, setOverrideDe] = useState<Proposta | null>(null)
   // id da proposta-modelo p/ duplicar (abre a modal como nova, sem salvar até confirmar)
   const [duplicarDeId, setDuplicarDeId] = useState<number | null>(null)
 
@@ -224,17 +221,7 @@ export function PropostasPage() {
                 <TD>{formatData(p.data)}</TD>
                 <TD>
                   <span className="truncate max-w-xs block">{p.cliente_nome ?? '—'}</span>
-                  {temOverride(p.cliente_override) && (
-                    <button
-                      type="button"
-                      onClick={() => setOverrideDe(p)}
-                      title="Ver o que foi editado só nesta proposta"
-                      className="mt-1 inline-flex items-center gap-1 rounded-full bg-warning/10 px-2 py-0.5 text-xs font-semibold text-warning hover:bg-warning/20 transition-colors"
-                    >
-                      <IconPencil className="w-3 h-3" />
-                      Dados editados
-                    </button>
-                  )}
+                  {p.empresa != null && <span className="mt-1 inline-block"><Badge tone="info">Filial</Badge></span>}
                 </TD>
                 <TD>{formatarDocumento(p.cliente_documento) || '—'}</TD>
                 <TD>R$ {formatarMoeda(p.total)}</TD>
@@ -308,15 +295,6 @@ export function PropostasPage() {
           propostaId={historico.id}
           propostaNumero={historico.numero}
           onClose={() => setHistorico(null)}
-        />
-      )}
-
-      {overrideDe && (
-        <OverrideDetalheModal
-          propostaNumero={overrideDe.numero}
-          clienteId={overrideDe.cliente}
-          override={overrideDe.cliente_override}
-          onClose={() => setOverrideDe(null)}
         />
       )}
 

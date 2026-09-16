@@ -37,9 +37,9 @@ def _fingir(monkeypatch, roteador):
     return chamadas
 
 
-CEP_BRASILAPI = {"cep": "50030230", "state": "PE", "city": "RECIFE", "street": "CAIS DO APOLO"}
-CEP_VIACEP = {"cep": "50030-230", "logradouro": "Cais do Apolo", "localidade": "Recife", "uf": "PE"}
-ESPERADO_CEP = {"cep": "50030230", "endereco": "Cais do Apolo", "municipio": "Recife", "estado": "PE"}
+CEP_BRASILAPI = {"cep": "50030230", "state": "PE", "city": "RECIFE", "neighborhood": "Recife", "street": "CAIS DO APOLO"}
+CEP_VIACEP = {"cep": "50030-230", "logradouro": "Cais do Apolo", "bairro": "Recife", "localidade": "Recife", "uf": "PE"}
+ESPERADO_CEP = {"cep": "50030230", "endereco": "Cais do Apolo", "bairro": "Recife", "municipio": "Recife", "estado": "PE"}
 
 
 def test_buscar_cep_usa_brasilapi_e_nao_chama_o_fallback(monkeypatch):
@@ -102,7 +102,8 @@ def test_buscar_cnpj_mapeia_a_resposta(monkeypatch):
     chamadas = _fingir(monkeypatch, lambda url: RespostaFake(200, dados))
     r = enderecos_client.buscar_cnpj("36.312.056/0005-52")
     assert r["nome"] == "Acme Ltda"
-    assert r["endereco"] == "Rua X, 10"
+    assert r["endereco"] == "Rua X"
+    assert r["numero"] == "10"
     assert r["situacao"] == "ATIVA"
     assert len(chamadas) == 1
 

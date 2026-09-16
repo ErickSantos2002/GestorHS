@@ -49,6 +49,7 @@ from app.models.database import SessionLocal
 # testes — dai o `has_table` antes de tocar nelas.
 REFERENCIAS = (
     ("caixas", "cliente_principal"),
+    ("empresas", "cliente"),
     ("equipamentos_cliente", "cliente"),
     ("fotos", "cliente"),
     ("funcionarios", "cliente"),

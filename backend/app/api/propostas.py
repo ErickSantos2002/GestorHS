@@ -4,21 +4,25 @@ versionamento) e `core/proposta_pdf.py` (geração/arquivamento de PDF via
 Playwright) — sem regra de negócio aqui, só orquestração HTTP.
 """
 import re
+from contextlib import contextmanager
 from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from pydantic import ValidationError
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.models.database import get_db
-from app.models import Usuario, Cliente, Proposta, PropostaVersao
+from app.models import Usuario, Cliente, Empresa, Proposta, PropostaVersao
 from app.api.deps import get_current_usuario, require_funcao
 from app.api.ordens_acoes import agora
 from app.core import proposta_servico as ps
 from app.core import proposta_pdf
+from app.core.empresa import DocumentoInvalido
+from app.core.empresa_servico import DocumentoDuplicado, MatrizInexistente
 from app.schemas.proposta import (
     PropostaCreate, PropostaUpdate, PropostaOut, PropostaListOut, PropostaVersaoOut,
-    PropostaItemCreate, PropostaAparelhoCreate,
+    PropostaItemCreate, PropostaAparelhoCreate, DestinatarioBuscaOut,
 )
 
 router = APIRouter(prefix="/propostas", tags=["propostas"])
@@ -63,6 +67,23 @@ def _content_disposition(download: int, filename: str) -> str:
     return f'{tipo}; filename="{filename}"'
 
 
+@contextmanager
+def _erros_de_destinatario(db: Session):
+    """Traduz as recusas do destinatario em HTTP, desfazendo o que o servico ja
+    tinha escrito na sessao (cadastro editado, empresa nova)."""
+    try:
+        yield
+    except (DocumentoInvalido, MatrizInexistente, ps.DestinatarioInvalido) as e:
+        db.rollback()
+        raise HTTPException(status_code=422, detail=str(e))
+    except ValidationError as e:
+        db.rollback()
+        raise HTTPException(status_code=422, detail=e.errors()[0]["msg"])
+    except (DocumentoDuplicado, ps.DestinatarioInativo) as e:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(e))
+
+
 # ---------------------------------------------------------------------------
 # Listar / criar
 # ---------------------------------------------------------------------------
@@ -82,14 +103,19 @@ def listar(
     if q:
         qs = q.strip()
         termo = f"%{qs}%"
-        filtros = [Cliente.nome.ilike(termo)]
+        filtros = [Cliente.nome.ilike(termo), Empresa.nome.ilike(termo)]
         digitos = re.sub(r"\D", "", qs)
         if digitos and (not qs.isdigit() or len(digitos) >= 11):
             termo_doc = f"%{digitos}%"
-            filtros += [Cliente.cgc.ilike(termo_doc), Cliente.cpf.ilike(termo_doc)]
+            filtros += [Cliente.cgc.ilike(termo_doc), Cliente.cpf.ilike(termo_doc),
+                        Empresa.cgc.ilike(termo_doc), Empresa.cpf.ilike(termo_doc)]
         if qs.isdigit():
             filtros.append(Proposta.numero == int(qs))
-        query = query.outerjoin(Cliente, Proposta.cliente == Cliente.id).filter(or_(*filtros))
+        query = (
+            query.outerjoin(Cliente, Proposta.cliente == Cliente.id)
+            .outerjoin(Empresa, Proposta.empresa == Empresa.id)
+            .filter(or_(*filtros))
+        )
 
     total = query.count()
     total_pages = (total + page_size - 1) // page_size
@@ -108,13 +134,51 @@ def listar(
     )
 
 
+_LIMITE_BUSCA = 20
+
+
+@router.get("/destinatarios", response_model=list[DestinatarioBuscaOut])
+def buscar_destinatarios(
+    q: str = Query(..., min_length=2),
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(get_current_usuario),
+):
+    """Busca unica do modal: Clientes e Empresas ATIVOS por nome ou documento.
+    Lista vazia para um documento completo e' o que faz o modal oferecer
+    "Cadastrar empresa"."""
+    q = q.strip()
+    if len(q) < 2:
+        raise HTTPException(status_code=422, detail="termo de busca muito curto")
+    termo = f"%{q}%"
+    digitos = re.sub(r"\D", "", q)
+
+    def filtro(model):
+        filtros = [model.nome.ilike(termo)]
+        if digitos:
+            filtros += [model.cgc.ilike(f"%{digitos}%"), model.cpf.ilike(f"%{digitos}%")]
+        return or_(*filtros)
+
+    clientes = (db.query(Cliente).filter(Cliente.ativo.is_(True), filtro(Cliente))
+                .order_by(Cliente.nome).limit(_LIMITE_BUSCA).all())
+    empresas = (db.query(Empresa).filter(Empresa.ativo.is_(True), filtro(Empresa))
+                .order_by(Empresa.nome).limit(_LIMITE_BUSCA).all())
+    return [
+        *(DestinatarioBuscaOut(tipo="cliente", id=c.id, nome=c.nome, documento=c.cgc or c.cpf,
+                               municipio=c.municipio, estado=c.estado) for c in clientes),
+        *(DestinatarioBuscaOut(tipo="empresa", id=e.id, nome=e.nome, documento=e.cgc or e.cpf,
+                               municipio=e.municipio, estado=e.estado, matriz_id=e.cliente,
+                               matriz_nome=e.matriz_rel.nome if e.matriz_rel else None) for e in empresas),
+    ]
+
+
 @router.post("", response_model=PropostaOut, status_code=status.HTTP_201_CREATED)
 def criar(
     dados: PropostaCreate,
     db: Session = Depends(get_db),
     usuario: Usuario = Depends(_escrever),
 ):
-    proposta = ps.criar_proposta(db, dados, vendedor=usuario.nome)
+    with _erros_de_destinatario(db):
+        proposta = ps.criar_proposta(db, dados, vendedor=usuario.nome)
     return ps.montar_saida(db, proposta)
 
 
@@ -202,8 +266,7 @@ def duplicar(
     proposta nasce sem histórico."""
     original = _para_escrita(db, proposta_id)
     dados = PropostaCreate(
-        cliente=original.cliente,
-        contato=original.contato,
+        contato=original.contato or (original.cliente_override or {}).get("contato"),
         vendedor=usuario.nome,
         data=date.today(),
         intro=original.intro,
@@ -219,7 +282,6 @@ def duplicar(
         descricao_entrega=original.descricao_entrega,
         endereco_entrega_diferente=original.endereco_entrega_diferente,
         endereco_entrega=original.endereco_entrega,
-        cliente_override=original.cliente_override,
         observacoes=original.observacoes,
         assinatura=original.assinatura,
         itens=[
@@ -234,7 +296,10 @@ def duplicar(
             for a in original.aparelhos if a.equipamento_cliente is not None
         ],
     )
-    nova = ps.criar_proposta(db, dados, vendedor=usuario.nome)
+    with _erros_de_destinatario(db):
+        nova = ps.criar_proposta(db, dados, vendedor=usuario.nome,
+                                 vinculo=(original.cliente, original.empresa),
+                                 copia=ps.destinatario_atual(original))
     return ps.montar_saida(db, nova)
 
 
@@ -296,7 +361,8 @@ def atualizar(
     usuario: Usuario = Depends(_escrever),
 ):
     proposta = _para_escrita(db, proposta_id)
-    atualizado = ps.atualizar_proposta(db, proposta, dados, alterado_por=usuario.nome)
+    with _erros_de_destinatario(db):
+        atualizado = ps.atualizar_proposta(db, proposta, dados, alterado_por=usuario.nome)
     return ps.montar_saida(db, atualizado)
 
 

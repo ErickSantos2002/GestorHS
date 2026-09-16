@@ -5,6 +5,7 @@ import { isAdmin, podeEditarCadastros } from '../../auth/roles'
 import { clientesApi, type Cliente, type ClientePayload } from './api'
 import { gruposApi, type Grupo } from '../cadastros/api'
 import { ClienteFormFields } from './ClienteFormFields'
+import { EmpresasVinculadasSection } from './EmpresasVinculadasSection'
 import { FuncionariosSection } from './FuncionariosSection'
 import { UsuariosPortalSection } from './UsuariosPortalSection'
 import { DetailGrid, DetailMain, DetailAside } from '../../components/ui/Page'
@@ -43,6 +44,7 @@ export function ClienteDadosTab() {
             podeEditar={podeEditar} enviando={enviando} labelSubmit="Salvar alterações" onSubmit={salvar} />
         </DetailMain>
         <DetailAside>
+          <EmpresasVinculadasSection clienteId={cliente.id} />
           <FuncionariosSection clienteId={cliente.id} podeEditar={podeEditar} />
           {/* Usuarios do portal criam CREDENCIAL de acesso do cliente — continua so Admin,
               mesmo com o Laboratorio podendo editar o cadastro. */}

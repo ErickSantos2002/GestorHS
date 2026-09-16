@@ -104,6 +104,7 @@ def mapear_brasilapi_cep(dados: dict) -> dict:
     return {
         "cep": so_digitos(dados.get("cep")),
         "endereco": capitalizar(dados.get("street")),
+        "bairro": capitalizar(dados.get("neighborhood")),
         "municipio": capitalizar(dados.get("city")),
         "estado": str(dados.get("state") or "").upper(),
     }
@@ -116,23 +117,22 @@ def mapear_viacep(dados: dict) -> dict:
     return {
         "cep": so_digitos(dados.get("cep")),
         "endereco": capitalizar(dados.get("logradouro")),
+        "bairro": capitalizar(dados.get("bairro")),
         "municipio": capitalizar(dados.get("localidade")),
         "estado": str(dados.get("uf") or "").upper(),
     }
 
 
 def mapear_brasilapi_cnpj(dados: dict) -> dict:
-    endereco = capitalizar(dados.get("logradouro"))
-    numero = str(dados.get("numero") or "").strip()
-    complemento = capitalizar(dados.get("complemento"))
-    if numero:
-        endereco = f"{endereco}, {numero}" if endereco else numero
-    if complemento:
-        endereco = f"{endereco} {complemento}".strip()
+    """Numero, complemento e bairro vem SEPARADOS desde as Empresas (set/2026):
+    o cadastro guarda cada um na sua coluna e o Tiny vai exigir assim."""
     return {
         "documento": so_digitos(dados.get("cnpj")),
         "nome": capitalizar(dados.get("razao_social")),
-        "endereco": endereco,
+        "endereco": capitalizar(dados.get("logradouro")),
+        "numero": str(dados.get("numero") or "").strip(),
+        "complemento": capitalizar(dados.get("complemento")),
+        "bairro": capitalizar(dados.get("bairro")),
         "municipio": capitalizar(dados.get("municipio")),
         "estado": str(dados.get("uf") or "").upper(),
         "cep": so_digitos(dados.get("cep")),

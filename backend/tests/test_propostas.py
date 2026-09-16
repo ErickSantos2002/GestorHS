@@ -13,16 +13,14 @@ def test_schema_proposta_create_valida():
     from app.schemas.proposta import PropostaCreate, PropostaItemCreate, PropostaAparelhoCreate
 
     payload = PropostaCreate(
-        cliente=1,
         itens=[PropostaItemCreate(descricao="Calibracao de bafometro", quantidade=2, preco_un=395)],
         aparelhos=[PropostaAparelhoCreate(equipamento_cliente=10)],
     )
-    assert payload.cliente == 1
     assert payload.itens[0].descricao == "Calibracao de bafometro"
     assert payload.aparelhos[0].equipamento_cliente == 10
     # itens/aparelhos tem default_factory=list quando omitidos
-    assert PropostaCreate(cliente=1).itens == []
-    assert PropostaCreate(cliente=1).aparelhos == []
+    assert PropostaCreate().itens == []
+    assert PropostaCreate().aparelhos == []
 
 
 def test_schema_proposta_update_todos_campos_opcionais():
@@ -30,7 +28,7 @@ def test_schema_proposta_update_todos_campos_opcionais():
 
     # nenhum campo obrigatorio: instanciar vazio nao deve levantar
     vazio = PropostaUpdate()
-    assert vazio.cliente is None
+    assert vazio.destinatario is None
     assert vazio.itens is None
     assert vazio.aparelhos is None
 
@@ -91,12 +89,12 @@ def test_proximo_numero_incrementa(db_session):
 
 def test_criar_proposta_calcula_total_e_numero(db_session):
     from app.core import proposta_servico as ps
-    from app.schemas.proposta import PropostaCreate, PropostaItemCreate
+    from app.schemas.proposta import PropostaCreate, PropostaItemCreate, DestinatarioIn
     from app.models import Cliente
 
-    cli = Cliente(nome="ACME"); db_session.add(cli); db_session.flush()
+    cli = Cliente(nome="ACME"); db_session.add(cli); db_session.commit(); db_session.refresh(cli)
     dados = PropostaCreate(
-        cliente=cli.id,
+        destinatario=DestinatarioIn(tipo="cliente", id=cli.id, nome="ACME", email="a@a.com", telefone="81999990000"),
         itens=[PropostaItemCreate(descricao="Calib", quantidade=2, preco_un=395)],
     )
     p = ps.criar_proposta(db_session, dados, vendedor="Fulano")
@@ -113,10 +111,10 @@ def test_criar_proposta_calcula_total_e_numero(db_session):
 def test_criar_proposta_com_aparelho_puxa_snapshot_da_frota(db_session):
     from datetime import date
     from app.core import proposta_servico as ps
-    from app.schemas.proposta import PropostaCreate, PropostaAparelhoCreate
+    from app.schemas.proposta import PropostaCreate, PropostaAparelhoCreate, DestinatarioIn
     from app.models import Cliente, Equipamento, EquipamentoCliente
 
-    cli = Cliente(nome="ACME"); db_session.add(cli); db_session.flush()
+    cli = Cliente(nome="ACME"); db_session.add(cli); db_session.commit(); db_session.refresh(cli)
     equip = Equipamento(descricao="Bafometro X1"); db_session.add(equip); db_session.flush()
     ec = EquipamentoCliente(
         cliente=cli.id, equipamento=equip.id, serie="ABC123", patrimonio="PAT-1",
@@ -124,7 +122,10 @@ def test_criar_proposta_com_aparelho_puxa_snapshot_da_frota(db_session):
     )
     db_session.add(ec); db_session.flush()
 
-    dados = PropostaCreate(cliente=cli.id, aparelhos=[PropostaAparelhoCreate(equipamento_cliente=ec.id)])
+    dados = PropostaCreate(
+        destinatario=DestinatarioIn(tipo="cliente", id=cli.id, nome="ACME", email="a@a.com", telefone="81999990000"),
+        aparelhos=[PropostaAparelhoCreate(equipamento_cliente=ec.id)],
+    )
     p = ps.criar_proposta(db_session, dados, vendedor="Fulano")
 
     assert p.aparelhos[0].serie == "ABC123"
@@ -249,7 +250,7 @@ def test_api_criar_e_listar_proposta(client_comercial, db_session):
     db_session.add(cli); db_session.commit(); db_session.refresh(cli)
 
     r = client_comercial.post("/propostas", json={
-        "cliente": cli.id,
+        "destinatario": {"tipo": "cliente", "id": cli.id, "nome": cli.nome, "email": "a@a.com", "telefone": "81999990000"},
         "itens": [{"descricao": "Calibracao", "quantidade": 2, "preco_un": 395}],
     })
     assert r.status_code == 201
@@ -283,7 +284,7 @@ def test_api_listar_proposta_busca_por_documento_formatado(client_comercial, db_
     db_session.add(outro); db_session.commit()
 
     r = client_comercial.post("/propostas", json={
-        "cliente": cli.id,
+        "destinatario": {"tipo": "cliente", "id": cli.id, "nome": cli.nome, "email": "a@a.com", "telefone": "81999990000"},
         "itens": [{"descricao": "Calibracao", "quantidade": 1, "preco_un": 100}],
     })
     assert r.status_code == 201
@@ -320,14 +321,14 @@ def test_api_listar_proposta_numero_curto_nao_dilui_por_documento(client_comerci
     db_session.refresh(cli_um); db_session.refresh(cli_dois)
 
     r1 = client_comercial.post("/propostas", json={
-        "cliente": cli_um.id,
+        "destinatario": {"tipo": "cliente", "id": cli_um.id, "nome": cli_um.nome, "email": "a@a.com", "telefone": "81999990000"},
         "itens": [{"descricao": "Calibracao", "quantidade": 1, "preco_un": 100}],
     })
     assert r1.status_code == 201
     assert r1.json()["numero"] == 1
 
     r2 = client_comercial.post("/propostas", json={
-        "cliente": cli_dois.id,
+        "destinatario": {"tipo": "cliente", "id": cli_dois.id, "nome": cli_dois.nome, "email": "a@a.com", "telefone": "81999990000"},
         "itens": [{"descricao": "Calibracao", "quantidade": 1, "preco_un": 100}],
     })
     assert r2.status_code == 201
@@ -385,7 +386,7 @@ def test_api_duplicar_proposta_gera_numero_novo_e_copia_itens(client_comercial, 
     db_session.add(cli); db_session.commit(); db_session.refresh(cli)
 
     r = client_comercial.post("/propostas", json={
-        "cliente": cli.id,
+        "destinatario": {"tipo": "cliente", "id": cli.id, "nome": cli.nome, "email": "a@a.com", "telefone": "81999990000"},
         "itens": [{"descricao": "Calibracao", "quantidade": 2, "preco_un": 395}],
     })
     original = r.json()

@@ -30,6 +30,7 @@ python -m app.scripts.enviar_vencendo_growthhs                    # roda o job m
 python -m app.scripts.publicar_modelo_manutencao                 # compara o modelo do relatorio com o banco (--aplicar grava)
 python -m app.scripts.unificar_clientes --cgc <cnpj>              # unifica cadastro duplicado do mesmo CNPJ (--aplicar grava)
 python -m app.scripts.renumerar_patrimonios --cliente <id>        # resolve patrimonio repetido na frota (--aplicar grava)
+python -m app.scripts.migrar_filiais_propostas                     # SIMULA: congela propostas antigas e cria filiais (--aplicar grava)
 ```
 
 > ⚠️ **`enviar_atrasados_growthhs` nao envia nada sem `--enviar`.** A chave do card e
@@ -46,7 +47,7 @@ python -m app.scripts.renumerar_patrimonios --cliente <id>        # resolve patr
 > ℹ️ **CNPJ duplicado: `unificar_clientes` simula por padrao** (`--aplicar` grava). Duplicado
 > e' o **CNPJ inteiro** repetido — matriz e filial tem CNPJs diferentes com a mesma raiz e sao
 > clientes de verdade (a Fertilizantes Tocantins tem 7 cadastros na raiz `05571228`). O script
-> reaponta as **13 colunas** que apontam para `clientes.id` — levantadas por `pg_constraint`, e
+> reaponta as **14 colunas** que apontam para `clientes.id` — levantadas por `pg_constraint`, e
 > ele **recusa** se achar FK fora da lista — e so entao apaga o absorvido. Junte
 > `--renumerar-patrimonios`: as duas numeracoes comecavam em 1 e a frota unificada fica com
 > patrimonio repetido. Os **17 pares** da base foram unificados em 11/09/2026 — cadastro novo
@@ -157,6 +158,16 @@ A nota fiscal foi de **uma por OS** (três colunas em `ordens`) para **N por CAI
 ### Exportação para Excel
 A exportação para Excel tem o motor puro em [backend/app/core/planilha.py](backend/app/core/planilha.py) (formatação do xlsx, sem domínio) e as colunas de cada planilha em [backend/app/core/exportacoes.py](backend/app/core/exportacoes.py). Cada endpoint `GET .../exportar` reaproveita o mesmo helper `_query_*` da listagem correspondente — é o que impede a planilha de divergir da tela. No frontend, o componente compartilhado é [frontend/src/components/ui/BotaoExportar.tsx](frontend/src/components/ui/BotaoExportar.tsx).
 
+### Empresas e destinatário da proposta
+**Empresa** é uma filial: só dados cadastrais, com matriz **opcional** em `empresas.cliente` — os aparelhos da proposta vêm da frota da matriz. A proposta tem como destinatário um Cliente (`propostas.cliente`) **ou** uma Empresa (`propostas.empresa`, e aí `cliente` é a matriz dela).
+
+- **Não existe mais "dados só nesta proposta".** O modal manda um bloco `destinatario` e o servidor, na mesma transação, grava no cadastro de origem (ou cria a Empresa), acerta as FKs, valida os aparelhos contra a frota e congela a cópia. Núcleo puro em [app/core/empresa.py](backend/app/core/empresa.py).
+- ⚠️ **`propostas.destinatario` é a cópia congelada e só o servidor escreve.** Ela só é (re)escrita quando o payload traz `destinatario` — `PUT` sem ele não mexe na cópia (o modal sempre manda). **Duplicar** grava na nova proposta o destinatário atual da original (a cópia, ou o legado), sem recongelar do cadastro. O PDF lê dela; proposta antiga ainda sem cópia cai em `destinatario_legado` (cadastro + override), que reproduz o PDF de antes.
+- ⚠️ **`propostas.cliente_override` está CONGELADA**, como as colunas legadas de nota fiscal: nenhum caminho novo escreve nela.
+- **Documento único somando `clientes` e `empresas`** (`checar_documento_livre`); do lado de Clientes a trava só olha Empresas.
+- **Documento de cadastro existente não muda pela proposta** — o servidor ignora; corrige-se na página de Clientes/Empresas.
+- Procedimento de produção em [docs/operacao-empresas-migracao.md](docs/operacao-empresas-migracao.md).
+
 ### Integracao com o TaskHS
 A cada abrir/avancar/cancelar, o GestorHS espelha a **CAIXA** como um card no board `Servico` do TaskHS ([app/core/taskhs.py](backend/app/core/taskhs.py) puro + [app/integrations/taskhs_client.py](backend/app/integrations/taskhs_client.py) I/O, disparado via `BackgroundTasks` best-effort). Nasce desligada: sem `TASKHS_BASE_URL`/`TASKHS_API_KEY` eh no-op. Correcao de drift: `python -m app.scripts.sincronizar_taskhs_caixas --caixas 745,749`.
 
@@ -210,4 +221,4 @@ Esta máquina tem plugins do Claude Code que ampliam o que está disponível —
 - **gh** (GitHub CLI) — autenticado; usado por `commit-push-pr` para abrir PRs (branches `feat/<nome>`).
 
 ## Migrações Alembic
-Migrações já aplicadas (`0001`–`0029`) cobrem auth, schema de OS, solicitações, caixas, certificados (modelo, por-OS, cert_overrides, configuração e cilindros), propostas, nota fiscal em PDF+XML, o registro de manutenção e as notas fiscais por caixa (`0029`, com backfill). Cada migração tem um propósito único e nomeado — siga o padrão `NNNN_descricao.py`.
+Migrações já aplicadas (`0001`–`0030`) cobrem auth, schema de OS, solicitações, caixas, certificados (modelo, por-OS, cert_overrides, configuração e cilindros), propostas, nota fiscal em PDF+XML, o registro de manutenção, as notas fiscais por caixa (`0029`, com backfill) e as empresas (filiais) com o destinatário da proposta (`0030`). Cada migração tem um propósito único e nomeado — siga o padrão `NNNN_descricao.py`.

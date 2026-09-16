@@ -2,8 +2,8 @@
 // aceita quase tudo opcional e o submit implicito do browser (Enter) chegou a
 // criar propostas em branco — ver PropostaModal.
 
-import { soDigitos } from '../../lib/documento'
-import { ROTULOS_OVERRIDE, type CampoOverride } from './clienteOverride'
+import { camposFaltando, OBRIGATORIOS_PROPOSTA, ROTULOS_DADOS, type CampoDados, type DadosEmpresa } from '../empresas/dadosEmpresa'
+import type { Selecao } from './destinatario'
 
 /**
  * O editor rico (Quill) nunca devolve string vazia depois de tocado: sobra
@@ -11,63 +11,45 @@ import { ROTULOS_OVERRIDE, type CampoOverride } from './clienteOverride'
  */
 export function htmlTemTexto(html?: string | null): boolean {
   if (!html) return false
-  return html
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/&nbsp;/gi, ' ')
-    .trim() !== ''
+  return html.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/gi, ' ').trim() !== ''
+}
+
+export const ROTULO_CONTATO = 'Contato (aos cuidados de)'
+
+/**
+ * O documento so e' exigido de empresa NOVA: no cadastro existente ele e'
+ * somente leitura, e Cliente antigo sem CNPJ/CPF nao pode virar beco sem saida.
+ */
+export function obrigatoriosDaProposta(exigirDocumento: boolean): readonly CampoDados[] {
+  return exigirDocumento ? OBRIGATORIOS_PROPOSTA : OBRIGATORIOS_PROPOSTA.filter((c) => c !== 'documento')
 }
 
 /**
- * Campos do cliente que a proposta nao pode levar em branco, na ordem em que
- * aparecem no formulario.
- *
- * Telefone, e-mail e contato entraram a pedido do comercial: os tres nascem
- * vazios de proposito (ver `NAO_HERDADOS` em clienteOverride) e so sao
- * conferidos a cada proposta porque estao nesta lista — herdados do cadastro,
- * ninguem olhava e a proposta saia com o contato velho do cliente.
- *
- * `contato` nao e' campo do rascunho do override (mora em `propostas.contato`,
- * ver CAMPOS_RASCUNHO): quem valida injeta o valor do form no rascunho so para
- * esta checagem — ver PropostaModal.
+ * Rotulos dos obrigatorios vazios, na ordem do formulario. E-mail, telefone e
+ * "aos cuidados de" nascem vazios de proposito e so sao conferidos porque estao
+ * aqui — herdados do cadastro, ninguem olhava (pedido do comercial).
  */
-export const CAMPOS_OBRIGATORIOS: readonly CampoOverride[] = [
-  'nome', 'documento', 'endereco', 'municipio', 'estado', 'cep', 'telefone', 'email', 'contato',
-]
-
-// Campos guardados como digitos: pontuacao sozinha nao e' preenchimento.
-const SO_DIGITOS = new Set<CampoOverride>(['documento', 'cep'])
-
-/** Quais obrigatorios estao vazios no rascunho do painel do cliente. */
-export function camposObrigatoriosFaltando(
-  rascunho: Partial<Record<CampoOverride, string>>,
-): CampoOverride[] {
-  return CAMPOS_OBRIGATORIOS.filter((campo) => {
-    const v = rascunho[campo] ?? ''
-    return SO_DIGITOS.has(campo) ? !soDigitos(v) : v.trim() === ''
-  })
+export function camposObrigatoriosFaltando(dados: DadosEmpresa, contato: string, exigirDocumento: boolean): string[] {
+  const faltando = camposFaltando(dados, obrigatoriosDaProposta(exigirDocumento)).map((c) => ROTULOS_DADOS[c])
+  if (contato.trim() === '') faltando.push(ROTULO_CONTATO)
+  return faltando
 }
 
 export interface PropostaValidavel {
-  cliente: number | null
-  /** Rascunho do painel do cliente — o que a proposta vai levar, campo a campo. */
-  rascunho: Partial<Record<CampoOverride, string>>
-  /** HTML do campo "Outros Itens ou Serviços". */
+  selecao: Selecao | null
+  dados: DadosEmpresa
+  contato: string
   outrosItens?: string | null
-  /** Dados do cliente ainda em carregamento — nao da para julgar os campos. */
-  carregandoCliente?: boolean
+  /** Dados do destinatario ainda carregando — nao da para julgar os campos. */
+  carregando?: boolean
 }
 
 /** Devolve a mensagem do primeiro problema encontrado, ou null se estiver ok. */
 export function validarProposta(p: PropostaValidavel): string | null {
-  if (p.cliente == null) return 'Selecione o cliente antes de salvar a proposta.'
-  if (p.carregandoCliente) return 'Aguarde o carregamento dos dados do cliente.'
-  const faltando = camposObrigatoriosFaltando(p.rascunho)
-  if (faltando.length) {
-    const rotulos = faltando.map((c) => ROTULOS_OVERRIDE[c]).join(', ')
-    return `Preencha os campos obrigatórios do cliente: ${rotulos}.`
-  }
-  if (!htmlTemTexto(p.outrosItens)) {
-    return 'Preencha "Outros Itens ou Serviços" — use o botao Aplicar modelo.'
-  }
+  if (p.selecao == null) return 'Escolha o destinatário antes de salvar a proposta.'
+  if (p.carregando) return 'Aguarde o carregamento dos dados do destinatário.'
+  const faltando = camposObrigatoriosFaltando(p.dados, p.contato, p.selecao.tipo === 'nova_empresa')
+  if (faltando.length) return `Preencha os campos obrigatórios: ${faltando.join(', ')}.`
+  if (!htmlTemTexto(p.outrosItens)) return 'Preencha "Outros Itens ou Serviços" — use o botao Aplicar modelo.'
   return null
 }

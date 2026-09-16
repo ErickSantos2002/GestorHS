@@ -48,17 +48,17 @@ def test_capitalizar_e_idempotente_e_trata_vazio():
 
 def test_mapear_brasilapi_cep():
     dados = {"cep": "50030230", "state": "PE", "city": "RECIFE",
-             "neighborhood": "Recife", "street": "CAIS DO APOLO", "service": "open-cep"}
+             "neighborhood": "SANTO ANTONIO", "street": "CAIS DO APOLO", "service": "open-cep"}
     assert enderecos.mapear_brasilapi_cep(dados) == {
-        "cep": "50030230", "endereco": "Cais do Apolo", "municipio": "Recife", "estado": "PE",
+        "cep": "50030230", "endereco": "Cais do Apolo", "bairro": "Santo Antonio", "municipio": "Recife", "estado": "PE",
     }
 
 
 def test_mapear_viacep():
-    dados = {"cep": "50030-230", "logradouro": "Cais do Apolo", "bairro": "Recife",
+    dados = {"cep": "50030-230", "logradouro": "Cais do Apolo", "bairro": "SANTO ANTONIO",
              "localidade": "Recife", "uf": "pe"}
     assert enderecos.mapear_viacep(dados) == {
-        "cep": "50030230", "endereco": "Cais do Apolo", "municipio": "Recife", "estado": "PE",
+        "cep": "50030230", "endereco": "Cais do Apolo", "bairro": "Santo Antonio", "municipio": "Recife", "estado": "PE",
     }
 
 
@@ -69,7 +69,7 @@ def test_mapear_viacep_com_erro_vira_nao_encontrado():
         enderecos.mapear_viacep({"erro": "true"})
 
 
-def test_mapear_brasilapi_cnpj_monta_endereco_completo():
+def test_mapear_brasilapi_cnpj_separa_numero_complemento_e_bairro():
     dados = {
         "cnpj": "36312056000552", "razao_social": "CBF INDUSTRIA DE GUSA S/A",
         "logradouro": "BR 101", "numero": "S/N", "complemento": "KM 196,5",
@@ -79,7 +79,10 @@ def test_mapear_brasilapi_cnpj_monta_endereco_completo():
     assert enderecos.mapear_brasilapi_cnpj(dados) == {
         "documento": "36312056000552",
         "nome": "CBF Industria de Gusa S/A",
-        "endereco": "BR 101, S/N KM 196,5",
+        "endereco": "BR 101",
+        "numero": "S/N",
+        "complemento": "KM 196,5",
+        "bairro": "Zona Rural",
         "municipio": "Joao Neiva",
         "estado": "ES",
         "cep": "29680000",
@@ -95,11 +98,13 @@ def test_mapear_brasilapi_cnpj_sem_numero_nem_complemento():
     r = enderecos.mapear_brasilapi_cnpj(dados)
     assert r["endereco"] == "Rua X"
     assert r["nome"] == "Acme Ltda"
+    assert r["numero"] == "" and r["complemento"] == ""
 
 
 def test_mapear_brasilapi_cnpj_campos_ausentes_viram_string_vazia():
     r = enderecos.mapear_brasilapi_cnpj({"cnpj": "36312056000552"})
     assert r == {"documento": "36312056000552", "nome": "", "endereco": "",
+                 "numero": "", "complemento": "", "bairro": "",
                  "municipio": "", "estado": "", "cep": "", "situacao": ""}
 
 

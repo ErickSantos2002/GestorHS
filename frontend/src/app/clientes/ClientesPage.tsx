@@ -68,7 +68,7 @@ export function ClientesPage() {
         value={termo}
         onChange={setTermo}
         onSubmit={onBuscar}
-        placeholder="Buscar por nome, CNPJ, CPF ou município"
+        placeholder="Buscar por nome, CNPJ, CPF, município ou série do aparelho"
       />
 
       {erro && <div className="rounded-lg bg-danger/10 border border-danger/20 px-3 py-2.5 text-sm text-danger">{erro}</div>}

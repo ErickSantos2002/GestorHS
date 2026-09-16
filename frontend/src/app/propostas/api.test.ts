@@ -21,7 +21,6 @@ beforeEach(() => {
 })
 
 const payload: PropostaCreate = {
-  cliente: 5,
   contato: 'Fulano',
   vendedor: 'Ciclano',
   data: '2026-07-24',
@@ -38,9 +37,9 @@ const payload: PropostaCreate = {
   descricao_entrega: null,
   endereco_entrega_diferente: false,
   endereco_entrega: null,
-  cliente_override: null,
   observacoes: null,
   assinatura: null,
+  destinatario: null,
   itens: [],
   aparelhos: [],
 }

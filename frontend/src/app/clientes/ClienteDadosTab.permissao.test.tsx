@@ -10,6 +10,7 @@ const { clienteCtx } = vi.hoisted(() => ({
 vi.mock('./ClienteLayout', () => ({ useCliente: () => clienteCtx }))
 
 vi.mock('../cadastros/api', () => ({ gruposApi: { listar: () => Promise.resolve([]) } }))
+vi.mock('./EmpresasVinculadasSection', () => ({ EmpresasVinculadasSection: () => <div>empresas</div> }))
 vi.mock('./FuncionariosSection', () => ({ FuncionariosSection: () => <div>funcionarios</div> }))
 vi.mock('./UsuariosPortalSection', () => ({ UsuariosPortalSection: () => <div>portal</div> }))
 

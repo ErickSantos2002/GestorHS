@@ -199,3 +199,40 @@ def test_montar_html_endereco_entrega_cep_formatado():
 
     assert "CEP: 50030-230" in html
     assert "CEP: 50030230" not in html
+
+
+def test_montar_html_usa_a_copia_congelada_e_ignora_o_cadastro_atual():
+    from app.core import proposta_pdf
+    from app.models import Cliente, Proposta
+
+    cli = Cliente(nome="NOME NOVO DO CADASTRO", cgc="08857492000148", municipio="Olinda", estado="PE")
+    p = Proposta(id=3, numero=101, contato="Maria", destinatario={
+        "tipo": "empresa", "id": 9, "nome": "Filial Congelada", "documento": "36312056000552",
+        "cep": "29680000", "endereco": "BR 101", "numero": "S/N", "complemento": "KM 196",
+        "bairro": "Zona Rural", "municipio": "Joao Neiva", "estado": "ES",
+        "email": "f@acme.com", "telefone": "2733330000", "matriz_id": 5, "matriz_nome": "ACME",
+    })
+    html = proposta_pdf.montar_html(p, cli)
+    assert "Filial Congelada" in html
+    assert "NOME NOVO DO CADASTRO" not in html
+    assert "36.312.056/0005-52" in html
+    assert "BR 101, S/N KM 196 - Zona Rural" in html
+    assert "Joao Neiva - ES" in html
+    assert "2733330000" in html and "f@acme.com" in html
+
+
+def test_montar_html_contato_legado_do_override_continua_valendo():
+    from app.core import proposta_pdf
+    from app.models import Cliente, Proposta
+    cli = Cliente(nome="ACME", cgc="08857492000148")
+    p = Proposta(id=4, numero=102, contato="", cliente_override={"contato": "Tatiane"})
+    assert "Tatiane" in proposta_pdf.montar_html(p, cli)
+
+
+def test_montar_html_contato_da_coluna_vence_o_do_override():
+    from app.core import proposta_pdf
+    from app.models import Cliente, Proposta
+    cli = Cliente(nome="ACME", cgc="08857492000148")
+    p = Proposta(id=5, numero=103, contato="Joana", cliente_override={"contato": "Tatiane"})
+    html = proposta_pdf.montar_html(p, cli)
+    assert "Joana" in html and "Tatiane" not in html

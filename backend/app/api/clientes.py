@@ -5,15 +5,31 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.models.database import get_db
-from app.models import Usuario, Cliente
+from app.models import Usuario, Cliente, EquipamentoCliente
 from app.api.deps import get_current_usuario, require_funcao, GESTOR_CADASTRO, EDITOR_CADASTRO
 from app.api.cadastros_common import excluir_protegido
 from app.api.exportar_common import carregar_ate_o_teto, resposta_xlsx
+from app.core.empresa_servico import DocumentoDuplicado, checar_documento_livre
 from app.core.exportacoes import COLUNAS_CLIENTES, linha_cliente
 from app.schemas.clientes import ClienteListOut, ClientesPage, ClienteOut, ClienteCreate, ClienteUpdate
 
 router = APIRouter(prefix="/clientes", tags=["clientes"])
 ADMIN = "Administrador"
+
+
+def _conferir_contra_empresas(db: Session, cgc, cpf, cliente_id=None) -> None:
+    """Documento e' unico somando clientes e empresas. Daqui so se olha Empresa:
+    duplicata antiga entre clientes nao pode travar o cadastro."""
+    try:
+        checar_documento_livre(db, cgc, cpf, cliente_id=cliente_id, incluir_clientes=False)
+    except DocumentoDuplicado as e:
+        raise HTTPException(status_code=409, detail=str(e))
+
+
+# Busca por serie so a partir daqui: com 1 ou 2 caracteres ela casaria com
+# centenas de aparelhos e a lista viraria quase o cadastro inteiro. Nome,
+# municipio e documento nao tem minimo.
+_MINIMO_SERIE = 3
 
 
 def _query_clientes(db: Session, q: str | None = None):
@@ -23,6 +39,18 @@ def _query_clientes(db: Session, q: str | None = None):
     if q:
         termo = f"%{q}%"
         filtros = [Cliente.nome.ilike(termo), Cliente.municipio.ilike(termo)]
+        if len(q.strip()) >= _MINIMO_SERIE:
+            # Dono do aparelho: "de quem e' esta serie?" resolvido na mesma busca.
+            # EXISTS, e nao join, para o cliente com dois aparelhos que casam nao
+            # aparecer duas vezes na lista (nem contar duas vezes no total).
+            filtros.append(
+                db.query(EquipamentoCliente.id)
+                .filter(
+                    EquipamentoCliente.cliente == Cliente.id,
+                    EquipamentoCliente.serie.ilike(termo),
+                )
+                .exists()
+            )
         digitos = re.sub(r"\D", "", q)
         if digitos:
             termo_doc = f"%{digitos}%"
@@ -68,6 +96,7 @@ def obter(cliente_id: int, db: Session = Depends(get_db), _: Usuario = Depends(g
 
 @router.post("", response_model=ClienteOut, status_code=status.HTTP_201_CREATED)
 def criar(dados: ClienteCreate, db: Session = Depends(get_db), _: Usuario = Depends(require_funcao(*GESTOR_CADASTRO))):
+    _conferir_contra_empresas(db, dados.cgc, dados.cpf)
     obj = Cliente(**dados.model_dump())
     db.add(obj)
     db.commit()
@@ -80,7 +109,10 @@ def atualizar(cliente_id: int, dados: ClienteUpdate, db: Session = Depends(get_d
     obj = db.query(Cliente).filter(Cliente.id == cliente_id).first()
     if obj is None:
         raise HTTPException(status_code=404, detail="não encontrado")
-    for chave, valor in dados.model_dump(exclude_unset=True).items():
+    mudancas = dados.model_dump(exclude_unset=True)
+    if "cgc" in mudancas or "cpf" in mudancas:
+        _conferir_contra_empresas(db, mudancas.get("cgc"), mudancas.get("cpf"), cliente_id=obj.id)
+    for chave, valor in mudancas.items():
         setattr(obj, chave, valor)
     db.commit()
     db.refresh(obj)

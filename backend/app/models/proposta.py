@@ -11,6 +11,8 @@ class Proposta(Base):
     id = Column(Integer, primary_key=True, index=True)
     numero = Column(Integer, nullable=False, unique=True, index=True)
     cliente = Column(Integer, ForeignKey("clientes.id", ondelete="SET NULL"), nullable=True, index=True)
+    # Destinatario Empresa (filial). Com ela preenchida, `cliente` e' a matriz dela.
+    empresa = Column(Integer, ForeignKey("empresas.id", ondelete="SET NULL"), nullable=True, index=True)
     contato = Column(String(255), nullable=True)         # "aos cuidados de"
     vendedor = Column(String(255), nullable=True)        # = criador, imutavel
     data = Column(Date, nullable=True)
@@ -27,7 +29,11 @@ class Proposta(Base):
     descricao_entrega = Column(String(500), nullable=True)
     endereco_entrega_diferente = Column(Boolean, nullable=False, default=False)
     endereco_entrega = Column(JSON, nullable=True)
+    # CONGELADA desde as Empresas (set/2026): nenhum caminho novo escreve aqui.
+    # Proposta antiga ainda e' lida por core/empresa.destinatario_legado.
     cliente_override = Column(JSON, nullable=True)
+    # Copia dos dados do destinatario no momento do salvamento — escrita so pelo servidor.
+    destinatario = Column(JSON, nullable=True)
     observacoes = Column(Text, nullable=True)
     assinatura = Column(String(255), nullable=True)
     faturada = Column(Boolean, nullable=False, default=False, server_default=sa.text("false"))
@@ -39,6 +45,7 @@ class Proposta(Base):
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
     cliente_rel = relationship("Cliente", lazy="joined")
+    empresa_rel = relationship("Empresa", lazy="joined")
     itens = relationship("PropostaItem", back_populates="proposta_rel", cascade="all, delete-orphan", lazy="selectin")
     aparelhos = relationship("PropostaAparelho", back_populates="proposta_rel", cascade="all, delete-orphan", lazy="selectin")
     versoes = relationship("PropostaVersao", back_populates="proposta_rel", cascade="all, delete-orphan", lazy="selectin", order_by="PropostaVersao.numero_versao")

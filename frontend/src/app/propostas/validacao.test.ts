@@ -1,89 +1,51 @@
 import { describe, it, expect } from 'vitest'
-import { camposObrigatoriosFaltando, htmlTemTexto, validarProposta } from './validacao'
-import type { CampoOverride } from './clienteOverride'
+import { htmlTemTexto, validarProposta, camposObrigatoriosFaltando } from './validacao'
+import { dadosVazios } from '../empresas/dadosEmpresa'
+import type { Cliente } from '../clientes/api'
 
-const RASCUNHO_OK: Partial<Record<CampoOverride, string>> = {
-  nome: 'Cliente Teste',
-  documento: '36312056000552',
-  endereco: 'Rua X, 10',
-  municipio: 'Recife',
-  estado: 'PE',
-  cep: '50000000',
-  telefone: '8130001111',
-  email: 'contato@teste.com',
-  contato: 'Joana',
+const COMPLETO = {
+  ...dadosVazios('08857492000148'), nome: 'ACME', cep: '50000000', endereco: 'Rua X',
+  municipio: 'Recife', estado: 'PE', email: 'a@a.com', telefone: '81999990000',
 }
+const SELECAO = { tipo: 'cliente' as const, cliente: { id: 5 } as Cliente }
 
-const OK = { cliente: 5, rascunho: RASCUNHO_OK, outrosItens: '<p>Calibracao</p>' }
-
-describe('htmlTemTexto', () => {
-  it('trata vazio, nulo e markup sem texto como sem texto', () => {
-    expect(htmlTemTexto('')).toBe(false)
-    expect(htmlTemTexto(null)).toBe(false)
+describe('validacao', () => {
+  it('htmlTemTexto ignora markup vazio do editor', () => {
     expect(htmlTemTexto('<p><br></p>')).toBe(false)
     expect(htmlTemTexto('<p>&nbsp;</p>')).toBe(false)
-    expect(htmlTemTexto('   ')).toBe(false)
+    expect(htmlTemTexto('<p>ok</p>')).toBe(true)
   })
 
-  it('reconhece texto dentro de tags', () => {
-    expect(htmlTemTexto('<p><strong>Servicos</strong></p>')).toBe(true)
-    expect(htmlTemTexto('<ul><li>Calibracao</li></ul>')).toBe(true)
-  })
-})
-
-describe('camposObrigatoriosFaltando', () => {
-  it('nao aponta nada com todos os obrigatorios preenchidos', () => {
-    expect(camposObrigatoriosFaltando(RASCUNHO_OK)).toEqual([])
+  it('exige destinatario', () => {
+    expect(validarProposta({ selecao: null, dados: COMPLETO, contato: 'Maria', outrosItens: '<p>x</p>' }))
+      .toBe('Escolha o destinatário antes de salvar a proposta.')
   })
 
-  it('telefone e contato tambem sao obrigatorios', () => {
-    expect(camposObrigatoriosFaltando({ ...RASCUNHO_OK, telefone: '', contato: '' }))
-      .toEqual(['telefone', 'contato'])
+  it('espera o carregamento', () => {
+    expect(validarProposta({ selecao: SELECAO, dados: COMPLETO, contato: 'Maria', outrosItens: '<p>x</p>', carregando: true }))
+      .toBe('Aguarde o carregamento dos dados do destinatário.')
   })
 
-  it('aponta os campos vazios na ordem do formulario', () => {
-    expect(camposObrigatoriosFaltando({ ...RASCUNHO_OK, email: '', endereco: '' }))
-      .toEqual(['endereco', 'email'])
+  it('lista os obrigatorios faltando, incluindo o contato', () => {
+    const dados = { ...COMPLETO, email: '', telefone: ' ' }
+    expect(camposObrigatoriosFaltando(dados, '', true)).toEqual(['Telefone', 'E-mail', 'Contato (aos cuidados de)'])
+    expect(validarProposta({ selecao: SELECAO, dados, contato: '', outrosItens: '<p>x</p>' }))
+      .toBe('Preencha os campos obrigatórios: Telefone, E-mail, Contato (aos cuidados de).')
   })
 
-  it('trata so espacos e campo ausente como vazio', () => {
-    expect(camposObrigatoriosFaltando({ ...RASCUNHO_OK, municipio: '   ' })).toEqual(['municipio'])
-    expect(camposObrigatoriosFaltando({})).toEqual(
-      ['nome', 'documento', 'endereco', 'municipio', 'estado', 'cep', 'telefone', 'email', 'contato'],
-    )
+  it('exige outros itens', () => {
+    expect(validarProposta({ selecao: SELECAO, dados: COMPLETO, contato: 'Maria', outrosItens: '<p><br></p>' }))
+      .toBe('Preencha "Outros Itens ou Serviços" — use o botao Aplicar modelo.')
   })
 
-  it('campos de digitos so com pontuacao nao contam como preenchidos', () => {
-    expect(camposObrigatoriosFaltando({ ...RASCUNHO_OK, documento: '--' })).toEqual(['documento'])
-    expect(camposObrigatoriosFaltando({ ...RASCUNHO_OK, cep: '-' })).toEqual(['cep'])
-  })
-})
-
-describe('validarProposta', () => {
-  it('aceita proposta com cliente, dados obrigatorios e outros itens', () => {
-    expect(validarProposta(OK)).toBeNull()
+  it('documento so e obrigatorio para empresa nova', () => {
+    const semDoc = { ...COMPLETO, documento: '' }
+    expect(validarProposta({ selecao: SELECAO, dados: semDoc, contato: 'Maria', outrosItens: '<p>x</p>' })).toBeNull()
+    expect(validarProposta({ selecao: { tipo: 'nova_empresa', matriz: null }, dados: semDoc, contato: 'Maria', outrosItens: '<p>x</p>' }))
+      .toBe('Preencha os campos obrigatórios: CNPJ / CPF.')
   })
 
-  it('exige cliente', () => {
-    expect(validarProposta({ ...OK, cliente: null })).toMatch(/selecione o cliente/i)
-  })
-
-  it('espera o carregamento do cliente antes de julgar os campos', () => {
-    expect(validarProposta({ ...OK, rascunho: {}, carregandoCliente: true })).toMatch(/aguarde/i)
-  })
-
-  it('lista os campos obrigatorios que faltam, pelo rotulo', () => {
-    const msg = validarProposta({ ...OK, rascunho: { ...RASCUNHO_OK, email: '', cep: '' } })
-    expect(msg).toMatch(/obrigat/i)
-    expect(msg).toContain('CEP')
-    expect(msg).toContain('E-mail')
-  })
-
-  it('exige o bloco de outros itens preenchido', () => {
-    expect(validarProposta({ ...OK, outrosItens: '<p><br></p>' })).toMatch(/Outros Itens/)
-  })
-
-  it('reporta o cliente antes dos campos quando faltam os dois', () => {
-    expect(validarProposta({ cliente: null, rascunho: {}, outrosItens: null })).toMatch(/selecione o cliente/i)
+  it('ok', () => {
+    expect(validarProposta({ selecao: SELECAO, dados: COMPLETO, contato: 'Maria', outrosItens: '<p>x</p>' })).toBeNull()
   })
 })
