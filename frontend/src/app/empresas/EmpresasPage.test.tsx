@@ -108,6 +108,26 @@ describe('EmpresasPage', () => {
     await waitFor(() => expect(listar).toHaveBeenCalledTimes(2))
   })
 
+  it('segundo clique no reenviar nao dispara segunda chamada', async () => {
+    vi.spyOn(empresasApi, 'listar').mockResolvedValue({
+      items: [{ ...EMPRESA, id: 2, nome: 'Com erro', tiny_status: 'erro', tiny_erro: 'x' }],
+      total: 1,
+    })
+    // Dois syncs simultaneos da mesma empresa criariam dois contatos no Tiny.
+    let liberar: (e: Empresa) => void = () => {}
+    const reenviar = vi.spyOn(empresasApi, 'reenviarTiny')
+      .mockReturnValue(new Promise<Empresa>((res) => { liberar = res }))
+    renderPagina()
+    await screen.findByText('Com erro')
+    const botao = screen.getByRole('button', { name: 'Reenviar ao Tiny' })
+    fireEvent.click(botao)
+    await waitFor(() => expect(botao).toBeDisabled())
+    fireEvent.click(botao)
+    expect(reenviar).toHaveBeenCalledTimes(1)
+    liberar({ ...EMPRESA, id: 2, tiny_status: 'pendente' })
+    await waitFor(() => expect(botao).not.toBeDisabled())
+  })
+
   it('filtro de erro no Tiny passa o parametro', async () => {
     const listar = vi.spyOn(empresasApi, 'listar').mockResolvedValue({ items: [EMPRESA], total: 1 })
     renderPagina()

@@ -31,6 +31,9 @@ export function EmpresasPage() {
   const [recarga, setRecarga] = useState(0)
   const [modal, setModal] = useState<{ empresa: Empresa | null } | null>(null)
   const [soErroTiny, setSoErroTiny] = useState(false)
+  // Empresa com reenvio em andamento: dois syncs simultaneos da mesma empresa
+  // criariam dois contatos no Tiny.
+  const [enviando, setEnviando] = useState<number | null>(null)
 
   useEffect(() => {
     let vivo = true
@@ -59,11 +62,15 @@ export function EmpresasPage() {
   }
 
   async function reenviarTiny(emp: Empresa) {
+    if (enviando === emp.id) return
+    setEnviando(emp.id)
     try {
       await empresasApi.reenviarTiny(emp.id)
       setRecarga((n) => n + 1)
     } catch (e) {
       setErro(e instanceof ApiError ? e.message : 'Falha ao reenviar ao Tiny')
+    } finally {
+      setEnviando(null)
     }
   }
 
@@ -122,7 +129,8 @@ export function EmpresasPage() {
                     </IconButton>
                   )}
                   {podeEditar && (emp.tiny_status === 'erro' || emp.tiny_status === 'pendente') && (
-                    <IconButton label="Reenviar ao Tiny" tone="baixar" onClick={() => void reenviarTiny(emp)}>
+                    <IconButton label="Reenviar ao Tiny" tone="baixar" disabled={enviando === emp.id}
+                      onClick={() => void reenviarTiny(emp)}>
                       <IconRestore className="w-4 h-4" />
                     </IconButton>
                   )}
