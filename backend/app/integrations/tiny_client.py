@@ -171,6 +171,13 @@ def sincronizar_empresa(empresa_id: int, *, db=None) -> None:
         if achado.deve_tentar_de_novo:
             _marcar(db, empresa, status="pendente")
             return
+        if not achado.nao_encontrado:
+            # So o erro 20 e' "nao existe la". Qualquer outra falha de pesquisa
+            # (corpo nao-JSON, 502, erro sem codigo, documento divergente, ou
+            # empresa sem documento) deixa em aberto se o contato ja existe —
+            # criar aqui geraria um DUPLICADO no ERP. Fica pendente para o reenvio.
+            _marcar(db, empresa, status="pendente")
+            return
 
         resultado = incluir_contato(tiny.contato_para_criar(empresa))
         if resultado.duplicidade and documento:

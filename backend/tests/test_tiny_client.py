@@ -304,6 +304,38 @@ def test_sincronizar_duplicidade_adota(db_session, falso_tiny, monkeypatch):
     assert e.tiny_id == 777 and e.tiny_status == "enviada"
 
 
+def test_sincronizar_pesquisa_indefinida_nao_cria(db_session, falso_tiny):
+    """Pesquisa que nao disse "nao encontrado" (corpo estranho, 502, erro sem
+    codigo) NAO autoriza criacao: cair na inclusao duplica o contato no ERP."""
+    chamadas, respostas = falso_tiny
+    respostas["pesquisa"] = tiny_core.Resultado(ok=False, codigo_erro=None,
+                                                mensagem="resposta do Tiny nao e' JSON")
+    e = _empresa(db_session)
+    tiny_client.sincronizar_empresa(e.id, db=db_session)
+    db_session.refresh(e)
+    assert e.tiny_status == "pendente" and e.tiny_id is None and e.tiny_erro is None
+    assert chamadas["incluir"] == []
+
+
+def test_sincronizar_documento_diferente_nao_cria(db_session, falso_tiny):
+    chamadas, respostas = falso_tiny
+    respostas["pesquisa"] = tiny_core.Resultado(ok=False,
+                                                mensagem="contato encontrado com documento diferente")
+    e = _empresa(db_session)
+    tiny_client.sincronizar_empresa(e.id, db=db_session)
+    db_session.refresh(e)
+    assert e.tiny_status == "pendente" and chamadas["incluir"] == []
+
+
+def test_sincronizar_sem_documento_nao_cria(db_session, falso_tiny):
+    """Sem CNPJ nem CPF nao ha pesquisa: criar as cegas duplicaria."""
+    chamadas, _ = falso_tiny
+    e = _empresa(db_session, cgc="", cpf=None)
+    tiny_client.sincronizar_empresa(e.id, db=db_session)
+    db_session.refresh(e)
+    assert e.tiny_status == "pendente" and chamadas["incluir"] == []
+
+
 def test_sincronizar_validacao_marca_erro_com_a_mensagem(db_session, falso_tiny):
     _, respostas = falso_tiny
     respostas["incluir"] = tiny_core.Resultado(ok=False, codigo_erro=31, mensagem="Cidade não encontrada")
