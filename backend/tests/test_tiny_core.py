@@ -69,6 +69,20 @@ def test_contato_para_alterar_nao_acrescenta_tipos():
     assert c["tipos_contato"] == [{"tipo": "Outro"}]
 
 
+def test_contato_para_alterar_preserva_a_situacao_do_tiny():
+    """Forcar "A" reativava no Tiny o contato que alguem inativou de la."""
+    c = tiny.contato_para_alterar(_empresa(), {"id": "1", "situacao": "I"})
+    assert c["situacao"] == "I"
+
+
+def test_contato_para_alterar_sem_situacao_no_tiny_assume_ativo():
+    assert tiny.contato_para_alterar(_empresa(), {"id": "1"})["situacao"] == "A"
+
+
+def test_contato_para_criar_nasce_ativo():
+    assert tiny.contato_para_criar(_empresa())["situacao"] == "A"
+
+
 def test_contato_para_alterar_sem_tipos_no_tiny_nao_inventa():
     assert "tipos_contato" not in tiny.contato_para_alterar(_empresa(), {"id": "1"})
 

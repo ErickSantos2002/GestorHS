@@ -95,7 +95,9 @@ def contato_para_alterar(empresa, atual: dict) -> dict:
     contato = dict(atual)
     contato.update(montar_contato(empresa))
     contato["sequencia"] = 1
-    contato["situacao"] = "A"
+    # A situacao e' do Tiny, nao daqui: forcar "A" reativava la o contato que
+    # alguem tinha inativado. So a CRIACAO nasce ativa.
+    contato["situacao"] = atual.get("situacao") or "A"
     return contato
 
 
