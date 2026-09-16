@@ -13,6 +13,8 @@ def classificar_tipo(integracao: str, source: str | None) -> str:
         return "os_espelho"
     if integracao == "growthhs" and source:
         return _TIPOS_GROWTHHS.get(source, "desconhecido")
+    if integracao == "tiny":
+        return "empresa_contato"
     return "desconhecido"
 
 
