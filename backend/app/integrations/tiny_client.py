@@ -93,12 +93,16 @@ def obter_contato_bruto(tiny_id: int) -> Optional[dict]:
         return None
     contato = (corpo.get("retorno") or {}).get("contato")
     encontrado = isinstance(contato, dict)
+    # Contato apagado no Tiny (erro 20) nao e' falha da integracao: o chamador
+    # trata recriando. Separar o motivo evita ler isso como erro no log.
+    sumiu = not encontrado and tiny.ler_resposta(corpo).nao_encontrado
     registrar_log_integracao(
         integracao="tiny",
         status="sucesso" if encontrado else "erro",
         payload=payload,
         http_status=resp.status_code,
         resposta=resp.text,
+        motivo="nao encontrado" if sumiu else None,
     )
     return contato if encontrado else None
 

@@ -154,6 +154,16 @@ def test_obter_contato_bruto_desligado_registra_pulado_sem_chamar(monkeypatch):
     assert linhas and linhas[0]["status"] == "pulado" and linhas[0]["motivo"] == "desligado"
 
 
+def test_obter_contato_bruto_nao_encontrado_tem_motivo_proprio(monkeypatch, ativa):
+    """Contato apagado no Tiny nao e' falha da integracao: o log diz o motivo."""
+    _captura(monkeypatch, {"retorno": {"status": "Erro", "codigo_erro": "20",
+                                       "erros": [{"erro": "A consulta não retornou registros"}]}})
+    linhas = []
+    monkeypatch.setattr(tiny_client, "registrar_log_integracao", lambda **kw: linhas.append(kw))
+    assert tiny_client.obter_contato_bruto(1) is None
+    assert linhas and linhas[0]["motivo"] == "nao encontrado"
+
+
 def test_obter_contato_bruto_sucesso_registra_no_log(monkeypatch, ativa):
     _captura(monkeypatch, {"retorno": {"status": "OK", "contato": {
         "id": "610661344", "codigo": "12527"}}})
