@@ -3,11 +3,12 @@ duplicar. Camada fina sobre `core/proposta_servico.py` (numeração, totais,
 versionamento) e `core/proposta_pdf.py` (geração/arquivamento de PDF via
 Playwright) — sem regra de negócio aqui, só orquestração HTTP.
 """
+import logging
 import re
 from contextlib import contextmanager
 from datetime import date, datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response, status
 from pydantic import ValidationError
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -20,10 +21,13 @@ from app.core import proposta_servico as ps
 from app.core import proposta_pdf
 from app.core.empresa import DocumentoInvalido
 from app.core.empresa_servico import DocumentoDuplicado, MatrizInexistente
+from app.integrations import tiny_client
 from app.schemas.proposta import (
     PropostaCreate, PropostaUpdate, PropostaOut, PropostaListOut, PropostaVersaoOut,
     PropostaItemCreate, PropostaAparelhoCreate, DestinatarioBuscaOut,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/propostas", tags=["propostas"])
 
@@ -82,6 +86,26 @@ def _erros_de_destinatario(db: Session):
     except (DocumentoDuplicado, ps.DestinatarioInativo) as e:
         db.rollback()
         raise HTTPException(status_code=409, detail=str(e))
+
+
+def _tiny_seguro(empresa_id: int) -> None:
+    """Envio best-effort: a proposta ja foi salva, entao falha aqui nao volta
+    para a request (o BackgroundTask roda dentro dela no TestClient)."""
+    try:
+        tiny_client.sincronizar_empresa(empresa_id)
+    except Exception:  # noqa: BLE001
+        logger.exception("falha ao agendar a empresa %s no Tiny", empresa_id)
+
+
+def _agendar_empresa_no_tiny(db: Session, background_tasks: BackgroundTasks, proposta) -> None:
+    criada = getattr(proposta, "empresa_criada_id", None)
+    if criada is None or not tiny_client.integracao_ativa():
+        return
+    empresa = db.get(Empresa, criada)
+    if empresa is not None:
+        empresa.tiny_status = "pendente"
+        db.commit()
+    background_tasks.add_task(_tiny_seguro, criada)
 
 
 # ---------------------------------------------------------------------------
@@ -174,12 +198,15 @@ def buscar_destinatarios(
 @router.post("", response_model=PropostaOut, status_code=status.HTTP_201_CREATED)
 def criar(
     dados: PropostaCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     usuario: Usuario = Depends(_escrever),
 ):
     with _erros_de_destinatario(db):
         proposta = ps.criar_proposta(db, dados, vendedor=usuario.nome)
-    return ps.montar_saida(db, proposta)
+    saida = ps.montar_saida(db, proposta)
+    _agendar_empresa_no_tiny(db, background_tasks, proposta)
+    return saida
 
 
 # ---------------------------------------------------------------------------
@@ -357,13 +384,16 @@ def obter(
 def atualizar(
     proposta_id: int,
     dados: PropostaUpdate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     usuario: Usuario = Depends(_escrever),
 ):
     proposta = _para_escrita(db, proposta_id)
     with _erros_de_destinatario(db):
         atualizado = ps.atualizar_proposta(db, proposta, dados, alterado_por=usuario.nome)
-    return ps.montar_saida(db, atualizado)
+    saida = ps.montar_saida(db, atualizado)
+    _agendar_empresa_no_tiny(db, background_tasks, atualizado)
+    return saida
 
 
 @router.post("/{proposta_id}/desabilitar", response_model=PropostaOut)

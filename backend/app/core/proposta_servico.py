@@ -83,6 +83,9 @@ def _aplicar_destinatario(db: Session, proposta: Proposta, dest: DestinatarioIn)
             bairro=dest.bairro, municipio=dest.municipio, estado=dest.estado,
             email=dest.email, telefone=dest.telefone,
         ))
+        # A rota agenda o Tiny DEPOIS do commit: a proposta nao pode falhar por
+        # causa da integracao (ver api/propostas.py).
+        proposta.empresa_criada_id = empresa.id
     proposta.empresa, proposta.cliente = empresa.id, empresa.cliente
 
 
