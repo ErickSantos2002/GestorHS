@@ -145,6 +145,9 @@ def test_erro_de_rede_nao_propaga(monkeypatch, ativa):
     monkeypatch.setattr(httpx, "post", explode)
     r = tiny_client.incluir_contato({"nome": "X"})
     assert not r.ok and r.deve_tentar_de_novo and "sem rede" in r.mensagem
+    # Rede caida NAO e' bloqueio do Tiny: fingir o codigo 6 fazia o script dizer
+    # "o Tiny bloqueou por excesso de chamadas" quando a internet caiu.
+    assert r.tentar_de_novo is True and r.codigo_erro is None
 
 
 def test_corpo_nao_json_nao_propaga(monkeypatch, ativa):

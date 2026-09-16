@@ -33,6 +33,9 @@ class Resultado:
     id: Optional[int] = None
     codigo_erro: Optional[int] = None
     mensagem: str = ""
+    # Falha que passa sozinha sem vir do Tiny (rede, timeout). Separada do
+    # codigo_erro para o script nao dizer "o Tiny bloqueou" quando caiu a internet.
+    tentar_de_novo: bool = False
 
     @property
     def nao_encontrado(self) -> bool:
@@ -44,8 +47,9 @@ class Resultado:
 
     @property
     def deve_tentar_de_novo(self) -> bool:
-        """Bloqueio por excesso de chamadas: passa sozinho, nao e' erro de dado."""
-        return self.codigo_erro in LIMITE
+        """Bloqueio por excesso de chamadas ou falha de rede: passa sozinho,
+        nao e' erro de dado."""
+        return self.tentar_de_novo or self.codigo_erro in LIMITE
 
 
 def _texto(v) -> str:

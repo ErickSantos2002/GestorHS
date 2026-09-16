@@ -38,8 +38,9 @@ def _chamar(endpoint: str, dados: dict, *, referencia: Optional[str] = None) -> 
     except Exception as e:  # noqa: BLE001 - best-effort: rede nunca derruba o chamador
         registrar_log_integracao(integracao="tiny", status="erro", payload=payload, resposta=str(e))
         logger.warning("falha de rede no Tiny (%s): %s", endpoint, e)
-        # Falha de rede passa sozinha: tratada como "tentar de novo" (codigo de limite).
-        return tiny.Resultado(ok=False, codigo_erro=tiny.LIMITE[0], mensagem=str(e))
+        # Falha de rede passa sozinha, mas NAO e' bloqueio do Tiny: marcar o
+        # codigo 6 fazia o script anunciar excesso de chamadas quando caiu a rede.
+        return tiny.Resultado(ok=False, tentar_de_novo=True, mensagem=str(e))
 
     try:
         corpo = resp.json()
