@@ -6,6 +6,7 @@ manda e' o corpo.
 """
 import json
 import logging
+from datetime import datetime, timezone
 from typing import Optional
 
 import httpx
@@ -112,8 +113,6 @@ def _envelope(contato: dict) -> str:
 
 def _marcar(db, empresa, *, status: str, erro: Optional[str] = None,
             tiny_id: Optional[int] = None) -> None:
-    from datetime import datetime, timezone
-
     if tiny_id is not None:
         empresa.tiny_id = tiny_id
     empresa.tiny_status = status
@@ -150,6 +149,12 @@ def sincronizar_empresa(empresa_id: int, *, db=None) -> None:
                 resultado = alterar_contato(tiny.contato_para_alterar(empresa, atual))
                 _aplicar(db, empresa, resultado, manter_id=True)
                 return
+            if not documento:
+                # `obter` devolve None por quatro motivos (apagado, rede, corpo
+                # invalido, limite). Sem documento nao da para pesquisar, e criar
+                # as cegas geraria um SEGUNDO contato para esta empresa.
+                _marcar(db, empresa, status="pendente")
+                return
             # Contato sumiu do Tiny: cai no caminho de criacao.
 
         achado = pesquisar_contato(documento) if documento else tiny.Resultado(ok=False)
@@ -169,6 +174,10 @@ def sincronizar_empresa(empresa_id: int, *, db=None) -> None:
                 return
         _aplicar(db, empresa, resultado)
     except Exception:  # noqa: BLE001 - best-effort: nunca derruba quem agendou
+        try:
+            db.rollback()
+        except Exception:  # noqa: BLE001 - a sessao pode nao ter transacao aberta
+            pass
         logger.exception("falha ao sincronizar a empresa %s com o Tiny", empresa_id)
     finally:
         if propria:
@@ -176,9 +185,13 @@ def sincronizar_empresa(empresa_id: int, *, db=None) -> None:
 
 
 def _aplicar(db, empresa, resultado: tiny.Resultado, *, manter_id: bool = False) -> None:
-    if resultado.ok:
+    if resultado.ok and (manter_id or resultado.id is not None):
         _marcar(db, empresa, status="enviada",
                 tiny_id=None if manter_id else resultado.id)
+    elif resultado.ok:
+        # OK sem id e sem manter: nao ha o que gravar como tiny_id, e "enviada"
+        # sem tiny_id nunca mais entraria no caminho de alteracao.
+        _marcar(db, empresa, status="pendente")
     elif resultado.deve_tentar_de_novo:
         # Limite ou rede: passa sozinho, entao nao e' erro de dado.
         _marcar(db, empresa, status="pendente")

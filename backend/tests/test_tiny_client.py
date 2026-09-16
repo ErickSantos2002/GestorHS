@@ -235,11 +235,25 @@ def test_sincronizar_com_tiny_id_le_antes_de_alterar(db_session, falso_tiny):
 def test_sincronizar_contato_sumiu_do_tiny_recria(db_session, falso_tiny):
     chamadas, respostas = falso_tiny
     respostas["obter"] = None
+    respostas["incluir"] = tiny_core.Resultado(ok=True, id=1001)
     e = _empresa(db_session, tiny_id=999)
     tiny_client.sincronizar_empresa(e.id, db=db_session)
     db_session.refresh(e)
     assert chamadas["alterar"] == [] and chamadas["incluir"]
-    assert e.tiny_id == 999 and e.tiny_status == "enviada"
+    assert e.tiny_id == 1001 and e.tiny_status == "enviada"
+
+
+def test_sincronizar_tiny_id_sem_documento_obter_falha_fica_pendente(db_session, falso_tiny):
+    """`obter` devolve None por 4 motivos (apagado, rede, corpo invalido,
+    limite). Sem documento para pesquisar, criar as cegas geraria um SEGUNDO
+    contato para a mesma empresa — melhor ficar pendente."""
+    chamadas, respostas = falso_tiny
+    respostas["obter"] = None
+    e = _empresa(db_session, tiny_id=999, cgc="", cpf=None)
+    tiny_client.sincronizar_empresa(e.id, db=db_session)
+    db_session.refresh(e)
+    assert e.tiny_status == "pendente" and e.tiny_id == 999
+    assert chamadas["incluir"] == []
 
 
 def test_sincronizar_duplicidade_adota(db_session, falso_tiny, monkeypatch):
@@ -283,4 +297,17 @@ def test_sincronizar_desligado_nao_marca_nada(db_session, monkeypatch):
 
 
 def test_sincronizar_empresa_inexistente_nao_explode(db_session, falso_tiny):
+    chamadas, _ = falso_tiny
     tiny_client.sincronizar_empresa(99999, db=db_session)  # sem excecao
+    assert chamadas["pesquisa"] == []
+
+
+def test_sincronizar_nao_propaga_excecao(db_session, falso_tiny, monkeypatch):
+    def explode(_doc):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(tiny_client, "pesquisar_contato", explode)
+    e = _empresa(db_session)
+    tiny_client.sincronizar_empresa(e.id, db=db_session)   # nao levanta
+    db_session.refresh(e)
+    assert e.tiny_status is None and e.tiny_id is None
