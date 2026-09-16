@@ -11,9 +11,10 @@ import { IconButton, IconButtonGroup } from '../../components/ui/IconButton'
 import { IconBan, IconPencil, IconRestore } from '../../components/ui/icons'
 import { ApiError } from '../../lib/api'
 import { formatarDocumento } from '../../lib/documento'
+import { cn } from '../../lib/utils'
 import { useAuth } from '../../auth/AuthContext'
 import { podeGerenciarEmpresas } from '../../auth/roles'
-import { empresasApi, type Empresa } from './api'
+import { empresasApi, rotuloTiny, type Empresa } from './api'
 import { EmpresaModal } from './EmpresaModal'
 
 const LIMITE = 25
@@ -29,17 +30,18 @@ export function EmpresasPage() {
   const [erro, setErro] = useState('')
   const [recarga, setRecarga] = useState(0)
   const [modal, setModal] = useState<{ empresa: Empresa | null } | null>(null)
+  const [soErroTiny, setSoErroTiny] = useState(false)
 
   useEffect(() => {
     let vivo = true
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setItens(null)
     setErro('')
-    empresasApi.listar({ q: busca || undefined, offset, limit: LIMITE })
+    empresasApi.listar({ q: busca || undefined, tiny_status: soErroTiny ? 'erro' : undefined, offset, limit: LIMITE })
       .then((p) => { if (vivo) { setItens(p.items); setTotal(p.total) } })
       .catch((e) => { if (vivo) { setErro(e instanceof ApiError ? e.message : 'Falha ao carregar'); setItens([]) } })
     return () => { vivo = false }
-  }, [busca, offset, recarga])
+  }, [busca, offset, recarga, soErroTiny])
 
   function onBuscar(e: FormEvent) {
     e.preventDefault()
@@ -56,6 +58,15 @@ export function EmpresasPage() {
     }
   }
 
+  async function reenviarTiny(emp: Empresa) {
+    try {
+      await empresasApi.reenviarTiny(emp.id)
+      setRecarga((n) => n + 1)
+    } catch (e) {
+      setErro(e instanceof ApiError ? e.message : 'Falha ao reenviar ao Tiny')
+    }
+  }
+
   return (
     <PageContainer>
       <div className="flex items-center justify-between">
@@ -64,6 +75,12 @@ export function EmpresasPage() {
       </div>
       <p className="text-sm text-slate-500">Filiais com os dados cadastrais. Os aparelhos das propostas vêm do cliente matriz.</p>
       <SearchBar value={termo} onChange={setTermo} onSubmit={onBuscar} placeholder="Buscar por nome, CNPJ, CPF ou município" />
+      <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+        <input type="checkbox" checked={soErroTiny}
+          onChange={(e) => { setOffset(0); setSoErroTiny(e.target.checked) }}
+          className="h-4 w-4 rounded border-border text-primary focus:ring-primary/50" />
+        Só com erro no Tiny
+      </label>
       {erro && <div className="rounded-lg bg-danger/10 border border-danger/20 px-3 py-2.5 text-sm text-danger">{erro}</div>}
       {itens === null ? (
         <div className="flex justify-center py-12"><Spinner className="w-8 h-8" /></div>
@@ -71,7 +88,7 @@ export function EmpresasPage() {
         <p className="text-sm text-slate-500">Nenhuma empresa encontrada.</p>
       ) : (
         <Table
-          head={<><TH>Nome</TH><TH>CNPJ / CPF</TH><TH>Matriz</TH><TH>Município/UF</TH><TH>Ativo</TH><TH>Ações</TH></>}
+          head={<><TH>Nome</TH><TH>CNPJ / CPF</TH><TH>Matriz</TH><TH>Município/UF</TH><TH>Ativo</TH><TH>Tiny</TH><TH>Ações</TH></>}
           footer={<PaginationOffset offset={offset} limit={LIMITE} total={total} onOffsetChange={setOffset} itemLabel="empresas" />}
         >
           {itens.map((emp) => (
@@ -86,6 +103,15 @@ export function EmpresasPage() {
               <TD>{[emp.municipio, emp.estado].filter(Boolean).join(' / ') || '—'}</TD>
               <TD><Badge tone={emp.ativo ? 'primary' : 'neutral'}>{emp.ativo ? 'Ativa' : 'Inativa'}</Badge></TD>
               <TD>
+                <span className={cn('text-xs', emp.tiny_status === 'erro' && 'font-semibold text-danger')}
+                  title={emp.tiny_erro ?? undefined}>
+                  {rotuloTiny(emp)}
+                </span>
+                {emp.tiny_id != null && (
+                  <span className="block text-xs text-slate-500">{emp.tiny_id}</span>
+                )}
+              </TD>
+              <TD>
                 <IconButtonGroup>
                   <IconButton label={podeEditar ? 'Editar' : 'Ver'} tone={podeEditar ? 'editar' : 'ver'} onClick={() => setModal({ empresa: emp })}>
                     <IconPencil className="w-4 h-4" />
@@ -93,6 +119,11 @@ export function EmpresasPage() {
                   {podeEditar && (
                     <IconButton label={emp.ativo ? 'Desativar' : 'Reativar'} tone={emp.ativo ? 'excluir' : 'ok'} onClick={() => void alternarAtivo(emp)}>
                       {emp.ativo ? <IconBan className="w-4 h-4" /> : <IconRestore className="w-4 h-4" />}
+                    </IconButton>
+                  )}
+                  {podeEditar && (emp.tiny_status === 'erro' || emp.tiny_status === 'pendente') && (
+                    <IconButton label="Reenviar ao Tiny" tone="baixar" onClick={() => void reenviarTiny(emp)}>
+                      <IconRestore className="w-4 h-4" />
                     </IconButton>
                   )}
                 </IconButtonGroup>

@@ -17,6 +17,7 @@ const EMPRESA: Empresa = {
   id: 9, cliente: 5, matriz_nome: 'ACME', nome: 'Filial', cgc: '36312056000552', cpf: null, cep: '29680000',
   endereco: 'BR 101', numero: 'S/N', complemento: null, bairro: 'Zona Rural', municipio: 'Joao Neiva',
   estado: 'ES', email: 'f@acme.com', telefone: '2733330000', insc_est: null, ativo: true,
+  tiny_id: null, tiny_status: null, tiny_erro: null, tiny_em: null,
   created_at: null, updated_at: null,
 }
 
