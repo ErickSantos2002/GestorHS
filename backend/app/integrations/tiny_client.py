@@ -149,7 +149,11 @@ def sincronizar_empresa(empresa_id: int, *, db=None) -> None:
     propria = db is None
     db = db or SessionLocal()
     try:
-        empresa = db.get(Empresa, empresa_id)
+        # Trava a linha ate o commit: dois syncs simultaneos da mesma Empresa
+        # (duplo clique no "Reenviar", salvar e corrigir em seguida) pesquisariam
+        # os dois antes de qualquer um gravar o tiny_id — e criariam dois
+        # contatos. O SQLite ignora o FOR UPDATE, entao os testes nao mudam.
+        empresa = db.get(Empresa, empresa_id, with_for_update=True)
         if empresa is None:
             return
         documento = empresa.cgc or empresa.cpf or ""
