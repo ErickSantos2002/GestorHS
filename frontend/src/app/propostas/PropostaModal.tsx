@@ -122,6 +122,8 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
   // ─── Frota / Aparelhos ────────────────────────────────────────────────
   const [frota, setFrota] = useState<EquipamentoClienteFrota[] | null>(null)
   const [carregandoFrota, setCarregandoFrota] = useState(false)
+  /** A busca da frota falhou — diferente de frota vazia (ver o efeito da frota). */
+  const [erroFrota, setErroFrota] = useState(false)
   const [aparelhosSelecionados, setAparelhosSelecionados] = useState<number[]>([])
   const [buscaAparelho, setBuscaAparelho] = useState('')
   /** Aparelhos salvos que nao estao mais na frota e foram retirados ao abrir. */
@@ -312,9 +314,13 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
     }
     let vivo = true
     setCarregandoFrota(true)
+    setErroFrota(false)
     frotaDoCliente(frotaClienteId)
-      .catch(() => [])
       .then((itensFrota) => { if (vivo) { setFrota(itensFrota); setCarregandoFrota(false) } })
+      // Frota que NAO carregou nao e' frota vazia: deixar `frota` nula mantem os
+      // aparelhos marcados de fora da conferencia abaixo — senao uma queda de rede
+      // apagaria em silencio os aparelhos que a proposta ja tinha.
+      .catch(() => { if (vivo) { setFrota(null); setErroFrota(true); setCarregandoFrota(false) } })
     return () => { vivo = false }
   }, [frotaClienteId])
 
@@ -661,6 +667,10 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
             <Secao titulo="Aparelhos" icon={<IconFrota className="w-3.5 h-3.5" />}>
               {carregandoFrota ? (
                 <div className="flex justify-center py-6"><Spinner className="w-6 h-6" /></div>
+              ) : erroFrota ? (
+                <p className="text-sm font-medium text-danger">
+                  Não foi possível carregar a frota. Os aparelhos já marcados na proposta continuam valendo.
+                </p>
               ) : !frota || frota.length === 0 ? (
                 <p className="text-sm text-slate-500">Nenhum aparelho cadastrado para este cliente.</p>
               ) : (

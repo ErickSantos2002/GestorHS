@@ -431,6 +431,22 @@ describe('PropostaModal — destinatario', () => {
     expect(propostasAtualizar.mock.calls[0][1].aparelhos).toEqual([{ equipamento_cliente: 42 }])
   })
 
+  it('falha ao carregar a frota mantem os aparelhos salvos e avisa a falha', async () => {
+    // Frota que nao carregou NAO e' frota vazia: retirar os aparelhos aqui
+    // apagaria em silencio o que a proposta ja tinha por causa de uma queda de rede.
+    propostasObter.mockResolvedValue({ ...PROPOSTA_BASE, aparelhos: [{ id: 1, equipamento_cliente: 42 }] })
+    propostasAtualizar.mockResolvedValue({ id: 900 })
+    frotaDoClienteMock.mockRejectedValue(new Error('rede'))
+    render(<PropostaModal propostaId={900} onClose={vi.fn()} />)
+    expect(await screen.findByText(/Não foi possível carregar a frota/)).toBeInTheDocument()
+    expect(screen.queryByText(/não estão mais na frota/)).toBeNull()
+    aplicarModelo()
+    preencherObrigatorios()
+    fireEvent.click(screen.getByText('Salvar Alterações'))
+    await waitFor(() => expect(propostasAtualizar).toHaveBeenCalled())
+    expect(propostasAtualizar.mock.calls[0][1].aparelhos).toEqual([{ equipamento_cliente: 42 }])
+  })
+
   it('aparelho salvo que saiu da frota e retirado da proposta com aviso', async () => {
     propostasObter.mockResolvedValue({
       ...PROPOSTA_BASE, aparelhos: [{ id: 1, equipamento_cliente: 42 }, { id: 2, equipamento_cliente: 77 }],
