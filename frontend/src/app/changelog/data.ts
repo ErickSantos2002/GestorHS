@@ -30,6 +30,7 @@ export const CHANGELOG: VersaoChangelog[] = [
       { tipo: 'novidade', texto: 'Na proposta, o destinatário pode ser um cliente ou uma empresa, numa busca só por nome, CNPJ ou CPF. Digitando um documento que ainda não existe, dá para cadastrar a empresa ali mesmo, sem sair da proposta.' },
       { tipo: 'melhoria', texto: 'Os dados da empresa editados na proposta agora ficam salvos no cadastro do cliente ou da empresa, e aparecem prontos na próxima proposta. O antigo "dados editados só nesta proposta" deixa de existir. Propostas já feitas continuam saindo com os dados da época.' },
       { tipo: 'melhoria', texto: 'As buscas por CEP e CNPJ passam a preencher número, complemento e bairro em campos separados.' },
+      { tipo: 'melhoria', texto: 'A busca de cliente também encontra pelo número de série do aparelho: digitando a série, aparece o cliente dono dela. Vale no campo "Cliente matriz" da empresa, na página Clientes, na transferência de aparelho e nos certificados emitidos.' },
     ],
   },
   {
