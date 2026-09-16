@@ -162,3 +162,125 @@ def test_registra_no_log_de_integracao(monkeypatch, ativa):
 def test_classificar_tipo_do_tiny():
     from app.core.log_integracao import classificar_tipo
     assert classificar_tipo("tiny", None) == "empresa_contato"
+
+
+from app.core import tiny as tiny_core
+from app.models import Empresa
+
+
+def _empresa(db, **kw):
+    base = dict(nome="Filial Norte", cgc="36312056000552", municipio="Joao Neiva", estado="ES")
+    base.update(kw)
+    e = Empresa(**base)
+    db.add(e); db.commit(); db.refresh(e)
+    return e
+
+
+@pytest.fixture()
+def falso_tiny(monkeypatch, ativa):
+    """Substitui as 4 chamadas HTTP por respostas controladas."""
+    chamadas = {"pesquisa": [], "incluir": [], "alterar": [], "obter": []}
+    respostas = {
+        "pesquisa": tiny_core.Resultado(ok=False, codigo_erro=20, mensagem="sem registros"),
+        "incluir": tiny_core.Resultado(ok=True, id=999),
+        "alterar": tiny_core.Resultado(ok=True, id=999),
+        "obter": {"id": "999", "codigo": "12527", "tipos_contato": [{"tipo": "Cliente"}]},
+    }
+    monkeypatch.setattr(tiny_client, "pesquisar_contato",
+                        lambda doc: (chamadas["pesquisa"].append(doc), respostas["pesquisa"])[1])
+    monkeypatch.setattr(tiny_client, "incluir_contato",
+                        lambda c: (chamadas["incluir"].append(c), respostas["incluir"])[1])
+    monkeypatch.setattr(tiny_client, "alterar_contato",
+                        lambda c: (chamadas["alterar"].append(c), respostas["alterar"])[1])
+    monkeypatch.setattr(tiny_client, "obter_contato_bruto",
+                        lambda i: (chamadas["obter"].append(i), respostas["obter"])[1])
+    return chamadas, respostas
+
+
+def test_sincronizar_cria_quando_nao_existe_no_tiny(db_session, falso_tiny):
+    chamadas, _ = falso_tiny
+    e = _empresa(db_session)
+    tiny_client.sincronizar_empresa(e.id, db=db_session)
+    db_session.refresh(e)
+    assert e.tiny_id == 999 and e.tiny_status == "enviada" and e.tiny_erro is None
+    assert e.tiny_em is not None
+    assert chamadas["pesquisa"] == ["36312056000552"]
+    assert chamadas["incluir"][0]["tipos_contato"] == [{"tipo": "Cliente"}]
+    assert chamadas["alterar"] == []
+
+
+def test_sincronizar_adota_contato_que_ja_existe(db_session, falso_tiny):
+    chamadas, respostas = falso_tiny
+    respostas["pesquisa"] = tiny_core.Resultado(ok=True, id=565052083)
+    e = _empresa(db_session)
+    tiny_client.sincronizar_empresa(e.id, db=db_session)
+    db_session.refresh(e)
+    assert e.tiny_id == 565052083 and e.tiny_status == "enviada"
+    assert chamadas["incluir"] == []  # nada criado: adotou
+
+
+def test_sincronizar_com_tiny_id_le_antes_de_alterar(db_session, falso_tiny):
+    chamadas, _ = falso_tiny
+    e = _empresa(db_session, tiny_id=999, tiny_status="enviada")
+    tiny_client.sincronizar_empresa(e.id, db=db_session)
+    db_session.refresh(e)
+    assert chamadas["obter"] == [999]
+    enviado = chamadas["alterar"][0]
+    assert enviado["id"] == "999" and enviado["codigo"] == "12527"      # preservados
+    assert enviado["tipos_contato"] == [{"tipo": "Cliente"}]            # sem acumular
+    assert enviado["nome"] == "Filial Norte"                            # nosso campo por cima
+    assert e.tiny_status == "enviada"
+
+
+def test_sincronizar_contato_sumiu_do_tiny_recria(db_session, falso_tiny):
+    chamadas, respostas = falso_tiny
+    respostas["obter"] = None
+    e = _empresa(db_session, tiny_id=999)
+    tiny_client.sincronizar_empresa(e.id, db=db_session)
+    db_session.refresh(e)
+    assert chamadas["alterar"] == [] and chamadas["incluir"]
+    assert e.tiny_id == 999 and e.tiny_status == "enviada"
+
+
+def test_sincronizar_duplicidade_adota(db_session, falso_tiny, monkeypatch):
+    chamadas, respostas = falso_tiny
+    respostas["incluir"] = tiny_core.Resultado(ok=False, codigo_erro=30, mensagem="duplicidade")
+    saidas = iter([tiny_core.Resultado(ok=False, codigo_erro=20),          # 1a pesquisa: nao achou
+                   tiny_core.Resultado(ok=True, id=777)])                  # apos o 30: achou
+    monkeypatch.setattr(tiny_client, "pesquisar_contato",
+                        lambda doc: (chamadas["pesquisa"].append(doc), next(saidas))[1])
+    e = _empresa(db_session)
+    tiny_client.sincronizar_empresa(e.id, db=db_session)
+    db_session.refresh(e)
+    assert e.tiny_id == 777 and e.tiny_status == "enviada"
+
+
+def test_sincronizar_validacao_marca_erro_com_a_mensagem(db_session, falso_tiny):
+    _, respostas = falso_tiny
+    respostas["incluir"] = tiny_core.Resultado(ok=False, codigo_erro=31, mensagem="Cidade não encontrada")
+    e = _empresa(db_session)
+    tiny_client.sincronizar_empresa(e.id, db=db_session)
+    db_session.refresh(e)
+    assert e.tiny_status == "erro" and e.tiny_erro == "Cidade não encontrada"
+    assert e.tiny_id is None
+
+
+def test_sincronizar_limite_fica_pendente_sem_erro(db_session, falso_tiny):
+    _, respostas = falso_tiny
+    respostas["incluir"] = tiny_core.Resultado(ok=False, codigo_erro=6, mensagem="API bloqueada")
+    e = _empresa(db_session)
+    tiny_client.sincronizar_empresa(e.id, db=db_session)
+    db_session.refresh(e)
+    assert e.tiny_status == "pendente" and e.tiny_erro is None
+
+
+def test_sincronizar_desligado_nao_marca_nada(db_session, monkeypatch):
+    monkeypatch.setattr(settings, "TINY_TOKEN", "")
+    e = _empresa(db_session)
+    tiny_client.sincronizar_empresa(e.id, db=db_session)
+    db_session.refresh(e)
+    assert e.tiny_status is None and e.tiny_id is None
+
+
+def test_sincronizar_empresa_inexistente_nao_explode(db_session, falso_tiny):
+    tiny_client.sincronizar_empresa(99999, db=db_session)  # sem excecao

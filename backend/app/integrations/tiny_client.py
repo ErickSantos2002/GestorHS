@@ -108,3 +108,79 @@ def alterar_contato(contato: dict) -> tiny.Resultado:
 def _envelope(contato: dict) -> str:
     """A v2 recebe o contato como JSON dentro de um campo de formulario."""
     return json.dumps({"contatos": [{"contato": contato}]}, ensure_ascii=False)
+
+
+def _marcar(db, empresa, *, status: str, erro: Optional[str] = None,
+            tiny_id: Optional[int] = None) -> None:
+    from datetime import datetime, timezone
+
+    if tiny_id is not None:
+        empresa.tiny_id = tiny_id
+    empresa.tiny_status = status
+    empresa.tiny_erro = (erro or "")[:255] or None
+    empresa.tiny_em = datetime.now(timezone.utc)
+    db.commit()
+
+
+def sincronizar_empresa(empresa_id: int, *, db=None) -> None:
+    """Alvo do BackgroundTask: espelha UMA Empresa no Tiny. Nunca propaga.
+
+    Sem `tiny_id`: pesquisa pelo documento e ADOTA o contato que existir (as
+    filiais ja estao cadastradas la); so cria o que faltar.
+    Com `tiny_id`: le o contato e reenvia INTEIRO — `contato.alterar.php` apaga
+    o que nao for enviado.
+    """
+    from app.models import Empresa
+    from app.models.database import SessionLocal
+
+    if not integracao_ativa():
+        return
+
+    propria = db is None
+    db = db or SessionLocal()
+    try:
+        empresa = db.get(Empresa, empresa_id)
+        if empresa is None:
+            return
+        documento = empresa.cgc or empresa.cpf or ""
+
+        if empresa.tiny_id:
+            atual = obter_contato_bruto(empresa.tiny_id)
+            if atual is not None:
+                resultado = alterar_contato(tiny.contato_para_alterar(empresa, atual))
+                _aplicar(db, empresa, resultado, manter_id=True)
+                return
+            # Contato sumiu do Tiny: cai no caminho de criacao.
+
+        achado = pesquisar_contato(documento) if documento else tiny.Resultado(ok=False)
+        if achado.ok and achado.id:
+            _marcar(db, empresa, status="enviada", tiny_id=achado.id)
+            return
+        if achado.deve_tentar_de_novo:
+            _marcar(db, empresa, status="pendente")
+            return
+
+        resultado = incluir_contato(tiny.contato_para_criar(empresa))
+        if resultado.duplicidade and documento:
+            # Rede de seguranca: alguem criou entre a pesquisa e a inclusao.
+            achado = pesquisar_contato(documento)
+            if achado.ok and achado.id:
+                _marcar(db, empresa, status="enviada", tiny_id=achado.id)
+                return
+        _aplicar(db, empresa, resultado)
+    except Exception:  # noqa: BLE001 - best-effort: nunca derruba quem agendou
+        logger.exception("falha ao sincronizar a empresa %s com o Tiny", empresa_id)
+    finally:
+        if propria:
+            db.close()
+
+
+def _aplicar(db, empresa, resultado: tiny.Resultado, *, manter_id: bool = False) -> None:
+    if resultado.ok:
+        _marcar(db, empresa, status="enviada",
+                tiny_id=None if manter_id else resultado.id)
+    elif resultado.deve_tentar_de_novo:
+        # Limite ou rede: passa sozinho, entao nao e' erro de dado.
+        _marcar(db, empresa, status="pendente")
+    else:
+        _marcar(db, empresa, status="erro", erro=resultado.mensagem)
