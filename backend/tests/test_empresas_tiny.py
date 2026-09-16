@@ -104,6 +104,45 @@ def test_empresa_nova_pela_proposta_agenda_depois_do_commit(client_comercial, ag
     assert db_session.get(Empresa, empresa_id).tiny_status == "pendente"
 
 
+def _cliente(db_session):
+    cli = Cliente(nome="ACME", cgc="08857492000148")
+    db_session.add(cli); db_session.commit()
+    return cli
+
+
+def test_empresa_editada_pela_proposta_agenda_o_envio(client_comercial, agendados, db_session):
+    """A spec manda sincronizar quando a Empresa e' criada E quando e' editada —
+    e o modal da proposta edita o cadastro inteiro da empresa escolhida."""
+    cli = _cliente(db_session)
+    emp = Empresa(nome="Filial Existente", cgc=CNPJ_A, cliente=cli.id)
+    db_session.add(emp); db_session.commit()
+    agendados.clear()
+    r = client_comercial.post("/propostas", json={
+        "destinatario": {"tipo": "empresa", "id": emp.id, "nome": "Filial Renomeada",
+                         "email": "f@acme.com", "telefone": "8130001111"},
+    })
+    assert r.status_code == 201
+    assert agendados == [emp.id]
+    db_session.refresh(emp)
+    assert emp.nome == "Filial Renomeada" and emp.tiny_status == "pendente"
+
+
+def test_empresa_editada_pela_proposta_agenda_no_put(client_comercial, agendados, db_session):
+    cli = _cliente(db_session)
+    emp = Empresa(nome="Filial Existente", cgc=CNPJ_A, cliente=cli.id)
+    db_session.add(emp); db_session.commit()
+    pid = client_comercial.post("/propostas", json={
+        "destinatario": {"tipo": "empresa", "id": emp.id, "nome": "Filial",
+                         "email": "f@acme.com", "telefone": "8130001111"},
+    }).json()["id"]
+    agendados.clear()
+    r = client_comercial.put(f"/propostas/{pid}", json={
+        "destinatario": {"tipo": "empresa", "id": emp.id, "nome": "Filial Corrigida",
+                         "email": "f@acme.com", "telefone": "8130001111"},
+    })
+    assert r.status_code == 200 and agendados == [emp.id]
+
+
 def test_falha_do_tiny_nao_derruba_a_proposta(client_comercial, monkeypatch, db_session):
     def explode(*a, **k):
         raise RuntimeError("Tiny fora do ar")

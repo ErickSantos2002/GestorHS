@@ -98,14 +98,15 @@ def _tiny_seguro(empresa_id: int) -> None:
 
 
 def _agendar_empresa_no_tiny(db: Session, background_tasks: BackgroundTasks, proposta) -> None:
-    criada = getattr(proposta, "empresa_criada_id", None)
-    if criada is None or not tiny_client.integracao_ativa():
+    alvo = getattr(proposta, "empresa_para_tiny", None)
+    if alvo is None or not tiny_client.integracao_ativa():
         return
-    empresa = db.get(Empresa, criada)
+    empresa = db.get(Empresa, alvo)
     if empresa is not None:
         empresa.tiny_status = "pendente"
+        empresa.tiny_erro = None
         db.commit()
-    background_tasks.add_task(_tiny_seguro, criada)
+    background_tasks.add_task(_tiny_seguro, alvo)
 
 
 # ---------------------------------------------------------------------------
