@@ -36,6 +36,9 @@ class Resultado:
     # Falha que passa sozinha sem vir do Tiny (rede, timeout). Separada do
     # codigo_erro para o script nao dizer "o Tiny bloqueou" quando caiu a internet.
     tentar_de_novo: bool = False
+    # CNPJ/CPF do contato achado, como o Tiny devolveu (com ou sem mascara).
+    # Sem ele nao da para saber se o contato e' mesmo o desta empresa.
+    documento: Optional[str] = None
 
     @property
     def nao_encontrado(self) -> bool:
@@ -102,6 +105,40 @@ def _mensagem(erros) -> str:
     return _texto(erros)
 
 
+def _do_contato(contato: dict) -> Resultado:
+    """Um contato da pesquisa (`contatos`) ou do obter (`contato`)."""
+    try:
+        tiny_id = int(contato.get("id"))
+    except (TypeError, ValueError):
+        return Resultado(ok=False, mensagem="contato sem id")
+    return Resultado(ok=True, id=tiny_id, documento=_texto(contato.get("cpf_cnpj")) or None)
+
+
+def so_digitos(documento) -> str:
+    """O Tiny devolve o documento com mascara; o GestorHS guarda so os digitos."""
+    return "".join(c for c in _texto(documento) if c.isdigit())
+
+
+def escolher_contato(corpo: dict, documento: str) -> Resultado:
+    """Adota o contato da pesquisa SO quando o documento bate.
+
+    A pesquisa por `cpf_cnpj` do Tiny devolve por aproximacao: com varios
+    cadastros na mesma raiz de CNPJ (a base tem 7 na raiz 05571228), pegar
+    `contatos[0]` gruda a empresa no contato de outra filial — e dali em diante
+    toda edicao daqui sobrescreve o cadastro da vizinha.
+    """
+    retorno = (corpo or {}).get("retorno")
+    achados = retorno.get("contatos") or [] if isinstance(retorno, dict) else []
+    alvo = so_digitos(documento)
+    for item in achados:
+        resultado = _do_contato((item or {}).get("contato", {}))
+        if resultado.ok and alvo and so_digitos(resultado.documento) == alvo:
+            return resultado
+    if achados:
+        return Resultado(ok=False, mensagem="contato encontrado com documento diferente")
+    return ler_resposta(corpo)
+
+
 def ler_resposta(corpo: dict) -> Resultado:
     retorno = (corpo or {}).get("retorno")
     if not isinstance(retorno, dict):
@@ -127,16 +164,10 @@ def ler_resposta(corpo: dict) -> Resultado:
 
     contatos = retorno.get("contatos") or []
     if contatos:
-        try:
-            return Resultado(ok=True, id=int(contatos[0].get("contato", {}).get("id")))
-        except (TypeError, ValueError):
-            return Resultado(ok=False, mensagem="contato sem id")
+        return _do_contato(contatos[0].get("contato", {}))
 
     contato = retorno.get("contato")
     if isinstance(contato, dict):
-        try:
-            return Resultado(ok=True, id=int(contato.get("id")))
-        except (TypeError, ValueError):
-            return Resultado(ok=False, mensagem="contato sem id")
+        return _do_contato(contato)
 
     return Resultado(ok=False, mensagem="resposta OK sem registros nem contatos")

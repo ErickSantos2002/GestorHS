@@ -24,7 +24,8 @@ def integracao_ativa() -> bool:
     return bool(settings.TINY_TOKEN)
 
 
-def _chamar(endpoint: str, dados: dict, *, referencia: Optional[str] = None) -> tiny.Resultado:
+def _chamar(endpoint: str, dados: dict, *, referencia: Optional[str] = None,
+            leitor=None) -> tiny.Resultado:
     if not integracao_ativa():
         registrar_log_integracao(integracao="tiny", status="pulado", motivo="desligado",
                                  payload={"endpoint": endpoint, "external_id": referencia})
@@ -49,7 +50,7 @@ def _chamar(endpoint: str, dados: dict, *, referencia: Optional[str] = None) -> 
                                  http_status=resp.status_code, resposta=resp.text)
         return tiny.Resultado(ok=False, mensagem="resposta do Tiny nao e' JSON")
 
-    resultado = tiny.ler_resposta(corpo)
+    resultado = (leitor or tiny.ler_resposta)(corpo)
     registrar_log_integracao(
         integracao="tiny",
         status="sucesso" if resultado.ok else "erro",
@@ -62,9 +63,14 @@ def _chamar(endpoint: str, dados: dict, *, referencia: Optional[str] = None) -> 
 
 
 def pesquisar_contato(documento: str) -> tiny.Resultado:
-    """Acha o contato pelo CNPJ/CPF. `nao_encontrado` = erro 20, que NAO e' falha."""
+    """Acha o contato pelo CNPJ/CPF. `nao_encontrado` = erro 20, que NAO e' falha.
+
+    So adota o contato cujo documento bate com o da empresa: a pesquisa do Tiny
+    devolve por aproximacao e a base tem varias filiais na mesma raiz de CNPJ.
+    """
     return _chamar("contatos.pesquisa.php",
-                   {"pesquisa": "", "cpf_cnpj": documento}, referencia=documento)
+                   {"pesquisa": "", "cpf_cnpj": documento}, referencia=documento,
+                   leitor=lambda corpo: tiny.escolher_contato(corpo, documento))
 
 
 def obter_contato(tiny_id: int) -> tiny.Resultado:

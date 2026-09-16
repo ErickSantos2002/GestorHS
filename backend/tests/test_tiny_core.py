@@ -85,6 +85,23 @@ def test_ler_resposta_sucesso_de_pesquisa():
     assert r.ok and r.id == 565052083
 
 
+def test_ler_resposta_devolve_o_documento_do_contato():
+    """Sem o documento nao da para saber se o contato achado e' mesmo o desta
+    empresa: a base tem 7 cadastros na mesma raiz de CNPJ."""
+    pesquisa = tiny.ler_resposta({"retorno": {"status": "OK", "contatos": [
+        {"contato": {"id": "565052083", "nome": "SUMA", "cpf_cnpj": "16.565.111/0020-48"}}]}})
+    assert pesquisa.documento == "16.565.111/0020-48"
+    obter = tiny.ler_resposta({"retorno": {"status": "OK", "contato": {
+        "id": "610661344", "cpf_cnpj": "80228885001000"}}})
+    assert obter.documento == "80228885001000"
+
+
+def test_ler_resposta_sem_documento_fica_none():
+    r = tiny.ler_resposta({"retorno": {"status": "OK", "contatos": [
+        {"contato": {"id": "1", "nome": "Sem doc"}}]}})
+    assert r.ok and r.documento is None
+
+
 def test_ler_resposta_sucesso_de_obter():
     r = tiny.ler_resposta({"retorno": {"status": "OK", "contato": {
         "id": "610661344", "codigo": "12527"}}})

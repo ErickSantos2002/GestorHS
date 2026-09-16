@@ -66,12 +66,37 @@ def test_desligado_nao_faz_chamada(monkeypatch):
 
 def test_pesquisar_contato_encontrado(monkeypatch, ativa):
     cap = _captura(monkeypatch, {"retorno": {"status": "OK", "contatos": [
-        {"contato": {"id": "565052083", "nome": "SUMA BRASIL"}}]}})
+        {"contato": {"id": "565052083", "nome": "SUMA BRASIL", "cpf_cnpj": "16.565.111/0020-48"}}]}})
     r = tiny_client.pesquisar_contato("16565111002048")
     assert r.ok and r.id == 565052083
     assert cap["url"] == "https://api.tiny.test/api2/contatos.pesquisa.php"
     assert cap["data"]["token"] == "tok-123" and cap["data"]["formato"] == "json"
     assert cap["data"]["cpf_cnpj"] == "16565111002048"
+
+
+def test_pesquisar_contato_escolhe_o_de_documento_exato(monkeypatch, ativa):
+    """A base tem 7 cadastros na raiz 05571228: adotar `contatos[0]` sem conferir
+    o documento gruda a empresa no contato de OUTRA filial."""
+    _captura(monkeypatch, {"retorno": {"status": "OK", "contatos": [
+        {"contato": {"id": "111", "nome": "Outra filial", "cpf_cnpj": "05.571.228/0002-00"}},
+        {"contato": {"id": "222", "nome": "A certa", "cpf_cnpj": "05.571.228/0003-91"}}]}})
+    r = tiny_client.pesquisar_contato("05571228000391")
+    assert r.ok and r.id == 222
+
+
+def test_pesquisar_contato_com_documento_diferente_nao_adota(monkeypatch, ativa):
+    _captura(monkeypatch, {"retorno": {"status": "OK", "contatos": [
+        {"contato": {"id": "111", "nome": "Outra filial", "cpf_cnpj": "05571228000200"}}]}})
+    r = tiny_client.pesquisar_contato("05571228000391")
+    assert not r.ok and r.id is None
+    assert not r.nao_encontrado and not r.deve_tentar_de_novo
+    assert "documento diferente" in r.mensagem
+
+
+def test_pesquisar_contato_sem_documento_na_resposta_nao_adota(monkeypatch, ativa):
+    _captura(monkeypatch, {"retorno": {"status": "OK", "contatos": [
+        {"contato": {"id": "111", "nome": "Sem documento"}}]}})
+    assert not tiny_client.pesquisar_contato("05571228000391").ok
 
 
 def test_pesquisar_contato_nao_encontrado(monkeypatch, ativa):
