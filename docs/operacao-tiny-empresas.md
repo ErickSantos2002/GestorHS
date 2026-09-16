@@ -10,7 +10,31 @@ Tiny (API v2, token). Nada volta do Tiny para cá.
 3. Pôr o `TINY_TOKEN` nas variáveis de ambiente do EasyPanel (o token sai do próprio
    Tiny, em Configurações > Token da API) e reiniciar.
 4. `python -m app.scripts.enviar_empresas_tiny` (simula) → conferir → `--aplicar`.
-   Em 16/09/2026 o esperado era: 9 adotadas, 1 criada.
+
+### Onde rodar o script
+
+**No console do EasyPanel, dentro do container da API** — é lá que o `TINY_TOKEN`
+está nas variáveis de ambiente e que o banco é o de produção de verdade.
+
+⚠️ **Nunca rode o script da máquina de desenvolvimento.** O `backend/.env` de
+desenvolvimento aponta para o **banco de produção**: rodar de lá grava em produção
+por um caminho que ninguém está olhando, com o token que estiver na mão naquele
+momento. E o Tiny **não tem ambiente de teste** — toda chamada cria contato de verdade.
+
+A simulação (sem `--aplicar`) **faz a pesquisa de verdade** — é leitura pura, e é o
+único jeito de saber quantos contatos seriam criados antes de valer. Ela nunca inclui
+nem grava nada. O resumo traz `adotadas` / `criadas` / `puladas`.
+
+### Critério de aceite da primeira rodada
+
+O esperado em 16/09/2026 é **10 adotadas, 0 criadas**: as 9 filiais que já estavam no
+Tiny mais a filial da Ibema (CNPJ `80228885001000`), criada à mão no teste de 16/09
+(contato `610661344`).
+
+**Qualquer "criada" nessa primeira rodada é sinal de problema** — provavelmente a
+pesquisa não encontrou um contato que existe, e seguir criaria duplicado no ERP.
+**Pare e avise** em vez de rodar de novo. `puladas` também pede olhada: é pesquisa que
+não deu resposta clara (o script não cria nesse caso, de propósito).
 
 ## O que cada estado quer dizer
 
@@ -36,7 +60,18 @@ Tiny (API v2, token). Nada volta do Tiny para cá.
   contato antes de alterar e devolve inteiro o que é de lá (código, tipos de contato,
   fantasia, pessoas de contato, e-mail de NFe). Nunca mande alteração parcial na mão.
 - **`tipos_contato` acumula.** Só a criação manda `Cliente`; a edição devolve o que veio.
-- **"Não encontrado" é o erro 20**, não uma lista vazia.
+- **"Não encontrado" é o erro 20**, não uma lista vazia. E **só o erro 20 autoriza
+  criar**: pesquisa que falhou de outro jeito (corpo não-JSON, 502, erro sem código)
+  deixa em aberto se o contato já existe, então a empresa fica `pendente` e o script
+  conta como `pulada`. Criar nesses casos duplicaria o contato no ERP.
+- **A adoção confere o documento.** A pesquisa do Tiny casa por aproximação e a base
+  tem várias filiais na mesma raiz de CNPJ (7 na raiz `05571228`): adotar o primeiro
+  da lista grudaria a empresa no contato da vizinha, e dali em diante toda edição
+  daqui sobrescreveria o cadastro dela.
+- **A situação (ativo/inativo) é do Tiny.** A alteração devolve a situação que veio de
+  lá; só a criação nasce `"A"`. Forçar `"A"` reativava quem tinha sido inativado no ERP.
+- **Rede caída não é bloqueio do Tiny.** São coisas diferentes no log e na mensagem do
+  script, mesmo que as duas deixem a empresa `pendente` para tentar de novo.
 - **`ler_resposta` entende três formatos de resposta do Tiny**: `registros` (inclusão
   e alteração), `contatos` (pesquisa) e `contato` (obter) — cada endpoint devolve o
   contato numa chave diferente.
