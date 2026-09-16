@@ -4,7 +4,7 @@ Para cada Empresa ativa sem `tiny_id`: pesquisa o documento no Tiny e ADOTA o
 contato que existir; so cria o que faltar. Na base de 16/09/2026, 9 das 10
 filiais ja estavam la — sem a pesquisa, o primeiro uso criaria 9 duplicados.
 
-    python -m app.scripts.enviar_empresas_tiny                 # so simula
+    python -m app.scripts.enviar_empresas_tiny                 # simula (pesquisa, nao cria)
     python -m app.scripts.enviar_empresas_tiny --aplicar       # grava
     python -m app.scripts.enviar_empresas_tiny --aplicar --limite 5
 
@@ -48,43 +48,60 @@ def _marcar(db, empresa, *, status: str, tiny_id=None, erro=None) -> None:
 
 
 def processar(db, empresas, *, aplicar: bool, pausa: float = PAUSA_PADRAO) -> dict:
+    """Pesquisa cada empresa e adota o contato que existir; so cria o que faltar.
+
+    A SIMULACAO faz a pesquisa de verdade — e' leitura pura e e' o unico jeito de
+    responder "vai criar alguma?" antes de valer. So a inclusao fica de fora.
+    """
     resumo = {"candidatas": len(empresas), "adotadas": 0, "criadas": 0,
-              "erros": 0, "interrompido": False}
-    if not aplicar:
-        for e in empresas:
-            print(f"  ? {e.id:5} {e.nome[:40]:40} {e.cgc or e.cpf}")
-        return resumo
+              "erros": 0, "puladas": 0, "interrompido": False}
 
     for i, empresa in enumerate(empresas):
         if i:
-            time.sleep(pausa)
+            time.sleep(pausa)                      # a pesquisa tambem gasta chamada
         documento = empresa.cgc or empresa.cpf or ""
         achado = tiny_client.pesquisar_contato(documento) if documento else tiny.Resultado(ok=False)
+        rotulo = f"{empresa.id:5} {empresa.nome[:40]:40}"
+
         if achado.ok and achado.id:
-            _marcar(db, empresa, status="enviada", tiny_id=achado.id)
+            if aplicar:
+                _marcar(db, empresa, status="enviada", tiny_id=achado.id)
             resumo["adotadas"] += 1
-            print(f"  = {empresa.id:5} {empresa.nome[:40]:40} adotou contato {achado.id}")
+            print(f"  = {rotulo} {'adotou' if aplicar else 'adotaria'} contato {achado.id}")
             continue
         if achado.deve_tentar_de_novo:
             resumo["interrompido"] = True
             break
+        if not achado.nao_encontrado:
+            # So o erro 20 e' "nao existe la". Corpo nao-JSON, 502, erro sem
+            # codigo ou documento divergente deixam em aberto se o contato ja
+            # existe — criar aqui geraria um DUPLICADO no ERP.
+            resumo["puladas"] += 1
+            print(f"  ~ {rotulo} pulada: {achado.mensagem or 'pesquisa sem resposta clara'}")
+            continue
+
+        if not aplicar:
+            resumo["criadas"] += 1
+            print(f"  + {rotulo} criaria contato novo")
+            continue
 
         resultado = tiny_client.incluir_contato(tiny.contato_para_criar(empresa))
         if resultado.ok:
             _marcar(db, empresa, status="enviada", tiny_id=resultado.id)
             resumo["criadas"] += 1
-            print(f"  + {empresa.id:5} {empresa.nome[:40]:40} criou contato {resultado.id}")
+            print(f"  + {rotulo} criou contato {resultado.id}")
         elif resultado.deve_tentar_de_novo:
             resumo["interrompido"] = True
             break
         else:
             _marcar(db, empresa, status="erro", erro=resultado.mensagem)
             resumo["erros"] += 1
-            print(f"  ! {empresa.id:5} {empresa.nome[:40]:40} {resultado.mensagem}")
+            print(f"  ! {rotulo} {resultado.mensagem}")
 
     if resumo["interrompido"]:
-        feitas = resumo["adotadas"] + resumo["criadas"] + resumo["erros"]
-        print(f"\nPAROU: o Tiny bloqueou por excesso de chamadas. "
+        feitas = (resumo["adotadas"] + resumo["criadas"]
+                  + resumo["erros"] + resumo["puladas"])
+        print(f"\nPAROU: o Tiny bloqueou por excesso de chamadas (ou a rede caiu). "
               f"{resumo['candidatas'] - feitas} empresa(s) ficaram para a proxima rodada.")
     return resumo
 
@@ -104,10 +121,10 @@ def main(argv=None) -> None:
         empresas = planejar(db, args.limite)
         print(f"Empresas ativas sem contato no Tiny: {len(empresas)}")
         resumo = processar(db, empresas, aplicar=args.aplicar)
-        if not args.aplicar:
-            print("\nSIMULACAO — nada enviado. Rode com --aplicar para valer.")
-            return
         print(f"\nResultado: {resumo}")
+        if not args.aplicar:
+            print("SIMULACAO — a pesquisa rodou (leitura), mas nada foi criado nem "
+                  "gravado. Rode com --aplicar para valer.")
     finally:
         db.close()
 
