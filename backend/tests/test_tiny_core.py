@@ -118,3 +118,24 @@ def test_ler_resposta_erro_no_registro():
 def test_ler_resposta_corpo_estranho_nao_explode():
     r = tiny.ler_resposta({"qualquer": "coisa"})
     assert not r.ok and r.id is None and r.mensagem
+
+
+def test_model_empresa_nasce_sem_estado_do_tiny(db_session):
+    from app.models import Empresa
+    e = Empresa(nome="Filial", cgc="36312056000552")
+    db_session.add(e); db_session.commit(); db_session.refresh(e)
+    assert e.tiny_id is None and e.tiny_status is None
+    assert e.tiny_erro is None and e.tiny_em is None
+
+
+def test_empresa_out_expoe_o_estado_do_tiny(db_session):
+    from datetime import datetime, timezone
+    from app.core.empresa_servico import saida_empresa
+    from app.models import Empresa
+    e = Empresa(nome="Filial", cgc="36312056000552", tiny_id=610661344,
+                tiny_status="erro", tiny_erro="Cidade não encontrada",
+                tiny_em=datetime(2026, 9, 16, 12, 0, tzinfo=timezone.utc))
+    db_session.add(e); db_session.commit(); db_session.refresh(e)
+    saida = saida_empresa(e)
+    assert saida.tiny_id == 610661344 and saida.tiny_status == "erro"
+    assert saida.tiny_erro == "Cidade não encontrada" and saida.tiny_em is not None
