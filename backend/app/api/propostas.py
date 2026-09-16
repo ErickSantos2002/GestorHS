@@ -110,6 +110,10 @@ def _agendar_empresa_no_tiny(db: Session, background_tasks: BackgroundTasks, pro
     except Exception:  # noqa: BLE001 - a proposta ja foi salva: marcar o estado
         # do Tiny nao pode virar 500 numa proposta que existe.
         logger.exception("falha ao marcar a empresa %s como pendente no Tiny", alvo)
+        try:
+            db.rollback()                 # deixa a sessao usavel no encerramento
+        except Exception:  # noqa: BLE001 - pode nem haver transacao aberta
+            pass
     background_tasks.add_task(_tiny_seguro, alvo)
 
 
