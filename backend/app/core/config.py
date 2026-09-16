@@ -29,6 +29,12 @@ class Settings(BaseSettings):
     HSGROWTH_API_KEY: str = ""    # header X-API-Key
     HSGROWTH_BOARD_SERVICOS: int = 1
     HSGROWTH_BOARD_COBRANCA: int = 2
+    # Integracao com o Tiny ERP (API v2, token simples). Vazio = desligada, mesmo
+    # gating do TaskHS/GrowthHS: nenhuma Empresa e' enviada e nada e' marcado.
+    # O token vale para a empresa inteira no Tiny e cria contato DE VERDADE la —
+    # nao existe ambiente de teste do lado deles.
+    TINY_TOKEN: str = ""
+    TINY_BASE_URL: str = "https://api.tiny.com.br/api2"   # sem barra final
     # Integracao INBOUND do GrowthHS (mover caixa Pos-Vendas -> Financeiro).
     # Vazio = desligada. Nao expira; revoga trocando o valor. Header X-API-Key.
     GROWTHHS_INBOUND_API_KEY: str = ""
