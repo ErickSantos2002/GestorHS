@@ -31,6 +31,7 @@ python -m app.scripts.publicar_modelo_manutencao                 # compara o mod
 python -m app.scripts.unificar_clientes --cgc <cnpj>              # unifica cadastro duplicado do mesmo CNPJ (--aplicar grava)
 python -m app.scripts.renumerar_patrimonios --cliente <id>        # resolve patrimonio repetido na frota (--aplicar grava)
 python -m app.scripts.migrar_filiais_propostas                     # SIMULA: congela propostas antigas e cria filiais (--aplicar grava)
+python -m app.scripts.enviar_empresas_tiny                          # SIMULA: acerta as empresas no Tiny (--aplicar grava)
 ```
 
 > ⚠️ **`enviar_atrasados_growthhs` nao envia nada sem `--enviar`.** A chave do card e
@@ -167,6 +168,9 @@ A exportação para Excel tem o motor puro em [backend/app/core/planilha.py](bac
 - **Documento único somando `clientes` e `empresas`** (`checar_documento_livre`); do lado de Clientes a trava só olha Empresas.
 - **Documento de cadastro existente não muda pela proposta** — o servidor ignora; corrige-se na página de Clientes/Empresas.
 - Procedimento de produção em [docs/operacao-empresas-migracao.md](docs/operacao-empresas-migracao.md).
+- **Espelhamento no Tiny ERP (API v2):** Empresa criada ou editada vira contato no Tiny, em segundo plano e best-effort ([core/tiny.py](backend/app/core/tiny.py) puro + [integrations/tiny_client.py](backend/app/integrations/tiny_client.py)). Nasce desligada: sem `TINY_TOKEN` é no-op. O estado fica em `empresas.tiny_id/tiny_status/tiny_erro/tiny_em` e aparece na página Empresas, com botão de reenviar.
+- ⚠️ **`contato.alterar.php` APAGA o que não for enviado** e **`tipos_contato` ACUMULA**: a edição lê o contato (`contato.obter.php`) e reenvia inteiro, preservando código, tipos, fantasia, pessoas de contato e e-mail de NFe. "Não encontrado" na pesquisa é o **erro 20**, não lista vazia.
+- ⚠️ **O Tiny não tem ambiente de teste** e o token vale para a empresa toda: teste automatizado nunca chama a API (tudo com `httpx` mockado). Procedimento em [docs/operacao-tiny-empresas.md](docs/operacao-tiny-empresas.md).
 
 ### Integracao com o TaskHS
 A cada abrir/avancar/cancelar, o GestorHS espelha a **CAIXA** como um card no board `Servico` do TaskHS ([app/core/taskhs.py](backend/app/core/taskhs.py) puro + [app/integrations/taskhs_client.py](backend/app/integrations/taskhs_client.py) I/O, disparado via `BackgroundTasks` best-effort). Nasce desligada: sem `TASKHS_BASE_URL`/`TASKHS_API_KEY` eh no-op. Correcao de drift: `python -m app.scripts.sincronizar_taskhs_caixas --caixas 745,749`.
@@ -221,4 +225,4 @@ Esta máquina tem plugins do Claude Code que ampliam o que está disponível —
 - **gh** (GitHub CLI) — autenticado; usado por `commit-push-pr` para abrir PRs (branches `feat/<nome>`).
 
 ## Migrações Alembic
-Migrações já aplicadas (`0001`–`0030`) cobrem auth, schema de OS, solicitações, caixas, certificados (modelo, por-OS, cert_overrides, configuração e cilindros), propostas, nota fiscal em PDF+XML, o registro de manutenção, as notas fiscais por caixa (`0029`, com backfill) e as empresas (filiais) com o destinatário da proposta (`0030`). Cada migração tem um propósito único e nomeado — siga o padrão `NNNN_descricao.py`.
+Migrações já aplicadas (`0001`–`0031`) cobrem auth, schema de OS, solicitações, caixas, certificados (modelo, por-OS, cert_overrides, configuração e cilindros), propostas, nota fiscal em PDF+XML, o registro de manutenção, as notas fiscais por caixa (`0029`, com backfill), as empresas (filiais) com o destinatário da proposta (`0030`) e o estado do espelhamento da empresa no Tiny ERP (`0031`, aditiva). Cada migração tem um propósito único e nomeado — siga o padrão `NNNN_descricao.py`.

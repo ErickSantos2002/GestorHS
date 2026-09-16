@@ -18,6 +18,10 @@ export interface Empresa {
   telefone: string | null
   insc_est: string | null
   ativo: boolean
+  tiny_id: number | null
+  tiny_status: 'pendente' | 'enviada' | 'erro' | null
+  tiny_erro: string | null
+  tiny_em: string | null
   created_at: string | null
   updated_at: string | null
 }
@@ -47,6 +51,7 @@ export interface ListarEmpresasParams {
   q?: string
   cliente?: number
   ativo?: boolean
+  tiny_status?: 'pendente' | 'enviada' | 'erro'
   offset?: number
   limit?: number
 }
@@ -68,6 +73,7 @@ export const empresasApi = {
     if (params.q) sp.set('q', params.q)
     if (params.cliente != null) sp.set('cliente', String(params.cliente))
     if (params.ativo != null) sp.set('ativo', String(params.ativo))
+    if (params.tiny_status) sp.set('tiny_status', params.tiny_status)
     sp.set('offset', String(params.offset ?? 0))
     sp.set('limit', String(params.limit ?? 25))
     return apiJson<EmpresasPage>(`/empresas?${sp.toString()}`)
@@ -78,9 +84,18 @@ export const empresasApi = {
     apiJson<Empresa>(`/empresas/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   desativar: (id: number) => apiJson<Empresa>(`/empresas/${id}/desativar`, { method: 'POST' }),
   reativar: (id: number) => apiJson<Empresa>(`/empresas/${id}/reativar`, { method: 'POST' }),
+  reenviarTiny: (id: number) => apiJson<Empresa>(`/empresas/${id}/tiny`, { method: 'POST' }),
 }
 
 export const destinatariosApi = {
   buscar: (q: string) =>
     apiJson<DestinatarioResultado[]>(`/propostas/destinatarios?q=${encodeURIComponent(q)}`),
+}
+
+/** Texto da coluna "Tiny". Vazio = integração desligada ou cadastro anterior a ela. */
+export function rotuloTiny(e: Empresa): string {
+  if (e.tiny_status === 'enviada') return 'Enviada'
+  if (e.tiny_status === 'pendente') return 'Pendente'
+  if (e.tiny_status === 'erro') return 'Erro'
+  return '—'
 }

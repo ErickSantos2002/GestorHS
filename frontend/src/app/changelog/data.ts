@@ -23,6 +23,15 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.54.0',
+    data: '16/09/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'Empresa cadastrada aqui agora é criada também no Tiny, sem precisar digitar de novo lá. Se o CNPJ já existir no Tiny, o cadastro é ligado ao contato que já está lá, em vez de criar outro.' },
+      { tipo: 'novidade', texto: 'Editar os dados de uma empresa atualiza o contato no Tiny, preservando o que só existe lá (código, tipos de contato, pessoas de contato e e-mail de NFe).' },
+      { tipo: 'melhoria', texto: 'A página Empresas mostra a situação de cada uma no Tiny e traz um botão para reenviar o que deu erro, com o motivo informado pelo próprio Tiny.' },
+    ],
+  },
+  {
     versao: '1.53.0',
     data: '15/09/2026',
     itens: [

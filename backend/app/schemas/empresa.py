@@ -56,6 +56,10 @@ class EmpresaOut(BaseModel):
     telefone: Optional[str] = None
     insc_est: Optional[str] = None
     ativo: bool
+    tiny_id: Optional[int] = None
+    tiny_status: Optional[str] = None
+    tiny_erro: Optional[str] = None
+    tiny_em: Optional[datetime] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     model_config = {"from_attributes": True}

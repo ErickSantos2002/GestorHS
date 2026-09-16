@@ -5,7 +5,7 @@ import { Input } from '../../components/ui/Input'
 import { ApiError } from '../../lib/api'
 import { useAuth } from '../../auth/AuthContext'
 import { podeGerenciarEmpresas } from '../../auth/roles'
-import { empresasApi, type Empresa } from './api'
+import { empresasApi, rotuloTiny, type Empresa } from './api'
 import { camposFaltando, dadosDeEmpresa, dadosVazios, type DadosEmpresa } from './dadosEmpresa'
 import { DadosEmpresaForm } from './DadosEmpresaForm'
 import { MatrizSelect, type MatrizValor } from './MatrizSelect'
@@ -66,6 +66,13 @@ export function EmpresaModal({ empresa, onClose, onSalvo }: {
             onChange={(e) => setInscEst(e.target.value)} />
           <MatrizSelect valor={matriz} onChange={setMatriz} disabled={!podeEditar} />
         </DadosEmpresaForm>
+        {empresa && (
+          <p className="text-xs text-slate-500">
+            Tiny: {rotuloTiny(empresa)}
+            {empresa.tiny_id != null && ` · contato ${empresa.tiny_id}`}
+            {empresa.tiny_erro && ` · ${empresa.tiny_erro}`}
+          </p>
+        )}
       </form>
     </Modal>
   )

@@ -76,6 +76,9 @@ def _aplicar_destinatario(db: Session, proposta: Proposta, dest: DestinatarioIn)
         for campo in CAMPOS_EMPRESA:
             if campo != "insc_est":          # o modal nao mostra a IE
                 setattr(empresa, campo, getattr(dest, campo))
+        # O modal EDITA o cadastro da empresa escolhida, entao o Tiny tambem
+        # precisa saber — o gatilho da spec e' "criada E editada".
+        proposta.empresa_para_tiny = empresa.id
     else:  # nova_empresa
         empresa = criar_empresa(db, EmpresaIn(
             documento=dest.documento, cliente=dest.matriz, nome=dest.nome, cep=dest.cep,
@@ -83,6 +86,9 @@ def _aplicar_destinatario(db: Session, proposta: Proposta, dest: DestinatarioIn)
             bairro=dest.bairro, municipio=dest.municipio, estado=dest.estado,
             email=dest.email, telefone=dest.telefone,
         ))
+        # A rota agenda o Tiny DEPOIS do commit: a proposta nao pode falhar por
+        # causa da integracao (ver api/propostas.py).
+        proposta.empresa_para_tiny = empresa.id
     proposta.empresa, proposta.cliente = empresa.id, empresa.cliente
 
 

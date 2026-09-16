@@ -32,6 +32,12 @@ class Empresa(Base):
     telefone = Column(String(50), nullable=True)
     insc_est = Column(String(20), nullable=True)
     ativo = Column(Boolean, nullable=False, default=True, server_default=sa.text("true"))
+    # Estado do espelhamento no Tiny ERP. Nulo = nunca entrou na fila (integracao
+    # desligada ou cadastro anterior a ela). Ver core/tiny.py e integrations/tiny_client.py.
+    tiny_id = Column(Integer, nullable=True, index=True)      # id do contato no Tiny
+    tiny_status = Column(String(10), nullable=True)           # pendente | enviada | erro
+    tiny_erro = Column(String(255), nullable=True)            # ultima recusa, para a tela
+    tiny_em = Column(DateTime(timezone=True), nullable=True)  # ultima tentativa
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
                         onupdate=lambda: datetime.now(timezone.utc), nullable=False)
