@@ -128,4 +128,11 @@ def ler_resposta(corpo: dict) -> Resultado:
         except (TypeError, ValueError):
             return Resultado(ok=False, mensagem="contato sem id")
 
+    contato = retorno.get("contato")
+    if isinstance(contato, dict):
+        try:
+            return Resultado(ok=True, id=int(contato.get("id")))
+        except (TypeError, ValueError):
+            return Resultado(ok=False, mensagem="contato sem id")
+
     return Resultado(ok=False, mensagem="resposta OK sem registros nem contatos")

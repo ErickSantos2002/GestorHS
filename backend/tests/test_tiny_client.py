@@ -91,6 +91,14 @@ def test_alterar_contato_usa_o_endpoint_de_alteracao(monkeypatch, ativa):
     assert r.ok and cap["url"].endswith("/contato.alterar.php")
 
 
+def test_obter_contato_devolve_o_contato_singular(monkeypatch, ativa):
+    cap = _captura(monkeypatch, {"retorno": {"status": "OK", "contato": {
+        "id": "610661344", "codigo": "12527"}}})
+    r = tiny_client.obter_contato(610661344)
+    assert r.ok and r.id == 610661344
+    assert cap["url"].endswith("/contato.obter.php")
+
+
 def test_obter_contato_bruto_devolve_o_contato(monkeypatch, ativa):
     _captura(monkeypatch, {"retorno": {"status": "OK", "contato": {
         "id": "610661344", "codigo": "12527", "nome": "Filial"}}})
@@ -101,6 +109,26 @@ def test_obter_contato_bruto_devolve_o_contato(monkeypatch, ativa):
 def test_obter_contato_bruto_devolve_none_quando_falha(monkeypatch, ativa):
     _captura(monkeypatch, {"retorno": {"status": "Erro", "codigo_erro": "20", "erros": []}})
     assert tiny_client.obter_contato_bruto(1) is None
+
+
+def test_obter_contato_bruto_desligado_registra_pulado_sem_chamar(monkeypatch):
+    monkeypatch.setattr(settings, "TINY_TOKEN", "")
+    chamou = []
+    monkeypatch.setattr(httpx, "post", lambda *a, **k: chamou.append(1))
+    linhas = []
+    monkeypatch.setattr(tiny_client, "registrar_log_integracao", lambda **kw: linhas.append(kw))
+    assert tiny_client.obter_contato_bruto(1) is None
+    assert chamou == []
+    assert linhas and linhas[0]["status"] == "pulado" and linhas[0]["motivo"] == "desligado"
+
+
+def test_obter_contato_bruto_sucesso_registra_no_log(monkeypatch, ativa):
+    _captura(monkeypatch, {"retorno": {"status": "OK", "contato": {
+        "id": "610661344", "codigo": "12527"}}})
+    linhas = []
+    monkeypatch.setattr(tiny_client, "registrar_log_integracao", lambda **kw: linhas.append(kw))
+    tiny_client.obter_contato_bruto(610661344)
+    assert linhas and linhas[0]["status"] == "sucesso"
 
 
 def test_erro_de_rede_nao_propaga(monkeypatch, ativa):

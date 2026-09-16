@@ -85,6 +85,12 @@ def test_ler_resposta_sucesso_de_pesquisa():
     assert r.ok and r.id == 565052083
 
 
+def test_ler_resposta_sucesso_de_obter():
+    r = tiny.ler_resposta({"retorno": {"status": "OK", "contato": {
+        "id": "610661344", "codigo": "12527"}}})
+    assert r.ok and r.id == 610661344
+
+
 def test_ler_resposta_nao_encontrado():
     r = tiny.ler_resposta({"retorno": {"status": "Erro", "codigo_erro": "20",
                                        "erros": [{"erro": "A consulta não retornou registros"}]}})

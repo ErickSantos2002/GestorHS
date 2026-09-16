@@ -71,7 +71,9 @@ def obter_contato(tiny_id: int) -> tiny.Resultado:
 
 def obter_contato_bruto(tiny_id: int) -> Optional[dict]:
     """O contato como o Tiny guarda — base da alteracao, que apaga o que faltar."""
+    payload = {"endpoint": "contato.obter.php", "external_id": str(tiny_id)}
     if not integracao_ativa():
+        registrar_log_integracao(integracao="tiny", status="pulado", motivo="desligado", payload=payload)
         return None
     url = f"{settings.TINY_BASE_URL.rstrip('/')}/contato.obter.php"
     try:
@@ -79,12 +81,18 @@ def obter_contato_bruto(tiny_id: int) -> Optional[dict]:
                           timeout=TIMEOUT)
         corpo = resp.json()
     except Exception as e:  # noqa: BLE001
-        registrar_log_integracao(integracao="tiny", status="erro",
-                                 payload={"endpoint": "contato.obter.php", "external_id": str(tiny_id)},
-                                 resposta=str(e))
+        registrar_log_integracao(integracao="tiny", status="erro", payload=payload, resposta=str(e))
         return None
     contato = (corpo.get("retorno") or {}).get("contato")
-    return contato if isinstance(contato, dict) else None
+    encontrado = isinstance(contato, dict)
+    registrar_log_integracao(
+        integracao="tiny",
+        status="sucesso" if encontrado else "erro",
+        payload=payload,
+        http_status=resp.status_code,
+        resposta=resp.text,
+    )
+    return contato if encontrado else None
 
 
 def incluir_contato(contato: dict) -> tiny.Resultado:
