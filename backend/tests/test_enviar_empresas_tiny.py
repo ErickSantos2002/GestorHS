@@ -85,6 +85,15 @@ def test_bloqueio_por_limite_interrompe(db_session, tiny_falso):
     assert resumo["interrompido"] is True and resumo["criadas"] == 0
 
 
+def test_bloqueio_na_pesquisa_interrompe(db_session, tiny_falso, monkeypatch):
+    _empresas(db_session, 2)
+    monkeypatch.setattr(tiny_client, "pesquisar_contato",
+                        lambda doc: tiny_core.Resultado(ok=False, codigo_erro=11, mensagem="API bloqueada"))
+    resumo = script.processar(db_session, script.planejar(db_session), aplicar=True)
+    assert resumo["interrompido"] is True
+    assert resumo["adotadas"] == 0 and resumo["criadas"] == 0
+
+
 def test_idempotente(db_session, tiny_falso):
     _empresas(db_session)
     script.processar(db_session, script.planejar(db_session), aplicar=True)

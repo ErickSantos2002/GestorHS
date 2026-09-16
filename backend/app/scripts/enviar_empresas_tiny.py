@@ -8,9 +8,10 @@ filiais ja estavam la — sem a pesquisa, o primeiro uso criaria 9 duplicados.
     python -m app.scripts.enviar_empresas_tiny --aplicar       # grava
     python -m app.scripts.enviar_empresas_tiny --aplicar --limite 5
 
-O limite desta conta e' de 20 chamadas por minuto (cabecalho `x-limit-api`) e
-cada empresa gasta duas, dai a pausa entre elas. Levando bloqueio (codigo 6/11),
-o script PARA e diz quantas faltaram — e' so rodar de novo depois.
+O limite desta conta e' de 20 chamadas por minuto (cabecalho `x-limit-api`):
+cada empresa gasta duas chamadas e a conta permite 20 por minuto, dai ~7s entre
+elas. Levando bloqueio (codigo 6/11), o script PARA e diz quantas faltaram — e'
+so rodar de novo depois.
 
 Idempotente: empresa com `tiny_id` nao e' tocada.
 """
@@ -24,7 +25,7 @@ from app.integrations import tiny_client
 from app.models import Empresa
 from app.models.database import SessionLocal
 
-PAUSA_PADRAO = 3.0
+PAUSA_PADRAO = 7.0
 
 
 def planejar(db, limite: Optional[int] = None) -> list:
