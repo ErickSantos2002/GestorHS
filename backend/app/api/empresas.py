@@ -100,7 +100,7 @@ def obter(empresa_id: int, db: Session = Depends(get_db), _: Usuario = Depends(g
 def criar(dados: EmpresaIn, background_tasks: BackgroundTasks,
           db: Session = Depends(get_db), _: Usuario = Depends(_escrever)):
     empresa = _executar(db, es.criar_empresa, dados)
-    saida = _gravar(db, empresa)
+    _gravar(db, empresa)
     agendar_tiny(db, background_tasks, empresa)
     return es.saida_empresa(empresa)
 
@@ -110,7 +110,7 @@ def atualizar(empresa_id: int, dados: EmpresaIn, background_tasks: BackgroundTas
               db: Session = Depends(get_db), _: Usuario = Depends(_escrever)):
     empresa = _empresa_ou_404(db, empresa_id)
     _executar(db, es.atualizar_empresa, empresa, dados)
-    saida = _gravar(db, empresa)
+    _gravar(db, empresa)
     agendar_tiny(db, background_tasks, empresa)
     return es.saida_empresa(empresa)
 
