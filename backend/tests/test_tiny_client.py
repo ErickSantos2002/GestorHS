@@ -42,6 +42,13 @@ def _captura(monkeypatch, corpo):
     return capturado
 
 
+def test_a_suite_nasce_com_o_tiny_desligado():
+    """Guarda da fixture `_tiny_desligado` do conftest: o TINY_TOKEN do .env e' o
+    REAL de producao e o Tiny nao tem sandbox. Se esta falhar, algum teste pode
+    estar espelhando contato de verdade."""
+    assert settings.TINY_TOKEN == ""
+
+
 def test_integracao_ativa_depende_do_token(monkeypatch):
     monkeypatch.setattr(settings, "TINY_TOKEN", "")
     assert tiny_client.integracao_ativa() is False

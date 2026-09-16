@@ -26,6 +26,15 @@ def _writer_nao_toca_prod(monkeypatch):
                         sessionmaker(autocommit=False, autoflush=False, bind=eng))
 
 
+@pytest.fixture(autouse=True)
+def _tiny_desligado(monkeypatch):
+    """O TINY_TOKEN do .env e' o REAL de producao e o Tiny nao tem sandbox: teste
+    nenhum pode espelhar de verdade. Quem precisa da integracao ligada re-seta o
+    token na propria fixture do arquivo (autouse de conftest roda antes)."""
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "TINY_TOKEN", "")
+
+
 @pytest.fixture()
 def db_session():
     engine = create_engine(
