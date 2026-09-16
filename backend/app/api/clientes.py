@@ -5,7 +5,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.models.database import get_db
-from app.models import Usuario, Cliente
+from app.models import Usuario, Cliente, EquipamentoCliente
 from app.api.deps import get_current_usuario, require_funcao, GESTOR_CADASTRO, EDITOR_CADASTRO
 from app.api.cadastros_common import excluir_protegido
 from app.api.exportar_common import carregar_ate_o_teto, resposta_xlsx
@@ -26,6 +26,12 @@ def _conferir_contra_empresas(db: Session, cgc, cpf, cliente_id=None) -> None:
         raise HTTPException(status_code=409, detail=str(e))
 
 
+# Busca por serie so a partir daqui: com 1 ou 2 caracteres ela casaria com
+# centenas de aparelhos e a lista viraria quase o cadastro inteiro. Nome,
+# municipio e documento nao tem minimo.
+_MINIMO_SERIE = 3
+
+
 def _query_clientes(db: Session, q: str | None = None):
     """Filtros da lista de clientes. Usado por listar() e por exportar() —
     ter um lugar so' impede que a planilha ignore um filtro novo em silencio."""
@@ -33,6 +39,18 @@ def _query_clientes(db: Session, q: str | None = None):
     if q:
         termo = f"%{q}%"
         filtros = [Cliente.nome.ilike(termo), Cliente.municipio.ilike(termo)]
+        if len(q.strip()) >= _MINIMO_SERIE:
+            # Dono do aparelho: "de quem e' esta serie?" resolvido na mesma busca.
+            # EXISTS, e nao join, para o cliente com dois aparelhos que casam nao
+            # aparecer duas vezes na lista (nem contar duas vezes no total).
+            filtros.append(
+                db.query(EquipamentoCliente.id)
+                .filter(
+                    EquipamentoCliente.cliente == Cliente.id,
+                    EquipamentoCliente.serie.ilike(termo),
+                )
+                .exists()
+            )
         digitos = re.sub(r"\D", "", q)
         if digitos:
             termo_doc = f"%{digitos}%"

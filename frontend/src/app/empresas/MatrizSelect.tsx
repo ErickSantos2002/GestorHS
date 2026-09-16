@@ -45,7 +45,7 @@ export function MatrizSelect({ valor, onChange, disabled }: {
       ) : (
         <>
           <input id="matriz-busca" value={termo} disabled={disabled} onChange={(e) => setTermo(e.target.value)}
-            placeholder="Buscar cliente por nome ou CNPJ" className={inputClass} />
+            placeholder="Buscar cliente por nome, CNPJ ou série do aparelho" className={inputClass} />
           {resultados.length > 0 && (
             <ul className="mt-1.5 divide-y divide-border rounded-lg border border-border max-h-48 overflow-y-auto">
               {resultados.map((c) => (

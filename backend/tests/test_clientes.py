@@ -127,3 +127,47 @@ def test_editar_cliente_com_duplicata_antiga_entre_clientes_continua_permitido(c
     db_session.add_all([a, Cliente(nome="B", cgc="08857492000148")]); db_session.commit()
     r = client_admin.patch(f"/clientes/{a.id}", json={"cgc": "08857492000148", "nome": "A2"})
     assert r.status_code == 200
+
+
+def _com_aparelho(db, nome, *series):
+    """Cliente com aparelhos na frota. `equipamento` e' NOT NULL, dai o catalogo."""
+    from app.models import Cliente, Equipamento, EquipamentoCliente
+    equip = Equipamento(descricao="Bafometro X1")
+    cli = Cliente(nome=nome)
+    db.add_all([equip, cli]); db.flush()
+    for serie in series:
+        db.add(EquipamentoCliente(cliente=cli.id, equipamento=equip.id, serie=serie))
+    db.commit(); db.refresh(cli)
+    return cli
+
+
+def test_clientes_busca_pela_serie_do_aparelho(client, usuario_admin, db_session):
+    dono = _com_aparelho(db_session, "Dono do Aparelho", "WATFR01-00179")
+    _com_aparelho(db_session, "Outro Cliente", "WATFR01-99999")
+    h = _headers(client, "admin@hs.com", "senha123")
+
+    r = client.get("/clientes", headers=h, params={"q": "WATFR01-00179"}).json()
+    assert r["total"] == 1
+    assert r["items"][0]["id"] == dono.id
+
+    # parte da serie, em minusculo, tambem acha
+    r_parcial = client.get("/clientes", headers=h, params={"q": "fr01-001"}).json()
+    assert [i["id"] for i in r_parcial["items"]] == [dono.id]
+
+
+def test_clientes_busca_por_serie_nao_repete_o_cliente(client, usuario_admin, db_session):
+    dono = _com_aparelho(db_session, "Dois Aparelhos", "SERIE-A1", "SERIE-A2")
+    h = _headers(client, "admin@hs.com", "senha123")
+
+    r = client.get("/clientes", headers=h, params={"q": "SERIE-A"}).json()
+    assert r["total"] == 1
+    assert r["items"][0]["id"] == dono.id
+
+
+def test_clientes_termo_curto_nao_procura_serie(client, usuario_admin, db_session):
+    """Menos de 3 caracteres casaria com serie demais — nome e documento seguem valendo."""
+    _com_aparelho(db_session, "Dono do Aparelho", "A1")
+    h = _headers(client, "admin@hs.com", "senha123")
+
+    assert client.get("/clientes", headers=h, params={"q": "A1"}).json()["total"] == 0
+    assert client.get("/clientes", headers=h, params={"q": "Dono"}).json()["total"] == 1
