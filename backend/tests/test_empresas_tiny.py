@@ -143,6 +143,21 @@ def test_empresa_editada_pela_proposta_agenda_no_put(client_comercial, agendados
     assert r.status_code == 200 and agendados == [emp.id]
 
 
+def test_falha_ao_marcar_pendente_nao_derruba_a_rota(db_session):
+    """A proposta ja foi salva quando o agendamento roda: um erro no `db.get` ou
+    no commit devolvia 500 para uma proposta que existe de verdade."""
+    from types import SimpleNamespace
+    from app.api.propostas import _agendar_empresa_no_tiny
+
+    class BancoQuebrado:
+        def get(self, *a, **k):
+            raise RuntimeError("banco fora do ar")
+
+    tarefas = SimpleNamespace(add_task=lambda *a, **k: None)
+    _agendar_empresa_no_tiny(BancoQuebrado(), tarefas,
+                             SimpleNamespace(empresa_para_tiny=1))   # nao levanta
+
+
 def test_falha_do_tiny_nao_derruba_a_proposta(client_comercial, monkeypatch, db_session):
     def explode(*a, **k):
         raise RuntimeError("Tiny fora do ar")

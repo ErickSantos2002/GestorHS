@@ -101,11 +101,15 @@ def _agendar_empresa_no_tiny(db: Session, background_tasks: BackgroundTasks, pro
     alvo = getattr(proposta, "empresa_para_tiny", None)
     if alvo is None or not tiny_client.integracao_ativa():
         return
-    empresa = db.get(Empresa, alvo)
-    if empresa is not None:
-        empresa.tiny_status = "pendente"
-        empresa.tiny_erro = None
-        db.commit()
+    try:
+        empresa = db.get(Empresa, alvo)
+        if empresa is not None:
+            empresa.tiny_status = "pendente"
+            empresa.tiny_erro = None
+            db.commit()
+    except Exception:  # noqa: BLE001 - a proposta ja foi salva: marcar o estado
+        # do Tiny nao pode virar 500 numa proposta que existe.
+        logger.exception("falha ao marcar a empresa %s como pendente no Tiny", alvo)
     background_tasks.add_task(_tiny_seguro, alvo)
 
 
