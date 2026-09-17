@@ -10,6 +10,7 @@ Tiny (API v2, token). Nada volta do Tiny para cá.
 3. Pôr o `TINY_TOKEN` nas variáveis de ambiente do EasyPanel (o token sai do próprio
    Tiny, em Configurações > Token da API) e reiniciar.
 4. `python -m app.scripts.enviar_empresas_tiny` (simula) → conferir → `--aplicar`.
+5. Pôr `JOB_TINY_ATIVO=true` para ligar o reenvio automático (ver abaixo) e reiniciar.
 
 ### Onde rodar o script
 
@@ -41,7 +42,7 @@ não deu resposta clara (o script não cria nesse caso, de propósito).
 | Coluna "Tiny" | Significa |
 |---|---|
 | Enviada | Contato existe no Tiny e o id está guardado |
-| Pendente | Na fila, ou o Tiny bloqueou por excesso de chamadas — o botão "Reenviar ao Tiny" resolve |
+| Pendente | Na fila, ou a última tentativa falhou por algo transitório. O worker tenta de novo sozinho a cada 10 min; o botão "Reenviar ao Tiny" força na hora |
 | Erro | O Tiny recusou; o motivo aparece ao passar o mouse |
 | — | Integração desligada ou cadastro anterior a ela |
 
@@ -53,6 +54,26 @@ não deu resposta clara (o script não cria nesse caso, de propósito).
 | 30 | "Erro de Duplicidade de Registro" | O sistema já pesquisa e adota sozinho; se aparecer, reenviar resolve |
 | 2 | "token inválido ou não encontrado" | Conferir o `TINY_TOKEN` no EasyPanel |
 | 6 / 11 | "API bloqueada momentaneamente" | Esperar um minuto e reenviar. O limite desta conta é 20 chamadas/minuto (`x-limit-api`) |
+
+## Reenvio automático das pendentes
+
+`app/tarefas/tiny_pendentes.py` sobe junto com a API e varre a cada 10 minutos as
+Empresas **ativas** em `pendente`, chamando o mesmo caminho do botão "Reenviar".
+Sem nenhuma pendente, não fala com o Tiny. Ele existe porque `pendente` era um beco
+sem saída: só alguém clicando no botão tirava a empresa de lá.
+
+| Variável | Padrão | Para quê |
+|---|---|---|
+| `JOB_TINY_ATIVO` | `false` | Liga o worker. Nasce desligado: a máquina de desenvolvimento aponta para o banco de produção e o Tiny não tem ambiente de teste |
+| `JOB_TINY_INTERVALO_MIN` | `10` | Minutos entre uma varredura e a seguinte |
+| `JOB_TINY_LIMITE` | `20` | Teto de empresas por volta. Cada uma gasta 2 das 20 chamadas/minuto da conta |
+
+Também não sobe sem `TINY_TOKEN`. No log: `job tiny: LIGADO, varredura a cada 10 min`
+na subida, e uma linha por volta **só quando há pendência**.
+
+Ele **não** pega `erro` (recusa que não muda sozinha — repetir gastaria chamada para
+sempre) nem `tiny_status` nulo (cadastro anterior à integração, que é trabalho do
+script de carga, conferido à mão de propósito).
 
 ## Coisas que não estão óbvias no código
 
