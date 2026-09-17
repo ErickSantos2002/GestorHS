@@ -388,3 +388,21 @@ def test_sincronizar_nao_propaga_excecao(db_session, falso_tiny, monkeypatch):
     tiny_client.sincronizar_empresa(e.id, db=db_session)   # nao levanta
     db_session.refresh(e)
     assert e.tiny_status is None and e.tiny_id is None
+
+
+def test_trava_da_empresa_nao_pega_o_lado_anulavel_do_join():
+    """O Postgres recusa `FOR UPDATE` sobre o LEFT JOIN que `matriz_rel`
+    (lazy="joined") acrescenta a toda leitura de Empresa:
+
+        FOR UPDATE cannot be applied to the nullable side of an outer join
+
+    Em producao isso derrubava TODO espelhamento em tempo real (criar, editar,
+    botao Reenviar) e a empresa ficava `pendente` para sempre. O SQLite ignora
+    `FOR UPDATE`, entao nenhum teste de comportamento pega — so o SQL compilado
+    no dialeto do Postgres.
+    """
+    from sqlalchemy.dialects import postgresql
+
+    sql = str(tiny_client.stmt_travar_empresa(1).compile(dialect=postgresql.dialect()))
+    assert "LEFT OUTER JOIN clientes" in sql        # a causa continua la
+    assert sql.rstrip().endswith("FOR UPDATE OF empresas")

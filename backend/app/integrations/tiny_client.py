@@ -132,6 +132,23 @@ def _marcar(db, empresa, *, status: str, erro: Optional[str] = None,
     db.commit()
 
 
+def stmt_travar_empresa(empresa_id: int):
+    """`SELECT ... FOR UPDATE OF empresas` da Empresa a espelhar.
+
+    O `OF empresas` NAO e' enfeite: `Empresa.matriz_rel` e' lazy="joined", entao
+    toda leitura sai com `LEFT OUTER JOIN clientes` e o Postgres recusa um
+    `FOR UPDATE` cru ali ("cannot be applied to the nullable side of an outer
+    join"). `empresas` e' o lado nao-anulavel, e e' a unica linha que precisa
+    ficar travada. Separada em funcao para o teste conferir o SQL compilado —
+    o SQLite ignora `FOR UPDATE` e nenhum teste de comportamento pegaria.
+    """
+    from sqlalchemy import select
+
+    from app.models import Empresa
+
+    return select(Empresa).where(Empresa.id == empresa_id).with_for_update(of=Empresa)
+
+
 def sincronizar_empresa(empresa_id: int, *, db=None) -> None:
     """Alvo do BackgroundTask: espelha UMA Empresa no Tiny. Nunca propaga.
 
@@ -152,8 +169,8 @@ def sincronizar_empresa(empresa_id: int, *, db=None) -> None:
         # Trava a linha ate o commit: dois syncs simultaneos da mesma Empresa
         # (duplo clique no "Reenviar", salvar e corrigir em seguida) pesquisariam
         # os dois antes de qualquer um gravar o tiny_id — e criariam dois
-        # contatos. O SQLite ignora o FOR UPDATE, entao os testes nao mudam.
-        empresa = db.get(Empresa, empresa_id, with_for_update=True)
+        # contatos. A trava tem pegadinha de Postgres: ver stmt_travar_empresa.
+        empresa = db.execute(stmt_travar_empresa(empresa_id)).scalars().first()
         if empresa is None:
             return
         documento = empresa.cgc or empresa.cpf or ""
