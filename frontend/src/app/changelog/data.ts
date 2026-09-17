@@ -23,6 +23,15 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.54.3',
+    data: '17/09/2026',
+    itens: [
+      { tipo: 'correcao', texto: 'Empresa criada ou editada não estava chegando ao Tiny: a tentativa morria por um detalhe do banco e o cadastro ficava parado em "Pendente" para sempre, inclusive ao clicar em "Reenviar ao Tiny". Corrigido — o envio automático e o botão voltaram a funcionar.' },
+      { tipo: 'novidade', texto: 'As empresas em "Pendente" passaram a ser reenviadas sozinhas: a cada 10 minutos o sistema tenta de novo as que ficaram para trás, sem ninguém precisar clicar. Quando não há nenhuma pendente, nada acontece.' },
+      { tipo: 'melhoria', texto: 'O reenvio automático respeita o limite de chamadas do Tiny e só repete o que falhou por motivo passageiro. Cadastro recusado pelo Tiny continua marcado como "Erro", com o motivo na tela, esperando correção — não fica tentando à toa.' },
+    ],
+  },
+  {
     versao: '1.54.2',
     data: '17/09/2026',
     itens: [
