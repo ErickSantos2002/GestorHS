@@ -1,5 +1,4 @@
 """Cadastro de Empresas (filiais). Camada fina sobre core/empresa_servico.py."""
-import re
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy import or_
@@ -8,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_usuario, require_funcao
 from app.core import empresa_servico as es
+from app.core.busca import digitos_de_documento
 from app.core.empresa import DocumentoInvalido
 from app.integrations import tiny_client
 from app.models import Empresa, Usuario
@@ -76,7 +76,7 @@ def listar(
     if q:
         termo = f"%{q.strip()}%"
         filtros = [Empresa.nome.ilike(termo), Empresa.municipio.ilike(termo)]
-        digitos = re.sub(r"\D", "", q)
+        digitos = digitos_de_documento(q)
         if digitos:
             filtros += [Empresa.cgc.ilike(f"%{digitos}%"), Empresa.cpf.ilike(f"%{digitos}%")]
         query = query.filter(or_(*filtros))

@@ -447,3 +447,19 @@ def test_api_versao_pdf_endpoint(client_comercial, monkeypatch):
     assert r.headers["content-type"] == "application/pdf"
 
     assert client_comercial.get(f"/propostas/{pid}/versoes/9999/pdf").status_code == 404
+
+
+def test_api_listar_proposta_termo_com_letra_nao_casa_documento(client_comercial, db_session):
+    """A guarda antiga so' cobria termo puro de digitos; termo com letra passava."""
+    from app.models import Cliente
+
+    cli = Cliente(nome="ACME da Serie", cgc="30069314006576")
+    db_session.add(cli); db_session.commit(); db_session.refresh(cli)
+    r = client_comercial.post("/propostas", json={
+        "destinatario": {"tipo": "cliente", "id": cli.id, "nome": cli.nome, "email": "a@a.com", "telefone": "81999990000"},
+        "itens": [{"descricao": "Calibracao", "quantidade": 1, "preco_un": 100}],
+    })
+    assert r.status_code == 201
+
+    assert client_comercial.get("/propostas", params={"q": "WAO4O0065"}).json()["total"] == 0
+    assert client_comercial.get("/propostas", params={"q": "300.693.14"}).json()["total"] == 1

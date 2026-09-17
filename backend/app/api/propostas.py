@@ -4,7 +4,6 @@ versionamento) e `core/proposta_pdf.py` (geração/arquivamento de PDF via
 Playwright) — sem regra de negócio aqui, só orquestração HTTP.
 """
 import logging
-import re
 from contextlib import contextmanager
 from datetime import date, datetime, timezone
 
@@ -19,6 +18,7 @@ from app.api.deps import get_current_usuario, require_funcao
 from app.api.ordens_acoes import agora
 from app.core import proposta_servico as ps
 from app.core import proposta_pdf
+from app.core.busca import digitos_de_documento
 from app.core.empresa import DocumentoInvalido
 from app.core.empresa_servico import DocumentoDuplicado, MatrizInexistente
 from app.integrations import tiny_client
@@ -137,7 +137,8 @@ def listar(
         qs = q.strip()
         termo = f"%{qs}%"
         filtros = [Cliente.nome.ilike(termo), Empresa.nome.ilike(termo)]
-        digitos = re.sub(r"\D", "", qs)
+        digitos = digitos_de_documento(qs)
+        # termo curto so' de digitos e' numero de proposta, nao documento
         if digitos and (not qs.isdigit() or len(digitos) >= 11):
             termo_doc = f"%{digitos}%"
             filtros += [Cliente.cgc.ilike(termo_doc), Cliente.cpf.ilike(termo_doc),
@@ -183,7 +184,7 @@ def buscar_destinatarios(
     if len(q) < 2:
         raise HTTPException(status_code=422, detail="termo de busca muito curto")
     termo = f"%{q}%"
-    digitos = re.sub(r"\D", "", q)
+    digitos = digitos_de_documento(q)
 
     def filtro(model):
         filtros = [model.nome.ilike(termo)]

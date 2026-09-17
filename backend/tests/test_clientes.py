@@ -171,3 +171,23 @@ def test_clientes_termo_curto_nao_procura_serie(client, usuario_admin, db_sessio
 
     assert client.get("/clientes", headers=h, params={"q": "A1"}).json()["total"] == 0
     assert client.get("/clientes", headers=h, params={"q": "Dono"}).json()["total"] == 1
+
+
+def test_clientes_busca_por_serie_nao_traz_cliente_pelo_cnpj(client, usuario_admin, db_session):
+    """Regressao de 16/09/2026: a serie `WAO4O0065` virava os digitos `40065` e
+    trazia clientes sem relacao, cujo CNPJ tinha `40065` no meio."""
+    from app.models import Cliente
+    dono = _com_aparelho(db_session, "Dono da Serie", "WAO4O0065")
+    db_session.add_all([
+        Cliente(nome="AUTO VIACAO 1001", cgc="30069314006576"),
+        Cliente(nome="INTERCEMENT SBC", cgc="12340065000199"),
+    ])
+    db_session.commit()
+    h = _headers(client, "admin@hs.com", "senha123")
+
+    r = client.get("/clientes", headers=h, params={"q": "WAO4O0065"}).json()
+    assert [i["id"] for i in r["items"]] == [dono.id]
+
+    # o CNPJ colado, esse sim, continua achando o dono dele
+    r_doc = client.get("/clientes", headers=h, params={"q": "300.693.14"}).json()
+    assert [i["nome"] for i in r_doc["items"]] == ["AUTO VIACAO 1001"]

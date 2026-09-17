@@ -281,3 +281,10 @@ def test_busca_de_destinatario_so_espacos_e_422(client_lab):
     r = client_lab.get("/propostas/destinatarios", params={"q": "   "})
     assert r.status_code == 422
     assert client_lab.get("/propostas/destinatarios", params={"q": " a "}).status_code == 422
+
+
+def test_busca_de_destinatario_termo_com_letra_nao_casa_documento(client_lab, db_session):
+    """A busca do modal e' onde o falso positivo de 16/09/2026 apareceu."""
+    _cliente(db_session, nome="Dono da Serie", cgc="30069314006576")
+    assert client_lab.get("/propostas/destinatarios", params={"q": "WAO4O0065"}).json() == []
+    assert len(client_lab.get("/propostas/destinatarios", params={"q": "300.693.14"}).json()) == 1

@@ -1,5 +1,3 @@
-import re
-
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -9,6 +7,7 @@ from app.models import Usuario, Cliente, EquipamentoCliente
 from app.api.deps import get_current_usuario, require_funcao, GESTOR_CADASTRO, EDITOR_CADASTRO
 from app.api.cadastros_common import excluir_protegido
 from app.api.exportar_common import carregar_ate_o_teto, resposta_xlsx
+from app.core.busca import digitos_de_documento
 from app.core.empresa_servico import DocumentoDuplicado, checar_documento_livre
 from app.core.exportacoes import COLUNAS_CLIENTES, linha_cliente
 from app.schemas.clientes import ClienteListOut, ClientesPage, ClienteOut, ClienteCreate, ClienteUpdate
@@ -51,7 +50,7 @@ def _query_clientes(db: Session, q: str | None = None):
                 )
                 .exists()
             )
-        digitos = re.sub(r"\D", "", q)
+        digitos = digitos_de_documento(q)
         if digitos:
             termo_doc = f"%{digitos}%"
             filtros += [Cliente.cgc.ilike(termo_doc), Cliente.cpf.ilike(termo_doc)]

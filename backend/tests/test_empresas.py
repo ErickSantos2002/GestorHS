@@ -150,3 +150,10 @@ def test_put_atualiza_e_desativar_reativar(client_comercial):
 
 def test_put_inexistente_404(client_comercial):
     assert client_comercial.put("/empresas/999", json=_payload()).status_code == 404
+
+
+def test_listar_empresas_termo_com_letra_nao_casa_documento(client_comercial, db_session):
+    """Mesma regressao de /clientes: serie/nome nao pode virar busca de CNPJ."""
+    db_session.add(Empresa(nome="Filial Norte", cgc="30069314006576")); db_session.commit()
+    assert client_comercial.get("/empresas?q=WAO4O0065").json()["total"] == 0
+    assert client_comercial.get("/empresas?q=300.693.14").json()["total"] == 1
