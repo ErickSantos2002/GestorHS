@@ -23,6 +23,15 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.54.2',
+    data: '17/09/2026',
+    itens: [
+      { tipo: 'melhoria', texto: 'O campo "Cliente matriz" passou a aparecer no modal da proposta também quando o destinatário é uma empresa já cadastrada — antes só aparecia ao cadastrar uma empresa nova. Dá para conferir e trocar a matriz sem sair da proposta.' },
+      { tipo: 'correcao', texto: 'Empresa que estava sem cliente matriz deixava a proposta sem nenhum aparelho para escolher, e a única saída era ir até a página Empresas para ligar a matriz. Agora a matriz é escolhida na própria proposta: ao escolher, a frota carrega na hora.' },
+      { tipo: 'melhoria', texto: 'Trocar a matriz pela proposta atualiza o cadastro da empresa, como já acontece com os demais dados do destinatário, e desmarca os aparelhos que eram da frota anterior.' },
+    ],
+  },
+  {
     versao: '1.54.1',
     data: '17/09/2026',
     itens: [
