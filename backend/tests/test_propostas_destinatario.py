@@ -56,7 +56,7 @@ def test_destinatario_empresa_usa_a_matriz_como_cliente(client_comercial, db_ses
     emp = Empresa(nome="Filial", cgc=CNPJ_FILIAL, cliente=cli.id); db_session.add(emp); db_session.commit()
     ec = _aparelho(db_session, cli.id)
     r = client_comercial.post("/propostas", json={
-        "destinatario": _dest("empresa", id=emp.id, nome="Filial Norte"),
+        "destinatario": _dest("empresa", id=emp.id, nome="Filial Norte", matriz=cli.id),
         "aparelhos": [{"equipamento_cliente": ec.id}],
     })
     assert r.status_code == 201, r.text
@@ -66,6 +66,45 @@ def test_destinatario_empresa_usa_a_matriz_como_cliente(client_comercial, db_ses
     assert corpo["destinatario"]["numero"] == "S/N"
     db_session.refresh(emp)
     assert emp.nome == "Filial Norte" and emp.telefone == "8130001111"
+
+
+def test_destinatario_empresa_troca_a_matriz(client_comercial, db_session):
+    """A matriz e' editavel pelo modal da proposta, como os demais campos do
+    bloco: trocar aqui grava em `empresas.cliente` e move a frota da proposta."""
+    antiga = _cliente(db_session)
+    nova = _cliente(db_session, nome="Nova Matriz", cgc="11222333000181")
+    emp = Empresa(nome="Filial", cgc=CNPJ_FILIAL, cliente=antiga.id); db_session.add(emp); db_session.commit()
+    ec = _aparelho(db_session, nova.id)
+    r = client_comercial.post("/propostas", json={
+        "destinatario": _dest("empresa", id=emp.id, matriz=nova.id),
+        "aparelhos": [{"equipamento_cliente": ec.id}],
+    })
+    assert r.status_code == 201, r.text
+    corpo = r.json()
+    assert corpo["empresa"] == emp.id and corpo["cliente"] == nova.id
+    assert corpo["destinatario"]["matriz_nome"] == "Nova Matriz"
+    db_session.refresh(emp)
+    assert emp.cliente == nova.id
+
+
+def test_destinatario_empresa_sem_matriz_desvincula(client_comercial, db_session):
+    """O bloco `destinatario` substitui tudo: matriz ausente e' "sem matriz"."""
+    cli = _cliente(db_session)
+    emp = Empresa(nome="Filial", cgc=CNPJ_FILIAL, cliente=cli.id); db_session.add(emp); db_session.commit()
+    r = client_comercial.post("/propostas", json={"destinatario": _dest("empresa", id=emp.id)})
+    assert r.status_code == 201, r.text
+    assert r.json()["cliente"] is None
+    db_session.refresh(emp)
+    assert emp.cliente is None
+
+
+def test_destinatario_empresa_com_matriz_inexistente_recusa(client_comercial, db_session):
+    cli = _cliente(db_session)
+    emp = Empresa(nome="Filial", cgc=CNPJ_FILIAL, cliente=cli.id); db_session.add(emp); db_session.commit()
+    r = client_comercial.post("/propostas", json={"destinatario": _dest("empresa", id=emp.id, matriz=9999)})
+    assert r.status_code == 422, r.text
+    db_session.refresh(emp)
+    assert emp.cliente == cli.id
 
 
 def test_nova_empresa_e_criada_na_mesma_transacao(client_comercial, db_session):
@@ -213,7 +252,7 @@ def test_duplicar_copia_o_vinculo_com_a_empresa(client_comercial, db_session):
     emp = Empresa(nome="Filial", cgc=CNPJ_FILIAL, cliente=cli.id); db_session.add(emp); db_session.commit()
     ec = _aparelho(db_session, cli.id)
     pid = client_comercial.post("/propostas", json={
-        "destinatario": _dest("empresa", id=emp.id), "aparelhos": [{"equipamento_cliente": ec.id}],
+        "destinatario": _dest("empresa", id=emp.id, matriz=cli.id), "aparelhos": [{"equipamento_cliente": ec.id}],
     }).json()["id"]
     r = client_comercial.post(f"/propostas/{pid}/duplicar")
     assert r.status_code == 201, r.text

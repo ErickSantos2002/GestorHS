@@ -61,7 +61,8 @@ def checar_documento_livre(db: Session, cgc: Optional[str], cpf: Optional[str], 
         raise DocumentoDuplicado("empresa", achado.id, achado.nome)
 
 
-def _conferir_matriz(db: Session, cliente_id: Optional[int]) -> None:
+def conferir_matriz(db: Session, cliente_id: Optional[int]) -> None:
+    """Publica: o modal da proposta tambem grava a matriz de uma Empresa."""
     if cliente_id is not None and db.get(Cliente, cliente_id) is None:
         raise MatrizInexistente("cliente matriz nao encontrado")
 
@@ -69,7 +70,7 @@ def _conferir_matriz(db: Session, cliente_id: Optional[int]) -> None:
 def criar_empresa(db: Session, dados: EmpresaIn) -> Empresa:
     cgc, cpf = normalizar_documento(dados.documento)
     checar_documento_livre(db, cgc, cpf)
-    _conferir_matriz(db, dados.cliente)
+    conferir_matriz(db, dados.cliente)
     empresa = Empresa(cgc=cgc, cpf=cpf, cliente=dados.cliente,
                       **{c: getattr(dados, c) for c in CAMPOS_EMPRESA})
     db.add(empresa)
@@ -80,7 +81,7 @@ def criar_empresa(db: Session, dados: EmpresaIn) -> Empresa:
 def atualizar_empresa(db: Session, empresa: Empresa, dados: EmpresaIn) -> Empresa:
     cgc, cpf = normalizar_documento(dados.documento)
     checar_documento_livre(db, cgc, cpf, empresa_id=empresa.id)
-    _conferir_matriz(db, dados.cliente)
+    conferir_matriz(db, dados.cliente)
     empresa.cgc, empresa.cpf, empresa.cliente = cgc, cpf, dados.cliente
     for campo in CAMPOS_EMPRESA:
         setattr(empresa, campo, getattr(dados, campo))

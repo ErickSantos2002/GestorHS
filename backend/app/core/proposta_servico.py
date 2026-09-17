@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.core import proposta_pdf
 from app.core.empresa import dados_destinatario, destinatario_legado
-from app.core.empresa_servico import CAMPOS_EMPRESA, criar_empresa
+from app.core.empresa_servico import CAMPOS_EMPRESA, conferir_matriz, criar_empresa
 from app.models.proposta import Proposta, PropostaItem, PropostaAparelho
 from app.models.proposta_versao import PropostaVersao
 from app.models import Cliente, Empresa, EquipamentoCliente
@@ -76,6 +76,10 @@ def _aplicar_destinatario(db: Session, proposta: Proposta, dest: DestinatarioIn)
         for campo in CAMPOS_EMPRESA:
             if campo != "insc_est":          # o modal nao mostra a IE
                 setattr(empresa, campo, getattr(dest, campo))
+        # A matriz e' editavel pelo modal, como os demais campos: o bloco
+        # substitui tudo, entao `matriz` ausente desvincula a filial.
+        conferir_matriz(db, dest.matriz)
+        empresa.cliente = dest.matriz
         # O modal EDITA o cadastro da empresa escolhida, entao o Tiny tambem
         # precisa saber — o gatilho da spec e' "criada E editada".
         proposta.empresa_para_tiny = empresa.id

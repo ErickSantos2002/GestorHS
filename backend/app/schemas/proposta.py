@@ -44,7 +44,7 @@ class DestinatarioIn(BaseModel):
 
     tipo: Literal["cliente", "empresa", "nova_empresa"]
     id: Optional[int] = None
-    matriz: Optional[int] = None
+    matriz: Optional[int] = None   # cliente matriz: vale em `empresa` e `nova_empresa`
     nome: str = Field(min_length=1, max_length=100)
     documento: Optional[str] = None
     cep: Optional[str] = Field(default=None, max_length=9)
