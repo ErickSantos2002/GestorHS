@@ -32,6 +32,7 @@ python -m app.scripts.unificar_clientes --cgc <cnpj>              # unifica cada
 python -m app.scripts.renumerar_patrimonios --cliente <id>        # resolve patrimonio repetido na frota (--aplicar grava)
 python -m app.scripts.migrar_filiais_propostas                     # SIMULA: congela propostas antigas e cria filiais (--aplicar grava)
 python -m app.scripts.enviar_empresas_tiny                          # SIMULA: acerta as empresas no Tiny (--aplicar grava)
+python -m app.scripts.corrigir_proposta_caixa --caixa <id> --proposta <numero>   # SIMULA: aponta a caixa para a proposta certa (--aplicar grava)
 ```
 
 > ⚠️ **`enviar_atrasados_growthhs` nao envia nada sem `--enviar`.** A chave do card e
@@ -181,6 +182,24 @@ A cada abrir/avancar/cancelar, o GestorHS espelha a **CAIXA** como um card no bo
 ⚠️ **Um card por CAIXA, nunca por OS** — nas duas integracoes (TaskHS e GrowthHS). Os aparelhos da caixa entram como linhas das obs (TaskHS) ou itens de `devices[]` (GrowthHS); a OS **nao** vira card sozinha. Espelhar uma OS abre um SEGUNDO card para a mesma caixa e a expedicao passa a ver a mesma caixa duas vezes no board — aconteceu de jul a set/2026 pela rota `PATCH /ordens/{id}/tipo-servico`, que sobrou espelhando por OS depois da migracao para caixa (28 cards orfaos no board). O caminho por OS foi removido inteiro em set/2026 (`agendar_espelhamento`, `montar_payload`, `montar_card_os`, `sincronizar_taskhs`, `reenviar_os_taskhs`). Rota nova que precise atualizar o card busca a caixa da OS e chama `agendar_espelhamento_caixa`. Cuidado extra ao ressuscitar qualquer coisa por OS: o `external_id` do card e' o id da caixa no MESMO namespace de `source`, entao um card por OS pode sobrescrever o card de uma caixa de id igual, em silencio.
 
 O card leva as seis obs por etapa (cabecalho + aparelhos, Laboratorio, Pos-Vendas, Financeiro, Preparando Retorno, Finalizada) e, na secao de Laboratorio, um link publico de download do certificado (`/publico/certificado/...`, token HMAC sem login, via `app/core/certificado_link.py` e `app/api/publico.py`; base em `CERT_PUBLIC_BASE_URL`).
+
+⚠️ **As obs SO tem a porta da integracao.** O `PATCH` de card do TaskHS
+(`CardUpdate`) nao expoe `obs1..obs6` — nenhuma tela edita aquele texto. Consertar uma
+obs errada e' refazer o upsert. Mas `sincronizar_taskhs_caixas` manda o card para a lista
+da **fase atual**, e o board tem listas DEPOIS da 7 (`209` Preparando para Envio, `210`
+Correios) para onde a expedicao move a mao — o GestorHS nunca sai da 7. Num card ja
+despachado, sincronizar pela fase o **arrasta de volta** e desfaz o trabalho da
+expedicao: passe `--lista <id atual do card>` (uma caixa por vez) para atualizar so as
+obs. Confira o `list_id` do card antes.
+
+⚠️ **`caixas.numero_proposta` nao e' conferido por ninguem.** O numero vem de
+`business_info.proposal_number` do card do GrowthHS — **campo de texto livre digitado a
+mao** — e o inbound `/integracao/growthhs/caixas/{id}/ganho` grava sem checar o cliente.
+A tela da caixa (`PropostaCaixaCard`) entao oferece "Marcar como Faturada" em cima do que
+aquele numero resolver. Em 17/09/2026 isso fez o Financeiro faturar a proposta 232
+(Maringa Ferro-Liga) pela caixa 979 (Univale). Corrigir com
+`app.scripts.corrigir_proposta_caixa`, que tem em `conferir()`/`clientes_da_caixa()` a
+regra que **ainda falta no inbound**.
 
 ### Cliente de API do frontend
 [frontend/src/lib/api.ts](frontend/src/lib/api.ts) centraliza todo o acesso HTTP:
