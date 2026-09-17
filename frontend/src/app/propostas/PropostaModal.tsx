@@ -594,6 +594,20 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
                     {selecao.tipo === 'nova_empresa' && (
                       <MatrizSelect valor={selecao.matriz} onChange={(matriz) => setSelecao({ tipo: 'nova_empresa', matriz })} />
                     )}
+                    {/* A matriz tambem e' editavel numa Empresa ja cadastrada: e' de
+                        onde vem a frota, e filial sem matriz nao aceita aparelho. Trocar
+                        aqui recarrega a frota (clienteDaFrota) e grava no cadastro. */}
+                    {selecao.tipo === 'empresa' && (
+                      <MatrizSelect
+                        valor={selecao.empresa.cliente != null
+                          ? { id: selecao.empresa.cliente, nome: selecao.empresa.matriz_nome }
+                          : null}
+                        onChange={(matriz) => setSelecao({
+                          tipo: 'empresa',
+                          empresa: { ...selecao.empresa, cliente: matriz?.id ?? null, matriz_nome: matriz?.nome ?? null },
+                        })}
+                      />
+                    )}
                     {/* "Aos cuidados de" e' coluna da PROPOSTA, nao do cadastro. */}
                     <div className="sm:col-span-2">
                       <Input

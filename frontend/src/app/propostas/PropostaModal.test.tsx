@@ -469,6 +469,33 @@ describe('PropostaModal — destinatario', () => {
     expect(await screen.findByText('1 aparelho(s) não estão mais na frota e foram retirados da proposta.')).toBeInTheDocument()
   })
 
+  it('editar proposta de empresa mostra a matriz atual e a manda no payload', async () => {
+    propostasObter.mockResolvedValue({ ...PROPOSTA_BASE, empresa: 9, cliente: 5 })
+    empresasObter.mockResolvedValue(EMPRESA)
+    propostasAtualizar.mockResolvedValue({ id: 900 })
+    render(<PropostaModal propostaId={900} onClose={vi.fn()} />)
+    await screen.findByText('Cliente matriz (opcional)')
+    expect(screen.getByText('Cliente Teste')).toBeInTheDocument()
+    aplicarModelo()
+    preencherObrigatorios('filial@teste.com')
+    fireEvent.click(screen.getByText('Salvar Alterações'))
+    await waitFor(() => expect(propostasAtualizar).toHaveBeenCalled())
+    expect(propostasAtualizar.mock.calls[0][1].destinatario).toMatchObject({ tipo: 'empresa', id: 9, matriz: 5 })
+  })
+
+  it('escolher a matriz de uma empresa sem matriz carrega a frota', async () => {
+    propostasObter.mockResolvedValue({ ...PROPOSTA_BASE, empresa: 9, cliente: null })
+    empresasObter.mockResolvedValue({ ...EMPRESA, cliente: null, matriz_nome: null })
+    render(<PropostaModal propostaId={900} onClose={vi.fn()} />)
+    await screen.findByText('Cliente matriz (opcional)')
+    expect(frotaDoClienteMock).not.toHaveBeenCalled()
+    fireEvent.change(screen.getByPlaceholderText('Buscar cliente por nome, CNPJ ou série do aparelho'), { target: { value: 'Cliente' } })
+    fireEvent.click(await screen.findByRole('button', { name: /Cliente Teste/ }))
+    await screen.findByLabelText('Bafômetro X')
+    expect(frotaDoClienteMock).toHaveBeenCalledWith(5)
+    expect(screen.getByText('Empresa · matriz Cliente Teste')).toBeInTheDocument()
+  })
+
   it('submeter sem destinatario nao cria proposta', async () => {
     render(<PropostaModal onClose={vi.fn()} />)
     aplicarModelo()

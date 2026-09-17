@@ -36,7 +36,9 @@ export function montarDestinatario(s: Selecao, d: DadosEmpresa): DestinatarioIn 
   return {
     tipo: s.tipo,
     id: s.tipo === 'cliente' ? s.cliente.id : s.tipo === 'empresa' ? s.empresa.id : null,
-    matriz: s.tipo === 'nova_empresa' ? (s.matriz?.id ?? null) : null,
+    // A matriz e' editavel tanto na empresa nova quanto na ja cadastrada; o
+    // Cliente e' a propria matriz, entao nao tem campo.
+    matriz: s.tipo === 'cliente' ? null : s.tipo === 'empresa' ? s.empresa.cliente : (s.matriz?.id ?? null),
     // Documento de cadastro existente nao muda pela proposta (o servidor ignora).
     documento: s.tipo === 'nova_empresa' ? soDigitos(d.documento) : null,
     nome: d.nome.trim(),
