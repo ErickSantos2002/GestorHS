@@ -23,6 +23,14 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.54.1',
+    data: '17/09/2026',
+    itens: [
+      { tipo: 'correcao', texto: 'A busca deixou de trazer clientes sem relação com o que foi digitado. Uma série como "WAO4O0065" era lida também como documento, pelos dígitos soltos dentro dela, e a lista vinha com todo cliente cujo CNPJ tivesse aqueles dígitos no meio. Agora só o termo escrito apenas com dígitos e pontuação é tratado como CNPJ ou CPF — colar o documento inteiro ou um pedaço dele continua funcionando igual.' },
+      { tipo: 'correcao', texto: 'A mesma correção vale nas quatro buscas que tinham o problema: a página Clientes (inclusive o campo "Cliente matriz" da empresa), a página Empresas, a lista de Propostas e a busca do destinatário dentro da proposta.' },
+    ],
+  },
+  {
     versao: '1.54.0',
     data: '16/09/2026',
     itens: [
