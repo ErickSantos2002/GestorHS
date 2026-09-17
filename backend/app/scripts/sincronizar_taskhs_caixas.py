@@ -22,6 +22,13 @@ SIMULA POR PADRAO. Para enviar: --aplicar
     python -m app.scripts.sincronizar_taskhs_caixas --cod-retorno ENC-ADM-20260825 --aplicar
     python -m app.scripts.sincronizar_taskhs_caixas --caixas 745,749,750 --aplicar
 
+`--lista N` fixa o destino e ignora a fase, para UMA caixa de cada vez. E' o caminho para
+card que a expedicao ja levou alem da fase do GestorHS (209/210): sincronizar pela fase o
+arrastaria de volta. Passando a lista onde o card ja esta, o upsert atualiza so as obs —
+as obs nao tem outra porta, o PATCH da tela do TaskHS nao expoe obs1..obs6.
+
+    python -m app.scripts.sincronizar_taskhs_caixas --caixas 979 --lista 210 --aplicar
+
 Precisa de TASKHS_BASE_URL/TASKHS_API_KEY de producao — rode DENTRO do container do
 GestorHS; o .env local aponta para o TaskHS de desenvolvimento.
 """
@@ -48,11 +55,18 @@ def caixas_por_cod_retorno(db: Session, marcador: str) -> list[int]:
     return sorted(c for (c,) in linhas)
 
 
-def sincronizar(db: Session, caixas_ids: list[int]) -> tuple[int, int]:
+def sincronizar(db: Session, caixas_ids: list[int], lista: int | None = None) -> tuple[int, int]:
     """Faz upsert do card de cada caixa na lista da sua fase atual.
 
     Devolve (enviadas, encontradas). Caixa inexistente nao entra na conta; caixa sem
     fase mapeada (encerrada, fase NULL) conta como encontrada mas nao enviada.
+
+    `lista` fixa o destino e ignora a fase. E' para o card que a expedicao ja moveu
+    ALEM das fases do GestorHS — o board tem listas depois da 7 ("Preparando para
+    Envio" 209, "Correios" 210) e o GestorHS nunca sai da 7. Nesse card, sincronizar
+    pela fase ARRASTA o card para tras e desfaz o trabalho da expedicao; passando a
+    lista onde ele ja esta, o upsert atualiza so o conteudo das obs. E' tambem o unico
+    caminho para um card de caixa arquivada (fase NULL).
     """
     if not taskhs_client.integracao_ativa():
         raise RuntimeError(
@@ -61,7 +75,10 @@ def sincronizar(db: Session, caixas_ids: list[int]) -> tuple[int, int]:
     caixas = db.query(Caixa).filter(Caixa.id.in_(caixas_ids)).order_by(Caixa.id).all()
     enviadas = 0
     for cx in caixas:
-        list_id = taskhs.list_id_da_fase(cx.fase) if cx.fase is not None else None
+        if lista is not None:
+            list_id = lista
+        else:
+            list_id = taskhs.list_id_da_fase(cx.fase) if cx.fase is not None else None
         if list_id is None:
             print(f"PULA caixa #{cx.id}: fase {cx.fase} sem lista no board")
             continue
@@ -82,6 +99,9 @@ def main() -> None:
     ap.add_argument("--caixas", help="ids separados por virgula (ex.: 745,749,750)")
     ap.add_argument("--cod-retorno", dest="cod_retorno",
                     help="seleciona as caixas cujas OS tem este cod_retorno")
+    ap.add_argument("--lista", type=int,
+                    help="id da lista de destino, ignorando a fase — para card que a "
+                         "expedicao ja moveu adiante (so com --caixas de uma caixa so)")
     ap.add_argument("--aplicar", action="store_true",
                     help="envia de verdade (sem a flag, so lista o que faria)")
     args = ap.parse_args()
@@ -103,16 +123,24 @@ def main() -> None:
         if not ids:
             sys.exit("nenhuma caixa selecionada.")
 
+        # Uma lista fixa para um LOTE despejaria caixas de fases diferentes na mesma
+        # coluna — o oposto do que o script faz. Destino a mao e' correcao cirurgica.
+        if args.lista is not None and len(ids) != 1:
+            sys.exit("--lista so vale para uma caixa de cada vez")
+
         if not args.aplicar:
             caixas = db.query(Caixa).filter(Caixa.id.in_(ids)).order_by(Caixa.id).all()
             print("\n  SIMULACAO (nada enviado)\n")
             for cx in caixas:
-                destino = taskhs.list_id_da_fase(cx.fase) if cx.fase is not None else None
+                if args.lista is not None:
+                    destino = args.lista
+                else:
+                    destino = taskhs.list_id_da_fase(cx.fase) if cx.fase is not None else None
                 print(f"  caixa #{cx.id}  fase {cx.fase}  -> lista {destino or '(sem lista)'}")
             print(f"\n  {len(caixas)} caixas. Para enviar: --aplicar\n")
             return
 
-        enviadas, total = sincronizar(db, ids)
+        enviadas, total = sincronizar(db, ids, lista=args.lista)
         print(f"\n{enviadas}/{total} caixas sincronizadas com o TaskHS.")
     finally:
         db.close()
