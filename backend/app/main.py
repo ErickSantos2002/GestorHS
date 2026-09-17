@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import auth, funcoes, usuarios, setores, marcas, grupos, categorias, equipamentos, clientes, funcionarios, equipamentos_cliente, fases, ordens, tipos_calibragem, alertas, portal, solicitacoes, usuarios_cliente, dashboard, fotos, certificados, caixas, certificados_modelo, certificados_os, publico, notas_fiscais, certificados_avulsos, certificados_gerais, certificados_venda, logs_integracao, servicos, produtos, propostas, integracao_growthhs, integracoes_externas, certificados_config, certificados_emitidos, manutencao_servicos, manutencoes, empresas
 from app.core.config import settings
-from app.tarefas import vencendo
+from app.tarefas import tiny_pendentes, vencendo
 
 
 def _configurar_log() -> None:
@@ -32,17 +32,19 @@ _configurar_log()
 
 @contextlib.asynccontextmanager
 async def lifespan(_app: FastAPI):
-    """Sobe o worker diario do GrowthHS junto com a API.
+    """Sobe os workers de fundo junto com a API: o mensal do GrowthHS e o de
+    reenvio das Empresas pendentes no Tiny.
 
-    Nasce desligado (`JOB_VENCENDO_ATIVO=false`) — em desenvolvimento a env aponta
-    para o banco de producao com a chave real. No shutdown a task e' cancelada; o
-    `suppress` engole o CancelledError esperado.
+    Os dois nascem desligados (`JOB_VENCENDO_ATIVO` / `JOB_TINY_ATIVO`) — em
+    desenvolvimento a env aponta para o banco de producao com as chaves reais.
+    `iniciar()` devolve None quando desligado, e a lista sai vazia. No shutdown as
+    tasks sao canceladas; o `suppress` engole o CancelledError esperado.
     """
-    tarefa = vencendo.iniciar()
+    tarefas = [t for t in (vencendo.iniciar(), tiny_pendentes.iniciar()) if t is not None]
     try:
         yield
     finally:
-        if tarefa is not None:
+        for tarefa in tarefas:
             tarefa.cancel()
             with contextlib.suppress(BaseException):
                 await tarefa

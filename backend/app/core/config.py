@@ -18,6 +18,13 @@ class Settings(BaseSettings):
     # e' decisao explicita de quem faz o deploy. Horario no fuso de Sao Paulo.
     JOB_VENCENDO_ATIVO: bool = False
     JOB_VENCENDO_HORA: int = 8
+    # Worker de reenvio do Tiny: varre as Empresas paradas em `pendente`. Nasce
+    # DESLIGADO pelo mesmo motivo acima, agravado por o Tiny nao ter ambiente de
+    # teste. O limite por volta e' o teto de chamadas: cada empresa gasta duas e a
+    # conta permite 20 por minuto. Ver app/tarefas/tiny_pendentes.py.
+    JOB_TINY_ATIVO: bool = False
+    JOB_TINY_INTERVALO_MIN: int = 10
+    JOB_TINY_LIMITE: int = 20
     # Integracao com o TaskHS (espelhar OS como cards). Vazio = desligada.
     TASKHS_BASE_URL: str = ""   # ex.: "https://taskhs.exemplo/api" (sem barra final)
     TASKHS_API_KEY: str = ""    # header X-API-Key
