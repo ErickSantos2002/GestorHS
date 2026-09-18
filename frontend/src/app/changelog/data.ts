@@ -23,6 +23,16 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.55.0',
+    data: '18/09/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'Caixa que leva só o módulo do Phoebus passou a sair do Laboratório direto para o Financeiro, sem parar no Pós-Vendas: o serviço dela é de bancada e não tem nada para o comercial aprovar. As caixas que estavam empilhadas no Pós-Vendas por esse motivo foram movidas.' },
+      { tipo: 'correcao', texto: 'Caixa com o aparelho Phoebus dentro voltou a passar pelo Pós-Vendas — sozinho ou acompanhado do módulo dele. O atalho valia para toda caixa que tivesse Phoebus ou módulo, e por isso sete caixas chegaram ao Financeiro sem o aceite do comercial; elas foram devolvidas ao Pós-Vendas.' },
+      { tipo: 'melhoria', texto: 'O quadro de Ordens agora marca em qualquer coluna o que a caixa carrega (Phoebus, Módulo ou os dois) — antes o aviso só aparecia no Financeiro. É por essa marca que se sabe que o card dessa caixa no TaskHS é feito à mão, e não criado pelo sistema.' },
+      { tipo: 'melhoria', texto: 'Caixa de módulo já despachada, sem nota fiscal e sem rastreio, pode ser encerrada administrativamente — antes ficava travada no Financeiro sem saída.' },
+    ],
+  },
+  {
     versao: '1.54.3',
     data: '17/09/2026',
     itens: [
