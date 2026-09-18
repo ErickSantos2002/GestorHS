@@ -81,6 +81,28 @@ def test_so_phoebus_avanca(client, db_session):
     assert _chamar(client, cx_id).json()["movida"] is True
 
 
+def test_phoebus_com_aparelho_comum_grava_aceite_no_aparelho_comum_por_decisao(client, db_session):
+    """DECISAO, nao descuido (caixa real de producao: 1041, 1 Phoebus + 2
+    Iblow10 PRO, aceite=False nas 3 OS em 18/09/2026). A trava de `_tem_phoebus`
+    e' `any`: a caixa com Phoebus e um aparelho comum avanca e o fan-out de
+    `executar_avanco_caixa` grava `aceite=True` tambem na OS do aparelho comum,
+    que normalmente so recebe aval pelo "Ganho" do GrowthHS.
+
+    E' aceitavel porque essa caixa NAO TEM card no GrowthHS (board comercial,
+    Phoebus nao tem proposta la) — nao existe caminho de "Ganho" que traria o
+    aceite por outra via. Barrar aqui travaria a caixa para sempre."""
+    cx_id, os_ids = _caixa(db_session, catalogos=[settings.EQUIPAMENTO_PHOEBUS_ID, 1])
+    r = _chamar(client, cx_id)
+    assert r.status_code == 200
+    assert r.json()["movida"] is True
+
+    db_session.expire_all()
+    for i in os_ids:
+        o = db_session.get(Ordem, i)
+        assert o.aceite is True
+        assert o.data_aceite is not None
+
+
 def test_caixa_normal_recusa_409_e_nao_ganha_aceite(client, db_session):
     """A trava de escopo. Caixa sem Phoebus tem o "Ganho" do GrowthHS como fonte do
     aceite; avancar por aqui gravaria um aval comercial que ninguem deu."""

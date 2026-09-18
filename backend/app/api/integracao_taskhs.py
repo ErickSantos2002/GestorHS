@@ -52,6 +52,13 @@ def _tem_phoebus(ativas) -> bool:
     passar a caixa NORMAL (sem Phoebus e sem modulo), que e' exatamente o caso que
     a decisao do `aceite` quer barrar. Sair da fase 6 grava `aceite`/`data_aceite`,
     e na caixa normal esse aval vem do "Ganho" da proposta no GrowthHS.
+
+    ⚠️ E' `any`, nao "so Phoebus": Phoebus viajando com um aparelho comum na MESMA
+    caixa (ex.: caixa 1041, 1 Phoebus + 2 Iblow10 PRO) tambem passa, e o fan-out de
+    `executar_avanco_caixa` grava `aceite`/`data_aceite` no aparelho comum tambem —
+    nao so no Phoebus. E' intencional: essa caixa nao tem card no GrowthHS (board
+    comercial, Phoebus sem proposta la), entao nao existe "Ganho" que traria o
+    aceite por outro caminho. Barrar aqui travaria a caixa pra sempre.
     """
     return any(getattr(o, "equipamento_catalogo", None) == settings.EQUIPAMENTO_PHOEBUS_ID
                for o in ativas)
