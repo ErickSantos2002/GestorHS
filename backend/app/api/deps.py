@@ -1,5 +1,6 @@
 import logging
 import secrets
+from typing import Callable
 
 from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -58,36 +59,34 @@ def get_current_cliente(token: str = Depends(oauth2_scheme), db: Session = Depen
     return cli
 
 
-def require_growthhs_inbound(x_api_key: str | None = Header(default=None, alias="X-API-Key")) -> None:
-    configurada = settings.GROWTHHS_INBOUND_API_KEY
-    if not configurada:
-        raise HTTPException(status_code=503, detail="integracao inbound do GrowthHS desligada")
-    try:
-        # compare_digest lanca TypeError se algum dos lados tiver caractere
-        # nao-ASCII (Starlette decodifica headers como latin-1) — trata como
-        # chave invalida em vez de deixar vazar como 500.
-        valido = bool(x_api_key) and secrets.compare_digest(x_api_key, configurada)
-    except TypeError:
-        valido = False
-    if not valido:
-        logger.warning("GrowthHS inbound: X-API-Key invalida ou ausente")
-        raise HTTPException(status_code=401, detail="api key invalida")
+def _require_inbound_key(nome: str, chave: Callable[[], str]):
+    """Factory da auth inbound por API key (GrowthHS e TaskHS): mesmo guard de
+    seguranca, chaves independentes.
+
+    `chave` e' um callable, nao o valor — precisa ser lido A CADA CHAMADA, nunca
+    capturado no import, senao `monkeypatch.setattr(settings, ...)` dos testes
+    para de funcionar (o closure ficaria preso ao valor de quando o modulo
+    carregou).
+    """
+    def _checagem(x_api_key: str | None = Header(default=None, alias="X-API-Key")) -> None:
+        configurada = chave()
+        if not configurada:
+            raise HTTPException(status_code=503, detail=f"integracao inbound do {nome} desligada")
+        try:
+            # compare_digest lanca TypeError se algum dos lados tiver caractere
+            # nao-ASCII (Starlette decodifica headers como latin-1) — trata como
+            # chave invalida em vez de deixar vazar como 500.
+            valido = bool(x_api_key) and secrets.compare_digest(x_api_key, configurada)
+        except TypeError:
+            valido = False
+        if not valido:
+            logger.warning("%s inbound: X-API-Key invalida ou ausente", nome)
+            raise HTTPException(status_code=401, detail="api key invalida")
+    return _checagem
 
 
-def require_taskhs_inbound(x_api_key: str | None = Header(default=None, alias="X-API-Key")) -> None:
-    configurada = settings.TASKHS_INBOUND_API_KEY
-    if not configurada:
-        raise HTTPException(status_code=503, detail="integracao inbound do TaskHS desligada")
-    try:
-        # compare_digest lanca TypeError se algum dos lados tiver caractere
-        # nao-ASCII (Starlette decodifica headers como latin-1) — trata como
-        # chave invalida em vez de deixar vazar como 500.
-        valido = bool(x_api_key) and secrets.compare_digest(x_api_key, configurada)
-    except TypeError:
-        valido = False
-    if not valido:
-        logger.warning("TaskHS inbound: X-API-Key invalida ou ausente")
-        raise HTTPException(status_code=401, detail="api key invalida")
+require_growthhs_inbound = _require_inbound_key("GrowthHS", lambda: settings.GROWTHHS_INBOUND_API_KEY)
+require_taskhs_inbound = _require_inbound_key("TaskHS", lambda: settings.TASKHS_INBOUND_API_KEY)
 
 
 def require_funcao(*descricoes: str):

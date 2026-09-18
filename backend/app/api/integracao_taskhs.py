@@ -39,6 +39,12 @@ class FinanceiroOut(BaseModel):
     fase: int
 
 
+def _recusar_fase_errada(caixa_id: int, fase) -> None:
+    logger.warning("TaskHS financeiro: caixa %s nao esta em Pos-Vendas (fase %s)",
+                   caixa_id, fase)
+    raise HTTPException(status_code=409, detail="caixa nao esta em Pos-Vendas")
+
+
 def _tem_phoebus(ativas) -> bool:
     """Trava de escopo, POSITIVA de proposito.
 
@@ -71,6 +77,15 @@ def financeiro(
                     caixa_id, cx.fase)
         return FinanceiroOut(movida=False, caixa_id=cx.id, fase=cx.fase)
 
+    if cx.fase is None:
+        # Caixa arquivada (cancelada): `_ordens_ativas` devolve lista vazia e
+        # `_tem_phoebus([])` seria False, dando "caixa sem Phoebus" para uma caixa
+        # que na verdade foi cancelada — mensagem enganosa (ACHADO 2 da revisao).
+        # Sai direto pela fase errada, ANTES da trava de Phoebus; os demais casos
+        # de FASE_ERRADA (ex.: caixa em Laboratorio) continuam passando pela
+        # trava de Phoebus primeiro, como o brief pediu.
+        _recusar_fase_errada(caixa_id, cx.fase)
+
     ativas = _ordens_ativas(cx)
     if not _tem_phoebus(ativas):
         logger.warning("TaskHS financeiro: caixa %s nao tem Phoebus (card=%s)",
@@ -80,9 +95,7 @@ def financeiro(
             detail="caixa sem Phoebus: avanco pelo TaskHS nao se aplica")
 
     if estado != ai.AVANCAR:
-        logger.warning("TaskHS financeiro: caixa %s nao esta em Pos-Vendas (fase %s)",
-                       caixa_id, cx.fase)
-        raise HTTPException(status_code=409, detail="caixa nao esta em Pos-Vendas")
+        _recusar_fase_errada(caixa_id, cx.fase)
 
     obs = "via TaskHS"
     if dados.observacao and dados.observacao.strip():

@@ -57,13 +57,9 @@ def _caixa(db, *, catalogos, fase=6):
 
 
 def _chamar(client, caixa_id, *, chave=CHAVE, body=None):
-    # Starlette decodifica headers de entrada como latin-1; enviar como bytes
-    # latin-1 (em vez de str) evita que o proprio httpx do TestClient force
-    # ascii no valor antes de sair — o mesmo ajuste de
-    # test_integracao_growthhs_auth.py::test_header_nao_ascii_retorna_401_e_nao_500.
     return client.post(f"/integracao/taskhs/caixas/{caixa_id}/financeiro",
                        json=body if body is not None else {"card_id": 2018},
-                       headers={"X-API-Key": chave.encode("latin-1")})
+                       headers={"X-API-Key": chave})
 
 
 PAR = [settings.EQUIPAMENTO_PHOEBUS_ID, settings.EQUIPAMENTO_MODULO_ID]
@@ -130,6 +126,18 @@ def test_caixa_em_laboratorio_devolve_409(client, db_session):
     assert _chamar(client, cx_id).status_code == 409
 
 
+def test_caixa_arquivada_devolve_409_com_mensagem_de_fase(client, db_session):
+    """Caixa arquivada (cancelada) tem `fase=None` na caixa E nas OS —
+    `_ordens_ativas` devolve lista vazia, e a trava de Phoebus daria "sem
+    Phoebus" para uma caixa que na verdade foi cancelada. A mensagem tem que ser
+    a de fase errada, nao a de Phoebus (ACHADO 2 da revisao)."""
+    cx_id, _ = _caixa(db_session, catalogos=PAR, fase=None)
+    r = _chamar(client, cx_id)
+    assert r.status_code == 409
+    assert "phoebus" not in r.json()["detail"].lower()
+    assert r.json()["detail"] == "caixa nao esta em Pos-Vendas"
+
+
 def test_caixa_inexistente_devolve_404(client):
     assert _chamar(client, 999999).status_code == 404
 
@@ -156,9 +164,20 @@ def test_header_ausente_devolve_401(client, db_session):
 
 def test_header_nao_ascii_devolve_401_e_nao_500(client, db_session):
     """Starlette decodifica header como latin-1; `compare_digest` levanta TypeError
-    com caractere nao-ASCII. Sem o guard isso vira 500."""
+    com caractere nao-ASCII. Sem o guard isso vira 500.
+
+    Envia o header como bytes latin-1 (nao str): o proprio httpx do TestClient
+    forca ascii num valor str antes de sair, entao "chave-com-acento-ç" como str
+    nunca chegaria ao servidor — mesmo ajuste de
+    test_integracao_growthhs_auth.py::test_header_nao_ascii_retorna_401_e_nao_500.
+    Escopado a este teste (nao ao helper `_chamar`) para o contorno ficar visivel
+    exatamente onde importa.
+    """
     cx_id, _ = _caixa(db_session, catalogos=PAR)
-    assert _chamar(client, cx_id, chave="chave-com-acento-ç").status_code == 401
+    r = client.post(f"/integracao/taskhs/caixas/{cx_id}/financeiro",
+                    json={"card_id": 2018},
+                    headers={"X-API-Key": "chave-com-acento-ç".encode("latin-1")})
+    assert r.status_code == 401
 
 
 def test_integracao_desligada_devolve_503(client, db_session, monkeypatch):
