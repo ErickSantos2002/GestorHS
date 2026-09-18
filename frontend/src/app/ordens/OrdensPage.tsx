@@ -123,6 +123,14 @@ function Quadro({ clienteId, onAbrir }: { clienteId?: number; onAbrir: (id: numb
                           {cx.prontos}/{cx.total_os} prontos
                         </span>
                       )}
+                      {col.fase === 10 && cx.modulo && (
+                        <span
+                          className="text-xs px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-300 shrink-0"
+                          title="Caixa de Phoebus: o serviço dele não passa pelo Pós-Vendas, por isso chegou direto ao Financeiro."
+                        >
+                          {ROTULO_MODULO[cx.modulo]}
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-slate-300 mt-1 truncate flex items-center gap-1.5">
                       <span className="truncate">{cx.cliente_principal_nome ?? cx.cliente_nome ?? '—'}</span>
@@ -142,6 +150,15 @@ function Quadro({ clienteId, onAbrir }: { clienteId?: number; onAbrir: (id: numb
       </div>
     </div>
   )
+}
+
+/** Texto do aviso de Phoebus/Módulo no Financeiro. Os três casos são reais na base:
+ *  a caixa leva só o aparelho, só o módulo, ou os dois juntos — e o Financeiro precisa
+ *  distinguir, porque ela chegou ali sem passar pelo Pós-Vendas. */
+const ROTULO_MODULO: Record<'phoebus' | 'modulo' | 'ambos', string> = {
+  phoebus: 'Phoebus',
+  modulo: 'Módulo',
+  ambos: 'Phoebus + Módulo',
 }
 
 /** Períodos prontos do filtro de chegada. Devolvem a faixa [de, até] em ISO, ou

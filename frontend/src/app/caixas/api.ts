@@ -82,6 +82,9 @@ export interface CaixaQuadroItem {
   pendentes: number
   cliente_principal_nome?: string | null
   outros_clientes?: number
+  /** Serviço de módulo que a caixa carrega; null quando não há nenhum.
+   *  Espelha `fluxo_modulo.rotulo_modulo` no backend. */
+  modulo?: 'phoebus' | 'modulo' | 'ambos' | null
 }
 
 export interface QuadroCaixaColuna {
