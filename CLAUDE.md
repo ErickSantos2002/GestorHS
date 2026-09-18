@@ -33,6 +33,7 @@ python -m app.scripts.renumerar_patrimonios --cliente <id>        # resolve patr
 python -m app.scripts.migrar_filiais_propostas                     # SIMULA: congela propostas antigas e cria filiais (--aplicar grava)
 python -m app.scripts.enviar_empresas_tiny                          # SIMULA: acerta as empresas no Tiny (--aplicar grava)
 python -m app.scripts.corrigir_proposta_caixa --caixa <id> --proposta <numero>   # SIMULA: aponta a caixa para a proposta certa (--aplicar grava)
+python -m app.scripts.mover_phoebus_posvendas                        # SIMULA: manda para o Financeiro as caixas de Phoebus paradas em Pos-Vendas (--aplicar grava)
 ```
 
 > ⚠️ **`enviar_atrasados_growthhs` nao envia nada sem `--enviar`.** A chave do card e
@@ -100,6 +101,16 @@ A Ordem de Serviço avança **linearmente** por fases, cada uma de responsabilid
 Recebido(4) → Laboratório(5) → Pós-Vendas(6) → Financeiro(10) → Preparando Retorno(7) → Finalizada(8)
 ```
 Com `Cancelada(9)` como saída a qualquer momento.
+
+**Phoebus e Módulo têm uma segunda rota**, em `PROXIMA_MODULO` (set/2026): o serviço deles não passa pelo comercial, então a caixa sai do **Laboratório(5) direto para o Financeiro(10)**, pulando Pós-Vendas.
+
+```
+Recebido(4) → Laboratório(5) → Financeiro(10) → Preparando Retorno(7) → Finalizada(8)
+```
+
+Quem decide a rota é o chamador, com o **mesmo** `fluxo_modulo.caixa_de_modulo()` que já tira essas caixas do board do TaskHS/GrowthHS — um critério só para "isto é serviço de módulo". Ao mexer em transição, lembre que são **dois** mapas: escrever só em `PROXIMA` deixa a rota do módulo para trás em silêncio. `ORDEM_FASES`/`posicao()` **não** mudam — a fase 6 continua na ordem lógica, apenas não é visitada, e é isso que mantém de pé as janelas de nota fiscal e certificado.
+
+⚠️ **Pular a 6 significa ficar SEM `aceite`**: quem grava `aceite`/`data_aceite` é o ramo `origem == 6` do fan-out em `executar_avanco_caixa`, que nessa rota nunca roda. É intencional — aceite é o registro da aprovação comercial, e nesse fluxo não há aprovação a registrar. Não "conserte" marcando aceite automático. Antes do desvio existir, 40 caixas (82 OS) empilharam na fase 6; `app.scripts.mover_phoebus_posvendas` é o acerto delas.
 
 ⚠️ **O ID 10 (Financeiro) é numericamente MAIOR que 7 e 8, mas vem antes deles no fluxo.** Nunca compare fases por ID cru nem escreva a janela como lista literal — use `posicao()`/`ORDEM_FASES` no backend e `posicaoFase()`/`posLaboratorio()` no frontend. Escrever `(5, 6, 7, 8)` para dizer "do laboratório em diante" **omite o Financeiro** e trava a OS lá, sem saída: já aconteceu em 24/08/2026.
 
