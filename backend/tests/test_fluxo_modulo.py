@@ -151,3 +151,37 @@ def test_pula_posvendas_le_settings_na_chamada(monkeypatch):
     override por env e o monkeypatch."""
     monkeypatch.setattr(settings, "EQUIPAMENTO_MODULO_ID", 999)
     assert fluxo_modulo.caixa_pula_posvendas([_os(999)]) is True
+
+
+# --- nucleo compartilhado das duas decisoes (set/2026) ---
+
+def test_so_de_modulo_reconhece_caixa_100_por_cento_modulo():
+    assert fluxo_modulo.caixa_so_de_modulo([_os(settings.EQUIPAMENTO_MODULO_ID)]) is True
+    assert fluxo_modulo.caixa_so_de_modulo(
+        [_os(settings.EQUIPAMENTO_MODULO_ID), _os(settings.EQUIPAMENTO_MODULO_ID)]) is True
+
+
+def test_so_de_modulo_recusa_phoebus_em_qualquer_composicao():
+    """Phoebus sozinho, com o modulo dele, ou com aparelho comum: nenhuma e' 100% Modulo."""
+    assert fluxo_modulo.caixa_so_de_modulo([_os(settings.EQUIPAMENTO_PHOEBUS_ID)]) is False
+    assert fluxo_modulo.caixa_so_de_modulo(
+        [_os(settings.EQUIPAMENTO_PHOEBUS_ID), _os(settings.EQUIPAMENTO_MODULO_ID)]) is False
+    assert fluxo_modulo.caixa_so_de_modulo(
+        [_os(settings.EQUIPAMENTO_PHOEBUS_ID), _os(1)]) is False
+
+
+def test_so_de_modulo_recusa_mista_e_vazia():
+    assert fluxo_modulo.caixa_so_de_modulo([_os(1), _os(settings.EQUIPAMENTO_MODULO_ID)]) is False
+    assert fluxo_modulo.caixa_so_de_modulo([_os(1)]) is False
+    assert fluxo_modulo.caixa_so_de_modulo([]) is False
+
+
+def test_pula_posvendas_e_so_de_modulo_sao_a_MESMA_resposta():
+    """As duas decisoes (pular o Pos-Vendas, ficar fora do board do TaskHS) partem do
+    mesmo criterio. Se divergirem, uma copia do predicado foi introduzida."""
+    casos = [[], [_os(1)], [_os(settings.EQUIPAMENTO_MODULO_ID)],
+             [_os(settings.EQUIPAMENTO_PHOEBUS_ID)],
+             [_os(settings.EQUIPAMENTO_PHOEBUS_ID), _os(settings.EQUIPAMENTO_MODULO_ID)],
+             [_os(1), _os(settings.EQUIPAMENTO_MODULO_ID)]]
+    for ordens in casos:
+        assert fluxo_modulo.caixa_pula_posvendas(ordens) == fluxo_modulo.caixa_so_de_modulo(ordens)

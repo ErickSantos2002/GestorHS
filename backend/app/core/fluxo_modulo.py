@@ -3,8 +3,9 @@
 1. Caixa que contenha um deles nao vira card no TaskHS nem no GrowthHS
    (`caixa_de_modulo`, `any`). Consumido por `api/espelhamento.py` e
    `api/growthhs_cards.py`.
-2. Caixa 100% Modulo nao passa pelo Pos-Vendas (`caixa_pula_posvendas`, `all`).
-   Consumido por `api/caixas.py` e pelos scripts de Phoebus.
+2. Caixa 100% Modulo nao passa pelo Pos-Vendas E fica fora do board do TaskHS
+   (`caixa_so_de_modulo`, `all`; `caixa_pula_posvendas` delega a ele).
+   Consumido por `api/caixas.py`, `api/espelhamento.py` e pelos scripts.
 
 Ate 18/09/2026 a pergunta 2 reaproveitava o predicado da 1, e por isso caixa de
 Phoebus+Modulo pulava o comercial sem dever. Logica pura, sem I/O.
@@ -76,21 +77,30 @@ def caixa_de_modulo(ordens) -> bool:
     return any(os_de_modulo(o) for o in ordens)
 
 
-def caixa_pula_posvendas(ordens) -> bool:
-    """True SO se todas as OS sao Modulo (47) — a unica composicao que nao passa
-    pelo comercial.
+def caixa_so_de_modulo(ordens) -> bool:
+    """True SO se todas as OS sao Modulo (47). Nucleo de DUAS decisoes: pular o
+    Pos-Vendas e ficar fora do board do TaskHS.
 
-    NAO confundir com `caixa_de_modulo`, logo acima: aquele e' `any(36 ou 47)` e
-    responde outra pergunta ("vira card no TaskHS/GrowthHS?"). As duas respostas nao
-    coincidem, e foi reaproveitar uma para a outra que mandou 7 caixas de
-    Phoebus+Modulo direto ao Financeiro em 18/09/2026. Por isso este predicado e'
-    batizado pelo que DECIDE, e nao pela composicao: `caixa_so_de_modulo` seria
-    armadilha, porque "modulo" quer dizer coisas diferentes nos dois nomes.
+    ⚠️ "modulo" aqui e' ESTRITAMENTE o catalogo 47. Em `caixa_de_modulo`, logo
+    acima, "modulo" quer dizer "modulo OU phoebus" (`any`) — nomes parecidos,
+    conjuntos diferentes. `caixa_de_modulo` segue valendo para o board do
+    GrowthHS, que e' comercial e onde Phoebus nao tem proposta.
 
-    Recebe a lista de ordens JA FILTRADA pelo chamador, igual a `caixa_de_modulo`.
-    Lista vazia devolve False: caixa sem OS ativa nao tem para onde desviar.
+    Recebe a lista de ordens JA FILTRADA pelo chamador. Lista vazia devolve
+    False: caixa sem OS ativa nao tem para onde desviar nem card a suprimir.
     """
     ativas = list(ordens)
     return bool(ativas) and all(
         getattr(o, "equipamento_catalogo", None) == settings.EQUIPAMENTO_MODULO_ID
         for o in ativas)
+
+
+def caixa_pula_posvendas(ordens) -> bool:
+    """A caixa 100% Modulo e' a unica que nao passa pelo comercial.
+
+    Delega a `caixa_so_de_modulo`: o criterio e' o mesmo, e o nome existe porque
+    "pula o Pos-Vendas" e' a frase que descreve a decisao no `api/caixas.py`.
+    Foi reaproveitar o predicado ERRADO para esta pergunta que mandou 7 caixas de
+    Phoebus+Modulo ao Financeiro sem aceite em 18/09/2026.
+    """
+    return caixa_so_de_modulo(ordens)
