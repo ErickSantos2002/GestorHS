@@ -1,7 +1,7 @@
 """Move para o Financeiro as caixas de Phoebus/Modulo que ficaram paradas em Pos-Vendas.
 
 O servico do Phoebus e do Modulo nao passa pelo comercial — desde set/2026 a caixa deles
-sai do laboratorio direto para o Financeiro (`os_workflow.PROXIMA_MODULO`). Antes disso
+sai do laboratorio direto para o Financeiro (`os_workflow.PROXIMA_SO_MODULO`). Antes disso
 o fluxo era o mesmo de todo mundo e elas caiam na fase 6, onde ninguem tinha o que fazer:
 em 18/09/2026 havia 40 caixas / 82 OS empilhadas ali, a maior concentracao delas em
 qualquer fase ativa.

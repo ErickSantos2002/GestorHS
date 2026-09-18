@@ -1,8 +1,13 @@
-"""Modulo e Phoebus seguem um fluxo de servico proprio.
+"""Modulo e Phoebus tem regras proprias — duas, que NAO coincidem.
 
-Caixa que contenha um deles NAO vira card no TaskHS nem no GrowthHS. Este modulo
-responde a pergunta e nada mais — logica pura, sem I/O, para ser consumida pelos
-dois pontos de estrangulamento (`api/espelhamento.py` e `api/growthhs_cards.py`).
+1. Caixa que contenha um deles nao vira card no TaskHS nem no GrowthHS
+   (`caixa_de_modulo`, `any`). Consumido por `api/espelhamento.py` e
+   `api/growthhs_cards.py`.
+2. Caixa 100% Modulo nao passa pelo Pos-Vendas (`caixa_pula_posvendas`, `all`).
+   Consumido por `api/caixas.py` e pelos scripts de Phoebus.
+
+Ate 18/09/2026 a pergunta 2 reaproveitava o predicado da 1, e por isso caixa de
+Phoebus+Modulo pulava o comercial sem dever. Logica pura, sem I/O.
 
 Fora do escopo de proposito: as cargas por CLIENTE do GrowthHS (atrasados,
 vencendo) continuam mandando modulo, porque o modulo e' o item que de fato
@@ -41,9 +46,10 @@ def rotulo_modulo(ordens) -> str | None:
     aparelho e o modulo dele viajam na mesma caixa) e 1 so com modulo.
 
     Aparelho comum na mesma caixa nao muda o rotulo: o aviso e' sobre o que ha de
-    Phoebus/modulo ali. `rotulo_modulo(...) is not None` e' equivalente a
-    `caixa_de_modulo(...)` — ha teste travando as duas respostas juntas, porque
-    divergir faria o aviso aparecer onde o fluxo nao desvia.
+    Phoebus/modulo ali. O rotulo fala de COMPOSICAO, nao de desvio de fase — desde
+    18/09/2026 so a caixa 100% Modulo desvia, e `rotulo_modulo` continua marcando
+    Phoebus e o par. A implicacao que vale (e tem teste) e' a estreita: caixa que
+    desvia tem rotulo 'modulo'.
     """
     tem_phoebus = any(getattr(o, "equipamento_catalogo", None) == settings.EQUIPAMENTO_PHOEBUS_ID
                       for o in ordens)
@@ -59,9 +65,32 @@ def rotulo_modulo(ordens) -> str | None:
 
 
 def caixa_de_modulo(ordens) -> bool:
-    """True se QUALQUER OS da lista e' de modulo/phoebus (caixa mista bloqueia).
+    """True se QUALQUER OS da lista e' de modulo/phoebus — bloqueia o CARD.
+
+    Responde SO a pergunta das integracoes; caixa mista bloqueia. Para o desvio do
+    Pos-Vendas use `caixa_pula_posvendas`, que e' mais estreito.
 
     Recebe a lista de ordens JA FILTRADA pelo chamador (nao a caixa), para que o
     critério de "quais OS contam" fique visivel no ponto de uso.
     """
     return any(os_de_modulo(o) for o in ordens)
+
+
+def caixa_pula_posvendas(ordens) -> bool:
+    """True SO se todas as OS sao Modulo (47) — a unica composicao que nao passa
+    pelo comercial.
+
+    NAO confundir com `caixa_de_modulo`, logo acima: aquele e' `any(36 ou 47)` e
+    responde outra pergunta ("vira card no TaskHS/GrowthHS?"). As duas respostas nao
+    coincidem, e foi reaproveitar uma para a outra que mandou 7 caixas de
+    Phoebus+Modulo direto ao Financeiro em 18/09/2026. Por isso este predicado e'
+    batizado pelo que DECIDE, e nao pela composicao: `caixa_so_de_modulo` seria
+    armadilha, porque "modulo" quer dizer coisas diferentes nos dois nomes.
+
+    Recebe a lista de ordens JA FILTRADA pelo chamador, igual a `caixa_de_modulo`.
+    Lista vazia devolve False: caixa sem OS ativa nao tem para onde desviar.
+    """
+    ativas = list(ordens)
+    return bool(ativas) and all(
+        getattr(o, "equipamento_catalogo", None) == settings.EQUIPAMENTO_MODULO_ID
+        for o in ativas)
