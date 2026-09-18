@@ -1,4 +1,10 @@
-"""Caixa com modulo/phoebus nao vira card no TaskHS — nem ao avancar, nem ao cancelar."""
+"""Caixa 100% Modulo nao vira card no TaskHS — nem ao avancar, nem ao cancelar.
+
+Caixa com PHOEBUS dentro vira: ela passa por servico e pertence ao board. Ate
+18/09/2026 o criterio era `caixa_de_modulo` (`any`), largo demais, e o setor de
+Servicos criava esses cards a mao — 12 deles. O criterio agora e'
+`fluxo_modulo.caixa_so_de_modulo` (`all`).
+"""
 import pytest
 
 from app.core.config import settings
@@ -41,11 +47,14 @@ def test_avancar_caixa_de_modulo_nao_espelha(client_exp, db_session, captura):
     assert captura == []
 
 
-def test_avancar_caixa_de_phoebus_nao_espelha(client_exp, db_session, captura):
+def test_avancar_caixa_de_phoebus_espelha(client_exp, db_session, captura):
+    """Inverteu em 18/09/2026: o Phoebus passa por servico e o card dele no board e'
+    justamente o elo que o inbound do TaskHS usa para achar a caixa."""
     cx_id, _ = _caixa_com(db_session, catalogo_id=settings.EQUIPAMENTO_PHOEBUS_ID)
     r = client_exp.post(f"/caixas/{cx_id}/avancar", json={})
     assert r.status_code == 200
-    assert captura == []
+    assert len(captura) == 1
+    assert captura[0]["external_id"] == str(cx_id)
 
 
 def test_avancar_caixa_comum_continua_espelhando(client_exp, db_session, captura):
@@ -58,8 +67,9 @@ def test_avancar_caixa_comum_continua_espelhando(client_exp, db_session, captura
     assert captura[0]["external_id"] == str(cx_id)
 
 
-def test_avancar_caixa_mista_nao_espelha(client_exp, db_session, captura):
-    """Caixa mista: uma OS de modulo contamina a caixa inteira."""
+def test_avancar_caixa_mista_espelha(client_exp, db_session, captura):
+    """Inverteu: caixa mista tem aparelho comum dentro, que precisa do board.
+    Antes uma OS de modulo contaminava a caixa inteira."""
     from app.models import Cliente, Equipamento, EquipamentoCliente, Ordem
     cx_id, _ = _caixa_com(db_session, catalogo_id=1)
     cli = db_session.query(Cliente).first()
@@ -72,7 +82,7 @@ def test_avancar_caixa_mista_nao_espelha(client_exp, db_session, captura):
     db_session.commit()
     r = client_exp.post(f"/caixas/{cx_id}/avancar", json={})
     assert r.status_code == 200
-    assert captura == []
+    assert len(captura) == 1
 
 
 def test_caixa_cujo_modulo_esta_cancelado_volta_a_espelhar(client_exp, db_session, captura):
@@ -110,7 +120,7 @@ def test_bloqueio_registra_log_pulado(client_exp, db_session, captura, monkeypat
     cx_id, _ = _caixa_com(db_session, catalogo_id=settings.EQUIPAMENTO_MODULO_ID)
     client_exp.post(f"/caixas/{cx_id}/avancar", json={})
     assert logs and logs[0]["status"] == "pulado"
-    assert logs[0]["motivo"] == "caixa_de_modulo"
+    assert logs[0]["motivo"] == "caixa_so_de_modulo"
     assert logs[0]["integracao"] == "taskhs"
 
 
@@ -131,3 +141,22 @@ def test_anexar_nota_fiscal_em_caixa_de_modulo_nao_espelha(client, usuario_finan
                     data={"numeros": ["123"]}, headers=h)
     assert r.status_code == 200
     assert captura == []
+
+
+def test_avancar_caixa_de_phoebus_com_modulo_espelha(client_exp, db_session, captura):
+    """A composicao real das 7 caixas de 18/09/2026: o aparelho e o modulo dele na
+    mesma caixa. Precisa de card, porque e' por ele que o TaskHS avisa o GestorHS."""
+    from app.models import Cliente, Equipamento, EquipamentoCliente, Ordem
+    cx_id, _ = _caixa_com(db_session, catalogo_id=settings.EQUIPAMENTO_PHOEBUS_ID)
+    cli = db_session.query(Cliente).first()
+    eq_mod = Equipamento(id=settings.EQUIPAMENTO_MODULO_ID, descricao="Modulo")
+    db_session.add(eq_mod); db_session.flush()
+    ec = EquipamentoCliente(cliente=cli.id, equipamento=eq_mod.id, serie="SER-PAR-MOD")
+    db_session.add(ec); db_session.flush()
+    db_session.add(Ordem(cliente=cli.id, equipamento_cliente=ec.id, fase=4,
+                         situacao="E", caixa=cx_id))
+    db_session.commit()
+    r = client_exp.post(f"/caixas/{cx_id}/avancar", json={})
+    assert r.status_code == 200
+    assert len(captura) == 1
+    assert captura[0]["external_id"] == str(cx_id)

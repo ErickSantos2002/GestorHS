@@ -65,12 +65,12 @@ def espelhar_caixa_sync(db, caixa, *, list_id, arquivado=False) -> bool:
     """Versão síncrona de `agendar_espelhamento_caixa`, para backfill/correção em lote.
 
     PROPAGA erro em vez de engolir, para o script conseguir relatar o que falhou.
-    Devolve False quando a caixa é de módulo/phoebus (fluxo próprio, fora do board).
+    Devolve False quando a caixa é 100% Módulo (serviço de bancada, fora do board).
     """
     ordens = ordens_do_card(caixa)
-    if fluxo_modulo.caixa_de_modulo(ordens):
+    if fluxo_modulo.caixa_so_de_modulo(ordens):
         registrar_log_integracao(integracao="taskhs", status="pulado",
-                                 motivo="caixa_de_modulo",
+                                 motivo="caixa_so_de_modulo",
                                  referencia_os=ordens[0].id if ordens else None)
         return False
     payload = _montar_payload_caixa(db, caixa, list_id=list_id, arquivado=arquivado)
@@ -80,18 +80,20 @@ def espelhar_caixa_sync(db, caixa, *, list_id, arquivado=False) -> bool:
 
 def agendar_espelhamento_caixa(db, background_tasks, caixa, *, origem=None, arquivado=False):
     """Agenda o upsert no TaskHS do card da CAIXA (async, best-effort). No-op se
-    sem list_id (fase sem mapeamento), integração desligada ou caixa de módulo."""
+    sem list_id (fase sem mapeamento), integração desligada ou caixa 100% Módulo."""
     fase = origem if origem is not None else caixa.fase
     list_id = taskhs.list_id_da_fase(fase) if fase is not None else None
     if list_id is None or not taskhs_client.integracao_ativa():
         return
     ordens = ordens_do_card(caixa)
-    if fluxo_modulo.caixa_de_modulo(ordens):
-        # Módulo/phoebus tem fluxo próprio, fora do board. Bloquear ANTES de montar
-        # o payload também congela card antigo: criar, mover e arquivar são o mesmo
-        # caminho, então nada mexe no que já foi enviado.
+    if fluxo_modulo.caixa_so_de_modulo(ordens):
+        # A caixa 100% Módulo tem serviço de bancada e não entra no board. Bloquear
+        # ANTES de montar o payload também congela card antigo: criar, mover e
+        # arquivar são o mesmo caminho, então nada mexe no que já foi enviado.
+        # ⚠️ NÃO é `caixa_de_modulo` (`any`): caixa com Phoebus PRECISA do card, que
+        # é o elo usado pelo inbound do TaskHS para achar a caixa.
         registrar_log_integracao(integracao="taskhs", status="pulado",
-                                 motivo="caixa_de_modulo",
+                                 motivo="caixa_so_de_modulo",
                                  referencia_os=ordens[0].id if ordens else None)
         return
     payload = _montar_payload_caixa(db, caixa, list_id=list_id, arquivado=arquivado)
