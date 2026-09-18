@@ -199,6 +199,10 @@ A cada abrir/avancar/cancelar, o GestorHS espelha a **CAIXA** como um card no bo
 
 ⚠️ **Um card por CAIXA, nunca por OS** — nas duas integracoes (TaskHS e GrowthHS). Os aparelhos da caixa entram como linhas das obs (TaskHS) ou itens de `devices[]` (GrowthHS); a OS **nao** vira card sozinha. Espelhar uma OS abre um SEGUNDO card para a mesma caixa e a expedicao passa a ver a mesma caixa duas vezes no board — aconteceu de jul a set/2026 pela rota `PATCH /ordens/{id}/tipo-servico`, que sobrou espelhando por OS depois da migracao para caixa (28 cards orfaos no board). O caminho por OS foi removido inteiro em set/2026 (`agendar_espelhamento`, `montar_payload`, `montar_card_os`, `sincronizar_taskhs`, `reenviar_os_taskhs`). Rota nova que precise atualizar o card busca a caixa da OS e chama `agendar_espelhamento_caixa`. Cuidado extra ao ressuscitar qualquer coisa por OS: o `external_id` do card e' o id da caixa no MESMO namespace de `source`, entao um card por OS pode sobrescrever o card de uma caixa de id igual, em silencio.
 
+⚠️ **Só a caixa 100% Módulo fica fora do board do TaskHS** (`fluxo_modulo.caixa_so_de_modulo`, `all(== 47)`). Caixa com Phoebus dentro — sozinho, com o módulo dele, ou junto de aparelho comum — **vira card**: ela passa por serviço, e o card é o elo que o inbound usa para achar a caixa. Mudou em 18/09/2026; antes o critério era `caixa_de_modulo` (`any`), largo demais, e o setor de Serviços criava esses cards à mão (12 deles, dos quais 8 foram adotados — ver [docs/operacao-taskhs-adocao-cards.md](docs/operacao-taskhs-adocao-cards.md)).
+
+⚠️ **O board do GrowthHS mantém o critério LARGO** (`caixa_de_modulo`, `any`), e a divergência é intencional: aquele board é comercial e Phoebus não tem proposta nele. Ao mexer num, não "uniformize" o outro.
+
 O card leva as seis obs por etapa (cabecalho + aparelhos, Laboratorio, Pos-Vendas, Financeiro, Preparando Retorno, Finalizada) e, na secao de Laboratorio, um link publico de download do certificado (`/publico/certificado/...`, token HMAC sem login, via `app/core/certificado_link.py` e `app/api/publico.py`; base em `CERT_PUBLIC_BASE_URL`).
 
 ⚠️ **As obs SO tem a porta da integracao.** O `PATCH` de card do TaskHS
@@ -218,6 +222,13 @@ aquele numero resolver. Em 17/09/2026 isso fez o Financeiro faturar a proposta 2
 (Maringa Ferro-Liga) pela caixa 979 (Univale). Corrigir com
 `app.scripts.corrigir_proposta_caixa`, que tem em `conferir()`/`clientes_da_caixa()` a
 regra que **ainda falta no inbound**.
+
+**Inbound: o card no Financeiro avança a caixa.** `POST /integracao/taskhs/caixas/{id}/financeiro` ([integracao_taskhs.py](backend/app/api/integracao_taskhs.py)) move a caixa de Pós-Vendas(6) para Financeiro(10), disparado pela automação do TaskHS quando o card entra na lista **205**. Existe porque a caixa com Phoebus não tem proposta no GrowthHS, logo não tem o gatilho de "Ganho". Chave **própria** (`TASKHS_INBOUND_API_KEY`), vazia = 503.
+
+- ⚠️ **Recusa 409 caixa sem Phoebus.** A trava é positiva (`_tem_phoebus`), não `not caixa_so_de_modulo(...)` — a negação deixaria passar a caixa **normal**, e sair da fase 6 grava `aceite`/`data_aceite`. Na caixa normal esse aval vem do "Ganho" no GrowthHS; deixar o TaskHS gravá-lo forjaria aprovação comercial.
+- **O laço card → caixa → card se fecha sozinho:** avançar a caixa move o card para a 205, o que dispara a automação de volta. Não é loop porque a regra em [core/avanco_inbound.py](backend/app/core/avanco_inbound.py) devolve `no_op` para caixa já na 10 e o endpoint responde `movida: false`.
+- A regra "essa caixa pode avançar agora?" é **compartilhada** com o inbound do GrowthHS (`core/avanco_inbound.py`). Ao mexer, lembre que são dois chamadores.
+- O lado TaskHS (a ação `avisar_gestorhs` no motor de automação) vive no **outro repo**; a especificação dos dois lados está em [docs/superpowers/specs/2026-09-18-taskhs-inbound-financeiro-design.md](docs/superpowers/specs/2026-09-18-taskhs-inbound-financeiro-design.md).
 
 ### Cliente de API do frontend
 [frontend/src/lib/api.ts](frontend/src/lib/api.ts) centraliza todo o acesso HTTP:
