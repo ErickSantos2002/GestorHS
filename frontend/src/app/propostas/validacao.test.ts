@@ -26,11 +26,18 @@ describe('validacao', () => {
       .toBe('Aguarde o carregamento dos dados do destinatário.')
   })
 
-  it('lista os obrigatorios faltando, incluindo o contato', () => {
+  // Telefone, e-mail e contato deixaram de ser obrigatorios em 18/09/2026 (pedido
+  // do Erick, revertendo o pedido anterior do comercial). Eles continuam nascendo
+  // vazios no modal; em branco o backend NAO altera o cadastro do cliente/empresa.
+  it('telefone, e-mail e contato em branco nao impedem salvar', () => {
     const dados = { ...COMPLETO, email: '', telefone: ' ' }
-    expect(camposObrigatoriosFaltando(dados, '', true)).toEqual(['Telefone', 'E-mail', 'Contato (aos cuidados de)'])
-    expect(validarProposta({ selecao: SELECAO, dados, contato: '', outrosItens: '<p>x</p>' }))
-      .toBe('Preencha os campos obrigatórios: Telefone, E-mail, Contato (aos cuidados de).')
+    expect(camposObrigatoriosFaltando(dados, '', true)).toEqual([])
+    expect(validarProposta({ selecao: SELECAO, dados, contato: '', outrosItens: '<p>x</p>' })).toBeNull()
+  })
+
+  it('os demais obrigatorios continuam sendo exigidos', () => {
+    const dados = { ...COMPLETO, municipio: '', estado: '' }
+    expect(camposObrigatoriosFaltando(dados, '', true)).toEqual(['Município', 'Estado (UF)'])
   })
 
   it('exige outros itens', () => {

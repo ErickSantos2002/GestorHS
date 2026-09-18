@@ -118,18 +118,18 @@ function aplicarModelo() {
   fireEvent.click(screen.getByText('Aplicar modelo'))
 }
 
-// E-mail, telefone e contato nascem SEMPRE vazios (nunca herdam do cadastro) e
-// sao obrigatorios, entao todo teste que chega ao submit precisa digitar os
-// tres. Usamos os mesmos valores do cadastro; o contato vai para a coluna da
-// proposta.
+// E-mail, telefone e contato nascem SEMPRE vazios (nunca herdam do cadastro) mas
+// desde 18/09/2026 NAO sao mais obrigatorios — os labels perderam o asterisco.
+// Os testes seguem preenchendo porque conferem o payload; quem cobre o caminho
+// "em branco" e' `salvar com os tres em branco`, mais abaixo.
 function preencherEmail(valor = 'cliente@teste.com') {
-  fireEvent.change(screen.getByLabelText('E-mail *'), { target: { value: valor } })
+  fireEvent.change(screen.getByLabelText('E-mail'), { target: { value: valor } })
 }
 
 function preencherObrigatorios(email = 'cliente@teste.com') {
   preencherEmail(email)
-  fireEvent.change(screen.getByLabelText('Telefone *'), { target: { value: '8130001111' } })
-  fireEvent.change(screen.getByLabelText('Contato (aos cuidados de) *'), { target: { value: 'Joana' } })
+  fireEvent.change(screen.getByLabelText('Telefone'), { target: { value: '8130001111' } })
+  fireEvent.change(screen.getByLabelText('Contato (aos cuidados de)'), { target: { value: 'Joana' } })
 }
 
 describe('PropostaModal', () => {
@@ -325,7 +325,7 @@ describe('PropostaModal — destinatario', () => {
     await selecionarCliente()
     expect((screen.getByLabelText(/Razão social/) as HTMLInputElement).value).toBe('Cliente Teste')
     expect((screen.getByLabelText(/CNPJ \/ CPF/) as HTMLInputElement).readOnly).toBe(true)
-    expect((screen.getByLabelText('E-mail *') as HTMLInputElement).value).toBe('')
+    expect((screen.getByLabelText('E-mail') as HTMLInputElement).value).toBe('')
     expect(screen.getByRole('button', { name: 'Usar do cadastro: cliente@teste.com' })).toBeInTheDocument()
     expect(screen.getByText(/atualizam o cadastro de Cliente Teste/)).toBeInTheDocument()
   })
@@ -345,6 +345,20 @@ describe('PropostaModal — destinatario', () => {
     expect(payload).not.toHaveProperty('cliente')
     expect(payload).not.toHaveProperty('cliente_override')
     expect(payload.contato).toBe('Joana')
+  })
+
+  it('salvar com os tres em branco cria a proposta e manda vazio', async () => {
+    // 18/09/2026: telefone, e-mail e contato deixaram de ser obrigatorios. Em
+    // branco o backend NAO altera o cadastro do cliente/empresa — nem apaga,
+    // nem grava. Antes este caminho era bloqueado pela validacao do modal.
+    render(<PropostaModal onClose={vi.fn()} />)
+    await selecionarCliente()
+    aplicarModelo()
+    fireEvent.click(screen.getByText('Criar Proposta'))
+    await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
+    const payload = propostasCriar.mock.calls[0][0]
+    expect(payload.destinatario).toMatchObject({ tipo: 'cliente', id: 5, email: '', telefone: '' })
+    expect(payload.contato).toBe('')
   })
 
   it('empresa escolhida carrega a frota da matriz', async () => {
@@ -397,7 +411,7 @@ describe('PropostaModal — destinatario', () => {
     await waitFor(() => expect(empresasObter).toHaveBeenCalledWith(9))
     expect(screen.queryByText('Documento já cadastrado como Empresa: Filial Norte')).toBeNull()
     expect((await screen.findByLabelText(/Razão social/) as HTMLInputElement).value).toBe('Filial Norte')
-    expect((screen.getByLabelText('E-mail *') as HTMLInputElement).value).toBe('filial@teste.com')   // o digitado fica
+    expect((screen.getByLabelText('E-mail') as HTMLInputElement).value).toBe('filial@teste.com')   // o digitado fica
   })
 
   it('trocar destinatario limpa selecao e aparelhos', async () => {

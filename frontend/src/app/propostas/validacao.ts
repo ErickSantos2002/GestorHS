@@ -17,22 +17,32 @@ export function htmlTemTexto(html?: string | null): boolean {
 export const ROTULO_CONTATO = 'Contato (aos cuidados de)'
 
 /**
- * O documento so e' exigido de empresa NOVA: no cadastro existente ele e'
- * somente leitura, e Cliente antigo sem CNPJ/CPF nao pode virar beco sem saida.
+ * Campos que a proposta NAO exige, embora a pagina Empresas exija:
+ *
+ * - `documento`: so de empresa NOVA. No cadastro existente ele e' somente
+ *   leitura, e Cliente antigo sem CNPJ/CPF nao pode virar beco sem saida.
+ * - `telefone` e `email`: opcionais desde 18/09/2026. Em branco o backend NAO
+ *   altera o cadastro do cliente/empresa — nem apaga, nem grava. Antes eram
+ *   exigidos a cada proposta (pedido do comercial, porque herdados do cadastro
+ *   ninguem olhava); o pedido foi revertido.
  */
+const NAO_EXIGIDOS_NA_PROPOSTA: readonly CampoDados[] = ['telefone', 'email']
+
 export function obrigatoriosDaProposta(exigirDocumento: boolean): readonly CampoDados[] {
-  return exigirDocumento ? OBRIGATORIOS_PROPOSTA : OBRIGATORIOS_PROPOSTA.filter((c) => c !== 'documento')
+  const fora = new Set<CampoDados>(NAO_EXIGIDOS_NA_PROPOSTA)
+  if (!exigirDocumento) fora.add('documento')
+  return OBRIGATORIOS_PROPOSTA.filter((c) => !fora.has(c))
 }
 
 /**
- * Rotulos dos obrigatorios vazios, na ordem do formulario. E-mail, telefone e
- * "aos cuidados de" nascem vazios de proposito e so sao conferidos porque estao
- * aqui — herdados do cadastro, ninguem olhava (pedido do comercial).
+ * Rotulos dos obrigatorios vazios, na ordem do formulario.
+ *
+ * `contato` ("aos cuidados de") tambem deixou de ser exigido em 18/09/2026 — ele
+ * vive so em `propostas.contato` e nunca chega ao cadastro. O parametro fica na
+ * assinatura porque `validarProposta` o repassa; ignora-lo aqui e' deliberado.
  */
-export function camposObrigatoriosFaltando(dados: DadosEmpresa, contato: string, exigirDocumento: boolean): string[] {
-  const faltando = camposFaltando(dados, obrigatoriosDaProposta(exigirDocumento)).map((c) => ROTULOS_DADOS[c])
-  if (contato.trim() === '') faltando.push(ROTULO_CONTATO)
-  return faltando
+export function camposObrigatoriosFaltando(dados: DadosEmpresa, _contato: string, exigirDocumento: boolean): string[] {
+  return camposFaltando(dados, obrigatoriosDaProposta(exigirDocumento)).map((c) => ROTULOS_DADOS[c])
 }
 
 export interface PropostaValidavel {

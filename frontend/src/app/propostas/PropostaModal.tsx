@@ -13,7 +13,6 @@ import { useAuth } from '../../auth/AuthContext'
 import { ApiError } from '../../lib/api'
 import { hojeISO } from '../../lib/datas'
 import { soDigitos } from '../../lib/documento'
-import { cn } from '../../lib/utils'
 import { formatarMoeda } from '../../lib/moeda'
 import { descreverVencimento } from './aparelhosFrota'
 import { clientesApi, type Cliente } from '../clientes/api'
@@ -32,7 +31,7 @@ import {
 import { buildDefaultOtherItems, buildPhoebusOtherItems, DEFAULT_NOTES } from './propostaDefaults'
 import { DestinatarioBusca } from './DestinatarioBusca'
 import { clienteDaFrota, descreverSelecao, montarDestinatario, type Selecao } from './destinatario'
-import { camposObrigatoriosFaltando, htmlTemTexto, obrigatoriosDaProposta, ROTULO_CONTATO, validarProposta } from './validacao'
+import { htmlTemTexto, obrigatoriosDaProposta, ROTULO_CONTATO, validarProposta } from './validacao'
 
 const sanitizarDecimal = (v: string) => v.replace(/[^0-9,]/g, '').replace(/(,.*),/g, '$1')
 const converterDecimal = (v: string) => parseFloat(v.replace(',', '.')) || 0
@@ -419,7 +418,6 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
     ? selecao.cliente.nome
     : selecao?.tipo === 'empresa' ? selecao.empresa.nome : null
   const exigirDocumento = selecao?.tipo === 'nova_empresa'
-  const faltandoContato = tentouSalvar && camposObrigatoriosFaltando(dados, form.contato ?? '', exigirDocumento).includes(ROTULO_CONTATO)
 
   // ─── Aparelhos ─────────────────────────────────────────────────────────
   function toggleAparelho(id: number) {
@@ -577,7 +575,8 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
                   {selecao.tipo === 'nova_empresa'
                     ? `Ao salvar a proposta, a empresa ${dados.nome || 'nova'} é cadastrada com estes dados.`
                     : `Alterações nestes dados atualizam o cadastro de ${nomeDoCadastro ?? ''}.`}
-                  {' '}E-mail, telefone e contato são sempre conferidos a cada proposta.
+                  {' '}E-mail, telefone e contato são opcionais: deixados em branco, o
+                  cadastro não é alterado.
                 </p>
                 {carregandoDestinatario ? (
                   <div className="flex justify-center py-6"><Spinner className="w-6 h-6" /></div>
@@ -612,10 +611,9 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
                     <div className="sm:col-span-2">
                       <Input
                         id="dest-contato"
-                        label={`${ROTULO_CONTATO} *`}
+                        label={ROTULO_CONTATO}
                         value={form.contato ?? ''}
                         onChange={(e) => setField('contato', e.target.value)}
-                        className={cn(faltandoContato && 'border-danger')}
                         placeholder="Nome do contato no cliente"
                       />
                     </div>
