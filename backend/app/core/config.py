@@ -45,6 +45,10 @@ class Settings(BaseSettings):
     # Integracao INBOUND do GrowthHS (mover caixa Pos-Vendas -> Financeiro).
     # Vazio = desligada. Nao expira; revoga trocando o valor. Header X-API-Key.
     GROWTHHS_INBOUND_API_KEY: str = ""
+    # Integracao INBOUND do TaskHS (card na lista do Financeiro -> caixa 6 -> 10).
+    # Vazio = desligada (503). Chave PROPRIA, nao a do GrowthHS: um vazamento
+    # derruba uma integracao, nao duas, e a rotacao fica independente.
+    TASKHS_INBOUND_API_KEY: str = ""
     # SSO Microsoft (Entra ID). Vazio = desligado (mesmo gating por env do
     # TaskHS/GrowthHS): o botão some da tela de login e GET /auth/microsoft
     # responde 503. App Registration próprio do GestorHS, single tenant.

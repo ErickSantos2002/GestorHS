@@ -74,6 +74,22 @@ def require_growthhs_inbound(x_api_key: str | None = Header(default=None, alias=
         raise HTTPException(status_code=401, detail="api key invalida")
 
 
+def require_taskhs_inbound(x_api_key: str | None = Header(default=None, alias="X-API-Key")) -> None:
+    configurada = settings.TASKHS_INBOUND_API_KEY
+    if not configurada:
+        raise HTTPException(status_code=503, detail="integracao inbound do TaskHS desligada")
+    try:
+        # compare_digest lanca TypeError se algum dos lados tiver caractere
+        # nao-ASCII (Starlette decodifica headers como latin-1) — trata como
+        # chave invalida em vez de deixar vazar como 500.
+        valido = bool(x_api_key) and secrets.compare_digest(x_api_key, configurada)
+    except TypeError:
+        valido = False
+    if not valido:
+        logger.warning("TaskHS inbound: X-API-Key invalida ou ausente")
+        raise HTTPException(status_code=401, detail="api key invalida")
+
+
 def require_funcao(*descricoes: str):
     def _checagem(usuario: Usuario = Depends(get_current_usuario), db: Session = Depends(get_db)) -> Usuario:
         from app.models import Funcao
