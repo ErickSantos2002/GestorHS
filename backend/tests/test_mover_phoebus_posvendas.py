@@ -114,6 +114,30 @@ def test_nao_mexe_em_os_cancelada_da_caixa(db_session):
     assert db_session.get(Caixa, cx_id).fase == 10
 
 
+def test_caixa_mista_nao_e_alvo_do_backfill(db_session):
+    """Caixa com Phoebus E aparelho normal fica de fora: mover em lote levaria o
+    aparelho normal junto, pulando o Pos-Vendas que ele precisa. Ela ja esta na
+    fase 6 e segue pela tela, 6 -> 10, com o aceite do Comercial.
+
+    De proposito DIFERENTE do avanco em tempo real (`api/caixas.py`), que usa
+    `caixa_de_modulo` (any) e desvia a caixa mista inteira: la existe alguem
+    clicando e vendo o que faz; aqui sao 40 caixas de uma vez, sem ninguem olhando.
+    """
+    cx_id, os_phoebus = _caixa(db_session, catalogo_id=settings.EQUIPAMENTO_PHOEBUS_ID)
+    eq_normal = Equipamento(id=99, descricao="Iblow10 PRO")
+    db_session.add(eq_normal); db_session.flush()
+    ec = EquipamentoCliente(cliente=db_session.get(Ordem, os_phoebus).cliente,
+                            equipamento=eq_normal.id, serie="WAO4O0200")
+    db_session.add(ec); db_session.flush()
+    db_session.add(Ordem(cliente=ec.cliente, equipamento_cliente=ec.id, fase=6,
+                         situacao="E", caixa=cx_id, desfecho_lab="concluido"))
+    db_session.commit()
+
+    assert caixas_alvo(db_session) == []
+    assert processar(db_session, aplicar=True)["caixas"] == 0
+    assert db_session.get(Caixa, cx_id).fase == 6      # intocada
+
+
 def test_caixa_so_com_os_cancelada_nao_e_alvo(db_session):
     """Sem nenhuma OS ativa nao ha o que mover — a caixa ja deveria estar
     arquivada. Mover so a caixa deixaria uma fase 10 vazia."""

@@ -43,17 +43,24 @@ def _ordens_ativas(caixa: Caixa) -> list:
 
 
 def caixas_alvo(db: Session) -> list[Caixa]:
-    """Caixas em Pos-Vendas cujas OS ativas sao de Phoebus/Modulo.
+    """Caixas em Pos-Vendas cujas OS ativas sao TODAS de Phoebus/Modulo.
 
-    O criterio e' o mesmo `fluxo_modulo.caixa_de_modulo` que decide o desvio no
-    avanco e o bloqueio do card — uma fonte de verdade so. Caixa sem nenhuma OS
-    ativa fica de fora: nao ha o que mover, e adiantar so a caixa deixaria uma
-    fase 10 vazia.
+    ⚠️ `all`, e nao o `caixa_de_modulo` (que e' `any`) usado no avanco em tempo real
+    — a diferenca e' deliberada. La existe alguem clicando e vendo o que faz, e uma
+    caixa mista desviada inteira e' consequencia aceita. Aqui sao 40 caixas de uma
+    vez, sem ninguem olhando: mover uma caixa mista arrastaria junto o aparelho
+    normal, pulando o Pos-Vendas de que ele precisa. Caixa mista ja esta na fase 6 e
+    segue pela tela, 6 -> 10, com o aceite do Comercial — que e' o certo para ela.
+    Foi o caso da caixa 1041 (1 Phoebus + 2 Iblow10 PRO), tirada do backfill em
+    18/09/2026. Caixa mista e' rara: 2 em 1050 no historico.
+
+    Caixa sem nenhuma OS ativa tambem fica de fora: nao ha o que mover, e adiantar
+    so a caixa deixaria uma fase 10 vazia.
     """
     alvo = []
     for cx in db.query(Caixa).filter(Caixa.fase == ORIGEM).order_by(Caixa.id).all():
         ativas = _ordens_ativas(cx)
-        if ativas and fluxo_modulo.caixa_de_modulo(ativas):
+        if ativas and all(fluxo_modulo.os_de_modulo(o) for o in ativas):
             alvo.append(cx)
     return alvo
 
