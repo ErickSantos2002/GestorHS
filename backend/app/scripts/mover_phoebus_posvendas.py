@@ -1,7 +1,7 @@
 """Move para o Financeiro as caixas de Phoebus/Modulo que ficaram paradas em Pos-Vendas.
 
 O servico do Phoebus e do Modulo nao passa pelo comercial — desde set/2026 a caixa deles
-sai do laboratorio direto para o Financeiro (`os_workflow.PROXIMA_MODULO`). Antes disso
+sai do laboratorio direto para o Financeiro (`os_workflow.PROXIMA_SO_MODULO`). Antes disso
 o fluxo era o mesmo de todo mundo e elas caiam na fase 6, onde ninguem tinha o que fazer:
 em 18/09/2026 havia 40 caixas / 82 OS empilhadas ali, a maior concentracao delas em
 qualquer fase ativa.
@@ -43,24 +43,19 @@ def _ordens_ativas(caixa: Caixa) -> list:
 
 
 def caixas_alvo(db: Session) -> list[Caixa]:
-    """Caixas em Pos-Vendas cujas OS ativas sao TODAS de Phoebus/Modulo.
+    """Caixas em Pos-Vendas cujas OS ativas sao TODAS Modulo.
 
-    ⚠️ `all`, e nao o `caixa_de_modulo` (que e' `any`) usado no avanco em tempo real
-    — a diferenca e' deliberada. La existe alguem clicando e vendo o que faz, e uma
-    caixa mista desviada inteira e' consequencia aceita. Aqui sao 40 caixas de uma
-    vez, sem ninguem olhando: mover uma caixa mista arrastaria junto o aparelho
-    normal, pulando o Pos-Vendas de que ele precisa. Caixa mista ja esta na fase 6 e
-    segue pela tela, 6 -> 10, com o aceite do Comercial — que e' o certo para ela.
-    Foi o caso da caixa 1041 (1 Phoebus + 2 Iblow10 PRO), tirada do backfill em
-    18/09/2026. Caixa mista e' rara: 2 em 1050 no historico.
+    Mesmo predicado do avanco em tempo real (`fluxo_modulo.caixa_pula_posvendas`) —
+    nao ha mais duas versoes da regra. Ate 18/09/2026 este script usava um `all`
+    proprio porque o avanco usava um `any` largo demais; com o criterio corrigido, a
+    caixa com Phoebus e a caixa mista caem fora por construcao nos dois caminhos.
 
     Caixa sem nenhuma OS ativa tambem fica de fora: nao ha o que mover, e adiantar
     so a caixa deixaria uma fase 10 vazia.
     """
     alvo = []
     for cx in db.query(Caixa).filter(Caixa.fase == ORIGEM).order_by(Caixa.id).all():
-        ativas = _ordens_ativas(cx)
-        if ativas and all(fluxo_modulo.os_de_modulo(o) for o in ativas):
+        if fluxo_modulo.caixa_pula_posvendas(_ordens_ativas(cx)):
             alvo.append(cx)
     return alvo
 
@@ -85,7 +80,7 @@ def processar(db: Session, *, aplicar: bool) -> dict:
             o.fase = DESTINO
             registrar_log(db, o, None,
                           f"Caixa #{cx.id}: {ORIGEM} -> {DESTINO} "
-                          f"(fluxo do Phoebus/Modulo nao passa por Pos-Vendas)")
+                          f"(fluxo da caixa 100% Modulo nao passa por Pos-Vendas)")
         cx.fase = DESTINO
 
     if aplicar:

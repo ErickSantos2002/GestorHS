@@ -35,6 +35,7 @@ python -m app.scripts.enviar_empresas_tiny                          # SIMULA: ac
 python -m app.scripts.corrigir_proposta_caixa --caixa <id> --proposta <numero>   # SIMULA: aponta a caixa para a proposta certa (--aplicar grava)
 python -m app.scripts.mover_phoebus_posvendas                        # SIMULA: manda para o Financeiro as caixas de Phoebus paradas em Pos-Vendas (--aplicar grava)
 python -m app.scripts.finalizar_caixas_phoebus --excluir 1051,1049   # SIMULA: encerra caixa de Phoebus ja despachada, sem nota/rastreio (--aplicar grava)
+python -m app.scripts.reverter_posvendas_phoebus_modulo              # SIMULA: devolve ao Pos-Vendas a caixa de Phoebus+Modulo do backfill (--aplicar grava)
 ```
 
 > ⚠️ **`enviar_atrasados_growthhs` nao envia nada sem `--enviar`.** A chave do card e
@@ -90,7 +91,8 @@ Verificação completa antes de commitar frontend: `npm run lint && npx tsc -b -
 > não precisam rodar de novo — são o registro do que foi corrigido à mão em produção
 > e todos são idempotentes: `corrigir_cnpj_proposta_99`, `corrigir_prox_calibragem`,
 > `resgatar_os_sem_caixa`, `importar_servicos_manutencao`, `normalizar_servicos_manutencao`,
-> `corrigir_calibracao_de_os_manutencao`, `unificar_markx_mercury`.
+> `corrigir_calibracao_de_os_manutencao`, `unificar_markx_mercury`,
+> `reverter_posvendas_phoebus_modulo`.
 > **Todos simulam por padrão** e só gravam com `--aplicar`.
 
 ## Arquitetura
@@ -103,17 +105,19 @@ Recebido(4) → Laboratório(5) → Pós-Vendas(6) → Financeiro(10) → Prepar
 ```
 Com `Cancelada(9)` como saída a qualquer momento.
 
-**Phoebus e Módulo têm uma segunda rota**, em `PROXIMA_MODULO` (set/2026): o serviço deles não passa pelo comercial, então a caixa sai do **Laboratório(5) direto para o Financeiro(10)**, pulando Pós-Vendas.
+**A caixa 100% Módulo tem uma segunda rota**, em `PROXIMA_SO_MODULO` (set/2026): o serviço de bancada dela não passa pelo comercial, então a caixa sai do **Laboratório(5) direto para o Financeiro(10)**, pulando Pós-Vendas.
 
 ```
 Recebido(4) → Laboratório(5) → Financeiro(10) → Preparando Retorno(7) → Finalizada(8)
 ```
 
-Quem decide a rota é o chamador, com o **mesmo** `fluxo_modulo.caixa_de_modulo()` que já tira essas caixas do board do TaskHS/GrowthHS — um critério só para "isto é serviço de módulo". Ao mexer em transição, lembre que são **dois** mapas: escrever só em `PROXIMA` deixa a rota do módulo para trás em silêncio. `ORDEM_FASES`/`posicao()` **não** mudam — a fase 6 continua na ordem lógica, apenas não é visitada, e é isso que mantém de pé as janelas de nota fiscal e certificado.
+⚠️ **Caixa com Phoebus dentro NÃO pula** — nem o aparelho sozinho, nem o par Phoebus+Módulo. O aparelho gera serviço e precisa do aceite comercial. Isso é **mais estreito** que o critério que bloqueia o card do TaskHS/GrowthHS, e confundir os dois foi o bug de 18/09/2026: 7 caixas de Phoebus+Módulo (1003, 1011, 1028, 1030, 1043, 1047, 1049) foram parar no Financeiro sem aceite, revertidas por `app.scripts.reverter_posvendas_phoebus_modulo`.
 
-⚠️ **Pular a 6 significa ficar SEM `aceite`**: quem grava `aceite`/`data_aceite` é o ramo `origem == 6` do fan-out em `executar_avanco_caixa`, que nessa rota nunca roda. É intencional — aceite é o registro da aprovação comercial, e nesse fluxo não há aprovação a registrar. Não "conserte" marcando aceite automático. Antes do desvio existir, 40 caixas (82 OS) empilharam na fase 6; `app.scripts.mover_phoebus_posvendas` é o acerto delas (39 movidas em 18/09/2026 — a mista ficou de fora).
+Quem decide a rota é o chamador, com `fluxo_modulo.caixa_pula_posvendas()` — `all(== 47)`. **Não confundir com `caixa_de_modulo()`**, que é `any(36 ou 47)` e responde outra pergunta: "esta caixa vira card no TaskHS/GrowthHS?". As duas respostas não coincidem, e `fluxo_modulo` existe justamente para manter as duas visíveis lado a lado. Ao mexer em transição, lembre que são **dois** mapas: escrever só em `PROXIMA` deixa a rota do módulo para trás em silêncio. `ORDEM_FASES`/`posicao()` **não** mudam — a fase 6 continua na ordem lógica, apenas não é visitada, e é isso que mantém de pé as janelas de nota fiscal e certificado.
 
-⚠️ **Caixa de Phoebus despachada não fecha pelo fluxo normal**: sair da fase 10 exige nota fiscal e sair da 7 exige `cod_retorno`, e essas caixas não têm nem um nem outro. `app.scripts.finalizar_caixas_phoebus` fecha administrativamente, gravando `cod_retorno = 'ENC-ADM-<data>'` como marcador — é por ele que se acha (e se reverte) o lote depois. **Não marca `pago` nem `aceite`**, pelo mesmo motivo do ENC-ADM de 30/07/2026: afirmaria pagamento e aval que o cliente não deu. Em 18/09/2026 fechou 29 caixas / 59 OS (`ENC-ADM-20260918`), poupando as 10 que ainda estavam na empresa.
+⚠️ **Pular a 6 significa ficar SEM `aceite`**: quem grava `aceite`/`data_aceite` é o ramo `origem == 6` do fan-out em `executar_avanco_caixa`, que nessa rota nunca roda. É intencional — aceite é o registro da aprovação comercial, e nesse fluxo não há aprovação a registrar. Não "conserte" marcando aceite automático. Antes do desvio existir, 40 caixas (82 OS) empilharam na fase 6; `app.scripts.mover_phoebus_posvendas` é o acerto delas (39 movidas em 18/09/2026). Esse backfill rodou com o critério largo e levou junto 13 caixas de Phoebus+Módulo que não deviam ter saído — 7 revertidas, 6 já fechadas pelo `ENC-ADM-20260918` e deixadas como estão por já terem sido despachadas.
+
+⚠️ **Caixa 100% Módulo despachada não fecha pelo fluxo normal**: sair da fase 10 exige nota fiscal e sair da 7 exige `cod_retorno`, e essas caixas não têm nem um nem outro. `app.scripts.finalizar_caixas_phoebus` fecha administrativamente, gravando `cod_retorno = 'ENC-ADM-<data>'` como marcador — é por ele que se acha (e se reverte) o lote depois. **Não marca `pago` nem `aceite`**, pelo mesmo motivo do ENC-ADM de 30/07/2026: afirmaria pagamento e aval que o cliente não deu. Em 18/09/2026 fechou 29 caixas / 59 OS (`ENC-ADM-20260918`), poupando as 10 que ainda estavam na empresa (6 delas eram Phoebus+Módulo e hoje o script nem as pegaria).
 
 ⚠️ **O ID 10 (Financeiro) é numericamente MAIOR que 7 e 8, mas vem antes deles no fluxo.** Nunca compare fases por ID cru nem escreva a janela como lista literal — use `posicao()`/`ORDEM_FASES` no backend e `posicaoFase()`/`posLaboratorio()` no frontend. Escrever `(5, 6, 7, 8)` para dizer "do laboratório em diante" **omite o Financeiro** e trava a OS lá, sem saída: já aconteceu em 24/08/2026.
 

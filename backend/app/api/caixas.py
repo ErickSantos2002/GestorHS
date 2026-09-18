@@ -276,12 +276,13 @@ def avancar_caixa(
     exige_funcao_da_fase(db, usuario, cx.fase)
     origem = cx.fase
     ativas = _ordens_ativas(cx)
-    # Phoebus/Modulo tem fluxo proprio: sai do laboratorio direto para o Financeiro,
-    # sem passar pelo comercial. Mesmo criterio que ja tira a caixa deles do board do
-    # TaskHS/GrowthHS — uma fonte de verdade so para "isto e' servico de modulo".
-    # `caixa_de_modulo` recebe a lista JA filtrada: aqui quem conta sao as OS ativas,
-    # as mesmas que vao andar de fase logo abaixo.
-    pula_posvendas = fluxo_modulo.caixa_de_modulo(ativas)
+    # A caixa 100% Modulo sai do laboratorio direto para o Financeiro: o servico de
+    # bancada dela nao passa pelo comercial. NAO e' o mesmo criterio que tira a caixa
+    # do board do TaskHS/GrowthHS — aquele e' `caixa_de_modulo`, mais largo, e
+    # reaproveita-lo aqui mandou 7 caixas de Phoebus+Modulo ao Financeiro sem aceite
+    # em 18/09/2026. Recebe a lista JA filtrada: quem conta sao as OS ativas, as
+    # mesmas que vao andar de fase logo abaixo.
+    pula_posvendas = fluxo_modulo.caixa_pula_posvendas(ativas)
     destino = wf.proxima_fase(origem, pula_posvendas=pula_posvendas)
 
     ok, motivo = wf.pode_avancar_caixa(origem, [o.desfecho_lab for o in ativas],

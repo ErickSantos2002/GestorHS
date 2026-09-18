@@ -1,6 +1,6 @@
 """O quadro de Ordens marca a caixa que carrega Phoebus/Modulo.
 
-A caixa deles chega ao Financeiro SEM ter passado pelo Pos-Vendas (`PROXIMA_MODULO`),
+A caixa deles chega ao Financeiro SEM ter passado pelo Pos-Vendas (`PROXIMA_SO_MODULO`),
 e quem recebe precisa saber por que. O aviso distingue os tres casos porque sao reais:
 so o aparelho, so o modulo, ou os dois juntos na mesma caixa.
 """

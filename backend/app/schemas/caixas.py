@@ -74,7 +74,7 @@ class CaixaQuadroItem(BaseModel):
     prontos: int
     pendentes: int
     # `phoebus` | `modulo` | `ambos` | None — alimenta o aviso do Financeiro no quadro.
-    # A caixa deles chega la sem passar pelo Pos-Vendas (ver os_workflow.PROXIMA_MODULO).
+    # A caixa deles chega la sem passar pelo Pos-Vendas (ver os_workflow.PROXIMA_SO_MODULO).
     modulo: str | None = None
 
 
