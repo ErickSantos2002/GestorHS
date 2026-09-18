@@ -1,14 +1,20 @@
 """Modulo e Phoebus tem regras proprias — duas, que NAO coincidem.
 
-1. Caixa que contenha um deles nao vira card no TaskHS nem no GrowthHS
-   (`caixa_de_modulo`, `any`). Consumido por `api/espelhamento.py` e
-   `api/growthhs_cards.py`.
+1. Caixa que contenha um deles nao vira card no board do GrowthHS
+   (`caixa_de_modulo`, `any`). Board comercial: Phoebus nao tem proposta la,
+   entao qualquer OS de modulo/phoebus na caixa basta para bloquear. Consumido
+   por `api/growthhs_cards.py` e pelo ramo GrowthHS de `api/logs_integracao.py`.
 2. Caixa 100% Modulo nao passa pelo Pos-Vendas E fica fora do board do TaskHS
    (`caixa_so_de_modulo`, `all`; `caixa_pula_posvendas` delega a ele).
-   Consumido por `api/caixas.py`, `api/espelhamento.py` e pelos scripts.
+   Consumido por `api/caixas.py`, `api/espelhamento.py`, pelo ramo TaskHS de
+   `api/logs_integracao.py` e pelos scripts.
 
-Ate 18/09/2026 a pergunta 2 reaproveitava o predicado da 1, e por isso caixa de
-Phoebus+Modulo pulava o comercial sem dever. Logica pura, sem I/O.
+Desde o inbound do TaskHS (18/09/2026) caixa com Phoebus PASSA a virar card no
+TaskHS — e' o elo de que o avanco 6->10 depende — mesmo continuando bloqueada
+no board do GrowthHS. `api/espelhamento.py` (o board do TaskHS) NAO consome
+mais `caixa_de_modulo`; ate essa data consumia, e a pergunta 2 reaproveitava o
+predicado da 1, o que fazia caixa de Phoebus+Modulo pular o comercial sem
+dever. Logica pura, sem I/O.
 
 Fora do escopo de proposito: as cargas por CLIENTE do GrowthHS (atrasados,
 vencendo) continuam mandando modulo, porque o modulo e' o item que de fato
@@ -66,10 +72,13 @@ def rotulo_modulo(ordens) -> str | None:
 
 
 def caixa_de_modulo(ordens) -> bool:
-    """True se QUALQUER OS da lista e' de modulo/phoebus — bloqueia o CARD.
+    """True se QUALQUER OS da lista e' de modulo/phoebus — bloqueia o CARD do
+    GrowthHS.
 
-    Responde SO a pergunta das integracoes; caixa mista bloqueia. Para o desvio do
-    Pos-Vendas use `caixa_pula_posvendas`, que e' mais estreito.
+    Responde SO a pergunta do board comercial; caixa mista bloqueia. NAO vale
+    mais para o board do TaskHS (`api/espelhamento.py` usa `caixa_so_de_modulo`
+    desde 18/09/2026) nem para o desvio do Pos-Vendas, que e'
+    `caixa_pula_posvendas`, mais estreito.
 
     Recebe a lista de ordens JA FILTRADA pelo chamador (nao a caixa), para que o
     critério de "quais OS contam" fique visivel no ponto de uso.

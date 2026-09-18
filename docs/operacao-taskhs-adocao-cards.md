@@ -75,6 +75,20 @@ COMMIT;
 
 Repita a consulta do Passo 1. As 8 linhas devem ter `external_source = 'gestorhs'` e o `external_id` da tabela acima, **com `list_id` ainda 202**.
 
+## Aviso: o 409 do inbound é silencioso para quem arrasta o card
+
+Depois da adoção, qualquer card espelhado que entre na lista **205** dispara a
+automação `avisar_gestorhs` — inclusive o de caixa normal, que sempre teve
+card. Quando o GestorHS recusa (409: caixa sem Phoebus, caixa fora de
+Pós-Vendas, etc.), quem arrastou o card **não vê nada**: o 409 vira só um
+`logger.warning` do lado do TaskHS, sem retorno visível na tela. O card fica
+parado na 205 até o próximo espelhamento puxá-lo de volta para a lista da fase
+real da caixa.
+
+Ler isto **antes de contar ao setor** que a automação está no ar: um card
+"esquecido" na 205 não é sinal de bug — é o comportamento esperado quando a
+caixa não se qualifica para o avanço automático.
+
 ## Rollback
 
 ```sql
