@@ -15,17 +15,26 @@ router = APIRouter(prefix="/logs-integracao", tags=["integracao"])
 ADMIN = "Administrador"
 
 
-def _payload_de_modulo(db: Session, payload: dict) -> bool:
-    """True se o payload reenviado aponta para uma OS ou caixa de modulo/phoebus.
+def _payload_de_modulo(db: Session, payload: dict, integracao: str) -> bool:
+    """True se o payload reenviado aponta para uma OS ou caixa que a integracao
+    dada recusaria espelhar.
 
     O `external_id` do payload e' string e o MESMO source/tipo serve tanto para
     card de OS quanto de caixa -- nao da pra saber, so pelo payload, qual das
     duas interpretacoes o numero representa. Por isso testamos as DUAS: existe
-    uma Ordem com esse id que e' de modulo, OU existe uma Caixa com esse id cujas
-    OS ativas sao de modulo. Custo assimetrico e' proposital: recusar de mais
+    uma Ordem com esse id que bloqueia, OU existe uma Caixa com esse id cujas
+    OS ativas bloqueiam. Custo assimetrico e' proposital: recusar de mais
     custa um clique perdido; deixar passar ressuscita um card que a equipe
     arquivou a mao.
+
+    ⚠️ O criterio depende da INTEGRACAO da linha, nao e' o mesmo predicado pras
+    duas: desde a adocao do inbound (18/09/2026), caixa com Phoebus e' card
+    legitimo no TaskHS (`caixa_so_de_modulo`, so bloqueia caixa 100% Modulo) mas
+    continua bloqueada no GrowthHS (`caixa_de_modulo`, `any` -- board comercial,
+    Phoebus nao tem proposta la). Um so `if` aqui decide pelas duas chamadas
+    abaixo, pra nao duplicar a escolha do predicado.
     """
+    predicado = fluxo_modulo.caixa_so_de_modulo if integracao == "taskhs" else fluxo_modulo.caixa_de_modulo
     external_id = payload.get("external_id") if payload else None
     if external_id is None:
         return False
@@ -34,10 +43,10 @@ def _payload_de_modulo(db: Session, payload: dict) -> bool:
     except (TypeError, ValueError):
         return False
     ordem = db.query(Ordem).filter(Ordem.id == ident).first()
-    if ordem is not None and fluxo_modulo.os_de_modulo(ordem):
+    if ordem is not None and predicado([ordem]):
         return True
     caixa = db.query(Caixa).filter(Caixa.id == ident).first()
-    if caixa is not None and fluxo_modulo.caixa_de_modulo(ordens_do_card(caixa)):
+    if caixa is not None and predicado(ordens_do_card(caixa)):
         return True
     return False
 
@@ -93,7 +102,7 @@ def reenviar(log_id: int, db: Session = Depends(get_db),
     if not row.payload:
         raise HTTPException(status_code=http_status.HTTP_409_CONFLICT,
                             detail="linha sem payload, nao e reenviavel")
-    if _payload_de_modulo(db, row.payload):
+    if _payload_de_modulo(db, row.payload, row.integracao):
         raise HTTPException(status_code=http_status.HTTP_409_CONFLICT,
                             detail="caixa de modulo/phoebus nao vai para as integracoes")
     cliente = taskhs_client if row.integracao == "taskhs" else hsgrowth_client

@@ -974,7 +974,7 @@ Não tem teste automatizado: o alvo é o banco do TaskHS e quem executa é o Eri
 
 Crie `docs/operacao-taskhs-adocao-cards.md`:
 
-```markdown
+````markdown
 # Adoção dos cards manuais de Phoebus no TaskHS
 
 **Data do levantamento:** 18/09/2026
@@ -1062,7 +1062,7 @@ COMMIT;
 ```
 
 Devolve os cards ao estado manual. Não desfaz card que o GestorHS tenha criado depois — para esses, arquive pela tela.
-```
+````
 
 - [ ] **Step 2: Commit**
 

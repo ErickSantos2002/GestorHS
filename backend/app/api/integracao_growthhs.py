@@ -1,7 +1,10 @@
 """Endpoint inbound chamado pelo GrowthHS: ao marcar uma proposta como "Ganho",
 o card correspondente precisa mover a caixa de Pos-Vendas(6) para Financeiro(10)
 no GestorHS. Autenticado por API key fixa (`require_growthhs_inbound`, T1), nao
-por JWT — quem chama e o GrowthHS, nao um usuario logado."""
+por JWT — quem chama e o GrowthHS, nao um usuario logado.
+
+A regra "essa caixa pode avancar agora?" vive em `core/avanco_inbound.py`, e e'
+compartilhada com o inbound do TaskHS (`api/integracao_taskhs.py`)."""
 import logging
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -13,15 +16,11 @@ from app.models import Caixa
 from app.api.deps import require_growthhs_inbound
 from app.api.caixas import executar_avanco_caixa, _ordens_ativas
 from app.core import os_workflow as wf
+from app.core import avanco_inbound as ai
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/integracao/growthhs", tags=["integracao-growthhs"])
-
-FASE_POSVENDAS = 6
-# Fases que ja passaram do ponto de avanco (10/7/8): chamada repetida vira no-op,
-# nao erro — o GrowthHS nao sabe se ja mandou essa mesma "ganho" antes.
-_FASES_JA_AVANCADAS = (wf.FASE_FINANCEIRO, 7, wf.FASE_FINALIZADA)
 
 
 class GanhoIn(BaseModel):
@@ -47,13 +46,14 @@ def ganho(
     if cx is None:
         logger.warning("GrowthHS ganho: caixa %s nao encontrada", caixa_id)
         raise HTTPException(status_code=404, detail="caixa nao encontrada")
-    if cx.fase in _FASES_JA_AVANCADAS:
+    estado = ai.estado_para_avanco(cx.fase)
+    if estado == ai.NO_OP:
         logger.info("GrowthHS ganho: caixa %s ja avancada (fase %s), no-op", caixa_id, cx.fase)
         if dados.numero_proposta is not None:
             cx.numero_proposta = dados.numero_proposta
             db.commit()
         return GanhoOut(movida=False, caixa_id=cx.id, fase=cx.fase)
-    if cx.fase != FASE_POSVENDAS:
+    if estado != ai.AVANCAR:
         logger.warning("GrowthHS ganho: caixa %s nao esta em Pos-Vendas (fase %s)", caixa_id, cx.fase)
         raise HTTPException(status_code=409, detail="caixa nao esta em Pos-Vendas")
 
@@ -66,8 +66,8 @@ def ganho(
 
     executar_avanco_caixa(
         db, cx,
-        origem=FASE_POSVENDAS,
-        destino=wf.proxima_fase(FASE_POSVENDAS),
+        origem=wf.FASE_POSVENDAS,
+        destino=wf.proxima_fase(wf.FASE_POSVENDAS),
         ativas=_ordens_ativas(cx),
         usuario=None,
         obs=obs,
