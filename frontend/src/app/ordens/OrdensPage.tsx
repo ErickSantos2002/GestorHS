@@ -123,10 +123,10 @@ function Quadro({ clienteId, onAbrir }: { clienteId?: number; onAbrir: (id: numb
                           {cx.prontos}/{cx.total_os} prontos
                         </span>
                       )}
-                      {col.fase === 10 && cx.modulo && (
+                      {cx.modulo && (
                         <span
                           className="text-xs px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-300 shrink-0"
-                          title="Caixa de Phoebus: o serviço dele não passa pelo Pós-Vendas, por isso chegou direto ao Financeiro."
+                          title="O que esta caixa carrega. Caixa com Phoebus ou módulo não vira card automático no TaskHS — o card dela é feito à mão. Só a caixa 100% módulo pula o Pós-Vendas."
                         >
                           {ROTULO_MODULO[cx.modulo]}
                         </span>
@@ -152,9 +152,10 @@ function Quadro({ clienteId, onAbrir }: { clienteId?: number; onAbrir: (id: numb
   )
 }
 
-/** Texto do aviso de Phoebus/Módulo no Financeiro. Os três casos são reais na base:
- *  a caixa leva só o aparelho, só o módulo, ou os dois juntos — e o Financeiro precisa
- *  distinguir, porque ela chegou ali sem passar pelo Pós-Vendas. */
+/** Texto do badge de Phoebus/Módulo. Os três casos são reais na base: a caixa leva só
+ *  o aparelho, só o módulo, ou os dois juntos. O badge diz a COMPOSIÇÃO — é por ela
+ *  que se sabe que o card do TaskHS dessa caixa é manual. Não confundir com o desvio
+ *  do Pós-Vendas, que desde 18/09/2026 só vale para a caixa 100% módulo. */
 const ROTULO_MODULO: Record<'phoebus' | 'modulo' | 'ambos', string> = {
   phoebus: 'Phoebus',
   modulo: 'Módulo',

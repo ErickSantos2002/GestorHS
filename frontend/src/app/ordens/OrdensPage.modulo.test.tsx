@@ -1,9 +1,10 @@
 /**
- * Aviso de Phoebus/Modulo no quadro de Ordens, na coluna do Financeiro.
+ * Badge de Phoebus/Modulo no quadro de Ordens.
  *
- * Essas caixas chegam ao Financeiro SEM ter passado pelo Pos-Vendas (o fluxo delas
- * desvia em `os_workflow.PROXIMA_MODULO`), e quem recebe precisa saber por que. Os
- * tres casos sao distintos de proposito: so o aparelho, so o modulo, ou os dois.
+ * O badge fala de COMPOSICAO da caixa, nao de desvio de fase: diz o que ela leva
+ * dentro, e portanto que o card dela no TaskHS e' feito a mao. Desde 18/09/2026 so a
+ * caixa 100% Modulo pula o Pos-Vendas, entao amarrar o badge ao Financeiro esconderia
+ * a informacao justamente das caixas de Phoebus, que seguem o fluxo normal.
  */
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
@@ -31,7 +32,7 @@ function caixaNoFinanceiro(modulo: string | null) {
 
 beforeEach(() => { quadro.mockReset() })
 
-describe('aviso de Phoebus/Modulo no Financeiro', () => {
+describe('badge de Phoebus/Modulo no quadro', () => {
   it('mostra "Phoebus" quando a caixa so tem o aparelho', async () => {
     quadro.mockResolvedValue(caixaNoFinanceiro('phoebus'))
     tela()
@@ -45,7 +46,7 @@ describe('aviso de Phoebus/Modulo no Financeiro', () => {
   })
 
   it('mostra os dois quando a caixa leva aparelho e modulo juntos', async () => {
-    // Caso mais comum no Financeiro: 7 das 8 caixas em 18/09/2026.
+    // 22 caixas na base. Desde 18/09/2026 elas passam pelo Pos-Vendas, nao pulam.
     quadro.mockResolvedValue(caixaNoFinanceiro('ambos'))
     tela()
     expect(await screen.findByText('Phoebus + Módulo')).toBeInTheDocument()
@@ -58,9 +59,9 @@ describe('aviso de Phoebus/Modulo no Financeiro', () => {
     expect(screen.queryByText(/Phoebus|Módulo/)).toBeNull()
   })
 
-  it('nao mostra aviso fora do Financeiro, mesmo sendo caixa de modulo', async () => {
-    // O pedido foi especifico: e o Financeiro que recebe a caixa sem entender o
-    // porque. Nas outras colunas o badge so poluiria.
+  it('mostra o badge fora do Financeiro tambem', async () => {
+    // Phoebus+Modulo passa pelo Pos-Vendas como qualquer caixa, e no Laboratorio ou
+    // no Pos-Vendas continua sendo util saber o que ela carrega.
     quadro.mockResolvedValue([{
       fase: 5, descricao: 'Laboratório', cor: 'abc', total: 1,
       caixas: [{ id: 900, cliente_nome: 'ACME', total_os: 1, prontos: 1,
@@ -68,6 +69,6 @@ describe('aviso de Phoebus/Modulo no Financeiro', () => {
     }])
     tela()
     expect(await screen.findByText('CX 900')).toBeInTheDocument()
-    expect(screen.queryByText(/Phoebus|Módulo/)).toBeNull()
+    expect(screen.getByText('Phoebus + Módulo')).toBeInTheDocument()
   })
 })
