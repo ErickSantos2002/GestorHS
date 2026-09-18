@@ -23,6 +23,15 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.56.0',
+    data: '18/09/2026',
+    itens: [
+      { tipo: 'melhoria', texto: 'Telefone, e-mail e "aos cuidados de" deixaram de ser obrigatórios na proposta. Deixando em branco, o cadastro do cliente ou da empresa não é alterado — nem apagado, nem sobrescrito — e a proposta continua saindo com o telefone e o e-mail que já estavam no cadastro.' },
+      { tipo: 'novidade', texto: 'Caixa que leva o aparelho Phoebus voltou a aparecer no quadro do TaskHS. Antes ela ficava de fora e o card precisava ser criado à mão; agora é o sistema que cria e move o card conforme a caixa anda.' },
+      { tipo: 'correcao', texto: 'O botão "Reenviar" da tela de Logs de Integração recusava as caixas com Phoebus, que são justamente as que passaram a ter card no TaskHS. Corrigido — dá para reenviar pela tela, sem depender de quem tem acesso ao servidor.' },
+    ],
+  },
+  {
     versao: '1.55.0',
     data: '18/09/2026',
     itens: [
