@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.models.database import get_db
 from app.models import Usuario, Caixa, Ordem, Fase, Proposta, NotaFiscal
 from app.core import os_workflow as wf
+from app.core import fluxo_modulo
 from app.core.caixa import cliente_unico, contar_outros, principal_valido
 from app.core import proposta_servico
 from app.api.deps import ADMIN, get_current_usuario, require_funcao
@@ -274,10 +275,17 @@ def avancar_caixa(
         raise HTTPException(status_code=409, detail="caixa sem fase ativa")
     exige_funcao_da_fase(db, usuario, cx.fase)
     origem = cx.fase
-    destino = wf.proxima_fase(origem)
     ativas = _ordens_ativas(cx)
+    # Phoebus/Modulo tem fluxo proprio: sai do laboratorio direto para o Financeiro,
+    # sem passar pelo comercial. Mesmo criterio que ja tira a caixa deles do board do
+    # TaskHS/GrowthHS — uma fonte de verdade so para "isto e' servico de modulo".
+    # `caixa_de_modulo` recebe a lista JA filtrada: aqui quem conta sao as OS ativas,
+    # as mesmas que vao andar de fase logo abaixo.
+    pula_posvendas = fluxo_modulo.caixa_de_modulo(ativas)
+    destino = wf.proxima_fase(origem, pula_posvendas=pula_posvendas)
 
-    ok, motivo = wf.pode_avancar_caixa(origem, [o.desfecho_lab for o in ativas])
+    ok, motivo = wf.pode_avancar_caixa(origem, [o.desfecho_lab for o in ativas],
+                                       pula_posvendas=pula_posvendas)
     if not ok:
         raise HTTPException(status_code=409, detail=motivo)
 
