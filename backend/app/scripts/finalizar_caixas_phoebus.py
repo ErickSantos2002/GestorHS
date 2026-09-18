@@ -13,7 +13,7 @@ CRITERIO, igual ao ENC-ADM de 30/07/2026:
     E' o padrao do legado — 1 em 9864 OS finalizadas tem esses campos.
   - OS cancelada (fase 9) nao e' tocada: mantem o vinculo com a caixa, mas nao anda.
 
-Alvo: caixas cujas OS ativas sao TODAS de Phoebus/Modulo e estao na fase 10. Caixa de
+Alvo: caixas cujas OS ativas sao TODAS Modulo e estao na fase 10. Caixa de
 aparelho normal no Financeiro tem nota fiscal a receber e segue o fluxo dela, entao nunca
 entra aqui — nem se for passada em `--excluir` ao contrario.
 
@@ -49,18 +49,17 @@ def _ordens_ativas(caixa: Caixa) -> list:
 
 
 def caixas_alvo(db: Session, *, excluir: set[int]) -> list[Caixa]:
-    """Caixas no Financeiro cujas OS ativas sao TODAS de Phoebus/Modulo, menos `excluir`.
+    """Caixas no Financeiro cujas OS ativas sao TODAS Modulo, menos `excluir`.
 
-    `all`, e nao `caixa_de_modulo` (que e' `any`), pelo mesmo motivo de
-    `mover_phoebus_posvendas`: numa caixa mista o aparelho normal seria finalizado
-    junto, sem nota e sem rastreio.
+    Mesmo predicado do avanco (`fluxo_modulo.caixa_pula_posvendas`). Caixa com
+    Phoebus dentro tem nota fiscal a receber e segue o fluxo dela, entao nunca entra
+    aqui — nem se for passada em `--excluir` ao contrario.
     """
     alvo = []
     for cx in db.query(Caixa).filter(Caixa.fase == ORIGEM).order_by(Caixa.id).all():
         if cx.id in excluir:
             continue
-        ativas = _ordens_ativas(cx)
-        if ativas and all(fluxo_modulo.os_de_modulo(o) for o in ativas):
+        if fluxo_modulo.caixa_pula_posvendas(_ordens_ativas(cx)):
             alvo.append(cx)
     return alvo
 

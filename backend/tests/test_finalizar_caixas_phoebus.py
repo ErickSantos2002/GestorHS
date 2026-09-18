@@ -17,7 +17,7 @@ def _fases(fases_seed):
 
 
 def _caixa(db, *, catalogo_id=None, fase=10, cancelada=False):
-    catalogo_id = catalogo_id if catalogo_id is not None else settings.EQUIPAMENTO_PHOEBUS_ID
+    catalogo_id = catalogo_id if catalogo_id is not None else settings.EQUIPAMENTO_MODULO_ID
     cli = Cliente(nome=f"Cliente {catalogo_id}")
     eq = db.query(Equipamento).filter(Equipamento.id == catalogo_id).one_or_none()
     if eq is None:
@@ -128,3 +128,10 @@ def test_idempotente_segunda_rodada_nao_acha_nada(db_session):
 
     assert caixas_alvo(db_session, excluir=set()) == []
     assert processar(db_session, excluir=set(), aplicar=True)["caixas"] == 0
+
+
+def test_alvo_ignora_caixa_com_phoebus_no_financeiro(db_session):
+    """Caixa com o aparelho dentro segue o fluxo dela — inclusive a que voltou para o
+    Pos-Vendas na reversao de 18/09/2026."""
+    _caixa(db_session, catalogo_id=settings.EQUIPAMENTO_PHOEBUS_ID)
+    assert caixas_alvo(db_session, excluir=set()) == []
