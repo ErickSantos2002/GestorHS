@@ -42,6 +42,22 @@ class DestinatarioInativo(Exception):
 # (obs, whatsapp, inscricoes, contato, grupo...) NUNCA e' tocado por aqui.
 _CAMPOS_CLIENTE_TEXTO = ("nome", "cep", "endereco", "complemento", "bairro", "municipio", "estado", "email")
 
+# Campos que o modal pode deixar em branco SEM apagar o cadastro (18/09/2026).
+# Os demais seguem a regra geral do bloco `destinatario`: em branco APAGA, porque
+# o bloco substitui o cadastro. Nasceram assim de proposito — ver CLAUDE.md.
+#
+# ⚠️ A preservacao e' LOCAL desta funcao, de proposito. `CAMPOS_EMPRESA` tambem
+# alimenta `empresa_servico.atualizar_empresa`, que e' a pagina Empresas: mexer na
+# lista (ou naquele laco) afrouxaria uma tela que ninguem pediu para afrouxar.
+_PRESERVA_SE_VAZIO = ("email", "telefone")
+
+
+def _grava(destino, campo: str, valor) -> None:
+    """Copia `valor` para `destino.campo`, respeitando `_PRESERVA_SE_VAZIO`."""
+    if valor is None and campo in _PRESERVA_SE_VAZIO:
+        return
+    setattr(destino, campo, valor)
+
 
 def _numero_do_cliente(valor: Optional[str]) -> Optional[int]:
     """`clientes.numero` e' BigInteger: "S/N" e afins viram nulo no cadastro
@@ -60,9 +76,11 @@ def _aplicar_destinatario(db: Session, proposta: Proposta, dest: DestinatarioIn)
         if trocou and not cliente.ativo:
             raise DestinatarioInativo("cliente desativado")
         for campo in _CAMPOS_CLIENTE_TEXTO:
-            setattr(cliente, campo, getattr(dest, campo))
+            _grava(cliente, campo, getattr(dest, campo))
         cliente.numero = _numero_do_cliente(dest.numero)
-        cliente.telefones = dest.telefone
+        # `telefones` e' a coluna do Cliente que corresponde ao `telefone` do modal.
+        if dest.telefone is not None:
+            cliente.telefones = dest.telefone
         proposta.cliente, proposta.empresa = cliente.id, None
         return
 
@@ -75,7 +93,7 @@ def _aplicar_destinatario(db: Session, proposta: Proposta, dest: DestinatarioIn)
             raise DestinatarioInativo("empresa desativada")
         for campo in CAMPOS_EMPRESA:
             if campo != "insc_est":          # o modal nao mostra a IE
-                setattr(empresa, campo, getattr(dest, campo))
+                _grava(empresa, campo, getattr(dest, campo))
         # A matriz e' editavel pelo modal, como os demais campos: o bloco
         # substitui tudo, entao `matriz` ausente desvincula a filial.
         conferir_matriz(db, dest.matriz)

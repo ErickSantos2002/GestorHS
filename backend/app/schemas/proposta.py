@@ -54,10 +54,14 @@ class DestinatarioIn(BaseModel):
     bairro: Optional[str] = Field(default=None, max_length=100)
     municipio: Optional[str] = Field(default=None, max_length=100)
     estado: Optional[str] = Field(default=None, max_length=2)
-    email: str = Field(min_length=1, max_length=100)
-    telefone: str = Field(min_length=1, max_length=50)
+    # Opcionais desde 18/09/2026: em branco quer dizer "nao mexe no cadastro", e
+    # nao "apaga". Quem preserva e' `_aplicar_destinatario`; aqui so garantimos
+    # que "" chega como None, para os dois virarem o mesmo caso.
+    email: Optional[str] = Field(default=None, max_length=100)
+    telefone: Optional[str] = Field(default=None, max_length=50)
 
-    @field_validator("cep", "endereco", "numero", "complemento", "bairro", "municipio", "estado", mode="after")
+    @field_validator("cep", "endereco", "numero", "complemento", "bairro", "municipio", "estado",
+                     "email", "telefone", mode="after")
     @classmethod
     def _vazio_vira_none(cls, v: Optional[str], info) -> Optional[str]:
         if not v:

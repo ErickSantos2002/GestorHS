@@ -327,3 +327,93 @@ def test_busca_de_destinatario_termo_com_letra_nao_casa_documento(client_lab, db
     _cliente(db_session, nome="Dono da Serie", cgc="30069314006576")
     assert client_lab.get("/propostas/destinatarios", params={"q": "WAO4O0065"}).json() == []
     assert len(client_lab.get("/propostas/destinatarios", params={"q": "300.693.14"}).json()) == 1
+
+
+# --- email e telefone opcionais: em branco NAO mexe no cadastro (set/2026) ---
+#
+# Pedido do Erick em 18/09/2026, revertendo o pedido anterior do comercial (que
+# era exigir a conferencia dos tres a cada proposta). Os campos continuam
+# nascendo vazios no modal; a diferenca e' que agora vazio quer dizer "nao
+# mexe", e nao "apaga". Os DEMAIS campos seguem apagando — ver o teste de guarda
+# no fim deste bloco.
+
+
+def test_email_e_telefone_em_branco_preservam_o_cadastro_do_cliente(client_comercial, db_session):
+    cli = _cliente(db_session, email="antigo@acme.com", telefones="8133334444")
+    r = client_comercial.post("/propostas", json={
+        "destinatario": _dest("cliente", id=cli.id, email="", telefone=""), "itens": []})
+    assert r.status_code == 201, r.text
+
+    db_session.refresh(cli)
+    assert cli.email == "antigo@acme.com"
+    assert cli.telefones == "8133334444"
+    assert cli.nome == "ACME Atualizada"      # o resto do modal continua gravando
+
+
+def test_email_e_telefone_em_branco_preservam_o_cadastro_da_empresa(client_comercial, db_session):
+    cli = _cliente(db_session)
+    emp = Empresa(nome="Filial", cgc=CNPJ_FILIAL, cliente=cli.id,
+                  email="filial@acme.com", telefone="8144445555")
+    db_session.add(emp); db_session.commit()
+    r = client_comercial.post("/propostas", json={
+        "destinatario": _dest("empresa", id=emp.id, nome="Filial Norte",
+                              matriz=cli.id, email="", telefone="")})
+    assert r.status_code == 201, r.text
+
+    db_session.refresh(emp)
+    assert emp.email == "filial@acme.com"
+    assert emp.telefone == "8144445555"
+    assert emp.nome == "Filial Norte"
+
+
+def test_copia_congelada_herda_email_e_telefone_do_cadastro_quando_em_branco(client_comercial, db_session):
+    """A copia sai de `dados_destinatario`, que le do registro JA SALVO — entao o
+    PDF continua com e-mail e telefone mesmo quando o modal os deixou em branco."""
+    cli = _cliente(db_session, email="antigo@acme.com", telefones="8133334444")
+    r = client_comercial.post("/propostas", json={
+        "destinatario": _dest("cliente", id=cli.id, email="", telefone=""), "itens": []})
+    assert r.status_code == 201
+
+    dest = r.json()["destinatario"]
+    assert dest["email"] == "antigo@acme.com"
+    assert dest["telefone"] == "8133334444"
+
+
+def test_email_e_telefone_ausentes_do_payload_tambem_preservam(client_comercial, db_session):
+    """Nao mandar a chave e' o mesmo que mandar vazia — o modal pode omitir."""
+    cli = _cliente(db_session, email="antigo@acme.com", telefones="8133334444")
+    dest = _dest("cliente", id=cli.id)
+    del dest["email"]; del dest["telefone"]
+    r = client_comercial.post("/propostas", json={"destinatario": dest, "itens": []})
+    assert r.status_code == 201, r.text
+
+    db_session.refresh(cli)
+    assert cli.email == "antigo@acme.com" and cli.telefones == "8133334444"
+
+
+def test_nova_empresa_sem_email_e_telefone_nasce_com_eles_vazios(client_comercial, db_session):
+    """Empresa nova nao tem cadastro anterior a preservar."""
+    cli = _cliente(db_session)
+    r = client_comercial.post("/propostas", json={
+        "destinatario": _dest("nova_empresa", documento=CNPJ_FILIAL, nome="Filial Nova",
+                              matriz=cli.id, email="", telefone="")})
+    assert r.status_code == 201, r.text
+
+    emp = db_session.query(Empresa).filter(Empresa.cgc == CNPJ_FILIAL).one()
+    assert emp.email is None
+    assert emp.telefone is None
+
+
+def test_outros_campos_em_branco_CONTINUAM_apagando_o_cadastro(client_comercial, db_session):
+    """Guarda: a preservacao vale SO para email e telefone. O bloco `destinatario`
+    segue substituindo o cadastro nos demais campos — e' decisao deliberada
+    documentada no CLAUDE.md. Se este teste quebrar, a preservacao vazou."""
+    cli = _cliente(db_session, endereco="Rua Velha", bairro="Boa Viagem", cep="51000000")
+    r = client_comercial.post("/propostas", json={
+        "destinatario": _dest("cliente", id=cli.id, endereco="", bairro="", cep=""), "itens": []})
+    assert r.status_code == 201, r.text
+
+    db_session.refresh(cli)
+    assert cli.endereco is None
+    assert cli.bairro is None
+    assert cli.cep is None
