@@ -97,7 +97,7 @@ def quadro_caixas(cliente: int | None = None, db: Session = Depends(get_db),
             itens.append(CaixaQuadroItem(
                 id=cx.id, cliente_nome=principal_nome, cliente_principal_nome=principal_nome,
                 total_os=len(ativas), prontos=prontos, pendentes=len(ativas) - prontos,
-                outros_clientes=outros))
+                outros_clientes=outros, modulo=fluxo_modulo.rotulo_modulo(ativas)))
         f = fases.get(fid)
         colunas.append(QuadroCaixaColuna(
             fase=fid, descricao=f.descricao if f else str(fid),

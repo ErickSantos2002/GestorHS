@@ -32,6 +32,32 @@ def os_de_modulo(ordem) -> bool:
     return getattr(ordem, "equipamento_catalogo", None) in equipamentos_de_modulo()
 
 
+def rotulo_modulo(ordens) -> str | None:
+    """Que tipo de serviço de módulo a caixa carrega: `phoebus`, `modulo`, `ambos` ou None.
+
+    Alimenta o aviso do Financeiro no quadro de Ordens — a caixa chega lá sem ter
+    passado pelo Pos-Vendas, e quem recebe precisa saber por que. Os tres estados sao
+    reais na base: no Financeiro de 18/09/2026 havia 7 caixas com os dois juntos (o
+    aparelho e o modulo dele viajam na mesma caixa) e 1 so com modulo.
+
+    Aparelho comum na mesma caixa nao muda o rotulo: o aviso e' sobre o que ha de
+    Phoebus/modulo ali. `rotulo_modulo(...) is not None` e' equivalente a
+    `caixa_de_modulo(...)` — ha teste travando as duas respostas juntas, porque
+    divergir faria o aviso aparecer onde o fluxo nao desvia.
+    """
+    tem_phoebus = any(getattr(o, "equipamento_catalogo", None) == settings.EQUIPAMENTO_PHOEBUS_ID
+                      for o in ordens)
+    tem_modulo = any(getattr(o, "equipamento_catalogo", None) == settings.EQUIPAMENTO_MODULO_ID
+                     for o in ordens)
+    if tem_phoebus and tem_modulo:
+        return "ambos"
+    if tem_phoebus:
+        return "phoebus"
+    if tem_modulo:
+        return "modulo"
+    return None
+
+
 def caixa_de_modulo(ordens) -> bool:
     """True se QUALQUER OS da lista e' de modulo/phoebus (caixa mista bloqueia).
 
