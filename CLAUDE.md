@@ -34,6 +34,7 @@ python -m app.scripts.migrar_filiais_propostas                     # SIMULA: con
 python -m app.scripts.enviar_empresas_tiny                          # SIMULA: acerta as empresas no Tiny (--aplicar grava)
 python -m app.scripts.corrigir_proposta_caixa --caixa <id> --proposta <numero>   # SIMULA: aponta a caixa para a proposta certa (--aplicar grava)
 python -m app.scripts.mover_phoebus_posvendas                        # SIMULA: manda para o Financeiro as caixas de Phoebus paradas em Pos-Vendas (--aplicar grava)
+python -m app.scripts.finalizar_caixas_phoebus --excluir 1051,1049   # SIMULA: encerra caixa de Phoebus ja despachada, sem nota/rastreio (--aplicar grava)
 ```
 
 > ⚠️ **`enviar_atrasados_growthhs` nao envia nada sem `--enviar`.** A chave do card e
@@ -110,7 +111,9 @@ Recebido(4) → Laboratório(5) → Financeiro(10) → Preparando Retorno(7) →
 
 Quem decide a rota é o chamador, com o **mesmo** `fluxo_modulo.caixa_de_modulo()` que já tira essas caixas do board do TaskHS/GrowthHS — um critério só para "isto é serviço de módulo". Ao mexer em transição, lembre que são **dois** mapas: escrever só em `PROXIMA` deixa a rota do módulo para trás em silêncio. `ORDEM_FASES`/`posicao()` **não** mudam — a fase 6 continua na ordem lógica, apenas não é visitada, e é isso que mantém de pé as janelas de nota fiscal e certificado.
 
-⚠️ **Pular a 6 significa ficar SEM `aceite`**: quem grava `aceite`/`data_aceite` é o ramo `origem == 6` do fan-out em `executar_avanco_caixa`, que nessa rota nunca roda. É intencional — aceite é o registro da aprovação comercial, e nesse fluxo não há aprovação a registrar. Não "conserte" marcando aceite automático. Antes do desvio existir, 40 caixas (82 OS) empilharam na fase 6; `app.scripts.mover_phoebus_posvendas` é o acerto delas.
+⚠️ **Pular a 6 significa ficar SEM `aceite`**: quem grava `aceite`/`data_aceite` é o ramo `origem == 6` do fan-out em `executar_avanco_caixa`, que nessa rota nunca roda. É intencional — aceite é o registro da aprovação comercial, e nesse fluxo não há aprovação a registrar. Não "conserte" marcando aceite automático. Antes do desvio existir, 40 caixas (82 OS) empilharam na fase 6; `app.scripts.mover_phoebus_posvendas` é o acerto delas (39 movidas em 18/09/2026 — a mista ficou de fora).
+
+⚠️ **Caixa de Phoebus despachada não fecha pelo fluxo normal**: sair da fase 10 exige nota fiscal e sair da 7 exige `cod_retorno`, e essas caixas não têm nem um nem outro. `app.scripts.finalizar_caixas_phoebus` fecha administrativamente, gravando `cod_retorno = 'ENC-ADM-<data>'` como marcador — é por ele que se acha (e se reverte) o lote depois. **Não marca `pago` nem `aceite`**, pelo mesmo motivo do ENC-ADM de 30/07/2026: afirmaria pagamento e aval que o cliente não deu. Em 18/09/2026 fechou 29 caixas / 59 OS (`ENC-ADM-20260918`), poupando as 10 que ainda estavam na empresa.
 
 ⚠️ **O ID 10 (Financeiro) é numericamente MAIOR que 7 e 8, mas vem antes deles no fluxo.** Nunca compare fases por ID cru nem escreva a janela como lista literal — use `posicao()`/`ORDEM_FASES` no backend e `posicaoFase()`/`posLaboratorio()` no frontend. Escrever `(5, 6, 7, 8)` para dizer "do laboratório em diante" **omite o Financeiro** e trava a OS lá, sem saída: já aconteceu em 24/08/2026.
 
