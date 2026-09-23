@@ -215,3 +215,36 @@ def test_main_recusa_com_integracao_desligada(monkeypatch):
     monkeypatch.setattr(settings, "TINY_TOKEN", "")
     with pytest.raises(SystemExit):
         script.main([])
+
+
+def test_aplicar_reconfere_o_banco_e_nao_o_objeto_em_memoria(db_session, tiny_falso):
+    """O `planejar` carrega os clientes e nada commita antes da primeira trava:
+    sem `populate_existing`, a releitura travada devolvia o objeto do identity
+    map com o `tiny_id` VELHO — o primeiro cliente da carga escapava da checagem
+    e podia ganhar um segundo contato no Tiny."""
+    from sqlalchemy import text
+
+    c = _com_proposta(db_session, CNPJS[0])
+    fila = script.planejar(db_session)
+    # Outro processo (rota/worker) grava o tiny_id direto no banco; o objeto em
+    # memoria continua com tiny_id=None.
+    db_session.execute(text("update clientes set tiny_id = 777 where id = :i"), {"i": c.id})
+    resumo = script.processar(db_session, fila, aplicar=True, pausa=0)
+    assert resumo["ja_feitos"] == 1
+    assert tiny_falso["pesquisados"] == [] and tiny_falso["incluidos"] == []
+
+
+def test_aplicar_pausa_antes_de_travar_o_proximo_cliente(db_session, tiny_falso, monkeypatch):
+    """A pausa de 7s entre clientes nao pode acontecer com a linha travada: uma
+    proposta salva para aquele cliente nesse meio tempo esperaria a pausa inteira."""
+    eventos = []
+    original = tiny_client.stmt_travar_cliente
+    monkeypatch.setattr(tiny_client, "stmt_travar_cliente",
+                        lambda cid: (eventos.append("trava"), original(cid))[1])
+    monkeypatch.setattr(script.time, "sleep", lambda s: eventos.append("pausa"))
+    pesquisar = tiny_client.pesquisar_contato
+    monkeypatch.setattr(tiny_client, "pesquisar_contato",
+                        lambda doc: (eventos.append("pesquisa"), pesquisar(doc))[1])
+    _com_proposta(db_session, CNPJS[0]); _com_proposta(db_session, CNPJS[1])
+    script.processar(db_session, script.planejar(db_session), aplicar=True, pausa=7)
+    assert eventos == ["trava", "pesquisa", "pausa", "trava", "pesquisa"]

@@ -75,14 +75,24 @@ def processar(db, clientes, *, aplicar: bool, pausa: float = PAUSA_PADRAO) -> di
         resumo["pendencias"].append({"cliente_id": cliente.id, "cliente": cliente.nome or "",
                                      "documento": documento, "motivo": motivo})
 
-    chamou = False
+    pausar = False
     for cliente in clientes:
         rotulo = f"{cliente.id:5} {(cliente.nome or '')[:40]:40}"
+
+        # A pausa entre chamadas vem ANTES da trava: dormir com a linha travada
+        # faria uma proposta salva para este cliente esperar os 7s inteiros.
+        if pausar and pausa:
+            time.sleep(pausa)                      # a pesquisa tambem gasta chamada
+        pausar = False
 
         if aplicar:
             # Trava a linha e reconfere: se sumiu ou ja ganhou tiny_id por
             # outro caminho, libera a trava e pula sem gastar chamada.
-            atual = db.execute(tiny_client.stmt_travar_cliente(cliente.id)).scalars().first()
+            # `populate_existing`: o `planejar` deixou os clientes no identity
+            # map e nada commitou antes da primeira trava — sem isso a releitura
+            # devolve o objeto em memoria, com o tiny_id VELHO.
+            stmt = tiny_client.stmt_travar_cliente(cliente.id).execution_options(populate_existing=True)
+            atual = db.execute(stmt).scalars().first()
             if atual is None or atual.tiny_id:
                 db.commit()
                 resumo["ja_feitos"] += 1
@@ -99,9 +109,7 @@ def processar(db, clientes, *, aplicar: bool, pausa: float = PAUSA_PADRAO) -> di
             print(f"  ! {rotulo} sem CNPJ/CPF")
             continue
 
-        if chamou and pausa:
-            time.sleep(pausa)                      # a pesquisa tambem gasta chamada
-        chamou = True
+        pausar = True
         achado = tiny_client.pesquisar_contato(documento)
 
         if achado.ok and achado.id:

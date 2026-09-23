@@ -154,8 +154,9 @@ e o Tiny não tem ambiente de teste.
 
 ⚠️ **Pesquisa inconclusiva vira `pendente` que NUNCA se resolve sozinho.** Quando a
 pesquisa não bate ("contato encontrado com documento diferente", corpo fora do
-formato, etc.), tanto `sincronizar_cliente` quanto a carga deixam o cliente em
-`pendente` de propósito — criar ali arriscaria duplicar. Mas o worker de
+formato, etc.), o `sincronizar_cliente` (gatilho da proposta e worker) deixa o
+cliente em `pendente` de propósito — criar ali arriscaria duplicar. A carga não:
+ela só pula o cliente e o lista no CSV, sem mexer no status. Mas o worker de
 `tiny_pendentes` repete a MESMA pesquisa a cada 10 min e recebe a MESMA resposta
 inconclusiva: o cliente fica ocupando uma vaga do `JOB_TINY_LIMITE` (dividido com as
 Empresas, que vêm primeiro) rodada após rodada, para sempre, sem sair do lugar. A
