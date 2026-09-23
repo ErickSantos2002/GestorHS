@@ -57,10 +57,19 @@ def processar(db, clientes, *, aplicar: bool, pausa: float = PAUSA_PADRAO) -> di
     """Pesquisa cada cliente, adota o que existir e so cria o que faltar.
 
     A SIMULACAO pesquisa de verdade (leitura) — e' o unico jeito de responder
-    "vai criar quantos?" antes de valer — mas nao grava nada no banco.
+    "vai criar quantos?" antes de valer — mas nao grava nada no banco nem trava
+    linha nenhuma.
+
+    Com `--aplicar`, a carga leva ~25 min para ~212 clientes (I2, revisao de
+    23/09/2026): nesse tempo a rota da proposta e o worker de `pendentes` podem
+    mexer no MESMO cliente por fora. Por isso cada cliente e' RETRAVADO
+    (`stmt_travar_cliente`, a mesma trava de `sincronizar_cliente`) bem antes de
+    pesquisar — se essa releitura ja mostrar `tiny_id`, alguem resolveu por
+    outro caminho enquanto a carga rodava, e criar aqui duplicaria o contato.
     """
     resumo = {"candidatas": len(clientes), "adotadas": 0, "criadas": 0, "erros": 0,
-              "puladas": 0, "sem_documento": 0, "interrompido": False, "pendencias": []}
+              "puladas": 0, "sem_documento": 0, "ja_feitos": 0, "interrompido": False,
+              "pendencias": []}
 
     def pendencia(cliente, documento, motivo):
         resumo["pendencias"].append({"cliente_id": cliente.id, "cliente": cliente.nome or "",
@@ -68,8 +77,20 @@ def processar(db, clientes, *, aplicar: bool, pausa: float = PAUSA_PADRAO) -> di
 
     chamou = False
     for cliente in clientes:
-        documento = cliente.cgc or cliente.cpf or ""
         rotulo = f"{cliente.id:5} {(cliente.nome or '')[:40]:40}"
+
+        if aplicar:
+            # Trava a linha e reconfere: se sumiu ou ja ganhou tiny_id por
+            # outro caminho, libera a trava e pula sem gastar chamada.
+            atual = db.execute(tiny_client.stmt_travar_cliente(cliente.id)).scalars().first()
+            if atual is None or atual.tiny_id:
+                db.commit()
+                resumo["ja_feitos"] += 1
+                print(f"  = {rotulo} ja resolvido por outro caminho enquanto a carga rodava, pulando")
+                continue
+            cliente = atual
+
+        documento = cliente.cgc or cliente.cpf or ""
         if not documento:
             if aplicar:
                 _marcar(db, cliente, status="erro", erro="cliente sem CNPJ/CPF")
@@ -90,11 +111,15 @@ def processar(db, clientes, *, aplicar: bool, pausa: float = PAUSA_PADRAO) -> di
             print(f"  = {rotulo} {'adotou' if aplicar else 'adotaria'} contato {achado.id}")
             continue
         if achado.deve_tentar_de_novo:
+            if aplicar:
+                db.commit()  # libera a trava desta linha antes de parar
             resumo["interrompido"] = True
             break
         if not achado.nao_encontrado:
             # So o erro 20 e' "nao existe la": o resto deixa em aberto se o
             # contato ja existe — criar aqui geraria DUPLICADO no ERP.
+            if aplicar:
+                db.commit()  # nada mudou no cliente, so libera a trava
             resumo["puladas"] += 1
             motivo = achado.mensagem or "pesquisa sem resposta clara"
             pendencia(cliente, documento, motivo)
@@ -107,11 +132,36 @@ def processar(db, clientes, *, aplicar: bool, pausa: float = PAUSA_PADRAO) -> di
             continue
 
         resultado = tiny_client.incluir_contato(tiny.contato_cliente_para_criar(cliente))
+        if resultado.duplicidade:
+            # Rede de seguranca: alguem criou entre a pesquisa e a inclusao —
+            # mesmo tratamento de sincronizar_cliente.
+            seguranca = tiny_client.pesquisar_contato(documento)
+            if seguranca.ok and seguranca.id:
+                _marcar(db, cliente, status="enviada", tiny_id=seguranca.id)
+                resumo["adotadas"] += 1
+                print(f"  = {rotulo} duplicidade no Tiny: adotou contato {seguranca.id}")
+                continue
+            motivo = resultado.mensagem or "duplicidade sem achar o contato de novo"
+            _marcar(db, cliente, status="erro", erro=motivo)
+            resumo["erros"] += 1
+            pendencia(cliente, documento, motivo)
+            print(f"  ! {rotulo} {motivo}")
+            continue
+
         if resultado.ok and resultado.id is not None:
             _marcar(db, cliente, status="enviada", tiny_id=resultado.id)
             resumo["criadas"] += 1
             print(f"  + {rotulo} criou contato {resultado.id}")
+        elif resultado.ok:
+            # OK sem id: nao e' recusa do Tiny (T6) — fica pendente para o
+            # worker/reenvio conferir, sem virar erro sticky.
+            _marcar(db, cliente, status="pendente")
+            resumo["puladas"] += 1
+            motivo = "incluido sem id; conferir no Tiny"
+            pendencia(cliente, documento, motivo)
+            print(f"  ~ {rotulo} {motivo}")
         elif resultado.deve_tentar_de_novo:
+            db.commit()  # libera a trava desta linha antes de parar
             resumo["interrompido"] = True
             break
         else:
@@ -121,8 +171,8 @@ def processar(db, clientes, *, aplicar: bool, pausa: float = PAUSA_PADRAO) -> di
             print(f"  ! {rotulo} {resultado.mensagem}")
 
     if resumo["interrompido"]:
-        feitos = (resumo["adotadas"] + resumo["criadas"] + resumo["erros"]
-                  + resumo["puladas"] + resumo["sem_documento"])
+        feitos = (resumo["adotadas"] + resumo["criadas"] + resumo["erros"] + resumo["puladas"]
+                  + resumo["sem_documento"] + resumo["ja_feitos"])
         print(f"\nPAROU: o Tiny bloqueou por excesso de chamadas (ou a rede caiu). "
               f"{resumo['candidatas'] - feitos} cliente(s) ficaram para a proxima rodada.")
     return resumo

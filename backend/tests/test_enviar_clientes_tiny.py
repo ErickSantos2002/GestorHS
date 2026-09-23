@@ -127,6 +127,62 @@ def test_recusa_na_inclusao_marca_erro_e_segue(db_session, tiny_falso):
     assert resumo["erros"] == 1
 
 
+def test_aplicar_pula_quem_ja_ganhou_tiny_id_durante_a_carga(db_session, tiny_falso):
+    """I2: a carga leva ~25 min e nesse tempo a rota da proposta ou o worker de
+    pendentes podem ter resolvido o cliente por fora. `processar` reconfere sob
+    trava logo antes de pesquisar — achando `tiny_id`, pula sem gastar chamada
+    nem arriscar duplicar."""
+    a = _com_proposta(db_session, CNPJS[0])
+    b = _com_proposta(db_session, CNPJS[1])
+    clientes = script.planejar(db_session)
+    a.tiny_id = 424242; a.tiny_status = "enviada"; db_session.commit()   # resolvido por fora
+    resumo = script.processar(db_session, clientes, aplicar=True, pausa=0)
+    db_session.refresh(a); db_session.refresh(b)
+    assert resumo["ja_feitos"] == 1
+    assert tiny_falso["pesquisados"] == [CNPJS[1]]                       # so o b foi pesquisado
+    assert a.tiny_id == 424242                                           # nao mexeu no que ja tinha
+    assert b.tiny_id == 555 and b.tiny_status == "enviada"
+
+
+def test_aplicar_duplicidade_na_inclusao_pesquisa_de_novo_e_adota(db_session, tiny_falso):
+    tiny_falso["resultado_incluir"] = tiny_core.Resultado(ok=False, codigo_erro=30, mensagem="duplicado")
+    a = _com_proposta(db_session, CNPJS[0])
+    resumo = script.processar(db_session, script.planejar(db_session), aplicar=True, pausa=0)
+    db_session.refresh(a)
+    # a segunda pesquisa (rede de seguranca) do falso_tiny cai no default: nao encontrado.
+    assert resumo["erros"] == 1 and a.tiny_status == "erro"
+    assert tiny_falso["pesquisados"] == [CNPJS[0], CNPJS[0]]
+
+
+def test_aplicar_duplicidade_adota_quando_a_segunda_pesquisa_acha(db_session, tiny_falso, monkeypatch):
+    tiny_falso["resultado_incluir"] = tiny_core.Resultado(ok=False, codigo_erro=30, mensagem="duplicado")
+    a = _com_proposta(db_session, CNPJS[0])
+    chamadas = {"n": 0}
+    original = tiny_client.pesquisar_contato
+
+    def pesquisar_com_segunda_chamada(doc):
+        chamadas["n"] += 1
+        if chamadas["n"] == 1:
+            return tiny_core.Resultado(ok=False, codigo_erro=20)
+        return tiny_core.Resultado(ok=True, id=888)
+
+    monkeypatch.setattr(tiny_client, "pesquisar_contato", pesquisar_com_segunda_chamada)
+    resumo = script.processar(db_session, script.planejar(db_session), aplicar=True, pausa=0)
+    db_session.refresh(a)
+    assert resumo["adotadas"] == 1
+    assert a.tiny_id == 888 and a.tiny_status == "enviada"
+
+
+def test_aplicar_incluido_sem_id_vira_pendente_nao_erro(db_session, tiny_falso):
+    tiny_falso["resultado_incluir"] = tiny_core.Resultado(ok=True, id=None)
+    a = _com_proposta(db_session, CNPJS[0])
+    resumo = script.processar(db_session, script.planejar(db_session), aplicar=True, pausa=0)
+    db_session.refresh(a)
+    assert resumo["erros"] == 0 and resumo["puladas"] == 1
+    assert a.tiny_status == "pendente" and a.tiny_id is None
+    assert resumo["pendencias"][0]["motivo"] == "incluido sem id; conferir no Tiny"
+
+
 def test_bloqueio_interrompe(db_session, tiny_falso):
     tiny_falso["pesquisa"][CNPJS[0]] = tiny_core.Resultado(ok=False, codigo_erro=6)
     _com_proposta(db_session, CNPJS[0]); _com_proposta(db_session, CNPJS[1])
