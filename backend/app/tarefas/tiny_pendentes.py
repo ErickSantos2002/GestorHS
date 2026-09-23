@@ -60,21 +60,28 @@ def pendentes_clientes(db, limite: int) -> list:
 
     SEM filtro de `ativo`, de proposito: o Cliente so vira `pendente` por ter
     recebido proposta, e cliente inativo com proposta tambem pode ser faturado.
+
+    `tiny_id IS NULL` e' guarda extra (I1, revisao de 23/09/2026): um cliente
+    preso em `pendente` com `tiny_id` ja preenchido e' o sintoma da corrida que
+    `sincronizar_cliente` agora cura sozinho ao ser chamado — mas essa segunda
+    trava evita que a fila carregue essas linhas achando que ainda precisam de
+    rede antes mesmo de tentar.
     """
     if limite <= 0:
         return []
     return (db.query(Cliente)
-            .filter(Cliente.tiny_status == "pendente")
+            .filter(Cliente.tiny_status == "pendente", Cliente.tiny_id.is_(None))
             .order_by(Cliente.tiny_em.asc().nullsfirst(), Cliente.id)
             .limit(limite)
             .all())
 
 
 def _rodar_job(pausa: float = PAUSA_PADRAO) -> dict:
-    """Uma varredura. Reusa `sincronizar_empresa` e `sincronizar_cliente`,
-    que sao os mesmos caminhos do botao Reenviar — e os unicos que tratam tanto
-    registros sem `tiny_id` quanto os que ja tem (o script de carga filtra
-    `tiny_id IS NULL` e pularia os segundos)."""
+    """Uma varredura. Reusa `sincronizar_empresa` (mesmo caminho do botao
+    Reenviar, que so existe para Empresa) e `sincronizar_cliente` (Cliente nao
+    tem botao de reenviar na tela; este worker e' o unico jeito de tentar de
+    novo). As duas funcoes tratam tanto registros sem `tiny_id` quanto os que
+    ja tem (o script de carga filtra `tiny_id IS NULL` e pularia os segundos)."""
     db = SessionLocal()
     try:
         empresas = pendentes(db, settings.JOB_TINY_LIMITE)

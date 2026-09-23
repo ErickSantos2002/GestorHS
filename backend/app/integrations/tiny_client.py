@@ -261,7 +261,20 @@ def sincronizar_cliente(cliente_id: int, *, db=None) -> None:
         # (criar e duplicar em seguida) pesquisariam os dois antes de qualquer um
         # gravar — e criariam dois contatos.
         cliente = db.execute(stmt_travar_cliente(cliente_id)).scalars().first()
-        if cliente is None or cliente.tiny_id:
+        if cliente is None:
+            return
+        if cliente.tiny_id:
+            if cliente.tiny_status != "enviada":
+                # Cura a corrida (revisao de 23/09/2026): um sync concorrente
+                # gravou tiny_id + "enviada" e commitou enquanto este aqui ainda
+                # segurava a leitura antiga (tiny_id nulo); ao ganhar a trava
+                # depois, este marcaria so "pendente" por cima, sem tocar o id —
+                # o cliente ficava preso, o worker tentando para sempre e a tela
+                # mostrando "Pendente" com o contato ja no Tiny. O proprio
+                # tiny_id ja garante que o contato existe: nao precisa da rede.
+                _marcar(db, cliente, status="enviada")
+            else:
+                db.commit()  # nada mudou, so libera a trava
             return
         documento = cliente.cgc or cliente.cpf or ""
         if not documento:

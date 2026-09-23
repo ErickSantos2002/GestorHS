@@ -78,6 +78,18 @@ def test_com_tiny_id_nao_chama_o_tiny(db_session, falso_tiny):
     assert chamadas["pesquisa"] == [] and chamadas["incluir"] == []
 
 
+def test_com_tiny_id_preso_em_pendente_cura_sem_chamar_o_tiny(db_session, falso_tiny):
+    """I1: corrida em que outro sync gravou tiny_id + 'enviada' enquanto este
+    ainda segurava uma leitura antiga e sobrescreveu so o status. Ao rodar de
+    novo (ex.: o worker de pendentes), precisa curar sem gastar chamada."""
+    chamadas, _ = falso_tiny
+    c = _cliente(db_session, tiny_id=123, tiny_status="pendente")
+    tiny_client.sincronizar_cliente(c.id, db=db_session)
+    db_session.refresh(c)
+    assert c.tiny_status == "enviada" and c.tiny_id == 123
+    assert chamadas["pesquisa"] == [] and chamadas["incluir"] == []
+
+
 def test_sem_documento_marca_erro_sem_chamar(db_session, falso_tiny):
     chamadas, _ = falso_tiny
     c = _cliente(db_session, cgc=None, cpf=None)

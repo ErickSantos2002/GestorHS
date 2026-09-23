@@ -174,6 +174,15 @@ def test_pendentes_clientes_com_limite_zero_nao_consulta(db_session):
     assert tiny_pendentes.pendentes_clientes(db_session, limite=0) == []
 
 
+def test_pendentes_clientes_ignora_quem_ja_tem_tiny_id(db_session):
+    """I1: cliente preso em 'pendente' com tiny_id preenchido e' o sintoma da
+    corrida que sincronizar_cliente cura sozinho — a fila nao deve gastar uma
+    volta nele achando que ainda falta rede."""
+    sem_id = _cliente(db_session, CNPJ, tiny_status="pendente")
+    _cliente(db_session, "11222333000181", tiny_status="pendente", tiny_id=123)
+    assert [c.id for c in tiny_pendentes.pendentes_clientes(db_session, limite=10)] == [sem_id.id]
+
+
 def test_rodar_job_divide_o_teto_empresas_primeiro(db_session, monkeypatch):
     monkeypatch.setattr(settings, "JOB_TINY_LIMITE", 3)
     monkeypatch.setattr(tiny_pendentes, "SessionLocal", lambda: db_session)
