@@ -117,6 +117,42 @@ def _agendar_empresa_no_tiny(db: Session, background_tasks: BackgroundTasks, pro
     background_tasks.add_task(_tiny_seguro, alvo)
 
 
+def _tiny_cliente_seguro(cliente_id: int) -> None:
+    """Envio best-effort do Cliente: a proposta ja foi salva."""
+    try:
+        tiny_client.sincronizar_cliente(cliente_id)
+    except Exception:  # noqa: BLE001
+        logger.exception("falha ao agendar o cliente %s no Tiny", cliente_id)
+
+
+def _agendar_cliente_no_tiny(db: Session, background_tasks: BackgroundTasks, proposta) -> None:
+    """Cliente destinatario de proposta precisa existir no Tiny (spec 23/09/2026).
+
+    Decide pela proposta salva, nao por marcador do servico: assim criar,
+    editar e DUPLICAR (que nao passa bloco `destinatario`) caem no mesmo lugar.
+    So o destinatario conta — proposta para Empresa nao agenda a matriz dela.
+    Cliente com `tiny_id` nao gasta chamada: "se ja existe, ignora".
+    """
+    if proposta.empresa is not None or proposta.cliente is None:
+        return
+    if not tiny_client.integracao_ativa():
+        return
+    try:
+        cliente = db.get(Cliente, proposta.cliente)
+        if cliente is None or cliente.tiny_id:
+            return
+        cliente.tiny_status = "pendente"
+        cliente.tiny_erro = None
+        db.commit()
+    except Exception:  # noqa: BLE001 - a proposta ja foi salva
+        logger.exception("falha ao marcar o cliente %s como pendente no Tiny", proposta.cliente)
+        try:
+            db.rollback()
+        except Exception:  # noqa: BLE001
+            pass
+    background_tasks.add_task(_tiny_cliente_seguro, proposta.cliente)
+
+
 # ---------------------------------------------------------------------------
 # Listar / criar
 # ---------------------------------------------------------------------------
@@ -216,6 +252,7 @@ def criar(
         proposta = ps.criar_proposta(db, dados, vendedor=usuario.nome)
     saida = ps.montar_saida(db, proposta)
     _agendar_empresa_no_tiny(db, background_tasks, proposta)
+    _agendar_cliente_no_tiny(db, background_tasks, proposta)
     return saida
 
 
@@ -295,6 +332,7 @@ def versao_pdf(
 @router.post("/{proposta_id}/duplicar", response_model=PropostaOut, status_code=status.HTTP_201_CREATED)
 def duplicar(
     proposta_id: int,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     usuario: Usuario = Depends(_escrever),
 ):
@@ -337,7 +375,9 @@ def duplicar(
         nova = ps.criar_proposta(db, dados, vendedor=usuario.nome,
                                  vinculo=(original.cliente, original.empresa),
                                  copia=ps.destinatario_atual(original))
-    return ps.montar_saida(db, nova)
+    saida = ps.montar_saida(db, nova)
+    _agendar_cliente_no_tiny(db, background_tasks, nova)
+    return saida
 
 
 @router.post("/{proposta_id}/faturar", response_model=PropostaOut)
@@ -403,6 +443,7 @@ def atualizar(
         atualizado = ps.atualizar_proposta(db, proposta, dados, alterado_por=usuario.nome)
     saida = ps.montar_saida(db, atualizado)
     _agendar_empresa_no_tiny(db, background_tasks, atualizado)
+    _agendar_cliente_no_tiny(db, background_tasks, atualizado)
     return saida
 
 
