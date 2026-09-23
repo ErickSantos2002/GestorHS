@@ -176,3 +176,48 @@ def test_empresa_out_expoe_o_estado_do_tiny(db_session):
     saida = saida_empresa(e)
     assert saida.tiny_id == 610661344 and saida.tiny_status == "erro"
     assert saida.tiny_erro == "Cidade não encontrada" and saida.tiny_em is not None
+
+
+def _cliente(**kw):
+    """Cliente do legado: `numero` inteiro, `telefones` (plural), complemento "-"."""
+    base = dict(id=692, nome="IMETAME METALMECANICA LTDA", cgc="31790710000196", cpf=None,
+                insc_est=None, endereco="RODOVIA DEMOCRITO MOREIRA", numero=643, complemento="-",
+                bairro="FATIMA", municipio="ARACRUZ", estado="ES", cep="29192243",
+                email="gmoscon@imetame.com.br", telefones="27 99619-1347")
+    base.update(kw)
+    return SimpleNamespace(**base)
+
+
+def test_contato_do_cliente_traduz_o_legado():
+    c = tiny.contato_cliente_para_criar(_cliente())
+    assert c["numero"] == "643"                       # BigInteger vira texto
+    assert c["fone"] == "27 99619-1347"               # `telefones` -> `fone`
+    assert "complemento" not in c                     # "-" e' vazio
+    assert c["cpf_cnpj"] == "31790710000196" and c["tipo_pessoa"] == "J"
+    assert c["tipos_contato"] == [{"tipo": "Cliente"}] and c["situacao"] == "A"
+    assert c["sequencia"] == 1
+    assert "ie" not in c                              # sem IE no cadastro
+
+
+def test_contato_do_cliente_complemento_so_de_tracos_e_espacos_sai():
+    for lixo in ("-", " - ", "--", "  "):
+        assert "complemento" not in tiny.contato_cliente_para_criar(_cliente(complemento=lixo))
+    assert tiny.contato_cliente_para_criar(_cliente(complemento="Galpao 2"))["complemento"] == "Galpao 2"
+
+
+def test_contato_do_cliente_sem_numero():
+    assert "numero" not in tiny.contato_cliente_para_criar(_cliente(numero=None))
+
+
+def test_contato_do_cliente_pessoa_fisica():
+    c = tiny.contato_cliente_para_criar(_cliente(cgc=None, cpf="52998224725"))
+    assert c["cpf_cnpj"] == "52998224725" and c["tipo_pessoa"] == "F"
+
+
+def test_contato_do_cliente_corta_o_nome_em_50():
+    assert tiny.contato_cliente_para_criar(_cliente(nome="B" * 90))["nome"] == "B" * 50
+
+
+def test_contato_do_cliente_nunca_leva_id_nem_codigo():
+    c = tiny.contato_cliente_para_criar(_cliente())
+    assert "id" not in c and "codigo" not in c
