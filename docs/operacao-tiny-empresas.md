@@ -124,13 +124,20 @@ Empresas e dividindo o mesmo `JOB_TINY_LIMITE`.
 
 ### Ligar (dos 212 clientes já com proposta)
 
-1. Deploy + `alembic upgrade head` (`0032`: quatro colunas em `clientes`, aditiva,
-   espelho da `0031`).
-2. `python -m app.scripts.enviar_clientes_tiny` (simula) → conferir o resumo e o
+1. **`alembic upgrade head` (`0032`: quatro colunas em `clientes`, aditiva, espelho
+   da `0031`) ANTES do deploy** — rode a partir de um checkout desta branch (a imagem
+   antiga ainda não tem o arquivo `0032`) com o `backend/.env` apontando para
+   produção. O Dockerfile só sobe `uvicorn`, nunca roda `alembic` sozinho: fazer o
+   deploy primeiro deixaria todo `SELECT` em `clientes` (e em `Empresa`, cujo
+   `matriz_rel` é `lazy="joined"` e junta `clientes`) falhando entre a subida do
+   container novo e a migração. A `0032` é aditiva, então aplicá-la antes é seguro —
+   o código antigo não seleciona as colunas novas.
+2. Deploy.
+3. `python -m app.scripts.enviar_clientes_tiny` (simula) → conferir o resumo e o
    CSV em `relatorios/pendencias-clientes-tiny-<data>.csv`.
-3. `python -m app.scripts.enviar_clientes_tiny --aplicar` — leva uns 25 min para os
+4. `python -m app.scripts.enviar_clientes_tiny --aplicar` — leva uns 25 min para os
    ~212 (7s de pausa por cliente, igual ao script de Empresas).
-4. `JOB_TINY_ATIVO=true`, se ainda não estiver, para o worker reenviar os que
+5. `JOB_TINY_ATIVO=true`, se ainda não estiver, para o worker reenviar os que
    ficaram `pendente`.
 
 Mesmo aviso da Empresa vale aqui: **rodar só no console do EasyPanel**, nunca da
@@ -144,6 +151,16 @@ e o Tiny não tem ambiente de teste.
 | Sem CNPJ/CPF | Corrigir o documento na página de Clientes e, se a proposta já foi salva sem ele, editar a proposta para o gatilho rodar de novo (ou esperar a próxima carga) |
 | Documento pesquisado mas resposta inconclusiva ("pulada") | Conferir no Tiny à mão — o script não cria nesse caso de propósito, para não arriscar duplicar |
 | Recusa do Tiny ("erro") | A mensagem é a que o próprio Tiny devolveu (ver a tabela de erros mais comuns acima) |
+
+⚠️ **Pesquisa inconclusiva vira `pendente` que NUNCA se resolve sozinho.** Quando a
+pesquisa não bate ("contato encontrado com documento diferente", corpo fora do
+formato, etc.), tanto `sincronizar_cliente` quanto a carga deixam o cliente em
+`pendente` de propósito — criar ali arriscaria duplicar. Mas o worker de
+`tiny_pendentes` repete a MESMA pesquisa a cada 10 min e recebe a MESMA resposta
+inconclusiva: o cliente fica ocupando uma vaga do `JOB_TINY_LIMITE` (dividido com as
+Empresas, que vêm primeiro) rodada após rodada, para sempre, sem sair do lugar. A
+correção é manual: corrigir o documento do cliente ou o cadastro no Tiny e, se for o
+caso, reenviar a proposta para o gatilho rodar de novo.
 
 ### Proposta cancelada não coloca o cliente na fila
 
