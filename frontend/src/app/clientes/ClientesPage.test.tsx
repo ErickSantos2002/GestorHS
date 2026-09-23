@@ -20,6 +20,7 @@ import { ClientesPage } from './ClientesPage'
 
 const CLIENTE = {
   id: 1, nome: 'Cliente Teste', cgc: '36312056000552', cpf: null, municipio: 'Recife', estado: 'PE', ativo: true,
+  tiny_id: 610662219, tiny_status: 'enviada', tiny_erro: null,
 }
 
 beforeEach(() => {
@@ -36,5 +37,15 @@ describe('ClientesPage', () => {
     )
     expect(await screen.findByText('36.312.056/0005-52')).toBeInTheDocument()
     expect(screen.queryByText('36312056000552')).not.toBeInTheDocument()
+  })
+
+  it('mostra a coluna do Tiny com o status', async () => {
+    render(
+      <MemoryRouter>
+        <ClientesPage />
+      </MemoryRouter>,
+    )
+    expect(await screen.findByText('Tiny')).toBeInTheDocument()
+    expect(screen.getByText('Enviada')).toBeInTheDocument()
   })
 })

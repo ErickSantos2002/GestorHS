@@ -8,6 +8,7 @@ import { isAdmin } from '../../auth/roles'
 import { cn } from '../../lib/utils'
 import { PageContainer } from '../../components/ui/Page'
 import { clientesApi, type Cliente } from './api'
+import { SeloTiny } from './SeloTiny'
 
 export type ClienteCtx = { cliente: Cliente; recarregar: () => void }
 // eslint-disable-next-line react-refresh/only-export-components
@@ -59,7 +60,10 @@ export function ClienteLayout() {
   return (
     <PageContainer>
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-extrabold text-slate-100">{cliente.nome || 'Cliente'}</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-extrabold text-slate-100">{cliente.nome || 'Cliente'}</h1>
+          <SeloTiny tiny_id={cliente.tiny_id} tiny_status={cliente.tiny_status} tiny_erro={cliente.tiny_erro} />
+        </div>
         {!noDetalhe && (
           <div className="flex gap-2">
             {isAdmin(user) && <Button variant="danger" onClick={excluir}>Excluir</Button>}

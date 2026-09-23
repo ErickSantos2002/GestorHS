@@ -11,6 +11,7 @@ import { formatarDocumento } from '../../lib/documento'
 import { useAuth } from '../../auth/AuthContext'
 import { podeGerenciarCadastros } from '../../auth/roles'
 import { clientesApi, type ClienteListItem } from './api'
+import { SeloTiny } from './SeloTiny'
 import { PageContainer } from '../../components/ui/Page'
 import { BotaoExportar } from '../../components/ui/BotaoExportar'
 
@@ -80,7 +81,7 @@ export function ClientesPage() {
       ) : (
         <>
           <Table
-            head={<><TH>Nome</TH><TH>CNPJ / CPF</TH><TH>Município/UF</TH><TH>Ativo</TH></>}
+            head={<><TH>Nome</TH><TH>CNPJ / CPF</TH><TH>Município/UF</TH><TH>Ativo</TH><TH>Tiny</TH></>}
             footer={<PaginationOffset offset={offset} limit={LIMITE} total={total} onOffsetChange={setOffset} itemLabel="clientes" />}
           >
             {itens.map((c) => (
@@ -89,6 +90,7 @@ export function ClientesPage() {
                 <TD>{formatarDocumento(c.cgc || c.cpf) || '—'}</TD>
                 <TD>{[c.municipio, c.estado].filter(Boolean).join(' / ') || '—'}</TD>
                 <TD><Badge tone={c.ativo ? 'primary' : 'neutral'}>{c.ativo ? 'Ativo' : 'Inativo'}</Badge></TD>
+                <TD><SeloTiny tiny_id={c.tiny_id} tiny_status={c.tiny_status} tiny_erro={c.tiny_erro} /></TD>
               </tr>
             ))}
           </Table>
