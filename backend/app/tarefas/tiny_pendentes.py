@@ -1,8 +1,8 @@
-"""Worker de reenvio: varre as Empresas paradas em `pendente` e tenta o Tiny de novo.
+"""Worker de reenvio: varre as Empresas e Clientes parados em `pendente` e tenta o Tiny de novo.
 
 Por que existe: o espelhamento no Tiny e' best-effort e disparado por gatilho
 (criar, editar, botao Reenviar). Quando a tentativa falha por algo transitorio —
-rede, limite de chamadas, pesquisa inconclusiva — a Empresa fica `pendente` e,
+rede, limite de chamadas, pesquisa inconclusiva — a Empresa ou Cliente fica `pendente` e,
 ate 17/09/2026, NADA tentava de novo: so alguem clicando em Reenviar. Na pratica
 `pendente` era um beco sem saida, e foi assim que uma falha de FOR UPDATE passou
 um dia inteiro sem ninguem notar (ver integrations/tiny_client.stmt_travar_empresa).
@@ -12,6 +12,9 @@ Easypanel a partir do Dockerfile, onde agendar significa instalar cron na imagem
 ou depender de servico externo. O backend e' um servico unico e `sincronizar_empresa`
 e' idempotente (adota o contato que ja existe em vez de criar outro, com a linha
 travada durante a operacao), entao um agendador embutido sobe junto com o deploy.
+
+Desde 23/09/2026 a volta tambem reenvia **Clientes** `pendente` (destinatarios de proposta,
+inclusive inativos), dividindo o mesmo teto de chamadas por minuto.
 
 So mexe em `tiny_status == 'pendente'`. `erro` e' recusa do Tiny que nao muda
 sozinha (documento invalido, por exemplo): repetir a cada 10 minutos gastaria
@@ -29,7 +32,7 @@ from typing import Optional
 
 from app.core.config import settings
 from app.integrations import tiny_client
-from app.models import Empresa
+from app.models import Cliente, Empresa
 from app.models.database import SessionLocal
 
 logger = logging.getLogger(__name__)
@@ -52,21 +55,43 @@ def pendentes(db, limite: int) -> list:
             .all())
 
 
+def pendentes_clientes(db, limite: int) -> list:
+    """Clientes parados em `pendente`, o mais antigo primeiro.
+
+    SEM filtro de `ativo`, de proposito: o Cliente so vira `pendente` por ter
+    recebido proposta, e cliente inativo com proposta tambem pode ser faturado.
+    """
+    if limite <= 0:
+        return []
+    return (db.query(Cliente)
+            .filter(Cliente.tiny_status == "pendente")
+            .order_by(Cliente.tiny_em.asc().nullsfirst(), Cliente.id)
+            .limit(limite)
+            .all())
+
+
 def _rodar_job(pausa: float = PAUSA_PADRAO) -> dict:
-    """Uma varredura. Reusa `sincronizar_empresa`, que e' o mesmo caminho do botao
-    Reenviar — e o unico que trata tanto a empresa sem `tiny_id` quanto a que ja
-    tem (o script de carga filtra `tiny_id IS NULL` e pularia a segunda)."""
+    """Uma varredura. Reusa `sincronizar_empresa` e `sincronizar_cliente`,
+    que sao os mesmos caminhos do botao Reenviar — e os unicos que tratam tanto
+    registros sem `tiny_id` quanto os que ja tem (o script de carga filtra
+    `tiny_id IS NULL` e pularia os segundos)."""
     db = SessionLocal()
     try:
-        fila = pendentes(db, settings.JOB_TINY_LIMITE)
+        empresas = pendentes(db, settings.JOB_TINY_LIMITE)
+        # O teto da volta e' UM so para os dois: cada item gasta 2 das 20
+        # chamadas/minuto da conta. Empresas primeiro — ja estavam na fila.
+        clientes = pendentes_clientes(db, settings.JOB_TINY_LIMITE - len(empresas))
+        fila = ([(tiny_client.sincronizar_empresa, e.id) for e in empresas]
+                + [(tiny_client.sincronizar_cliente, c.id) for c in clientes])
         if not fila:
             return {"tentadas": 0}
-        logger.info("job tiny: %s empresa(s) pendente(s) para reenviar", len(fila))
-        for i, empresa in enumerate(fila):
+        logger.info("job tiny: %s empresa(s) e %s cliente(s) pendente(s) para reenviar",
+                    len(empresas), len(clientes))
+        for i, (sincronizar, registro_id) in enumerate(fila):
             if i and pausa:
                 time.sleep(pausa)
-            # Nunca levanta: marca o proprio estado da empresa e loga.
-            tiny_client.sincronizar_empresa(empresa.id)
+            # Nunca levanta: marca o proprio estado do registro e loga.
+            sincronizar(registro_id)
         return {"tentadas": len(fila)}
     finally:
         db.close()
