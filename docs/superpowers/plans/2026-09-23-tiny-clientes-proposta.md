@@ -1513,7 +1513,12 @@ git commit -m "docs(changelog): v1.57.0 — cliente de proposta no tiny erp"
 
 ## Depois do merge (Erick, fora do plano)
 
-1. Deploy no EasyPanel + `alembic upgrade head` (aplica a `0032`).
-2. `python -m app.scripts.enviar_clientes_tiny` → conferir resumo e CSV.
-3. `python -m app.scripts.enviar_clientes_tiny --aplicar`.
-4. Se ainda não estiver: `JOB_TINY_ATIVO=true` no ambiente, para o worker reenviar os `pendente`.
+1. `alembic upgrade head` (aplica a `0032`) contra produção, **ANTES do deploy** —
+   de um checkout desta branch (a imagem antiga ainda não tem o arquivo `0032`),
+   com `backend/.env` de produção. O Dockerfile só sobe `uvicorn`, nunca roda
+   `alembic` sozinho: deploy antes da migração derrubaria todo `SELECT` em
+   `clientes`/`Empresa` até ela ser aplicada. É aditiva, então aplicar antes é seguro.
+2. Deploy no EasyPanel.
+3. `python -m app.scripts.enviar_clientes_tiny` → conferir resumo e CSV.
+4. `python -m app.scripts.enviar_clientes_tiny --aplicar`.
+5. Se ainda não estiver: `JOB_TINY_ATIVO=true` no ambiente, para o worker reenviar os `pendente`.

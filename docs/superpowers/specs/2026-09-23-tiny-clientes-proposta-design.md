@@ -120,7 +120,13 @@ Todos com `httpx` mockado — o Tiny não tem ambiente de teste e o token vale p
 
 ## Operação (ordem de deploy)
 
-1. Deploy do código + `alembic upgrade head` (`0032`).
-2. `python -m app.scripts.enviar_clientes_tiny` — conferir resumo e CSV.
-3. `python -m app.scripts.enviar_clientes_tiny --aplicar` (~25 min para 212).
-4. Documentar em `docs/operacao-tiny-empresas.md` (seção de Clientes), CLAUDE.md (bloco do Tiny e lista de migrações) e changelog.
+1. `alembic upgrade head` (`0032`) contra produção, **ANTES do deploy** — rodar de um
+   checkout desta branch (a imagem antiga não tem o arquivo `0032`) com o
+   `backend/.env` de produção. O Dockerfile só sobe `uvicorn`, nunca roda `alembic`
+   sozinho; fazer o deploy primeiro derrubaria todo `SELECT` em `clientes` (e em
+   `Empresa`, via `matriz_rel` `lazy="joined"`) até a migração ser aplicada. Migração
+   aditiva, então aplicar antes é seguro — o código antigo não seleciona as colunas novas.
+2. Deploy do código.
+3. `python -m app.scripts.enviar_clientes_tiny` — conferir resumo e CSV.
+4. `python -m app.scripts.enviar_clientes_tiny --aplicar` (~25 min para 212).
+5. Documentar em `docs/operacao-tiny-empresas.md` (seção de Clientes), CLAUDE.md (bloco do Tiny e lista de migrações) e changelog.

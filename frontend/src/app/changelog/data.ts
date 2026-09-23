@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.57.0',
+    data: '23/09/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'Cliente que recebe proposta passa a ter cadastro no Tiny: se já existe lá, o GestorHS só guarda o vínculo; se não existe, cria. O cadastro que já está no Tiny nunca é alterado. A lista e a página do cliente mostram o status do envio.' },
+    ],
+  },
+  {
     versao: '1.56.0',
     data: '18/09/2026',
     itens: [

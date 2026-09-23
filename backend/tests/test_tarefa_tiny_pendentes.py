@@ -3,7 +3,7 @@ import asyncio
 import pytest
 
 from app.core.config import settings
-from app.models import Empresa
+from app.models import Cliente, Empresa
 from app.tarefas import tiny_pendentes
 
 CNPJ = "36312056000552"
@@ -21,6 +21,14 @@ def _empresa(db, documento, **kw):
     db.commit()
     db.refresh(e)
     return e
+
+
+def _cliente(db, documento, **kw):
+    c = Cliente(nome="Cliente", cgc=documento, **kw)
+    db.add(c)
+    db.commit()
+    db.refresh(c)
+    return c
 
 
 # O sleep entra por PARAMETRO, nunca por monkeypatch de `asyncio.sleep` — mesmo
@@ -148,6 +156,61 @@ def test_cancelamento_encerra_limpo():
             await task
 
     asyncio.run(cenario())
+
+
+def test_pendentes_clientes_inclui_inativo_e_so_pendente(db_session):
+    ativo = _cliente(db_session, CNPJ, tiny_status="pendente")
+    inativo = _cliente(db_session, "11222333000181", tiny_status="pendente", ativo=False)
+    _cliente(db_session, "08857492000148", tiny_status="erro")
+    _cliente(db_session, "05571228000150", tiny_status="enviada")
+    _cliente(db_session, "99988877000166", tiny_status=None)
+
+    ids = [c.id for c in tiny_pendentes.pendentes_clientes(db_session, limite=10)]
+    assert sorted(ids) == sorted([ativo.id, inativo.id])
+
+
+def test_pendentes_clientes_com_limite_zero_nao_consulta(db_session):
+    _cliente(db_session, CNPJ, tiny_status="pendente")
+    assert tiny_pendentes.pendentes_clientes(db_session, limite=0) == []
+
+
+def test_pendentes_clientes_ignora_quem_ja_tem_tiny_id(db_session):
+    """I1: cliente preso em 'pendente' com tiny_id preenchido e' o sintoma da
+    corrida que sincronizar_cliente cura sozinho — a fila nao deve gastar uma
+    volta nele achando que ainda falta rede."""
+    sem_id = _cliente(db_session, CNPJ, tiny_status="pendente")
+    _cliente(db_session, "11222333000181", tiny_status="pendente", tiny_id=123)
+    assert [c.id for c in tiny_pendentes.pendentes_clientes(db_session, limite=10)] == [sem_id.id]
+
+
+def test_rodar_job_divide_o_teto_empresas_primeiro(db_session, monkeypatch):
+    monkeypatch.setattr(settings, "JOB_TINY_LIMITE", 3)
+    monkeypatch.setattr(tiny_pendentes, "SessionLocal", lambda: db_session)
+    feitos = []
+    monkeypatch.setattr(tiny_pendentes.tiny_client, "sincronizar_empresa",
+                        lambda eid, **kw: feitos.append(("empresa", eid)))
+    monkeypatch.setattr(tiny_pendentes.tiny_client, "sincronizar_cliente",
+                        lambda cid, **kw: feitos.append(("cliente", cid)))
+
+    e1 = _empresa(db_session, CNPJ, tiny_status="pendente")
+    e2 = _empresa(db_session, "11222333000181", tiny_status="pendente")
+    c1 = _cliente(db_session, "08857492000148", tiny_status="pendente")
+    _cliente(db_session, "05571228000150", tiny_status="pendente")   # fica para a proxima volta
+
+    resumo = tiny_pendentes._rodar_job(pausa=0)
+
+    assert sorted(feitos[:2]) == sorted([("empresa", e1.id), ("empresa", e2.id)])
+    assert feitos[2:] == [("cliente", c1.id)]
+    assert resumo["tentadas"] == 3
+
+
+def test_rodar_job_so_com_cliente_pendente(db_session, monkeypatch):
+    monkeypatch.setattr(tiny_pendentes, "SessionLocal", lambda: db_session)
+    feitos = []
+    monkeypatch.setattr(tiny_pendentes.tiny_client, "sincronizar_cliente",
+                        lambda cid, **kw: feitos.append(cid))
+    c = _cliente(db_session, CNPJ, tiny_status="pendente")
+    assert tiny_pendentes._rodar_job(pausa=0)["tentadas"] == 1 and feitos == [c.id]
 
 
 def test_rodar_job_fecha_a_sessao_mesmo_com_erro(monkeypatch):

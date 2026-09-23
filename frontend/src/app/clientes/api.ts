@@ -1,4 +1,5 @@
 import { apiJson, apiFetch, ApiError } from '../../lib/api'
+import type { TinyStatus } from '../empresas/api'
 
 export interface ClienteListItem {
   id: number
@@ -8,6 +9,9 @@ export interface ClienteListItem {
   municipio: string | null
   estado: string | null
   ativo: boolean
+  tiny_id: number | null
+  tiny_status: TinyStatus
+  tiny_erro: string | null
 }
 
 export interface ClientesPage {
@@ -40,6 +44,9 @@ export interface Cliente {
   datcad: string | null
   obs: string | null
   ativo: boolean
+  tiny_id: number | null
+  tiny_status: TinyStatus
+  tiny_erro: string | null
 }
 
 export interface ClientePayload {

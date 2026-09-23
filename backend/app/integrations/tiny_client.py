@@ -122,13 +122,17 @@ def _envelope(contato: dict) -> str:
     return json.dumps({"contatos": [{"contato": contato}]}, ensure_ascii=False)
 
 
-def _marcar(db, empresa, *, status: str, erro: Optional[str] = None,
+def _marcar(db, registro, *, status: str, erro: Optional[str] = None,
             tiny_id: Optional[int] = None) -> None:
+    """Marca o estado da sincronizacao (Empresa ou Cliente).
+
+    Atualiza tiny_id (se informado), tiny_status, tiny_erro e tiny_em.
+    """
     if tiny_id is not None:
-        empresa.tiny_id = tiny_id
-    empresa.tiny_status = status
-    empresa.tiny_erro = (erro or "")[:255] or None
-    empresa.tiny_em = datetime.now(timezone.utc)
+        registro.tiny_id = tiny_id
+    registro.tiny_status = status
+    registro.tiny_erro = (erro or "")[:255] or None
+    registro.tiny_em = datetime.now(timezone.utc)
     db.commit()
 
 
@@ -223,16 +227,99 @@ def sincronizar_empresa(empresa_id: int, *, db=None) -> None:
             db.close()
 
 
-def _aplicar(db, empresa, resultado: tiny.Resultado, *, manter_id: bool = False) -> None:
+def stmt_travar_cliente(cliente_id: int):
+    """`SELECT ... FOR UPDATE OF clientes` do Cliente a espelhar.
+
+    `OF clientes` pelo mesmo motivo de `stmt_travar_empresa`: se um dia o model
+    ganhar relacionamento lazy="joined", um `FOR UPDATE` cru volta a quebrar no
+    Postgres — e o SQLite dos testes nao avisa.
+    """
+    from sqlalchemy import select
+
+    from app.models import Cliente
+
+    return select(Cliente).where(Cliente.id == cliente_id).with_for_update(of=Cliente)
+
+
+def sincronizar_cliente(cliente_id: int, *, db=None) -> None:
+    """Alvo do BackgroundTask: garante que o Cliente destinatario de proposta
+    existe no Tiny. Nunca propaga.
+
+    So PESQUISAR -> ADOTAR ou CRIAR. Diferente da Empresa, nao ha caminho de
+    alteracao: contato que ja existe la fica como esta (spec de 23/09/2026).
+    Cliente inativo tambem entra — teve proposta, pode ser faturado.
+    """
+    from app.models.database import SessionLocal
+
+    if not integracao_ativa():
+        return
+
+    propria = db is None
+    db = db or SessionLocal()
+    try:
+        # A checagem de tiny_id vem DEPOIS da trava: dois syncs do mesmo cliente
+        # (criar e duplicar em seguida) pesquisariam os dois antes de qualquer um
+        # gravar — e criariam dois contatos.
+        cliente = db.execute(stmt_travar_cliente(cliente_id)).scalars().first()
+        if cliente is None:
+            return
+        if cliente.tiny_id:
+            if cliente.tiny_status != "enviada":
+                # Cura a corrida (revisao de 23/09/2026): um sync concorrente
+                # gravou tiny_id + "enviada" e commitou enquanto este aqui ainda
+                # segurava a leitura antiga (tiny_id nulo); ao ganhar a trava
+                # depois, este marcaria so "pendente" por cima, sem tocar o id —
+                # o cliente ficava preso, o worker tentando para sempre e a tela
+                # mostrando "Pendente" com o contato ja no Tiny. O proprio
+                # tiny_id ja garante que o contato existe: nao precisa da rede.
+                _marcar(db, cliente, status="enviada")
+            else:
+                db.commit()  # nada mudou, so libera a trava
+            return
+        documento = cliente.cgc or cliente.cpf or ""
+        if not documento:
+            _marcar(db, cliente, status="erro", erro="cliente sem CNPJ/CPF")
+            return
+
+        achado = pesquisar_contato(documento)
+        if achado.ok and achado.id:
+            _marcar(db, cliente, status="enviada", tiny_id=achado.id)
+            return
+        if not achado.nao_encontrado:
+            # So o erro 20 e' "nao existe la". Limite, rede, corpo invalido ou
+            # documento divergente deixam em aberto — criar geraria DUPLICADO.
+            _marcar(db, cliente, status="pendente")
+            return
+
+        resultado = incluir_contato(tiny.contato_cliente_para_criar(cliente))
+        if resultado.duplicidade:
+            # Rede de seguranca: alguem criou entre a pesquisa e a inclusao.
+            achado = pesquisar_contato(documento)
+            if achado.ok and achado.id:
+                _marcar(db, cliente, status="enviada", tiny_id=achado.id)
+                return
+        _aplicar(db, cliente, resultado)
+    except Exception:  # noqa: BLE001 - best-effort: nunca derruba quem agendou
+        try:
+            db.rollback()
+        except Exception:  # noqa: BLE001 - a sessao pode nao ter transacao aberta
+            pass
+        logger.exception("falha ao sincronizar o cliente %s com o Tiny", cliente_id)
+    finally:
+        if propria:
+            db.close()
+
+
+def _aplicar(db, registro, resultado: tiny.Resultado, *, manter_id: bool = False) -> None:
     if resultado.ok and (manter_id or resultado.id is not None):
-        _marcar(db, empresa, status="enviada",
+        _marcar(db, registro, status="enviada",
                 tiny_id=None if manter_id else resultado.id)
     elif resultado.ok:
         # OK sem id e sem manter: nao ha o que gravar como tiny_id, e "enviada"
         # sem tiny_id nunca mais entraria no caminho de alteracao.
-        _marcar(db, empresa, status="pendente")
+        _marcar(db, registro, status="pendente")
     elif resultado.deve_tentar_de_novo:
         # Limite ou rede: passa sozinho, entao nao e' erro de dado.
-        _marcar(db, empresa, status="pendente")
+        _marcar(db, registro, status="pendente")
     else:
-        _marcar(db, empresa, status="erro", erro=resultado.mensagem)
+        _marcar(db, registro, status="erro", erro=resultado.mensagem)

@@ -14,6 +14,7 @@ O que a API do Tiny faz de diferente, verificado na conta da empresa em
   preencheu a UF sozinho. Nao normalizamos nada aqui.
 """
 from dataclasses import dataclass
+from types import SimpleNamespace
 from typing import Optional
 
 NAO_ENCONTRADO = 20
@@ -99,6 +100,37 @@ def contato_para_alterar(empresa, atual: dict) -> dict:
     # alguem tinha inativado. So a CRIACAO nasce ativa.
     contato["situacao"] = atual.get("situacao") or "A"
     return contato
+
+
+def _complemento_do_cliente(valor) -> str:
+    """O legado preenchia complemento vazio com "-": so traco/espaco e' vazio."""
+    texto = _texto(valor)
+    return "" if not texto.strip("- ") else texto
+
+
+def _cliente_como_empresa(cliente) -> SimpleNamespace:
+    """Traduz o Cliente para os nomes que `montar_contato` le.
+
+    Diferencas do legado: `numero` e' BigInteger, o telefone mora em
+    `telefones` (plural) e o complemento vazio veio como "-".
+    """
+    return SimpleNamespace(
+        nome=cliente.nome, cgc=cliente.cgc, cpf=cliente.cpf, insc_est=cliente.insc_est,
+        endereco=cliente.endereco,
+        numero=None if cliente.numero is None else str(cliente.numero),
+        complemento=_complemento_do_cliente(cliente.complemento),
+        bairro=cliente.bairro, municipio=cliente.municipio, estado=cliente.estado,
+        cep=cliente.cep, email=cliente.email, telefone=cliente.telefones,
+    )
+
+
+def contato_cliente_para_criar(cliente) -> dict:
+    """Payload de inclusao para o Cliente destinatario de proposta.
+
+    So existe a CRIACAO: contato de Cliente que ja existe no Tiny e' adotado e
+    nunca alterado — o cadastro do legado tende a ser pior que o de la.
+    """
+    return contato_para_criar(_cliente_como_empresa(cliente))
 
 
 def _mensagem(erros) -> str:

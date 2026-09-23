@@ -51,6 +51,9 @@ class ClienteListOut(BaseModel):
     municipio: Optional[str] = None
     estado: Optional[str] = None
     ativo: bool
+    tiny_id: Optional[int] = None
+    tiny_status: Optional[str] = None
+    tiny_erro: Optional[str] = None
     model_config = {"from_attributes": True}
 
 
@@ -84,6 +87,9 @@ class ClienteOut(BaseModel):
     datcad: Optional[date] = None
     obs: Optional[str] = None
     ativo: bool
+    tiny_id: Optional[int] = None
+    tiny_status: Optional[str] = None
+    tiny_erro: Optional[str] = None
     model_config = {"from_attributes": True}
 
 

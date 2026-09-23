@@ -105,3 +105,74 @@ script de carga, conferido à mão de propósito).
 - **A pausa do script entre empresas é de 7 segundos**: cada empresa gasta duas
   chamadas e a conta permite 20 por minuto.
 - Cliente (matriz) não vai para o Tiny; desativar e reativar não mexem lá.
+
+## Clientes destinatários de proposta (set/2026)
+
+Entrega v1.57.0. Todo Cliente que recebe proposta (`propostas.cliente`, com
+`propostas.empresa` nulo) também vira contato no Tiny — mas aqui é **só criar ou
+adotar**. Diferente da Empresa, **não existe caminho de alteração**: o cadastro de
+Cliente vem do legado e tende a ser pior que o que já está no Tiny, então um contato
+que já existe lá nunca é sobrescrito por aqui.
+
+Criar, editar ou **duplicar** uma proposta para Cliente sem `tiny_id` marca
+`clientes.tiny_status = 'pendente'` e agenda `sincronizar_cliente`; com `tiny_id`,
+nenhuma chamada é feita. Cliente **inativo** entra do mesmo jeito — teve proposta,
+então pode ser faturado (a *criação* de proposta nova continua recusando cliente
+inativo; isso é só quem já tinha proposta). O worker de reenvio (`tiny_pendentes`)
+passou a atender também `clientes.tiny_status = 'pendente'`, sempre **depois** das
+Empresas e dividindo o mesmo `JOB_TINY_LIMITE`.
+
+### Ligar (dos 212 clientes já com proposta)
+
+1. **`alembic upgrade head` (`0032`: quatro colunas em `clientes`, aditiva, espelho
+   da `0031`) ANTES do deploy** — rode a partir de um checkout desta branch (a imagem
+   antiga ainda não tem o arquivo `0032`) com o `backend/.env` apontando para
+   produção. O Dockerfile só sobe `uvicorn`, nunca roda `alembic` sozinho: fazer o
+   deploy primeiro deixaria todo `SELECT` em `clientes` (e em `Empresa`, cujo
+   `matriz_rel` é `lazy="joined"` e junta `clientes`) falhando entre a subida do
+   container novo e a migração. A `0032` é aditiva, então aplicá-la antes é seguro —
+   o código antigo não seleciona as colunas novas.
+2. Deploy.
+3. `python -m app.scripts.enviar_clientes_tiny` (simula) → conferir o resumo e o
+   CSV em `relatorios/pendencias-clientes-tiny-<data>.csv`.
+4. `python -m app.scripts.enviar_clientes_tiny --aplicar` — leva uns 25 min para os
+   ~212 (7s de pausa por cliente, igual ao script de Empresas).
+5. `JOB_TINY_ATIVO=true`, se ainda não estiver, para o worker reenviar os que
+   ficaram `pendente`.
+
+Mesmo aviso da Empresa vale aqui: **rodar só no console do EasyPanel**, nunca da
+máquina de desenvolvimento — o `backend/.env` de lá aponta para o banco de produção
+e o Tiny não tem ambiente de teste.
+
+### O que fazer com cada motivo do CSV
+
+| Motivo | O que fazer |
+|---|---|
+| Sem CNPJ/CPF | Corrigir o documento na página de Clientes e, se a proposta já foi salva sem ele, editar a proposta para o gatilho rodar de novo (ou esperar a próxima carga) |
+| Documento pesquisado mas resposta inconclusiva ("pulada") | Conferir no Tiny à mão — o script não cria nesse caso de propósito, para não arriscar duplicar |
+| Recusa do Tiny ("erro") | A mensagem é a que o próprio Tiny devolveu (ver a tabela de erros mais comuns acima) |
+
+⚠️ **Pesquisa inconclusiva vira `pendente` que NUNCA se resolve sozinho.** Quando a
+pesquisa não bate ("contato encontrado com documento diferente", corpo fora do
+formato, etc.), tanto `sincronizar_cliente` quanto a carga deixam o cliente em
+`pendente` de propósito — criar ali arriscaria duplicar. Mas o worker de
+`tiny_pendentes` repete a MESMA pesquisa a cada 10 min e recebe a MESMA resposta
+inconclusiva: o cliente fica ocupando uma vaga do `JOB_TINY_LIMITE` (dividido com as
+Empresas, que vêm primeiro) rodada após rodada, para sempre, sem sair do lugar. A
+correção é manual: corrigir o documento do cliente ou o cadastro no Tiny e, se for o
+caso, reenviar a proposta para o gatilho rodar de novo.
+
+### Proposta cancelada não coloca o cliente na fila
+
+`enviar_clientes_tiny.planejar()` só considera `propostas.is_deleted is False` —
+proposta desfeita (cancelada) não é motivo para abrir contato no Tiny. Ao conferir
+a fila por SQL, acrescente o mesmo filtro:
+
+```sql
+select tiny_status, count(*) from clientes
+where id in (
+  select cliente from propostas
+  where empresa is null and cliente is not null and not is_deleted
+)
+group by 1;
+```

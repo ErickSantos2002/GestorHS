@@ -1,5 +1,7 @@
 import { apiJson } from '../../lib/api'
 
+export type TinyStatus = 'pendente' | 'enviada' | 'erro' | null
+
 export interface Empresa {
   id: number
   cliente: number | null
@@ -19,7 +21,7 @@ export interface Empresa {
   insc_est: string | null
   ativo: boolean
   tiny_id: number | null
-  tiny_status: 'pendente' | 'enviada' | 'erro' | null
+  tiny_status: TinyStatus
   tiny_erro: string | null
   tiny_em: string | null
   created_at: string | null
@@ -93,7 +95,7 @@ export const destinatariosApi = {
 }
 
 /** Texto da coluna "Tiny". Vazio = integração desligada ou cadastro anterior a ela. */
-export function rotuloTiny(e: Empresa): string {
+export function rotuloTiny(e: { tiny_status: TinyStatus }): string {
   if (e.tiny_status === 'enviada') return 'Enviada'
   if (e.tiny_status === 'pendente') return 'Pendente'
   if (e.tiny_status === 'erro') return 'Erro'
