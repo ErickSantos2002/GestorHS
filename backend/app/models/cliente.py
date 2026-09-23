@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, BigInteger, String, Text, Boolean, ForeignKey, Date
+from sqlalchemy import Column, Integer, BigInteger, String, Text, Boolean, ForeignKey, Date, DateTime
 from app.models.database import Base
 
 
@@ -30,3 +30,9 @@ class Cliente(Base):
     obs = Column(Text, nullable=True)
     imagem = Column(String(50), nullable=True)
     ativo = Column(Boolean, nullable=False, default=True)
+    # Espelhamento no Tiny ERP (0032). So o Cliente destinatario de proposta e'
+    # espelhado, e so criado/adotado — nunca alterado. Ver integrations/tiny_client.py.
+    tiny_id = Column(Integer, nullable=True, index=True)      # id do contato no Tiny
+    tiny_status = Column(String(10), nullable=True)           # pendente | enviada | erro
+    tiny_erro = Column(String(255), nullable=True)            # ultima recusa, para a tela
+    tiny_em = Column(DateTime(timezone=True), nullable=True)  # ultima tentativa
