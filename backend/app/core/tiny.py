@@ -173,24 +173,35 @@ def escolher_contato(corpo: dict, documento: str) -> Resultado:
     return ler_resposta(corpo)
 
 
+def _codigo(valor) -> Optional[int]:
+    try:
+        return int(valor)
+    except (TypeError, ValueError):
+        return None
+
+
 def ler_resposta(corpo: dict) -> Resultado:
     retorno = (corpo or {}).get("retorno")
     if not isinstance(retorno, dict):
         return Resultado(ok=False, mensagem="resposta do Tiny fora do formato esperado")
 
-    if _texto(retorno.get("status")) != "OK":
-        try:
-            codigo = int(retorno.get("codigo_erro"))
-        except (TypeError, ValueError):
-            codigo = None
-        return Resultado(ok=False, codigo_erro=codigo,
-                         mensagem=_mensagem(retorno.get("erros")) or "erro sem descricao")
-
     registros = retorno.get("registros") or []
+    registro = (registros[0] or {}).get("registro", {}) if registros else {}
+
+    if _texto(retorno.get("status")) != "OK":
+        # Na inclusao/alteracao o Tiny poe o erro DENTRO do registro (codigo 31 de
+        # validacao, 30 de duplicidade) e o nivel de cima vem so com "Erro". Ler so
+        # o de cima gravava "erro sem descricao" e escondia a duplicidade (23/09/2026).
+        codigo = _codigo(retorno.get("codigo_erro"))
+        if codigo is None:
+            codigo = _codigo(registro.get("codigo_erro"))
+        mensagem = _mensagem(retorno.get("erros")) or _mensagem(registro.get("erros"))
+        return Resultado(ok=False, codigo_erro=codigo, mensagem=mensagem or "erro sem descricao")
+
     if registros:
-        registro = registros[0].get("registro", {})
         if _texto(registro.get("status")) != "OK":
-            return Resultado(ok=False, mensagem=_mensagem(registro.get("erros")) or "registro recusado")
+            return Resultado(ok=False, codigo_erro=_codigo(registro.get("codigo_erro")),
+                             mensagem=_mensagem(registro.get("erros")) or "registro recusado")
         try:
             return Resultado(ok=True, id=int(registro.get("id")))
         except (TypeError, ValueError):

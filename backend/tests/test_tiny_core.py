@@ -221,3 +221,24 @@ def test_contato_do_cliente_corta_o_nome_em_50():
 def test_contato_do_cliente_nunca_leva_id_nem_codigo():
     c = tiny.contato_cliente_para_criar(_cliente())
     assert "id" not in c and "codigo" not in c
+
+
+def test_ler_resposta_recusa_por_registro_traz_codigo_e_mensagem():
+    """Resposta real de 23/09/2026 (cliente 1776): na inclusao o Tiny poe o erro
+    DENTRO do registro, com o `status` de cima tambem "Erro". Lendo so o nivel de
+    cima, a tela mostrava "erro sem descricao" no lugar do motivo."""
+    corpo = {"retorno": {"status_processamento": "2", "status": "Erro", "registros": [
+        {"registro": {"sequencia": "1", "status": "Erro", "codigo_erro": "31",
+                      "erros": [{"erro": "O nome municipio não foi localizado na lista de cidade"}]}}]}}
+    r = tiny.ler_resposta(corpo)
+    assert not r.ok
+    assert r.codigo_erro == 31
+    assert r.mensagem == "O nome municipio não foi localizado na lista de cidade"
+
+
+def test_ler_resposta_duplicidade_por_registro_e_reconhecida():
+    """O codigo 30 tambem vem no registro: sem le-lo, `duplicidade` nunca era
+    verdadeira e a rede de seguranca (pesquisar de novo e adotar) nao rodava."""
+    corpo = {"retorno": {"status": "Erro", "registros": [
+        {"registro": {"status": "Erro", "codigo_erro": "30", "erros": [{"erro": "Registro em duplicidade"}]}}]}}
+    assert tiny.ler_resposta(corpo).duplicidade
