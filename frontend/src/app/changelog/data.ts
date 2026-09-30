@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.58.0',
+    data: '30/09/2026',
+    itens: [
+      { tipo: 'melhoria', texto: 'Laboratório e Expedição agora podem cancelar uma OS sozinha, em qualquer fase em andamento — antes só o Administrador conseguia. O motivo continua obrigatório e o histórico da OS registra quem cancelou.' },
+    ],
+  },
+  {
     versao: '1.57.0',
     data: '23/09/2026',
     itens: [
