@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.models.database import get_db
 from app.models import (Usuario, Ordem, Cliente, Fase, LogOS, EquipamentoCliente, Caixa,
                         OSCertificado, Manutencao)
-from app.api.deps import ADMIN, get_current_usuario, require_funcao
+from app.api.deps import ADMIN, CANCELA_OS, get_current_usuario, require_funcao
 from app.api.ordens_acoes import agora, registrar_log, exige_funcao_da_fase, concluir_laboratorio
 from app.core import os_workflow as wf
 from app.core import recebimento as rec
@@ -433,7 +433,7 @@ def marcar_desfecho_lab(ordem_id: int, dados: DesfechoLabIn, db: Session = Depen
 @router.post("/{ordem_id}/cancelar", response_model=OrdemOut)
 def cancelar(ordem_id: int, dados: CancelarIn, background_tasks: BackgroundTasks,
              db: Session = Depends(get_db),
-             usuario: Usuario = Depends(require_funcao(ADMIN))):
+             usuario: Usuario = Depends(require_funcao(*CANCELA_OS))):
     """Cancela UMA OS — o caminho normal e' cancelar a CAIXA inteira.
 
     Existe para a OS que nao deveria ter sido aberta e atrapalha uma caixa que
@@ -442,8 +442,9 @@ def cancelar(ordem_id: int, dados: CancelarIn, background_tasks: BackgroundTasks
     CONTINUA — e' o rastro de que o aparelho passou por ali, e OS sem caixa foi o
     beco sem saida de 24/08/2026.
 
-    So o Administrador: cancelar a caixa e' da funcao da fase, mas tirar um
-    aparelho do meio de uma caixa viva e' correcao de cadastro.
+    Administrador, Laboratorio e Expedicao (`CANCELA_OS`), em qualquer fase ativa
+    — nao depende da funcao da fase, ao contrario de cancelar a caixa. O motivo e'
+    obrigatorio e o log grava quem cancelou.
 
     Nao desfaz o que a OS ja produziu — calibracao espelhada na frota e
     certificado emitido continuam de pe. Por isso so vale para fase ATIVA.

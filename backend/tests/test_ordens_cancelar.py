@@ -1,4 +1,4 @@
-"""Cancelar UMA OS, so pelo Administrador (POST /ordens/{id}/cancelar).
+"""Cancelar UMA OS: Administrador, Laboratorio e Expedicao (POST /ordens/{id}/cancelar).
 
 O caminho normal e' cancelar a CAIXA inteira. Este endpoint existe para a OS que
 nao deveria ter sido aberta e esta atrapalhando uma caixa que segue viva: some das
@@ -86,9 +86,26 @@ def test_cancelar_os_finalizada_devolve_409(client_admin, caixa_lab_duas_os, db_
     assert r.status_code == 409
 
 
-def test_cancelar_exige_administrador(client_lab, caixa_lab_duas_os):
-    """Cancelar a CAIXA e' da funcao da fase; cancelar UMA OS e' so do Administrador."""
+def test_laboratorio_cancela_os(client_lab, caixa_lab_duas_os, db_session, usuario_lab):
     r = client_lab.post(f"/ordens/{caixa_lab_duas_os['a']}/cancelar", json={"motivo": "engano"})
+    assert r.status_code == 200
+    assert r.json()["fase"] == 9
+    log = db_session.query(LogOS).filter(LogOS.os == caixa_lab_duas_os["a"]).one()
+    assert log.usuario == usuario_lab.id
+
+
+def test_expedicao_cancela_os_em_qualquer_fase_ativa(client_exp, caixa_lab_duas_os, db_session):
+    """Nao depende da fase da caixa: a OS esta no Financeiro e a Expedicao cancela."""
+    db_session.query(Ordem).filter(Ordem.id == caixa_lab_duas_os["a"]).update({"fase": 10})
+    db_session.query(Caixa).filter(Caixa.id == caixa_lab_duas_os["caixa"]).update({"fase": 10})
+    db_session.commit()
+    r = client_exp.post(f"/ordens/{caixa_lab_duas_os['a']}/cancelar", json={"motivo": "engano"})
+    assert r.status_code == 200
+    assert r.json()["fase"] == 9
+
+
+def test_cancelar_os_recusa_outras_funcoes(client_fin, caixa_lab_duas_os):
+    r = client_fin.post(f"/ordens/{caixa_lab_duas_os['a']}/cancelar", json={"motivo": "engano"})
     assert r.status_code == 403
 
 

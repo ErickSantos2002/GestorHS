@@ -4,7 +4,7 @@ import { Button } from '../../components/ui/Button'
 import { ApiError } from '../../lib/api'
 import { ordensApi } from './api'
 
-/** Cancelar UMA OS (Administrador). A OS sai das contas da caixa e do card do
+/** Cancelar UMA OS (Administrador, Laboratório ou Expedição). A OS sai das contas da caixa e do card do
  * TaskHS, mas continua vinculada — o motivo vai para o log. */
 export function CancelarOSModal({ osId, onClose, onConcluido }: {
   osId: number

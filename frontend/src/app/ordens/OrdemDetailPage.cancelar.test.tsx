@@ -63,8 +63,15 @@ describe('OrdemDetailPage — Cancelar OS', () => {
     expect(await screen.findByRole('button', { name: 'Cancelar OS' })).toBeInTheDocument()
   })
 
-  it('não mostra o botão para o Laboratório', async () => {
-    mockUser = { funcao: 'Laboratório' }
+  it.each(['Laboratório', 'Expedição'])('mostra o botão para %s', async (funcao) => {
+    mockUser = { funcao }
+    obter.mockResolvedValue(baseOs())
+    tela()
+    expect(await screen.findByRole('button', { name: 'Cancelar OS' })).toBeInTheDocument()
+  })
+
+  it('não mostra o botão para o Financeiro', async () => {
+    mockUser = { funcao: 'Financeiro' }
     obter.mockResolvedValue(baseOs())
     tela()
     await screen.findByText('OS #500')

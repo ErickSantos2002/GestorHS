@@ -98,12 +98,13 @@ export function podeAvancarCaixa(user: User | null, fase: number | null): boolea
 
 /** Cancelar UMA OS, tirando ela do meio de uma caixa que segue viva.
  *
- * So o Administrador — cancelar a CAIXA e' da funcao da fase, mas cancelar um
- * aparelho sozinho e' correcao de cadastro. So em fase ATIVA: cancelada ja esta
- * cancelada, e finalizada ja produziu certificado e cobranca.
- * Espelha require_funcao(ADMIN) + o guard de `eh_ativa` em app/api/ordens.py. */
+ * Administrador, Laboratório e Expedição, em qualquer fase ATIVA — não depende
+ * da função da fase (cancelar a CAIXA depende). Cancelada já está cancelada, e
+ * finalizada já produziu certificado e cobrança.
+ * Espelha CANCELA_OS + o guard de `eh_ativa` em app/api/ordens.py. */
 export function podeCancelarOS(user: User | null, fase: number | null): boolean {
-  return isAdmin(user) && faseAtiva(fase)
+  const pode = isAdmin(user) || user?.funcao === FUNCAO_LABORATORIO || user?.funcao === FUNCAO_EXPEDICAO
+  return pode && faseAtiva(fase)
 }
 
 export function podeMarcarSemConserto(user: User | null): boolean {

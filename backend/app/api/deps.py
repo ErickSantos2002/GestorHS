@@ -116,3 +116,7 @@ GESTOR_CADASTRO = (ADMIN, "Laboratório", "Expedição")
 # divergir quando alguem mexer na primeira.
 # CRIAR e TRANSFERIR seguem em GESTOR_CADASTRO; EXCLUIR segue so com ADMIN.
 EDITOR_CADASTRO = GESTOR_CADASTRO + ("Comercial Pós-Vendas",)
+
+# Quem pode cancelar UMA OS avulsa, em qualquer fase ativa. O motivo e' obrigatorio
+# e o log grava quem cancelou, entao o rastro fica. Espelha podeCancelarOS no frontend.
+CANCELA_OS = (ADMIN, "Laboratório", "Expedição")
