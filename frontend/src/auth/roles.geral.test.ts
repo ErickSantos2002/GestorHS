@@ -16,10 +16,14 @@ describe('podeGerenciarCertificadosGerais', () => {
 })
 
 describe('podeCancelarOS', () => {
-  it('libera so o Administrador', () => {
+  it('libera Administrador, Laboratorio e Expedicao', () => {
     expect(podeCancelarOS(u('Administrador'), 5)).toBe(true)
-    expect(podeCancelarOS(u('Laboratório'), 5)).toBe(false)
-    expect(podeCancelarOS(u('Expedição'), 5)).toBe(false)
+    expect(podeCancelarOS(u('Laboratório'), 5)).toBe(true)
+    expect(podeCancelarOS(u('Expedição'), 5)).toBe(true)
+  })
+  it('bloqueia as demais funcoes e null', () => {
+    expect(podeCancelarOS(u('Comercial Pós-Vendas'), 5)).toBe(false)
+    expect(podeCancelarOS(u('Financeiro'), 5)).toBe(false)
     expect(podeCancelarOS(null, 5)).toBe(false)
   })
   it('so em fase ativa — cancelada e finalizada ja passaram do ponto', () => {
