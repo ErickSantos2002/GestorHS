@@ -1,4 +1,4 @@
-import { apiJson, apiFetch, ApiError } from '../../lib/api'
+import { apiJson, apiFetch, ApiError, mensagemDeErro } from '../../lib/api'
 
 export interface Setor { id: number; descricao: string }
 export interface Marca { id: number; descricao: string; imagem: string | null }
@@ -30,8 +30,8 @@ async function apiVoid(path: string, options: RequestInit = {}): Promise<void> {
   if (!res.ok) {
     let detail = res.statusText
     try {
-      const body = (await res.json()) as { detail?: string }
-      if (body.detail) detail = body.detail
+      const body = (await res.json()) as { detail?: unknown }
+      detail = mensagemDeErro(body.detail, detail)
     } catch {
       // sem corpo JSON
     }

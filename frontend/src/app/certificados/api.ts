@@ -1,11 +1,11 @@
-import { apiJson, apiFetch, ApiError } from '../../lib/api'
+import { apiJson, apiFetch, ApiError, mensagemDeErro } from '../../lib/api'
 import { baixarPdfComEscolhaDePasta } from '../../lib/download'
 
 async function apiVoid(path: string, options: RequestInit = {}): Promise<void> {
   const res = await apiFetch(path, options)
   if (!res.ok) {
     let detail = res.statusText
-    try { const b = (await res.json()) as { detail?: string }; if (b.detail) detail = b.detail } catch { /* sem corpo */ }
+    try { const b = (await res.json()) as { detail?: unknown }; detail = mensagemDeErro(b.detail, detail) } catch { /* sem corpo */ }
     throw new ApiError(res.status, detail)
   }
 }
@@ -193,7 +193,7 @@ export const certificadosApi = {
     const res = await apiFetch('/certificado-imagens', { method: 'POST', body: fd })
     if (!res.ok) {
       let detail = res.statusText
-      try { const b = await res.json(); if (b.detail) detail = b.detail } catch { /* sem corpo */ }
+      try { const b = await res.json(); detail = mensagemDeErro(b.detail, detail) } catch { /* sem corpo */ }
       throw new ApiError(res.status, detail)
     }
     return (await res.json()) as ImagemCert
@@ -208,7 +208,7 @@ export const certificadosApi = {
     const res = await apiFetch('/certificados-gerais', { method: 'POST', body: fd })
     if (!res.ok) {
       let detail = res.statusText
-      try { const b = await res.json(); if (b.detail) detail = b.detail } catch { /* sem corpo */ }
+      try { const b = await res.json(); detail = mensagemDeErro(b.detail, detail) } catch { /* sem corpo */ }
       throw new ApiError(res.status, detail)
     }
     return (await res.json()) as CertGeralItem

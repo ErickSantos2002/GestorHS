@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { apiFetch, apiJson, setOnUnauthorized } from './api'
+import { apiFetch, apiJson, mensagemDeErro, setOnUnauthorized } from './api'
 import { setTokens, getTokens } from './auth-storage'
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -114,5 +114,50 @@ describe('api', () => {
       status: 401,
       message: 'Credenciais inválidas',
     })
+  })
+
+  it('apiJson traduz o 422 do Pydantic em vez de mostrar [object Object]', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+      detail: [{
+        type: 'string_too_long', loc: ['body', 'destinatario', 'complemento'],
+        msg: 'String should have at most 60 characters', ctx: { max_length: 60 },
+      }],
+    }, 422))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(apiJson('/propostas', { method: 'POST', body: '{}' })).rejects.toMatchObject({
+      status: 422,
+      message: 'Complemento: no máximo 60 caracteres',
+    })
+  })
+})
+
+describe('mensagemDeErro', () => {
+  it('string passa direto', () => {
+    expect(mensagemDeErro('Caixa não encontrada', 'x')).toBe('Caixa não encontrada')
+  })
+
+  it('vazio ou desconhecido cai no fallback', () => {
+    expect(mensagemDeErro(undefined, 'Unprocessable Entity')).toBe('Unprocessable Entity')
+    expect(mensagemDeErro([], 'Bad Request')).toBe('Bad Request')
+  })
+
+  it('junta vários erros e aponta o item da lista', () => {
+    const msg = mensagemDeErro([
+      { type: 'missing', loc: ['body', 'itens', 2, 'descricao'], msg: 'Field required' },
+      { type: 'float_type', loc: ['body', 'itens', 0, 'preco_un'], msg: 'Input should be a valid number' },
+    ], 'x')
+    expect(msg).toBe('Item 3 › descricao: campo obrigatório · Item 1 › preco_un: valor inválido (Input should be a valid number)')
+  })
+
+  it('erro de model_validator tira o prefixo "Value error,"', () => {
+    expect(mensagemDeErro([{
+      type: 'value_error', loc: ['body', 'destinatario'],
+      msg: 'Value error, documento obrigatorio para cadastrar empresa',
+    }], 'x')).toBe('Destinatário: documento obrigatorio para cadastrar empresa')
+  })
+
+  it('objeto solto vira JSON em vez de [object Object]', () => {
+    expect(mensagemDeErro({ codigo: 7 }, 'x')).toBe('{"codigo":7}')
   })
 })

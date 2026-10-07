@@ -1,4 +1,4 @@
-import { apiJson, apiFetch, ApiError } from '../../lib/api'
+import { apiJson, apiFetch, ApiError, mensagemDeErro } from '../../lib/api'
 import { formatData } from '../../lib/utils'
 import { baixarPdfComEscolhaDePasta } from '../../lib/download'
 
@@ -326,7 +326,7 @@ export const fotosApi = {
     const res = await apiFetch(`/ordens/${ordemId}/fotos`, { method: 'POST', body: fd })
     if (!res.ok) {
       let detail = res.statusText
-      try { const b = await res.json(); if (b.detail) detail = b.detail } catch { /* sem corpo */ }
+      try { const b = await res.json(); detail = mensagemDeErro(b.detail, detail) } catch { /* sem corpo */ }
       throw new ApiError(res.status, detail)
     }
     return (await res.json()) as Foto

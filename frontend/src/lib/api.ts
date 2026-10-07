@@ -35,6 +35,60 @@ export class ApiError extends Error {
   }
 }
 
+// Rotulo dos campos que aparecem no 422. O que nao estiver aqui sai com o
+// nome cru do campo — feio, mas ainda aponta o culpado.
+const ROTULOS: Record<string, string> = {
+  destinatario: 'Destinatário', nome: 'Nome', documento: 'Documento', cep: 'CEP',
+  endereco: 'Endereço', numero: 'Número', complemento: 'Complemento', bairro: 'Bairro',
+  municipio: 'Município', estado: 'UF', email: 'E-mail', telefone: 'Telefone',
+}
+
+type ErroValidacao = { type?: string; loc?: (string | number)[]; msg?: string; ctx?: Record<string, unknown> }
+
+function textoDoErro(e: ErroValidacao): string {
+  const ctx = e.ctx ?? {}
+  switch (e.type) {
+    case 'missing': return 'campo obrigatório'
+    case 'string_too_long': return `no máximo ${ctx.max_length} caracteres`
+    case 'string_too_short': return `no mínimo ${ctx.min_length} caractere${ctx.min_length === 1 ? '' : 's'}`
+    case 'value_error': return (e.msg ?? '').replace(/^Value error, /, '')
+    default: return `valor inválido (${e.msg ?? e.type})`
+  }
+}
+
+function campoDoErro(loc: (string | number)[]): string {
+  // `body` e' o envelope do FastAPI; um indice numerico e' a posicao numa lista.
+  const partes = loc.filter((p) => p !== 'body')
+  const out: string[] = []
+  partes.forEach((p, i) => {
+    if (typeof p === 'number') {
+      const lista = partes[i - 1]
+      out[out.length - 1] = lista === 'itens' ? `Item ${p + 1}` : `${out[out.length - 1]} ${p + 1}`
+    } else {
+      out.push(ROTULOS[p] ?? p)
+    }
+  })
+  // Pai + campo e' contexto demais para o destinatario, onde todo campo e' dele.
+  if (out[0] === 'Destinatário' && out.length > 1) out.shift()
+  return out.join(' › ')
+}
+
+/** Converte o `detail` de uma resposta de erro em texto para a tela. O FastAPI
+ *  manda string nos HTTPException, mas uma LISTA de objetos no 422 de validacao
+ *  — e jogar a lista em `new Error()` virava "[object Object]" para o usuario. */
+export function mensagemDeErro(detail: unknown, fallback: string): string {
+  if (typeof detail === 'string') return detail || fallback
+  if (Array.isArray(detail)) {
+    const partes = detail.map((e: ErroValidacao) => {
+      const campo = campoDoErro(e.loc ?? [])
+      return campo ? `${campo}: ${textoDoErro(e)}` : textoDoErro(e)
+    })
+    return partes.length ? partes.join(' · ') : fallback
+  }
+  if (detail && typeof detail === 'object') return JSON.stringify(detail)
+  return fallback
+}
+
 let refreshPromise: Promise<boolean> | null = null
 
 async function doRefresh(): Promise<boolean> {
@@ -87,8 +141,8 @@ export async function apiJson<T>(path: string, options: RequestInit = {}): Promi
   if (!res.ok) {
     let detail = res.statusText
     try {
-      const body = (await res.json()) as { detail?: string }
-      if (body.detail) detail = body.detail
+      const body = (await res.json()) as { detail?: unknown }
+      detail = mensagemDeErro(body.detail, detail)
     } catch {
       // sem corpo JSON — mantém o statusText
     }

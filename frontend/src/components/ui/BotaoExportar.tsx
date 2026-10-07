@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Button } from './Button'
 import { Spinner } from './Spinner'
 import { IconDownload } from './icons'
-import { apiFetch } from '../../lib/api'
+import { apiFetch, mensagemDeErro } from '../../lib/api'
 import { baixarPlanilha } from '../../lib/download'
 import { hojeISO } from '../../lib/datas'
 
@@ -42,8 +42,8 @@ export function BotaoExportar({ caminho, params, nome, desabilitado }: Props) {
         if (!res.ok) {
           let detalhe = 'Falha ao gerar a planilha'
           try {
-            const corpo = (await res.json()) as { detail?: string }
-            if (corpo.detail) detalhe = corpo.detail
+            const corpo = (await res.json()) as { detail?: unknown }
+            detalhe = mensagemDeErro(corpo.detail, detalhe)
           } catch {
             // sem corpo JSON
           }
