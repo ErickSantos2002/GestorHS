@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.58.1',
+    data: '07/10/2026',
+    itens: [
+      { tipo: 'correcao', texto: 'Quando um campo é recusado ao salvar (por exemplo, ao criar uma proposta), a mensagem agora diz qual campo e por quê — como "Complemento: no máximo 60 caracteres" — em vez de mostrar "[object Object]".' },
+    ],
+  },
+  {
     versao: '1.58.0',
     data: '30/09/2026',
     itens: [
