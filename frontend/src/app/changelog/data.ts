@@ -23,6 +23,14 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.58.2',
+    data: '14/10/2026',
+    itens: [
+      { tipo: 'correcao', texto: 'Texto longo colado em "Outros itens" da proposta não passa mais da borda do PDF — a linha agora quebra normalmente, inclusive nas propostas já salvas.' },
+      { tipo: 'correcao', texto: 'Em telas estreitas, as tabelas (como a de Propostas) agora rolam para o lado, e dá para chegar à coluna de ações.' },
+    ],
+  },
+  {
     versao: '1.58.1',
     data: '07/10/2026',
     itens: [
