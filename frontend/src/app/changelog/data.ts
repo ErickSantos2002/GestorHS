@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.59.0',
+    data: '14/10/2026',
+    itens: [
+      { tipo: 'melhoria', texto: 'A lista de Propostas agora mostra 15 por página e permite escolher 25, 50 ou 100 em "Exibir … por página". A escolha fica guardada no navegador.' },
+    ],
+  },
+  {
     versao: '1.58.2',
     data: '14/10/2026',
     itens: [
