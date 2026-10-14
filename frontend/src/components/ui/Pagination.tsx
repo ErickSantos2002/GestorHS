@@ -1,4 +1,5 @@
 import { cn } from '../../lib/utils'
+import { OPCOES_POR_PAGINA } from '../../lib/usePorPagina'
 
 const WINDOW_SIZE = 5
 
@@ -30,6 +31,9 @@ interface PaginationProps {
   onPageChange: (page: number) => void
   /** Rótulo do que está sendo paginado. Ex.: "clientes", "propostas". */
   itemLabel?: string
+  /** Liga o seletor "Exibir N por página". Quem chama volta para a página 1. */
+  onPageSizeChange?: (size: number) => void
+  pageSizeOptions?: number[]
 }
 
 /**
@@ -37,7 +41,10 @@ interface PaginationProps {
  * com janela deslizante de páginas (desktop) e controle compacto (mobile).
  * Usa as cores do tema — funciona em claro e escuro sem ajustes.
  */
-export function Pagination({ page, totalPages, total, pageSize, onPageChange, itemLabel = 'registros' }: PaginationProps) {
+export function Pagination({
+  page, totalPages, total, pageSize, onPageChange, itemLabel = 'registros',
+  onPageSizeChange, pageSizeOptions = OPCOES_POR_PAGINA,
+}: PaginationProps) {
   const inicio = total === 0 ? 0 : (page - 1) * pageSize + 1
   const fim = Math.min(page * pageSize, total)
   const visiveis = paginasVisiveis(page, totalPages)
@@ -51,16 +58,39 @@ export function Pagination({ page, totalPages, total, pageSize, onPageChange, it
     </span>
   )
 
-  // Uma única página: mantém a contagem, dispensa a navegação.
+  const seletor = onPageSizeChange && (
+    <label className="flex items-center gap-1.5">
+      Exibir
+      <select
+        aria-label="Itens por página"
+        value={pageSize}
+        onChange={(e) => onPageSizeChange(Number(e.target.value))}
+        className="rounded-lg border border-border bg-background-elevated px-2 py-1 text-sm text-slate-300 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+      >
+        {pageSizeOptions.map((n) => <option key={n} value={n}>{n}</option>)}
+      </select>
+      por página
+    </label>
+  )
+
+  // Uma única página: mantém a contagem (e o seletor), dispensa a navegação.
   if (totalPages <= 1) {
-    return <div className="text-sm text-slate-400">{contagem}</div>
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-slate-400">
+        {contagem}
+        {seletor}
+      </div>
+    )
   }
 
   return (
     <div className="text-sm text-slate-400">
       {/* Desktop */}
       <div className="hidden items-center justify-between md:flex">
-        {contagem}
+        <div className="flex items-center gap-4">
+          {contagem}
+          {seletor}
+        </div>
         <div className="flex items-center gap-2">
           <button type="button" disabled={!temPrev} onClick={() => onPageChange(page - 1)} className={cn(btnBase, 'px-3 py-1.5')}>
             Anterior
@@ -92,6 +122,7 @@ export function Pagination({ page, totalPages, total, pageSize, onPageChange, it
       {/* Mobile */}
       <div className="flex flex-col items-center gap-2 md:hidden">
         {contagem}
+        {seletor}
         <div className="flex items-center justify-center gap-2">
           <button type="button" disabled={!temPrev} onClick={() => onPageChange(page - 1)} className={cn(btnBase, 'px-3 py-1.5')} aria-label="Página anterior">
             {'<'}

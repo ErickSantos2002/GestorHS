@@ -229,3 +229,25 @@ describe('PropostasPage', () => {
     expect(screen.queryByText('Filial')).not.toBeInTheDocument()
   })
 })
+
+describe('PropostasPage — itens por pagina', () => {
+  beforeEach(() => localStorage.clear())
+
+  it('pede 15 por pagina por padrao e oferece 15, 25, 50 e 100', async () => {
+    render(<PropostasPage />)
+    await screen.findByText('#42')
+    expect(listar).toHaveBeenLastCalledWith(expect.objectContaining({ page_size: 15 }))
+    const seletor = screen.getByLabelText('Itens por página') as HTMLSelectElement
+    expect([...seletor.options].map((o) => o.value)).toEqual(['15', '25', '50', '100'])
+  })
+
+  it('trocar a quantidade recarrega com o novo tamanho e volta para a pagina 1', async () => {
+    listar.mockResolvedValue({ items: [PROPOSTA], total: 40, page: 1, page_size: 15, total_pages: 3 })
+    render(<PropostasPage />)
+    await screen.findByText('#42')
+    fireEvent.click(screen.getAllByRole('button', { name: '2' })[0])
+    await waitFor(() => expect(listar).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2 })))
+    fireEvent.change(screen.getAllByLabelText('Itens por página')[0], { target: { value: '50' } })
+    await waitFor(() => expect(listar).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1, page_size: 50 })))
+  })
+})

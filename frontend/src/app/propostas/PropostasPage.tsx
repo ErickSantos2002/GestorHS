@@ -14,12 +14,11 @@ import { ApiError } from '../../lib/api'
 import { formatData } from '../../lib/utils'
 import { formatarDocumento } from '../../lib/documento'
 import { formatarMoeda } from '../../lib/moeda'
+import { usePorPagina } from '../../lib/usePorPagina'
 import { propostasApi, type Proposta } from './api'
 import { PropostaModal } from './PropostaModal'
 import { HistoricoModal } from './HistoricoModal'
 import { VisualizarPropostaModal } from './VisualizarPropostaModal'
-
-const PAGE = 25
 
 export function PropostasPage() {
   const { user } = useAuth()
@@ -28,6 +27,7 @@ export function PropostasPage() {
   const [busca, setBusca] = useState('')
   const [incluirDesabilitadas, setIncluirDesabilitadas] = useState(false)
   const [page, setPage] = useState(1)
+  const [porPagina, setPorPagina] = usePorPagina('propostas', 15)
   const [dados, setDados] = useState<{ items: Proposta[]; total: number; total_pages: number } | null>(null)
   const [erro, setErro] = useState('')
   const [recarga, setRecarga] = useState(0)
@@ -46,11 +46,11 @@ export function PropostasPage() {
     setDados(null)
     setErro('')
     propostasApi
-      .listar({ q: busca || undefined, page, page_size: PAGE, incluir_desabilitadas: incluirDesabilitadas || undefined })
+      .listar({ q: busca || undefined, page, page_size: porPagina, incluir_desabilitadas: incluirDesabilitadas || undefined })
       .then((r) => { if (vivo) setDados({ items: r.items, total: r.total, total_pages: r.total_pages }) })
       .catch((e) => { if (vivo) { setErro(e instanceof ApiError ? e.message : 'Falha ao carregar'); setDados({ items: [], total: 0, total_pages: 0 }) } })
     return () => { vivo = false }
-  }, [busca, page, recarga, incluirDesabilitadas])
+  }, [busca, page, porPagina, recarga, incluirDesabilitadas])
 
   function onBuscar(e: FormEvent) {
     e.preventDefault()
@@ -203,8 +203,9 @@ export function PropostasPage() {
                 page={page}
                 totalPages={dados.total_pages}
                 total={dados.total}
-                pageSize={PAGE}
+                pageSize={porPagina}
                 onPageChange={setPage}
+                onPageSizeChange={(n) => { setPage(1); setPorPagina(n) }}
                 itemLabel="propostas"
               />
             }
