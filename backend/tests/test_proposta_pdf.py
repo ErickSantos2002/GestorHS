@@ -251,3 +251,10 @@ def test_sanitizar_html_preserva_sequencia_de_nbsp():
     from app.core.proposta_pdf import _sanitizar_html
     html = "<p>a&nbsp;&nbsp;&nbsp;b</p>"
     assert _sanitizar_html(html) == html
+
+
+def test_sanitizar_html_nbsp_nao_abre_brecha_para_handler():
+    # A troca de &nbsp; por espaco nao pode reconstruir um on*= depois do filtro.
+    from app.core.proposta_pdf import _sanitizar_html
+    saida = _sanitizar_html('<p&nbsp;onmouseover=alert(1)>x</p><a&nbsp;onclick="y">z</a>')
+    assert "onmouseover" not in saida and "onclick" not in saida
