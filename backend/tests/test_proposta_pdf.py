@@ -236,3 +236,18 @@ def test_montar_html_contato_da_coluna_vence_o_do_override():
     p = Proposta(id=5, numero=103, contato="Joana", cliente_override={"contato": "Tatiane"})
     html = proposta_pdf.montar_html(p, cli)
     assert "Joana" in html and "Tatiane" not in html
+
+
+def test_sanitizar_html_troca_nbsp_isolado_por_espaco_quebravel():
+    # Texto colado no editor chega com &nbsp; em todo espaco: a linha vira uma
+    # "palavra" so e estoura a borda do PDF (proposta 426, out/2026).
+    from app.core.proposta_pdf import _sanitizar_html
+    html = "<p>14.01&nbsp;–&nbsp;Lubrificação, limpeza</p>"
+    assert _sanitizar_html(html) == "<p>14.01 – Lubrificação, limpeza</p>"
+
+
+def test_sanitizar_html_preserva_sequencia_de_nbsp():
+    # Dois ou mais seguidos sao espacamento intencional (recuo): ficam.
+    from app.core.proposta_pdf import _sanitizar_html
+    html = "<p>a&nbsp;&nbsp;&nbsp;b</p>"
+    assert _sanitizar_html(html) == html

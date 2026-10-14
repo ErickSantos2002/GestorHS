@@ -123,6 +123,11 @@ def _sanitizar_html(html: Optional[str]) -> str:
     html = re.sub(r"<(?:img|link|embed|source|base)\b[^>]*>", "", html, flags=re.IGNORECASE)
     # Handlers de evento inline (onerror, onload, ...)
     html = re.sub(r"""\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)""", "", html, flags=re.IGNORECASE)
+    # Texto colado no editor chega com &nbsp; em TODO espaco, e a linha vira uma
+    # "palavra" so que estoura a borda do PDF. O &nbsp; isolado vira espaco comum
+    # (quebravel); sequencias de dois ou mais sao recuo intencional e ficam.
+    html = html.replace("\u00a0", "&nbsp;")
+    html = re.sub(r"(?<!&nbsp;)&nbsp;(?!&nbsp;)", " ", html, flags=re.IGNORECASE)
     return html
 
 
@@ -336,6 +341,7 @@ table.totais th.right {
 .outros-itens-conteudo {
     font-size: 13.5px;
     line-height: 1.6;
+    overflow-wrap: anywhere;  /* rede de seguranca: URL ou palavra longa nao estoura a borda */
 }
 
 .outros-itens-conteudo p { margin: 0 0 4px 0; }
