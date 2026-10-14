@@ -224,7 +224,7 @@ export function PropostasPage() {
                   {p.empresa != null && <span className="mt-1 inline-block"><Badge tone="info">Filial</Badge></span>}
                 </TD>
                 <TD>{formatarDocumento(p.cliente_documento) || '—'}</TD>
-                <TD>R$ {formatarMoeda(p.total)}</TD>
+                <TD><span className="whitespace-nowrap">R$ {formatarMoeda(p.total)}</span></TD>
                 <TD>
                   <IconButtonGroup>
                     <IconButton label="Visualizar" tone="ver" onClick={() => setVisualizar({ id: p.id, numero: p.numero })}>

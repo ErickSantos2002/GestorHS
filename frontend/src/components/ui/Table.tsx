@@ -10,12 +10,15 @@ interface TableProps {
 export function Table({ head, children, footer }: TableProps) {
   return (
     <div className="rounded-2xl border border-border bg-background-surface overflow-hidden shadow-sm">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-border bg-background-elevated">{head}</tr>
-        </thead>
-        <tbody className="divide-y divide-border">{children}</tbody>
-      </table>
+      {/* O card corta no canto arredondado; quem rola na tela estreita e' este miolo. */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border bg-background-elevated">{head}</tr>
+          </thead>
+          <tbody className="divide-y divide-border">{children}</tbody>
+        </table>
+      </div>
       {footer && <div className="border-t border-border px-5 py-3">{footer}</div>}
     </div>
   )
