@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.59.1',
+    data: '22/10/2026',
+    itens: [
+      { tipo: 'correcao', texto: 'A garantia de manutenção aparecia valendo por 1 ano. Agora ela vale 3 meses a partir da data da manutenção. As garantias de calibração e de compra continuam valendo 1 ano.' },
+    ],
+  },
+  {
     versao: '1.59.0',
     data: '14/10/2026',
     itens: [
