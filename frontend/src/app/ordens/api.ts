@@ -1,4 +1,5 @@
 import { apiJson, apiFetch, ApiError, mensagemDeErro } from '../../lib/api'
+import { nomeDoXml } from '../../lib/notaFiscal'
 import { formatData } from '../../lib/utils'
 import { baixarPdfComEscolhaDePasta } from '../../lib/download'
 
@@ -406,7 +407,8 @@ export const ordensApi = {
     const ext = basename.toLowerCase().endsWith('.xml') ? '.xml' : '.pdf'
     const a = document.createElement('a')
     a.href = url
-    a.download = `nota-fiscal-${ordemId}${ext}`
+    const padrao = `nota-fiscal-${ordemId}${ext}`
+    a.download = ext === '.xml' ? await nomeDoXml(blob, padrao) : padrao
     document.body.appendChild(a)
     a.click()
     a.remove()

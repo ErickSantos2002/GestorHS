@@ -151,7 +151,8 @@ def _servir_nota(nf: NotaFiscal, basename: str):
     return FileResponse(
         caminho,
         media_type=nota_fiscal.media_type(basename),
-        filename=nota_fiscal.nome_download_nota(nf.numero, basename),
+        filename=nota_fiscal.nome_download_nota(
+            nf.numero, basename, nota_fiscal.ler_xml(caminho, basename)),
         headers={"X-Content-Type-Options": "nosniff"},
     )
 
@@ -193,7 +194,8 @@ def baixar_nota_fiscal(ordem_id: int, db: Session = Depends(get_db), _: Usuario 
     return FileResponse(
         caminho,
         media_type=nota_fiscal.media_type(o.nota_fiscal),
-        filename=nota_fiscal.nome_download(ordem_id, o.nota_fiscal),
+        filename=nota_fiscal.nome_download(
+            ordem_id, o.nota_fiscal, nota_fiscal.ler_xml(caminho, o.nota_fiscal)),
         headers={"X-Content-Type-Options": "nosniff"},
     )
 
@@ -214,6 +216,7 @@ def baixar_nota_fiscal_xml(ordem_id: int, db: Session = Depends(get_db), _: Usua
     return FileResponse(
         caminho,
         media_type=nota_fiscal.media_type(o.nota_fiscal_xml),
-        filename=nota_fiscal.nome_download(ordem_id, o.nota_fiscal_xml),
+        filename=nota_fiscal.nome_download(
+            ordem_id, o.nota_fiscal_xml, nota_fiscal.ler_xml(caminho, o.nota_fiscal_xml)),
         headers={"X-Content-Type-Options": "nosniff"},
     )

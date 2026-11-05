@@ -1,4 +1,5 @@
 import { apiJson, apiFetch, ApiError, mensagemDeErro } from '../../lib/api'
+import { nomeDoXml } from '../../lib/notaFiscal'
 import type { Proposta } from '../propostas/api'
 
 // DELETE/204 não tem corpo — apiJson faz res.json() e quebraria. Mesmo padrão de acesso/api.ts.
@@ -174,7 +175,9 @@ export const caixasApi = {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `nota-fiscal-${numero}.${tipo}`
+    a.download = tipo === 'xml'
+      ? await nomeDoXml(blob, `${numero.trim().replace(/[^A-Za-z0-9._-]/g, '-') || 's-n'}.xml`)
+      : `nota-fiscal-${numero}.pdf`
     document.body.appendChild(a)
     a.click()
     a.remove()

@@ -194,6 +194,23 @@ def test_baixar_pdf_e_xml_da_nota(client_fin, caixa_financeiro, upload_tmp, db_s
     # servido como application/xml executaria <script> via polyglot XHTML.
     assert rx.headers["content-type"] == "application/octet-stream"
     assert rx.headers["x-content-type-options"] == "nosniff"
+    # sem chave de acesso no XML: so o numero, sem o prefixo que o VIPP recusa
+    assert 'filename="12345.xml"' in rx.headers["content-disposition"]
+
+
+def test_baixar_xml_sai_com_a_chave_de_acesso(client_fin, caixa_financeiro, upload_tmp, db_session):
+    """O VIPP (postagem da expedicao) so aceita o XML com o nome original, que e'
+    a chave de acesso; ela e' lida de dentro do arquivo."""
+    from app.models import NotaFiscal
+    chave = "35261112345678000190550010000123451234567890"
+    nfe = f'<nfeProc><NFe><infNFe Id="NFe{chave}"/></NFe></nfeProc>'.encode()
+    files = [("arquivos_pdf", _pdf("nf.pdf")),
+             ("arquivos_xml", ("qualquer.xml", io.BytesIO(nfe), "application/xml"))]
+    client_fin.post(f"/caixas/{caixa_financeiro}/notas-fiscais", files=files, data={"numeros": ["12345"]})
+    nota_id = db_session.query(NotaFiscal).first().id
+    rx = client_fin.get(f"/caixas/{caixa_financeiro}/notas-fiscais/{nota_id}/xml")
+    assert rx.status_code == 200
+    assert f'filename="{chave}.xml"' in rx.headers["content-disposition"]
 
 
 def test_anexar_registra_log_em_todas_as_os_ativas(client_fin, caixa_financeiro,
