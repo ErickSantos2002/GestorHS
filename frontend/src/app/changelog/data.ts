@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.59.2',
+    data: '05/11/2026',
+    itens: [
+      { tipo: 'correcao', texto: 'O XML da nota fiscal era baixado com o nome "nota-fiscal-…", que o VIPP não aceita. Agora ele sai com a chave de acesso da nota (o nome original do arquivo), inclusive nas notas já anexadas.' },
+    ],
+  },
+  {
     versao: '1.59.1',
     data: '22/10/2026',
     itens: [
