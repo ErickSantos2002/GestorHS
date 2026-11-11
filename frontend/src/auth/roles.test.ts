@@ -5,6 +5,7 @@ import {
   podeRegistrarContato,
   podeAtenderSolicitacao,
   podeGerenciarPropostas,
+  podeVerPropostas,
   podeAvancarCaixa,
   podeMarcarSemConserto,
   podeEditarTipoServico,
@@ -235,4 +236,12 @@ describe('auth/roles — podeRegistrarManutencao', () => {
     expect(podeRegistrarManutencao({ funcao: 'Financeiro' } as never, 5)).toBe(false)
     expect(podeRegistrarManutencao(null, 5)).toBe(false)
   })
+})
+
+describe('auth/roles — podeVerPropostas', () => {
+  const u = (funcao: string | null): User => ({ id: 9, nome: null, email: 'x@hs.com', funcao_id: 9, funcao })
+  it.each(['Administrador', 'Comercial Pós-Vendas', 'Financeiro', 'Expedição'])('%s pode', (f) =>
+    expect(podeVerPropostas(u(f))).toBe(true))
+  it('Laboratório não pode', () => expect(podeVerPropostas(u('Laboratório'))).toBe(false))
+  it('null não pode', () => expect(podeVerPropostas(null)).toBe(false))
 })

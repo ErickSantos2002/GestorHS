@@ -2,7 +2,7 @@ import { type ReactNode, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { cn } from '../lib/utils'
 import { useAuth, type User } from '../auth/AuthContext'
-import { isAdmin, podeGerenciarPropostas } from '../auth/roles'
+import { isAdmin, podeGerenciarPropostas, podeVerPropostas } from '../auth/roles'
 import { IconDashboard, IconUsers, IconCadastros, IconClientes, IconFrota, IconOrdens, IconCobranca, IconSolicitacoes, IconCaixas, IconCertificado, IconNote, IconWrench, IconTag } from '../components/ui/icons'
 import { VERSAO_ATUAL } from '../app/changelog/data'
 import { ChangelogModal } from '../app/changelog/ChangelogModal'
@@ -28,7 +28,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Caixas', icon: <IconCaixas />, to: '/app/caixas' },
   { label: 'Cobrança', icon: <IconCobranca />, to: '/app/cobranca' },
   { label: 'Solicitações', icon: <IconSolicitacoes />, to: '/app/solicitacoes' },
-  { label: 'Propostas', icon: <IconNote />, to: '/app/propostas', visivel: podeGerenciarPropostas },
+  { label: 'Propostas', icon: <IconNote />, to: '/app/propostas', visivel: podeVerPropostas },
   { label: 'Serviços', icon: <IconWrench />, to: '/app/catalogo/servicos', visivel: podeGerenciarPropostas },
   { label: 'Produtos', icon: <IconTag />, to: '/app/catalogo/produtos', visivel: podeGerenciarPropostas },
   { label: 'Logs de Integração', icon: <IconSolicitacoes />, to: '/app/integracao', adminOnly: true },

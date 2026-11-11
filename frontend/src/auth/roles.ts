@@ -29,6 +29,12 @@ export function podeGerenciarPropostas(user: User | null): boolean {
   return isAdmin(user) || user?.funcao === FUNCAO_COMERCIAL || user?.funcao === FUNCAO_FINANCEIRO
 }
 
+// Ver a pagina Propostas (lista, detalhe, PDF). A leitura no backend ja e' aberta
+// a qualquer usuario interno; a Expedicao entra so para consulta (nov/2026).
+export function podeVerPropostas(user: User | null): boolean {
+  return podeGerenciarPropostas(user) || user?.funcao === FUNCAO_EXPEDICAO
+}
+
 // Espelha `_escrever` de backend/app/api/empresas.py. Hoje e' o mesmo trio de
 // propostas (o modal da proposta cria e edita Empresa), mas com nome proprio
 // para as duas regras poderem divergir.
