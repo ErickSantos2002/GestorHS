@@ -1,16 +1,20 @@
-fastapi
-uvicorn[standard]
-sqlalchemy
-psycopg2-binary
-alembic
-pydantic[email]
-pydantic-settings
-passlib[argon2]
-python-jose[cryptography]
-pytest
-httpx
-python-multipart
-playwright
-segno
-openpyxl
-msal
+# Versoes fixas (nov/2026): sem pin, um build sem cache no EasyPanel puxava a
+# versao mais nova de tudo — playwright 1.65 quebrou o build (libatomic) e o
+# fastapi pulou para uma versao nunca testada. Estas sao as da venv de dev, onde
+# a suite roda. Subir versao = mudar aqui de proposito e rodar os testes.
+fastapi==0.139.2
+uvicorn[standard]==0.51.0
+sqlalchemy==2.0.51
+psycopg2-binary==2.9.12
+alembic==1.18.5
+pydantic[email]==2.13.4
+pydantic-settings==2.14.2
+passlib[argon2]==1.7.4
+python-jose[cryptography]==3.5.0
+pytest==9.1.1
+httpx==0.28.1
+python-multipart==0.0.32
+playwright==1.61.0
+segno==1.6.6
+openpyxl==3.1.5
+msal==1.38.0

@@ -11,8 +11,12 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Chromium headless para gerar PDF dos certificados (Playwright)
-RUN playwright install --with-deps chromium
+# Chromium headless para gerar PDF dos certificados (Playwright).
+# libatomic1: o node embutido do driver do Playwright precisa dela ANTES do
+# --with-deps rodar, e a imagem slim nao traz (quebrou o build em 11/11/2026).
+RUN apt-get update && apt-get install -y --no-install-recommends libatomic1 \
+    && rm -rf /var/lib/apt/lists/* \
+    && playwright install --with-deps chromium
 
 # Código da aplicação
 COPY . .
