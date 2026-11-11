@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const mockUser = { id: 1, nome: 'Admin', email: 'a@a.com', funcao_id: 1, funcao: 'Administrador' }
+const mockUser: { id: number; nome: string; email: string; funcao_id: number; funcao: string } = { id: 1, nome: 'Admin', email: 'a@a.com', funcao_id: 1, funcao: 'Administrador' }
 vi.mock('../../auth/AuthContext', () => ({
   useAuth: () => ({ user: mockUser }),
 }))
@@ -16,6 +16,7 @@ const produto: Produto = {
 
 describe('CatalogoProdutosPage', () => {
   beforeEach(() => {
+    mockUser.funcao = 'Administrador'
     vi.spyOn(produtosApi, 'listar').mockResolvedValue([produto])
   })
 
@@ -35,5 +36,14 @@ describe('CatalogoProdutosPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /salvar/i }))
 
     await waitFor(() => expect(criar).toHaveBeenCalledWith(expect.objectContaining({ nome: 'Novo produto' })))
+  })
+
+  it('Consulta vê a lista sem nenhuma ação de escrita', async () => {
+    mockUser.funcao = 'Consulta'
+    render(<CatalogoProdutosPage />)
+    expect(await screen.findByText('Bocal descartável')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /novo/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /editar/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /excluir/i })).toBeNull()
   })
 })

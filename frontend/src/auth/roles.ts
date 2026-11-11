@@ -9,6 +9,14 @@ export function isAdmin(user: User | null): boolean {
 
 export const FUNCAO_EXPEDICAO = 'Expedição'
 
+// Função somente leitura (vendedores/SDRs). A trava de verdade é no backend
+// (_barrar_escrita_de_consulta em app/api/deps.py) — aqui só esconde a tela.
+export const FUNCAO_CONSULTA = 'Consulta'
+
+export function isConsulta(user: User | null): boolean {
+  return user?.funcao === FUNCAO_CONSULTA
+}
+
 export function podeAbrirOS(user: User | null): boolean {
   return isAdmin(user) || user?.funcao === FUNCAO_EXPEDICAO
 }
@@ -33,6 +41,11 @@ export function podeGerenciarPropostas(user: User | null): boolean {
 // a qualquer usuario interno; a Expedicao entra so para consulta (nov/2026).
 export function podeVerPropostas(user: User | null): boolean {
   return podeGerenciarPropostas(user) || user?.funcao === FUNCAO_EXPEDICAO
+}
+
+// Ver o catálogo de Produtos. Escrever nele continua em podeGerenciarPropostas.
+export function podeVerProdutos(user: User | null): boolean {
+  return podeGerenciarPropostas(user) || isConsulta(user)
 }
 
 // Espelha `_escrever` de backend/app/api/empresas.py. Hoje e' o mesmo trio de
