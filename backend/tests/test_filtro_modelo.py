@@ -76,3 +76,17 @@ def test_exportar_clientes_respeita_filtro(client_admin, cenario):
     n, rodape = _xlsx(resp)
     assert n == 1
     assert "Modelo: Modelo A" in rodape
+
+
+def test_resumo_por_modelo(client_admin, cenario):
+    r = client_admin.get("/equipamentos-cliente/resumo-por-modelo")
+    assert r.status_code == 200
+    # so ativos, sem o estoque HS; cliente X com 2 aparelhos A conta 1 cliente
+    assert r.json() == [
+        {"equipamento": cenario["a"], "descricao": "Modelo A", "aparelhos": 2, "clientes": 1},
+        {"equipamento": cenario["b"], "descricao": "Modelo B", "aparelhos": 1, "clientes": 1},
+    ]
+
+
+def test_resumo_por_modelo_liberado_a_consulta(client_consulta, cenario):
+    assert client_consulta.get("/equipamentos-cliente/resumo-por-modelo").status_code == 200

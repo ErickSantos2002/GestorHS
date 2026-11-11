@@ -22,6 +22,15 @@ class FrotaPage(BaseModel):
     total: int
 
 
+class ResumoModeloOut(BaseModel):
+    """Uma linha da visao por modelo: quantos aparelhos ATIVOS e em quantos
+    clientes distintos, sem o estoque da HS."""
+    equipamento: int
+    descricao: str | None = None
+    aparelhos: int
+    clientes: int
+
+
 class EloModuloOut(BaseModel):
     id: int
     serie: Optional[str] = None

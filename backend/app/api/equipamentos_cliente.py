@@ -14,6 +14,7 @@ from app.api.ordens_acoes import agora
 from app.core import os_workflow as wf
 from app.core.config import settings
 from app.schemas.frota import (
+    ResumoModeloOut,
     FrotaListOut, FrotaPage, EquipamentoClienteOut,
     EquipamentoClienteCreate, EquipamentoClienteUpdate, HistoricoOut, EquipCertItem,
     TransferirIn, TransferenciaOut,
@@ -169,6 +170,33 @@ def exportar(
          "Aparelhos": None if ativo is None else ("Ativos" if ativo else "Inativos"),
          "Busca": q},
     )
+
+
+# Antes de "/{item_id}": senao o caminho cai no int e devolve 422.
+@router.get("/resumo-por-modelo", response_model=list[ResumoModeloOut])
+def resumo_por_modelo(db: Session = Depends(get_db), _: Usuario = Depends(get_current_usuario)):
+    """Quantos aparelhos de cada modelo temos hoje, e em quantos clientes.
+    Mesmo criterio do filtro "tem aparelho" de /clientes: so ativos e sem o
+    estoque da HS — os dois numeros tem que bater com a lista que o link abre."""
+    aparelhos = func.count(EquipamentoCliente.id)
+    linhas = (
+        db.query(
+            EquipamentoCliente.equipamento,
+            Equipamento.descricao,
+            aparelhos,
+            func.count(func.distinct(EquipamentoCliente.cliente)),
+        )
+        .join(Equipamento, Equipamento.id == EquipamentoCliente.equipamento)
+        .filter(
+            EquipamentoCliente.ativo.is_(True),
+            EquipamentoCliente.cliente != settings.CLIENTE_ESTOQUE_HS_ID,
+        )
+        .group_by(EquipamentoCliente.equipamento, Equipamento.descricao)
+        .order_by(aparelhos.desc(), Equipamento.descricao)
+        .all()
+    )
+    return [ResumoModeloOut(equipamento=e, descricao=d, aparelhos=a, clientes=c)
+            for e, d, a, c in linhas]
 
 
 @router.get("/{item_id}", response_model=EquipamentoClienteOut)
