@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.61.1',
+    data: '11/11/2026',
+    itens: [
+      { tipo: 'melhoria', texto: 'O Guardi passa a entregar o link do PDF do certificado (calibração e manutenção) e da proposta, o mesmo link que já vai nos cards do TaskHS.' },
+    ],
+  },
+  {
     versao: '1.61.0',
     data: '11/11/2026',
     itens: [
