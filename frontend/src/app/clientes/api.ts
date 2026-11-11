@@ -120,6 +120,7 @@ async function apiVoid(path: string, options: RequestInit = {}): Promise<void> {
 
 export interface ListarParams {
   q?: string
+  equipamento?: number
   offset?: number
   limit?: number
 }
@@ -128,6 +129,7 @@ export const clientesApi = {
   listar: (params: ListarParams = {}): Promise<ClientesPage> => {
     const sp = new URLSearchParams()
     if (params.q) sp.set('q', params.q)
+    if (params.equipamento != null) sp.set('equipamento', String(params.equipamento))
     sp.set('offset', String(params.offset ?? 0))
     sp.set('limit', String(params.limit ?? 25))
     return apiJson<ClientesPage>(`/clientes?${sp.toString()}`)
