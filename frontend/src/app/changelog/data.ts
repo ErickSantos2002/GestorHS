@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.61.0',
+    data: '11/11/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'O Guardi (o assistente pessoal do HS.OS) passa a consultar o GestorHS em nome de quem o usa, com as permissões dessa pessoa: frota, clientes, OS, caixas, fases e propostas. Só leitura — ele não cria, edita nem baixa documentos.' },
+    ],
+  },
+  {
     versao: '1.60.0',
     data: '11/11/2026',
     itens: [
