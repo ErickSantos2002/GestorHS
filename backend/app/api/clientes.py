@@ -6,8 +6,9 @@ from app.models.database import get_db
 from app.models import Usuario, Cliente, EquipamentoCliente
 from app.api.deps import get_current_usuario, require_funcao, GESTOR_CADASTRO, EDITOR_CADASTRO
 from app.api.cadastros_common import excluir_protegido
-from app.api.exportar_common import carregar_ate_o_teto, resposta_xlsx
+from app.api.exportar_common import carregar_ate_o_teto, nome_do_modelo, resposta_xlsx
 from app.core.busca import digitos_de_documento
+from app.core.config import settings
 from app.core.empresa_servico import DocumentoDuplicado, checar_documento_livre
 from app.core.exportacoes import COLUNAS_CLIENTES, linha_cliente
 from app.schemas.clientes import ClienteListOut, ClientesPage, ClienteOut, ClienteCreate, ClienteUpdate
@@ -31,10 +32,24 @@ def _conferir_contra_empresas(db: Session, cgc, cpf, cliente_id=None) -> None:
 _MINIMO_SERIE = 3
 
 
-def _query_clientes(db: Session, q: str | None = None):
+def _query_clientes(db: Session, q: str | None = None, equipamento: int | None = None):
     """Filtros da lista de clientes. Usado por listar() e por exportar() —
     ter um lugar so' impede que a planilha ignore um filtro novo em silencio."""
     query = db.query(Cliente)
+    if equipamento is not None:
+        # "Quem tem este modelo HOJE": so aparelho ativo, e o estoque da HS (que
+        # e' cadastrado como cliente) fica de fora — seria falso positivo para
+        # quem prospecta. EXISTS para o cliente com N aparelhos aparecer uma vez.
+        query = query.filter(
+            Cliente.id != settings.CLIENTE_ESTOQUE_HS_ID,
+            db.query(EquipamentoCliente.id)
+            .filter(
+                EquipamentoCliente.cliente == Cliente.id,
+                EquipamentoCliente.equipamento == equipamento,
+                EquipamentoCliente.ativo.is_(True),
+            )
+            .exists(),
+        )
     if q:
         termo = f"%{q}%"
         filtros = [Cliente.nome.ilike(termo), Cliente.municipio.ilike(termo)]
@@ -61,12 +76,13 @@ def _query_clientes(db: Session, q: str | None = None):
 @router.get("", response_model=ClientesPage)
 def listar(
     q: str | None = None,
+    equipamento: int | None = None,
     offset: int = 0,
     limit: int = Query(25, ge=1, le=100),
     db: Session = Depends(get_db),
     _: Usuario = Depends(get_current_usuario),
 ):
-    query = _query_clientes(db, q=q)
+    query = _query_clientes(db, q=q, equipamento=equipamento)
     total = query.count()
     items = query.offset(offset).limit(limit).all()
     return ClientesPage(items=[ClienteListOut.model_validate(c) for c in items], total=total)
@@ -75,13 +91,15 @@ def listar(
 @router.get("/exportar", response_class=Response)
 def exportar(
     q: str | None = None,
+    equipamento: int | None = None,
     db: Session = Depends(get_db),
     _: Usuario = Depends(get_current_usuario),
 ):
-    itens = carregar_ate_o_teto(_query_clientes(db, q=q))
+    itens = carregar_ate_o_teto(_query_clientes(db, q=q, equipamento=equipamento))
     return resposta_xlsx(
         "clientes", "Clientes", COLUNAS_CLIENTES,
-        [linha_cliente(c) for c in itens], {"Busca": q},
+        [linha_cliente(c) for c in itens],
+        {"Busca": q, "Modelo": nome_do_modelo(db, equipamento)},
     )
 
 
