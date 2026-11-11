@@ -2,7 +2,7 @@ import logging
 import secrets
 from typing import Callable
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError
 from sqlalchemy.orm import Session
@@ -33,7 +33,29 @@ def _payload_valido(token: str, tipo_esperado: str) -> dict:
     return dados
 
 
-def get_current_usuario(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> Usuario:
+# Funcao somente leitura (nov/2026): vendedores e SDRs que so consultam a base.
+# A trava e' AQUI, e nao rota a rota: toda escrita interna passa por este
+# dependency (direto ou via require_funcao), entao rota nova ja nasce travada.
+# test_funcao_consulta.py varre as rotas e garante isso. Espelha roles.ts.
+FUNCAO_CONSULTA = "Consulta"
+_METODOS_LEITURA = frozenset({"GET", "HEAD", "OPTIONS"})
+# Escritas que sao do proprio usuario, nao da base.
+_ESCRITA_LIBERADA_CONSULTA = frozenset({"/auth/trocar-senha"})
+
+
+def _barrar_escrita_de_consulta(request: Request, usuario: Usuario) -> None:
+    funcao = usuario.funcao_rel
+    if funcao is None or funcao.descricao != FUNCAO_CONSULTA:
+        return
+    if request.method in _METODOS_LEITURA:
+        return
+    rota = request.scope.get("route")
+    if getattr(rota, "path", None) in _ESCRITA_LIBERADA_CONSULTA:
+        return
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Função Consulta é somente leitura")
+
+
+def get_current_usuario(request: Request, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> Usuario:
     dados = _payload_valido(token, "usuario")
     try:
         sub_id = int(dados["sub"])
@@ -42,6 +64,7 @@ def get_current_usuario(token: str = Depends(oauth2_scheme), db: Session = Depen
     usuario = db.query(Usuario).filter(Usuario.id == sub_id).first()
     if usuario is None or not usuario.ativo:
         raise _cred_invalida
+    _barrar_escrita_de_consulta(request, usuario)
     return usuario
 
 
