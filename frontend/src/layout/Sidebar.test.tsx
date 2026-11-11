@@ -55,4 +55,27 @@ describe('Sidebar (gating por função)', () => {
     )
     expect(screen.getByText('Logs de Integração')).toBeInTheDocument()
   })
+
+  it('Expedição vê "Propostas" mas não "Serviços" nem "Produtos"', () => {
+    mockUser = { funcao: 'Expedição' }
+    render(
+      <MemoryRouter>
+        <Sidebar collapsed={false} />
+      </MemoryRouter>,
+    )
+    expect(screen.getByText('Propostas')).toBeInTheDocument()
+    expect(screen.queryByText('Serviços')).toBeNull()
+    expect(screen.queryByText('Produtos')).toBeNull()
+  })
+
+  it('Consulta vê só Dashboard, Clientes, Empresas, Equipamentos e Produtos', () => {
+    mockUser = { funcao: 'Consulta' }
+    render(
+      <MemoryRouter>
+        <Sidebar collapsed={false} />
+      </MemoryRouter>,
+    )
+    const rotulos = screen.getAllByRole('link').map((a) => a.textContent?.trim()).filter(Boolean)
+    expect(rotulos).toEqual(['Dashboard', 'Clientes', 'Empresas', 'Equipamentos', 'Produtos'])
+  })
 })

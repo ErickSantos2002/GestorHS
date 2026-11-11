@@ -176,8 +176,16 @@ async function apiVoid(path: string, options: RequestInit = {}): Promise<void> {
   }
 }
 
+export interface ResumoModelo {
+  equipamento: number
+  descricao: string | null
+  aparelhos: number
+  clientes: number
+}
+
 export interface FrotaParams {
   cliente?: number
+  equipamento?: number
   status?: string
   ativo?: boolean
   q?: string
@@ -189,6 +197,7 @@ export const equipamentosClienteApi = {
   listar: (params: FrotaParams = {}): Promise<FrotaPage> => {
     const sp = new URLSearchParams()
     if (params.cliente != null) sp.set('cliente', String(params.cliente))
+    if (params.equipamento != null) sp.set('equipamento', String(params.equipamento))
     if (params.status) sp.set('status', params.status)
     if (params.ativo !== undefined) sp.set('ativo', String(params.ativo))
     if (params.q) sp.set('q', params.q)
@@ -196,6 +205,7 @@ export const equipamentosClienteApi = {
     sp.set('limit', String(params.limit ?? 25))
     return apiJson<FrotaPage>(`/equipamentos-cliente?${sp.toString()}`)
   },
+  resumoPorModelo: (): Promise<ResumoModelo[]> => apiJson<ResumoModelo[]>('/equipamentos-cliente/resumo-por-modelo'),
   obter: (id: number): Promise<EquipamentoCliente> => apiJson<EquipamentoCliente>(`/equipamentos-cliente/${id}`),
   historico: (id: number): Promise<Historico[]> => apiJson<Historico[]>(`/equipamentos-cliente/${id}/historico`),
   ordens: (id: number): Promise<OrdemListItem[]> => apiJson<OrdemListItem[]>(`/equipamentos-cliente/${id}/ordens`),

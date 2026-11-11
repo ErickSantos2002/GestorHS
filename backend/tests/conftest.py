@@ -280,6 +280,23 @@ def os_com_obs(db_session, os_base, fases_seed):
 
 
 @pytest.fixture()
+def usuario_consulta(db_session):
+    f = _get_or_create_funcao(db_session, "Consulta")
+    u = Usuario(nome="Consulta", senha=hash_senha("senha123"),
+                email="consulta@hs.com", funcao_id=f.id, precisa_redefinir_senha=False)
+    db_session.add(u); db_session.commit(); db_session.refresh(u)
+    return u
+
+
+@pytest.fixture()
+def client_consulta(client, usuario_consulta, fases_seed):
+    """Client autenticado como usuario da funcao Consulta (somente leitura)."""
+    tok = client.post("/auth/login", json={"email": "consulta@hs.com", "senha": "senha123"}).json()
+    client.headers["Authorization"] = f"Bearer {tok['access_token']}"
+    return client
+
+
+@pytest.fixture()
 def client_exp(client, usuario_comum, fases_seed):
     """Client autenticado como usuário de função Expedição (headers já embutidos)."""
     tok = client.post("/auth/login", json={"email": "comum@hs.com", "senha": "senha123"}).json()

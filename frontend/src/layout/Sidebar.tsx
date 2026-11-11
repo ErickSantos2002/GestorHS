@@ -2,7 +2,7 @@ import { type ReactNode, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { cn } from '../lib/utils'
 import { useAuth, type User } from '../auth/AuthContext'
-import { isAdmin, podeGerenciarPropostas } from '../auth/roles'
+import { isAdmin, isConsulta, podeGerenciarPropostas, podeVerProdutos, podeVerPropostas } from '../auth/roles'
 import { IconDashboard, IconUsers, IconCadastros, IconClientes, IconFrota, IconOrdens, IconCobranca, IconSolicitacoes, IconCaixas, IconCertificado, IconNote, IconWrench, IconTag } from '../components/ui/icons'
 import { VERSAO_ATUAL } from '../app/changelog/data'
 import { ChangelogModal } from '../app/changelog/ChangelogModal'
@@ -28,19 +28,24 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Caixas', icon: <IconCaixas />, to: '/app/caixas' },
   { label: 'Cobrança', icon: <IconCobranca />, to: '/app/cobranca' },
   { label: 'Solicitações', icon: <IconSolicitacoes />, to: '/app/solicitacoes' },
-  { label: 'Propostas', icon: <IconNote />, to: '/app/propostas', visivel: podeGerenciarPropostas },
+  { label: 'Propostas', icon: <IconNote />, to: '/app/propostas', visivel: podeVerPropostas },
   { label: 'Serviços', icon: <IconWrench />, to: '/app/catalogo/servicos', visivel: podeGerenciarPropostas },
-  { label: 'Produtos', icon: <IconTag />, to: '/app/catalogo/produtos', visivel: podeGerenciarPropostas },
+  { label: 'Produtos', icon: <IconTag />, to: '/app/catalogo/produtos', visivel: podeVerProdutos },
   { label: 'Logs de Integração', icon: <IconSolicitacoes />, to: '/app/integracao', adminOnly: true },
 ]
+
+// A função Consulta vê só o que serve para pesquisar a base; o resto do menu some.
+const ITENS_CONSULTA = new Set(['/app', '/app/clientes', '/app/empresas', '/app/equipamentos', '/app/catalogo/produtos'])
 
 export function Sidebar({ collapsed }: { collapsed: boolean }) {
   const location = useLocation()
   const { user } = useAuth()
   const [changelogAberto, setChangelogAberto] = useState(false)
-  const itens = NAV_ITEMS.filter(
-    (item) => (!item.adminOnly || isAdmin(user)) && (!item.visivel || item.visivel(user)),
-  )
+  const itens = isConsulta(user)
+    ? NAV_ITEMS.filter((item) => ITENS_CONSULTA.has(item.to))
+    : NAV_ITEMS.filter(
+        (item) => (!item.adminOnly || isAdmin(user)) && (!item.visivel || item.visivel(user)),
+      )
 
   return (
     <aside

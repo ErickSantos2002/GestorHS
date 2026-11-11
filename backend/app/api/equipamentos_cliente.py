@@ -8,12 +8,13 @@ from app.models.database import get_db
 from app.models import Usuario, EquipamentoCliente, HistoricoEquipamento, Ordem, OSCertificado, Cliente, TransferenciaEquipamento, CertificadoVenda, Equipamento, Marca
 from app.api.deps import get_current_usuario, require_funcao, GESTOR_CADASTRO, EDITOR_CADASTRO
 from app.api.cadastros_common import excluir_protegido
-from app.api.exportar_common import carregar_ate_o_teto, resposta_xlsx
+from app.api.exportar_common import carregar_ate_o_teto, nome_do_modelo, resposta_xlsx
 from app.core.exportacoes import COLUNAS_FROTA, linha_frota
 from app.api.ordens_acoes import agora
 from app.core import os_workflow as wf
 from app.core.config import settings
 from app.schemas.frota import (
+    ResumoModeloOut,
     FrotaListOut, FrotaPage, EquipamentoClienteOut,
     EquipamentoClienteCreate, EquipamentoClienteUpdate, HistoricoOut, EquipCertItem,
     TransferirIn, TransferenciaOut,
@@ -76,12 +77,16 @@ def _anotar_elo(db: Session, obj) -> None:
 
 
 def _query_frota(db: Session, cliente: int | None = None, status: str | None = None,
-                 ativo: bool | None = None, q: str | None = None):
+                 ativo: bool | None = None, q: str | None = None,
+                 equipamento: int | None = None):
     """Filtros da frota. Usado por listar() e por exportar() — ter um lugar so'
     impede que a planilha ignore um filtro novo em silencio."""
     query = db.query(EquipamentoCliente)
     if cliente is not None:
         query = query.filter(EquipamentoCliente.cliente == cliente)
+    if equipamento is not None:
+        # Modelo do catalogo. Aqui o estoque da HS CONTINUA: a visao e' aparelho a aparelho.
+        query = query.filter(EquipamentoCliente.equipamento == equipamento)
     if ativo is not None:
         # Filtro opcional: omitido devolve ativos E inativos, como sempre foi.
         query = query.filter(EquipamentoCliente.ativo.is_(ativo))
@@ -108,6 +113,7 @@ def _query_frota(db: Session, cliente: int | None = None, status: str | None = N
 @router.get("", response_model=FrotaPage)
 def listar(
     cliente: int | None = None,
+    equipamento: int | None = None,
     status: str | None = None,
     ativo: bool | None = None,
     q: str | None = None,
@@ -116,7 +122,7 @@ def listar(
     db: Session = Depends(get_db),
     _: Usuario = Depends(get_current_usuario),
 ):
-    query = _query_frota(db, cliente=cliente, status=status, ativo=ativo, q=q)
+    query = _query_frota(db, cliente=cliente, status=status, ativo=ativo, q=q, equipamento=equipamento)
     total = query.count()
     items = query.offset(offset).limit(limit).all()
     return FrotaPage(items=[FrotaListOut.model_validate(e) for e in items], total=total)
@@ -125,13 +131,14 @@ def listar(
 @router.get("/exportar", response_class=Response)
 def exportar(
     cliente: int | None = None,
+    equipamento: int | None = None,
     status: str | None = None,
     ativo: bool | None = None,
     q: str | None = None,
     db: Session = Depends(get_db),
     _: Usuario = Depends(get_current_usuario),
 ):
-    itens = carregar_ate_o_teto(_query_frota(db, cliente=cliente, status=status, ativo=ativo, q=q))
+    itens = carregar_ate_o_teto(_query_frota(db, cliente=cliente, status=status, ativo=ativo, q=q, equipamento=equipamento))
 
     # `marca` nao tem property no modelo — e' FK de `equipamentos` para `marcas`.
     # Uma consulta so' para todas as marcas em jogo evita N+1 sem mexer no modelo.
@@ -159,10 +166,39 @@ def exportar(
     return resposta_xlsx(
         "equipamentos", "Equipamentos", COLUNAS_FROTA,
         [linha_frota(e) for e in itens],
-        {"Cliente": cliente_nome, "Status": status,
+        {"Cliente": cliente_nome, "Modelo": nome_do_modelo(db, equipamento), "Status": status,
          "Aparelhos": None if ativo is None else ("Ativos" if ativo else "Inativos"),
          "Busca": q},
     )
+
+
+# Antes de "/{item_id}": senao o caminho cai no int e devolve 422.
+@router.get("/resumo-por-modelo", response_model=list[ResumoModeloOut])
+def resumo_por_modelo(db: Session = Depends(get_db), _: Usuario = Depends(get_current_usuario)):
+    """Quantos aparelhos de cada modelo temos hoje, e em quantos clientes.
+    Mesmo criterio do filtro "tem aparelho" de /clientes: so ativos e sem o
+    estoque da HS — `clientes` bate com a lista que "ver clientes" abre. `aparelhos`
+    NAO bate com "ver aparelhos", que mostra tambem inativos e o estoque (a frota e'
+    aparelho a aparelho); a tela avisa isso no proprio bloco."""
+    aparelhos = func.count(EquipamentoCliente.id)
+    linhas = (
+        db.query(
+            EquipamentoCliente.equipamento,
+            Equipamento.descricao,
+            aparelhos,
+            func.count(func.distinct(EquipamentoCliente.cliente)),
+        )
+        .join(Equipamento, Equipamento.id == EquipamentoCliente.equipamento)
+        .filter(
+            EquipamentoCliente.ativo.is_(True),
+            EquipamentoCliente.cliente != settings.CLIENTE_ESTOQUE_HS_ID,
+        )
+        .group_by(EquipamentoCliente.equipamento, Equipamento.descricao)
+        .order_by(aparelhos.desc(), Equipamento.descricao)
+        .all()
+    )
+    return [ResumoModeloOut(equipamento=e, descricao=d, aparelhos=a, clientes=c)
+            for e, d, a, c in linhas]
 
 
 @router.get("/{item_id}", response_model=EquipamentoClienteOut)

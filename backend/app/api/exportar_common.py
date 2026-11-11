@@ -14,6 +14,16 @@ from app.core.exportacoes import MIME_XLSX, montar_rodape, nome_arquivo
 from app.core.planilha import Coluna, PlanilhaGrandeDemais, gerar_xlsx
 
 
+def nome_do_modelo(db, equipamento: int | None):
+    """Rodape: o id cru do modelo nao diz nada a quem abre a planilha; cai no id
+    se o modelo nao existir. None continua None (filtro nao usado)."""
+    if equipamento is None:
+        return None
+    from app.models import Equipamento
+    nome = db.query(Equipamento.descricao).filter(Equipamento.id == equipamento).scalar()
+    return nome if nome is not None else equipamento
+
+
 def carregar_ate_o_teto(query) -> list:
     """Traz no maximo LIMITE_LINHAS + 1 registros.
 

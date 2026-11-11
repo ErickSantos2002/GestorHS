@@ -12,7 +12,7 @@ import { Pagination } from '../../components/ui/Pagination'
 import { usePaginacaoLocal } from '../../lib/usePaginacaoLocal'
 import { useCrud } from '../cadastros/useCrud'
 import { useAuth } from '../../auth/AuthContext'
-import { podeGerenciarPropostas } from '../../auth/roles'
+import { podeGerenciarPropostas, podeVerProdutos } from '../../auth/roles'
 import { PageContainer } from '../../components/ui/Page'
 import { produtosApi, type Produto, type ProdutoPayload } from '../propostas/api'
 
@@ -30,7 +30,9 @@ export function CatalogoProdutosPage() {
   const [erroForm, setErroForm] = useState('')
   const [enviando, setEnviando] = useState(false)
 
-  if (!podeGerenciarPropostas(user)) {
+  const podeEscrever = podeGerenciarPropostas(user)
+
+  if (!podeVerProdutos(user)) {
     return (
       <div className="px-4 md:px-6 py-6">
         <p className="text-sm text-slate-400">Acesso restrito.</p>
@@ -77,7 +79,7 @@ export function CatalogoProdutosPage() {
     <PageContainer>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-extrabold text-slate-100">Produtos</h1>
-        <Button onClick={abrirNovo}>Novo produto</Button>
+        {podeEscrever && <Button onClick={abrirNovo}>Novo produto</Button>}
       </div>
       {erro && <div className="rounded-lg bg-danger/10 border border-danger/20 px-3 py-2.5 text-sm text-danger">{erro}</div>}
       {itens === null ? (
@@ -86,7 +88,7 @@ export function CatalogoProdutosPage() {
         <p className="text-sm text-slate-500">Nenhum produto cadastrado.</p>
       ) : (
         <Table
-          head={<><TH>Nome</TH><TH>SKU</TH><TH>Preço</TH><TH>Status</TH><TH>Ações</TH></>}
+          head={<><TH>Nome</TH><TH>SKU</TH><TH>Preço</TH><TH>Status</TH>{podeEscrever && <TH>Ações</TH>}</>}
           footer={<Pagination page={page} totalPages={totalPages} total={total} pageSize={pageSize} onPageChange={setPage} itemLabel="produtos" />}
         >
           {visiveis.map((p) => (
@@ -95,7 +97,7 @@ export function CatalogoProdutosPage() {
               <TD>{p.sku ?? '—'}</TD>
               <TD>{p.preco.toFixed(2)}</TD>
               <TD><Badge tone={p.ativo ? 'primary' : 'neutral'}>{p.ativo ? 'Ativo' : 'Inativo'}</Badge></TD>
-              <TD>
+              {podeEscrever && <TD>
                 <IconButtonGroup>
                   <IconButton label="Editar" tone="editar" onClick={() => abrirEdicao(p)}>
                     <IconPencil className="w-4 h-4" />
@@ -104,7 +106,7 @@ export function CatalogoProdutosPage() {
                     <IconTrash className="w-4 h-4" />
                   </IconButton>
                 </IconButtonGroup>
-              </TD>
+              </TD>}
             </tr>
           ))}
         </Table>

@@ -14,15 +14,20 @@ import { equipamentosClienteApi, STATUS_CALIBRACAO, type FrotaItem } from './api
 import { PageContainer } from '../../components/ui/Page'
 import { cn } from '../../lib/utils'
 import { BotaoExportar } from '../../components/ui/BotaoExportar'
+import { FiltroModelo } from './FiltroModelo'
+import { comEquipamento, lerEquipamento } from './modeloNaUrl'
+import { ResumoPorModelo } from './ResumoPorModelo'
 
 const LIMITE = 25
 
 export function FrotaPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const clienteParam = searchParams.get('cliente')
   const clienteId = clienteParam ? Number(clienteParam) : undefined
+  // Na URL (e nao em estado) para o link "ver aparelhos" do resumo abrir ja filtrado.
+  const equipamentoId = lerEquipamento(searchParams)
 
   const [statusFiltro, setStatusFiltro] = useState('')
   const [ativoFiltro, setAtivoFiltro] = useState('')
@@ -46,6 +51,7 @@ export function FrotaPage() {
     equipamentosClienteApi
       .listar({
         cliente: clienteId,
+        equipamento: equipamentoId,
         status: statusFiltro || undefined,
         ativo: ativoFiltro === '' ? undefined : ativoFiltro === 'true',
         q: busca || undefined,
@@ -65,7 +71,12 @@ export function FrotaPage() {
     return () => {
       ativo = false
     }
-  }, [clienteId, statusFiltro, ativoFiltro, busca, offset])
+  }, [clienteId, equipamentoId, statusFiltro, ativoFiltro, busca, offset])
+
+  function onModelo(equipamento: number | undefined) {
+    setOffset(0)
+    setSearchParams((sp) => comEquipamento(sp, equipamento))
+  }
 
   function onBuscar(e: FormEvent) {
     e.preventDefault()
@@ -82,7 +93,7 @@ export function FrotaPage() {
         <div className="flex items-start gap-2">
           <BotaoExportar
             caminho="/equipamentos-cliente/exportar"
-            params={{ cliente: clienteId, status: statusFiltro, ativo: ativoFiltro, q: busca }}
+            params={{ cliente: clienteId, equipamento: equipamentoId, status: statusFiltro, ativo: ativoFiltro, q: busca }}
             nome="equipamentos"
           />
           {podeGerenciarCadastros(user) && (
@@ -96,6 +107,8 @@ export function FrotaPage() {
           )}
         </div>
       </div>
+
+      <ResumoPorModelo />
 
       {clienteId && (
         <div className="flex items-center gap-2 text-sm">
@@ -113,6 +126,9 @@ export function FrotaPage() {
         placeholder="Série ou patrimônio"
         antes={
           <div className="flex gap-3">
+            <div className="w-48">
+              <FiltroModelo id="modelo" label="Modelo" valor={equipamentoId} onChange={onModelo} />
+            </div>
             <div className="w-48">
               <Select
                 id="status"

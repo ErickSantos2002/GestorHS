@@ -5,6 +5,9 @@ import {
   podeRegistrarContato,
   podeAtenderSolicitacao,
   podeGerenciarPropostas,
+  podeVerPropostas,
+  isConsulta,
+  podeVerProdutos,
   podeAvancarCaixa,
   podeMarcarSemConserto,
   podeEditarTipoServico,
@@ -235,4 +238,27 @@ describe('auth/roles — podeRegistrarManutencao', () => {
     expect(podeRegistrarManutencao({ funcao: 'Financeiro' } as never, 5)).toBe(false)
     expect(podeRegistrarManutencao(null, 5)).toBe(false)
   })
+})
+
+describe('auth/roles — podeVerPropostas', () => {
+  const u = (funcao: string | null): User => ({ id: 9, nome: null, email: 'x@hs.com', funcao_id: 9, funcao })
+  it.each(['Administrador', 'Comercial Pós-Vendas', 'Financeiro', 'Expedição'])('%s pode', (f) =>
+    expect(podeVerPropostas(u(f))).toBe(true))
+  it('Laboratório não pode', () => expect(podeVerPropostas(u('Laboratório'))).toBe(false))
+  it('null não pode', () => expect(podeVerPropostas(null)).toBe(false))
+})
+
+describe('auth/roles — Consulta', () => {
+  const u = (funcao: string | null): User => ({ id: 9, nome: null, email: 'x@hs.com', funcao_id: 9, funcao })
+  it('isConsulta só para a função Consulta', () => {
+    expect(isConsulta(u('Consulta'))).toBe(true)
+    expect(isConsulta(u('Expedição'))).toBe(false)
+    expect(isConsulta(null)).toBe(false)
+  })
+  it('Consulta vê Produtos; Expedição não', () => {
+    expect(podeVerProdutos(u('Consulta'))).toBe(true)
+    expect(podeVerProdutos(u('Financeiro'))).toBe(true)
+    expect(podeVerProdutos(u('Expedição'))).toBe(false)
+  })
+  it('Consulta não vê Propostas', () => expect(podeVerPropostas(u('Consulta'))).toBe(false))
 })

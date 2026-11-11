@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Table, TH, TD } from '../../components/ui/Table'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
@@ -14,12 +14,17 @@ import { clientesApi, type ClienteListItem } from './api'
 import { SeloTiny } from './SeloTiny'
 import { PageContainer } from '../../components/ui/Page'
 import { BotaoExportar } from '../../components/ui/BotaoExportar'
+import { FiltroModelo } from '../frota/FiltroModelo'
+import { comEquipamento, lerEquipamento } from '../frota/modeloNaUrl'
 
 const LIMITE = 25
 
 export function ClientesPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
+  // "Tem aparelho do modelo X": na URL para o link "ver clientes" do resumo por modelo.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const equipamentoId = lerEquipamento(searchParams)
   const [termo, setTermo] = useState('')
   const [busca, setBusca] = useState('')
   const [offset, setOffset] = useState(0)
@@ -33,7 +38,7 @@ export function ClientesPage() {
     setItens(null)
     setErro('')
     clientesApi
-      .listar({ q: busca || undefined, offset, limit: LIMITE })
+      .listar({ q: busca || undefined, equipamento: equipamentoId, offset, limit: LIMITE })
       .then((p) => {
         if (!ativo) return
         setItens(p.items)
@@ -47,7 +52,12 @@ export function ClientesPage() {
     return () => {
       ativo = false
     }
-  }, [busca, offset])
+  }, [busca, equipamentoId, offset])
+
+  function onModelo(equipamento: number | undefined) {
+    setOffset(0)
+    setSearchParams((sp) => comEquipamento(sp, equipamento))
+  }
 
   function onBuscar(e: FormEvent) {
     e.preventDefault()
@@ -60,7 +70,7 @@ export function ClientesPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-extrabold text-slate-100">Clientes</h1>
         <div className="flex items-start gap-2">
-          <BotaoExportar caminho="/clientes/exportar" params={{ q: busca }} nome="clientes" />
+          <BotaoExportar caminho="/clientes/exportar" params={{ q: busca, equipamento: equipamentoId }} nome="clientes" />
           {podeGerenciarCadastros(user) && <Button onClick={() => navigate('/app/clientes/novo')}>Novo cliente</Button>}
         </div>
       </div>
@@ -70,6 +80,11 @@ export function ClientesPage() {
         onChange={setTermo}
         onSubmit={onBuscar}
         placeholder="Buscar por nome, CNPJ, CPF, município ou série do aparelho"
+        antes={
+          <div className="w-48">
+            <FiltroModelo id="tem-aparelho" label="Tem aparelho" valor={equipamentoId} onChange={onModelo} />
+          </div>
+        }
       />
 
       {erro && <div className="rounded-lg bg-danger/10 border border-danger/20 px-3 py-2.5 text-sm text-danger">{erro}</div>}

@@ -23,6 +23,16 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.60.0',
+    data: '11/11/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'Nova função "Consulta", somente leitura, para vendedores e SDRs: vê Clientes, Empresas, Equipamentos e Produtos, sem conseguir criar, editar ou excluir nada.' },
+      { tipo: 'novidade', texto: 'Equipamentos ganhou o bloco "Aparelhos por modelo": quantos aparelhos ativos de cada modelo temos e em quantos clientes, com atalhos para ver os aparelhos ou os clientes daquele modelo.' },
+      { tipo: 'melhoria', texto: 'Filtro por modelo em Equipamentos e filtro "Tem aparelho" em Clientes (ex.: quem tem Phoebus). A exportação para Excel respeita os dois filtros.' },
+      { tipo: 'melhoria', texto: 'A Expedição voltou a ver a página Propostas, só para consulta.' },
+    ],
+  },
+  {
     versao: '1.59.2',
     data: '05/11/2026',
     itens: [
