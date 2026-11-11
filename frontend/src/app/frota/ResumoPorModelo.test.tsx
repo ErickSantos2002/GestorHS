@@ -32,4 +32,12 @@ describe('ResumoPorModelo', () => {
     expect(screen.getByRole('link', { name: /ver aparelhos/i })).toHaveAttribute('href', '/app/equipamentos?equipamento=36')
     expect(screen.getByRole('link', { name: /ver clientes/i })).toHaveAttribute('href', '/app/clientes?equipamento=36')
   })
+
+  it('diz o critério da contagem, que difere da lista de aparelhos', async () => {
+    render(<MemoryRouter><ResumoPorModelo /></MemoryRouter>)
+    await userEvent.click(screen.getByRole('button', { name: /por modelo/i }))
+    await screen.findByText('Phoebus')
+    expect(screen.getByText('Aparelhos ativos')).toBeInTheDocument()
+    expect(screen.getByText(/sem o estoque da HS/i)).toBeInTheDocument()
+  })
 })

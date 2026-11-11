@@ -43,13 +43,16 @@ export function ResumoPorModelo() {
       </button>
       {aberto && (
         <div className="px-4 pb-4">
+          <p className="text-xs text-slate-500 mb-2">
+            Conta só aparelhos ativos, sem o estoque da HS. A lista de aparelhos mostra também os inativos e o estoque.
+          </p>
           {erro && <p className="text-sm text-danger mb-2">{erro}</p>}
           {linhas === null ? (
             <div className="flex justify-center py-6"><Spinner className="w-6 h-6" /></div>
           ) : linhas.length === 0 ? (
             !erro && <p className="text-sm text-slate-500">Nenhum aparelho ativo.</p>
           ) : (
-            <Table head={<><TH>Modelo</TH><TH>Aparelhos</TH><TH>Clientes</TH><TH>Ver</TH></>}>
+            <Table head={<><TH>Modelo</TH><TH>Aparelhos ativos</TH><TH>Clientes</TH><TH>Ver</TH></>}>
               {linhas.map((l) => (
                 <tr key={l.equipamento}>
                   <TD>{l.descricao ?? `#${l.equipamento}`}</TD>

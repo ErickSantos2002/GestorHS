@@ -177,7 +177,9 @@ def exportar(
 def resumo_por_modelo(db: Session = Depends(get_db), _: Usuario = Depends(get_current_usuario)):
     """Quantos aparelhos de cada modelo temos hoje, e em quantos clientes.
     Mesmo criterio do filtro "tem aparelho" de /clientes: so ativos e sem o
-    estoque da HS — os dois numeros tem que bater com a lista que o link abre."""
+    estoque da HS — `clientes` bate com a lista que "ver clientes" abre. `aparelhos`
+    NAO bate com "ver aparelhos", que mostra tambem inativos e o estoque (a frota e'
+    aparelho a aparelho); a tela avisa isso no proprio bloco."""
     aparelhos = func.count(EquipamentoCliente.id)
     linhas = (
         db.query(

@@ -76,3 +76,31 @@ def test_sem_funcao_nao_quebra(client, db_session):
     tok = client.post("/auth/login", json={"email": "sem@hs.com", "senha": "senha123"}).json()
     resp = client.get("/clientes", headers={"Authorization": f"Bearer {tok['access_token']}"})
     assert resp.status_code == 200
+
+
+# Escritas que NAO passam por get_current_usuario — logo, fora da trava da Consulta.
+# Cada uma tem a sua propria porta (login/senha, token de cliente do portal, chave de
+# API do inbound). Rota de escrita nova sem get_current_usuario quebra este teste de
+# proposito: decida se ela devia estar travada antes de acrescentar aqui.
+ESCRITA_SEM_USUARIO = {
+    ("POST", "/auth/login"),
+    ("POST", "/auth/login-portal"),
+    ("POST", "/auth/refresh"),
+    ("POST", "/auth/definir-senha"),
+    ("POST", "/auth/definir-senha-portal"),
+    ("POST", "/auth/sso/exchange"),
+    ("POST", "/portal/solicitar-recalibracao"),
+    ("POST", "/integracao/growthhs/caixas/{caixa_id}/ganho"),
+    ("POST", "/integracao/taskhs/caixas/{caixa_id}/financeiro"),
+}
+
+
+def test_escritas_fora_da_trava_sao_so_as_conhecidas():
+    from app.main import app
+    achadas = {
+        (m, r.path)
+        for r in _api_routes(app.routes)
+        for m in r.methods & ESCRITA
+        if not _depende_de_usuario(r.dependant)
+    }
+    assert achadas == ESCRITA_SEM_USUARIO
