@@ -615,3 +615,52 @@ def upload_tmp(tmp_path):
         yield tmp_path
     finally:
         settings.UPLOAD_DIR = anterior
+
+
+# ---------------------------------------------------------------------------
+# Token de agente do HS.OS (Guardi). Par Ed25519 por teste; a publica entra em
+# settings.HSOS_AGENTE_CHAVE_PUBLICA e `agente(email, **sobrescreve)` emite o token.
+# ---------------------------------------------------------------------------
+def _par_ed25519():
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    priv = Ed25519PrivateKey.generate()
+    pem = priv.public_key().public_bytes(
+        serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
+    ).decode()
+    return priv, pem
+
+
+def emitir_token_agente(priv, email, **sobrescreve):
+    import time
+    import uuid
+    import jwt
+    agora = int(time.time())
+    payload = {
+        "iss": "hsos", "aud": "gestorhs", "sub": email, "act": {"sub": "erick-bot"},
+        "iat": agora, "exp": agora + 300, "jti": str(uuid.uuid4()),
+    }
+    for k, v in sobrescreve.items():
+        if v is None:
+            payload.pop(k, None)
+        else:
+            payload[k] = v
+    return jwt.encode(payload, priv, algorithm="EdDSA")
+
+
+@pytest.fixture()
+def agente(monkeypatch):
+    from app.core.config import settings
+    priv, pem = _par_ed25519()
+    monkeypatch.setattr(settings, "HSOS_AGENTE_CHAVE_PUBLICA", pem)
+
+    def _emitir(email, **sobrescreve):
+        return emitir_token_agente(priv, email, **sobrescreve)
+    return _emitir
+
+
+@pytest.fixture()
+def client_agente(client, usuario_admin, fases_seed, agente):
+    """Client com token de agente do HS.OS em nome do Administrador."""
+    client.headers["Authorization"] = f"Bearer {agente('admin@hs.com')}"
+    return client

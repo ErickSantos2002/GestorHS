@@ -104,3 +104,38 @@ def test_escritas_fora_da_trava_sao_so_as_conhecidas():
         if not _depende_de_usuario(r.dependant)
     }
     assert achadas == ESCRITA_SEM_USUARIO
+
+
+# --- Token de agente do HS.OS (Guardi), fase 1 -----------------------------
+# Mesma varredura, mais estrita: fora de GET na allowlist (core/agente.py), TODA rota
+# que passa por get_current_usuario recusa o agente — escrita e leitura.
+MSG_AGENTE = "Ação não permitida para o agente"
+
+
+def _rotas_fora_da_allowlist_do_agente():
+    from app.core.agente import agente_pode
+    from app.main import app
+    for r in _api_routes(app.routes):
+        if not _depende_de_usuario(r.dependant):
+            continue
+        for m in sorted(r.methods - {"HEAD", "OPTIONS"}):
+            if not agente_pode(m, r.path):
+                yield m, re.sub(r"\{[^}]+\}", "1", r.path)
+
+
+def test_agente_recusado_fora_da_allowlist(client_agente):
+    rotas = list(_rotas_fora_da_allowlist_do_agente())
+    assert len(rotas) > 100  # sanidade: escrita + leituras fora do catalogo
+    falhas = []
+    for metodo, caminho in rotas:
+        resp = client_agente.request(metodo, caminho, json={})
+        if resp.status_code != 403 or resp.json().get("detail") != MSG_AGENTE:
+            falhas.append(f"{metodo} {caminho} -> {resp.status_code} {resp.text[:80]}")
+    assert falhas == []
+
+
+def test_allowlist_do_agente_so_tem_get_de_rota_que_existe():
+    from app.core.agente import ROTAS_AGENTE
+    from app.main import app
+    gets = {r.path for r in _api_routes(app.routes) if "GET" in r.methods and _depende_de_usuario(r.dependant)}
+    assert ROTAS_AGENTE - gets == set()

@@ -11,6 +11,7 @@ from app.models.database import get_db
 from app.models import Usuario, UsuarioCliente
 from app.core.config import settings
 from app.core.security import decodificar_token
+from app.core.agente import TokenDeAgenteInvalido, agente_pode, eh_token_de_agente, validar_token_de_agente
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
@@ -55,7 +56,30 @@ def _barrar_escrita_de_consulta(request: Request, usuario: Usuario) -> None:
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Função Consulta é somente leitura")
 
 
+def _usuario_do_agente(request: Request, token: str, db: Session) -> Usuario:
+    """Token de agente do HS.OS (o Guardi consultando como o dono). Fase 1: so
+    leitura, e so nas rotas de ROTAS_AGENTE (allowlist em core/agente.py)."""
+    try:
+        email, bot = validar_token_de_agente(token, settings.HSOS_AGENTE_CHAVE_PUBLICA)
+    except TokenDeAgenteInvalido as exc:
+        logger.warning("token de agente recusado: %s", exc)
+        raise _cred_invalida
+    # E-mail EXATO, sem normalizar: o sub e' o e-mail que o HS.OS tem do dono.
+    usuario = db.query(Usuario).filter(Usuario.email == email).first()
+    if usuario is None or not usuario.ativo:
+        raise _cred_invalida
+    rota = getattr(request.scope.get("route"), "path", None)
+    if not agente_pode(request.method, rota):
+        logger.warning("token de agente fora da allowlist: %s %s via %s", request.method, rota, bot)
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ação não permitida para o agente")
+    request.state.agente = bot
+    logger.info("token de agente: %s via %s em %s %s", email, bot, request.method, rota)
+    return usuario
+
+
 def get_current_usuario(request: Request, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> Usuario:
+    if eh_token_de_agente(token):
+        return _usuario_do_agente(request, token, db)
     dados = _payload_valido(token, "usuario")
     try:
         sub_id = int(dados["sub"])
@@ -69,6 +93,10 @@ def get_current_usuario(request: Request, token: str = Depends(oauth2_scheme), d
 
 
 def get_current_cliente(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> UsuarioCliente:
+    # O portal NUNCA aceita token de agente — recusa explicita, sem depender do
+    # jose falhar no EdDSA.
+    if eh_token_de_agente(token):
+        raise _cred_invalida
     dados = _payload_valido(token, "cliente")
     try:
         sub_id = int(dados["sub"])

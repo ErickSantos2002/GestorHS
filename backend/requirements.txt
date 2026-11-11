@@ -11,6 +11,9 @@ pydantic[email]==2.13.4
 pydantic-settings==2.14.2
 passlib[argon2]==1.7.4
 python-jose[cryptography]==3.5.0
+# Token de agente do HS.OS (EdDSA): o jose nao verifica EdDSA.
+PyJWT==2.13.0
+cryptography==49.0.0
 pytest==9.1.1
 httpx==0.28.1
 python-multipart==0.0.32
