@@ -17,7 +17,7 @@ from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core import proposta_pdf
+from app.core import proposta_link, proposta_pdf
 from app.core.empresa import dados_destinatario, destinatario_legado
 from app.core.empresa_servico import CAMPOS_EMPRESA, conferir_matriz, criar_empresa
 from app.models.proposta import Proposta, PropostaItem, PropostaAparelho
@@ -307,6 +307,7 @@ def montar_saida(db: Session, proposta: Proposta) -> PropostaOut:
     # proposta antiga com o contato so no override: o modal abre com ele
     if not proposta.contato:
         saida.contato = (proposta.cliente_override or {}).get("contato") or saida.contato
+    saida.link_pdf = proposta_link.link_proposta(proposta.id)
     return saida
 
 

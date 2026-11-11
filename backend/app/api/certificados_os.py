@@ -1,13 +1,13 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 
 from app.models.database import get_db
 from app.models import Usuario, Ordem, OSCertificado
-from app.api.deps import get_current_usuario, require_funcao
+from app.api.deps import eh_agente, get_current_usuario, require_funcao
 from app.api.ordens_acoes import agora, concluir_laboratorio, registrar_log
-from app.core import os_workflow as wf
+from app.core import certificado_link, os_workflow as wf
 from app.core.certificado_config import padrao_vigente
 from app.core.certificado_gerar import gerar_certificados, tipos_para, tipos_sem_modelo, montar_contexto
 from app.core.certificado_pdf import html_para_pdf
@@ -35,10 +35,20 @@ def _os_ou_404(db: Session, ordem_id: int) -> Ordem:
 
 
 @router.get("/ordens/{ordem_id}/certificados", response_model=list[OSCertificadoOut])
-def listar_os_certificados(ordem_id: int, db: Session = Depends(get_db), _: Usuario = Depends(get_current_usuario)):
+def listar_os_certificados(ordem_id: int, request: Request, db: Session = Depends(get_db),
+                           _: Usuario = Depends(get_current_usuario)):
     _os_ou_404(db, ordem_id)
     cs = db.query(OSCertificado).filter(OSCertificado.os == ordem_id).order_by(OSCertificado.tipo).all()
-    return [OSCertificadoOut.model_validate(c) for c in cs]
+    # O agente (Guardi) recebe o link do PDF, nao o html inteiro: enche o contexto do bot.
+    sem_html = eh_agente(request)
+    saida = []
+    for c in cs:
+        item = OSCertificadoOut.model_validate(c)
+        item.link_pdf = certificado_link.link_pdf(c.os, c.tipo)
+        if sem_html:
+            item.html = None
+        saida.append(item)
+    return saida
 
 
 @router.get("/ordens/{ordem_id}/certificado-campos", response_model=CertificadoCamposOut)

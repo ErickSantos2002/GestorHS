@@ -116,6 +116,7 @@ class EquipCertItem(BaseModel):
     tipo: str
     data_geracao: datetime | None = None
     origem: str = "os"             # "os" | "venda"
+    link_pdf: str | None = None    # link publico do TaskHS; so origem "os"
     model_config = {"from_attributes": True}
 
 

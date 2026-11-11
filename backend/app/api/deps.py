@@ -77,6 +77,11 @@ def _usuario_do_agente(request: Request, token: str, db: Session) -> Usuario:
     return usuario
 
 
+def eh_agente(request: Request) -> bool:
+    """A requisicao veio com token de agente do HS.OS (so depois de get_current_usuario)."""
+    return getattr(request.state, "agente", None) is not None
+
+
 def get_current_usuario(request: Request, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> Usuario:
     if eh_token_de_agente(token):
         return _usuario_do_agente(request, token, db)

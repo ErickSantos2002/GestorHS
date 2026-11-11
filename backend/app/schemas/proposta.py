@@ -164,6 +164,8 @@ class PropostaOut(PropostaBase):
     # Desabilitada: fora de circulação, mas inteira no banco. Só Admin reativa.
     is_deleted: bool = False
     deleted_at: Optional[datetime] = None
+    # Mesmo link publico assinado dos cards do TaskHS; None sem CERT_PUBLIC_BASE_URL.
+    link_pdf: Optional[str] = None
     model_config = {"from_attributes": True}
 
 

@@ -48,3 +48,5 @@ class OSCertificadoOut(BaseModel):
     html: str | None = None
     pdf: str | None = None
     data_geracao: datetime | None = None
+    # Mesmo link publico assinado dos cards do TaskHS; None sem CERT_PUBLIC_BASE_URL.
+    link_pdf: str | None = None

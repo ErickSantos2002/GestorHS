@@ -11,7 +11,7 @@ from app.api.cadastros_common import excluir_protegido
 from app.api.exportar_common import carregar_ate_o_teto, nome_do_modelo, resposta_xlsx
 from app.core.exportacoes import COLUNAS_FROTA, linha_frota
 from app.api.ordens_acoes import agora
-from app.core import os_workflow as wf
+from app.core import certificado_link, os_workflow as wf
 from app.core.config import settings
 from app.schemas.frota import (
     ResumoModeloOut,
@@ -241,7 +241,8 @@ def certificados_do_aparelho(item_id: int, db: Session = Depends(get_db), _: Usu
         .order_by(OSCertificado.os.desc(), OSCertificado.tipo)
         .all()
     )
-    itens = [EquipCertItem(os=c.os, tipo=c.tipo, data_geracao=c.data_geracao, origem="os")
+    itens = [EquipCertItem(os=c.os, tipo=c.tipo, data_geracao=c.data_geracao, origem="os",
+                           link_pdf=certificado_link.link_pdf(c.os, c.tipo))
              for c in rows]
     # O de venda e cronologicamente o PRIMEIRO da vida do aparelho, entao fecha a lista
     # (que esta em ordem decrescente). Sempre tipo "C".

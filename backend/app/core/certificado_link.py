@@ -18,6 +18,13 @@ def verificar(ordem_id: int, tipo_codigo: str, token: str | None) -> bool:
     return assinatura.verificar(_mensagem(ordem_id, tipo_codigo), token)
 
 
+def link_pdf(ordem_id: int, tipo_codigo: str) -> str | None:
+    """Como link_certificado, mas None (em vez de KeyError) para tipo sem PDF publico."""
+    if tipo_codigo not in NOME_PUBLICO:
+        return None
+    return link_certificado(ordem_id, tipo_codigo)
+
+
 def link_certificado(ordem_id: int, tipo_codigo: str) -> str | None:
     base = settings.CERT_PUBLIC_BASE_URL
     if not base:
