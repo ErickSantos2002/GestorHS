@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.64.1',
+    data: '12/11/2026',
+    itens: [
+      { tipo: 'correcao', texto: 'O Guardi não conseguia ler os dados de uma empresa (filial) para montar proposta destinada a ela. Agora consegue.' },
+    ],
+  },
+  {
     versao: '1.64.0',
     data: '12/11/2026',
     itens: [
