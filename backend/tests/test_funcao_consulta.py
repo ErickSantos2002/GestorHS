@@ -106,9 +106,10 @@ def test_escritas_fora_da_trava_sao_so_as_conhecidas():
     assert achadas == ESCRITA_SEM_USUARIO
 
 
-# --- Token de agente do HS.OS (Guardi), fase 1 -----------------------------
-# Mesma varredura, mais estrita: fora de GET na allowlist (core/agente.py), TODA rota
-# que passa por get_current_usuario recusa o agente — escrita e leitura.
+# --- Token de agente do HS.OS (Guardi) --------------------------------------
+# Mesma varredura, mais estrita: fora da allowlist (core/agente.py: GET de ROTAS_AGENTE
+# e as escritas de ESCRITAS_AGENTE), TODA rota que passa por get_current_usuario
+# recusa o agente — escrita e leitura.
 MSG_AGENTE = "Ação não permitida para o agente"
 
 
@@ -139,3 +140,14 @@ def test_allowlist_do_agente_so_tem_get_de_rota_que_existe():
     from app.main import app
     gets = {r.path for r in _api_routes(app.routes) if "GET" in r.methods and _depende_de_usuario(r.dependant)}
     assert ROTAS_AGENTE - gets == set()
+
+
+def test_escritas_do_agente_existem_e_sao_so_as_tres():
+    # Fase 2a: abrir outra escrita ao Guardi e' decisao de spec, nao de passagem.
+    from app.core.agente import ESCRITAS_AGENTE
+    from app.main import app
+    assert ESCRITAS_AGENTE == {("POST", "/ordens"), ("POST", "/caixas/{caixa_id}/avancar"),
+                               ("POST", "/equipamentos-cliente")}
+    existentes = {(m, r.path) for r in _api_routes(app.routes) for m in r.methods
+                  if _depende_de_usuario(r.dependant)}
+    assert ESCRITAS_AGENTE - existentes == set()

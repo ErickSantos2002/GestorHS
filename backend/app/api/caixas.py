@@ -10,7 +10,7 @@ from app.core import os_workflow as wf
 from app.core import fluxo_modulo
 from app.core.caixa import cliente_unico, contar_outros, principal_valido
 from app.core import proposta_servico
-from app.api.deps import ADMIN, get_current_usuario, require_funcao
+from app.api.deps import ADMIN, get_current_usuario, require_funcao, via_agente
 from app.api.cadastros_common import excluir_protegido
 from app.schemas.caixas import (
     CaixaCreate, CaixaUpdate, CaixaOut, CaixaDetalhe, CaixaPage, VincularOrdemIn,
@@ -302,6 +302,9 @@ def avancar_caixa(
             elif len(clientes_distintos) > 1:
                 raise HTTPException(status_code=409, detail="defina o cliente principal antes de avancar")
 
+    # Pelo Guardi, nunca sem nota — nem com dono Administrador.
+    if dados.sem_nota_fiscal and via_agente(usuario):
+        raise HTTPException(status_code=403, detail="Avançar sem a nota fiscal não é permitido para o agente")
     if dados.sem_nota_fiscal and usuario.funcao != ADMIN:
         raise HTTPException(status_code=403, detail="só o Administrador pode avançar sem a nota fiscal")
 

@@ -4,6 +4,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.models import Ordem, Fase, LogOS, Usuario
+from app.api.deps import via_agente
 from app.core import os_workflow as wf
 from app.core.calibracao import proxima_calibracao
 from app.core.certificado_gerar import tipos_para
@@ -25,6 +26,9 @@ def exige_funcao_da_fase(db: Session, usuario: Usuario, fase_id: int) -> None:
 
 
 def registrar_log(db: Session, ordem: Ordem, usuario: Usuario | None, texto: str) -> None:
+    bot = via_agente(usuario)  # escrita pelo Guardi: o historico mostra o bot
+    if bot:
+        texto = f"{texto} via {bot}"
     db.add(LogOS(os=ordem.id, usuario=usuario.id if usuario else None, datalog=agora(), autor="1", texto=texto))
 
 

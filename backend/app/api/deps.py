@@ -72,9 +72,19 @@ def _usuario_do_agente(request: Request, token: str, db: Session) -> Usuario:
     if not agente_pode(request.method, rota):
         logger.warning("token de agente fora da allowlist: %s %s via %s", request.method, rota, bot)
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ação não permitida para o agente")
+    # A trava da funcao Consulta vale tambem pelo Guardi (escrita do dono Consulta = 403).
+    _barrar_escrita_de_consulta(request, usuario)
     request.state.agente = bot
+    # Atributo transitorio no objeto do request: registrar_log e a trava do
+    # sem_nota_fiscal leem daqui (nao ha request la dentro). O caminho normal zera.
+    usuario.via_agente = bot
     logger.info("token de agente: %s via %s em %s %s", email, bot, request.method, rota)
     return usuario
+
+
+def via_agente(usuario: Usuario | None) -> str | None:
+    """O bot do HS.OS (act.sub) quando o usuario entrou por token de agente; senao None."""
+    return getattr(usuario, "via_agente", None)
 
 
 def eh_agente(request: Request) -> bool:
@@ -94,6 +104,7 @@ def get_current_usuario(request: Request, token: str = Depends(oauth2_scheme), d
     if usuario is None or not usuario.ativo:
         raise _cred_invalida
     _barrar_escrita_de_consulta(request, usuario)
+    usuario.via_agente = None
     return usuario
 
 

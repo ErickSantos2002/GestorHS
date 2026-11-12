@@ -36,7 +36,15 @@ ROTAS_AGENTE = frozenset({
     "/propostas/{proposta_id}",
     "/propostas/{proposta_id}/versoes",
 })
-METODOS_AGENTE = frozenset({"GET"})
+# Fase 2a (nov/2026): as UNICAS escritas do agente, para a Expedicao pelo Guardi
+# (sempre depois de a pessoa confirmar um cartao no HS.OS). Nelas a trava "so GET"
+# cede e vale o require_funcao / exige_funcao_da_fase da rota, com a funcao do DONO.
+# Spec: HS.OS/docs/superpowers/specs/2026-11-12-guardi-gestorhs-expedicao-design.md
+ESCRITAS_AGENTE = frozenset({
+    ("POST", "/ordens"),
+    ("POST", "/caixas/{caixa_id}/avancar"),
+    ("POST", "/equipamentos-cliente"),
+})
 
 
 class TokenDeAgenteInvalido(Exception):
@@ -53,7 +61,9 @@ def eh_token_de_agente(token: str) -> bool:
 
 
 def agente_pode(metodo: str, rota: str | None) -> bool:
-    return metodo in METODOS_AGENTE and rota in ROTAS_AGENTE
+    if metodo == "GET":
+        return rota in ROTAS_AGENTE
+    return (metodo, rota) in ESCRITAS_AGENTE
 
 
 def validar_token_de_agente(token: str, chave_pem: str) -> tuple[str, str]:
