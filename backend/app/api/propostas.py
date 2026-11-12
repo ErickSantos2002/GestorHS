@@ -14,8 +14,9 @@ from sqlalchemy.orm import Session
 
 from app.models.database import get_db
 from app.models import Usuario, Cliente, Empresa, Proposta, PropostaVersao
-from app.api.deps import get_current_usuario, require_funcao
+from app.api.deps import get_current_usuario, require_funcao, via_agente
 from app.api.ordens_acoes import agora
+from app.core import proposta_padrao
 from app.core import proposta_servico as ps
 from app.core import proposta_pdf
 from app.core.busca import digitos_de_documento
@@ -24,7 +25,7 @@ from app.core.empresa_servico import DocumentoDuplicado, MatrizInexistente
 from app.integrations import tiny_client
 from app.schemas.proposta import (
     PropostaCreate, PropostaUpdate, PropostaOut, PropostaListOut, PropostaVersaoOut,
-    PropostaItemCreate, PropostaAparelhoCreate, DestinatarioBuscaOut,
+    PropostaItemCreate, PropostaAparelhoCreate, DestinatarioBuscaOut, DestinatarioVinculoIn,
 )
 
 logger = logging.getLogger(__name__)
@@ -241,6 +242,32 @@ def buscar_destinatarios(
     ]
 
 
+_PROIBIDO_AGENTE = "Pelo Guardi o destinatário só é escolhido ({tipo, id}): o cadastro não é alterado por aqui"
+
+
+def _assinatura(usuario: Usuario) -> str:
+    """Nome para `vendedor`/`alterado_por`, com o bot quando veio pelo Guardi."""
+    bot = via_agente(usuario)
+    return f"{usuario.nome} via {bot}" if bot else usuario.nome
+
+
+def _recusar_vinculo_da_tela(dados) -> None:
+    # A forma {tipo, id} e' exclusiva do agente; a tela manda o bloco inteiro.
+    if isinstance(dados.destinatario, DestinatarioVinculoIn):
+        raise HTTPException(status_code=422, detail="destinatario incompleto: informe os dados do cadastro")
+
+
+@router.get("/padrao")
+def padrao(
+    modelos: str = "",
+    series: str = "",
+    _: Usuario = Depends(get_current_usuario),
+):
+    """Padrao da proposta nova (fonte unica da tela e do Guardi). `modelos` e `series`
+    entram como texto ja juntado ("Mark-X, Mercury"), como a tela fazia."""
+    return proposta_padrao.montar_padrao(modelos, series)
+
+
 @router.post("", response_model=PropostaOut, status_code=status.HTTP_201_CREATED)
 def criar(
     dados: PropostaCreate,
@@ -248,6 +275,20 @@ def criar(
     db: Session = Depends(get_db),
     usuario: Usuario = Depends(_escrever),
 ):
+    if via_agente(usuario):
+        dest = dados.destinatario
+        if dest is not None and (not isinstance(dest, DestinatarioVinculoIn) or dest.tipo == "nova_empresa"):
+            raise HTTPException(status_code=403, detail=_PROIBIDO_AGENTE)
+        vinculo = copia = None
+        with _erros_de_destinatario(db):
+            if dest is not None:
+                vinculo, copia = ps.vinculo_do_cadastro(db, dest.tipo, dest.id)
+            proposta = ps.criar_proposta(db, dados.model_copy(update={"destinatario": None}),
+                                         vendedor=usuario.nome, vinculo=vinculo, copia=copia)
+        # Nada agenda o Tiny a partir do agente (spec da fase 2c).
+        logger.info("proposta %s criada por %s", proposta.id, _assinatura(usuario))
+        return ps.montar_saida(db, proposta)
+    _recusar_vinculo_da_tela(dados)
     with _erros_de_destinatario(db):
         proposta = ps.criar_proposta(db, dados, vendedor=usuario.nome)
     saida = ps.montar_saida(db, proposta)
@@ -439,6 +480,15 @@ def atualizar(
     usuario: Usuario = Depends(_escrever),
 ):
     proposta = _para_escrita(db, proposta_id)
+    if via_agente(usuario):
+        if dados.destinatario is not None:
+            raise HTTPException(status_code=403, detail=_PROIBIDO_AGENTE)
+        if proposta.faturada:
+            raise HTTPException(status_code=409, detail="proposta já faturada: altere pela tela do GestorHS")
+        with _erros_de_destinatario(db):  # aparelho fora da frota continua 422
+            atualizado = ps.atualizar_proposta(db, proposta, dados, alterado_por=_assinatura(usuario))
+        return ps.montar_saida(db, atualizado)  # sem Tiny a partir do agente
+    _recusar_vinculo_da_tela(dados)
     with _erros_de_destinatario(db):
         atualizado = ps.atualizar_proposta(db, proposta, dados, alterado_por=usuario.nome)
     saida = ps.montar_saida(db, atualizado)
