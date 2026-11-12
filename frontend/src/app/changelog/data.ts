@@ -23,6 +23,14 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.63.0',
+    data: '12/11/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'O Laboratório pode gerar o certificado de calibração pelo Guardi, depois de confirmar as leituras no HS.OS. Gerar continua concluindo o aparelho, como na tela.' },
+      { tipo: 'melhoria', texto: 'O Guardi nunca altera o cabeçalho do certificado (cliente, CNPJ, endereço, modelo, série etc.): o que foi ajustado na tela é mantido ao gerar ou regerar por ele.' },
+    ],
+  },
+  {
     versao: '1.62.0',
     data: '12/11/2026',
     itens: [
