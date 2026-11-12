@@ -40,6 +40,8 @@ ROTAS_AGENTE = frozenset({
     "/propostas/padrao",
     "/servicos",
     "/produtos",
+    # proposta para empresa/filial: UF, nome e o cliente matriz (dono da frota)
+    "/empresas/{empresa_id}",
 })
 # Fase 2a (nov/2026): as UNICAS escritas do agente, para a Expedicao pelo Guardi
 # (sempre depois de a pessoa confirmar um cartao no HS.OS). Nelas a trava "so GET"

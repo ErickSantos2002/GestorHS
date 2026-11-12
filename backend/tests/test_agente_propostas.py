@@ -141,3 +141,11 @@ def test_tela_nao_aceita_so_tipo_e_id(client_comercial, cliente):
 def test_tela_segue_igual_em_faturada(client_fin, cliente, db_session):
     p = Proposta(numero=503, cliente=cliente.id, faturada=True); db_session.add(p); db_session.commit()
     assert client_fin.put(f"/propostas/{p.id}", json={"desconto": 10}).status_code == 200
+
+
+def test_le_a_empresa_mas_nao_a_lista(como, usuario_comercial, empresa, cliente):
+    c = como("comercial@hs.com")
+    r = c.get(f"/empresas/{empresa.id}")
+    assert r.status_code == 200, r.text
+    assert (r.json()["nome"], r.json()["estado"], r.json()["cliente"]) == ("ACME FILIAL", "PE", cliente.id)
+    assert c.get("/empresas").status_code == 403  # a listagem segue fora
