@@ -98,3 +98,60 @@ def test_tela_continua_gravando_override(client, usuario_lab, fases_seed, os_lab
     assert r.json()[0]["html"]  # a tela recebe o html
     o = db_session.get(Ordem, os_lab); db_session.refresh(o)
     assert o.cert_overrides == {"nomecli": "PELA TELA"}
+
+
+LEITURAS = {"calib_cert": "C-77", "calib_temp": "25", "calib_pressao": "1013", "calib_teste1": "0.10",
+            "calib_teste2": "0.11", "calib_teste3": "0.10", "calib_teste4": "0.09", "calib_teste5": "0.10",
+            "calib_teste_media": "0.10", "calib_situacao": "Aprovado"}
+
+
+def _com_leituras(db, oid):
+    o = db.get(Ordem, oid)
+    for k, v in LEITURAS.items():
+        setattr(o, k, v)
+    db.commit()
+
+
+def test_corpo_parcial_do_agente_nao_apaga_leituras(como, usuario_lab, os_lab, db_session):
+    _com_leituras(db_session, os_lab)
+    r = como("lab@hs.com").post(f"/ordens/{os_lab}/gerar-certificado", json={"calib_situacao": "Reprovado"})
+    assert r.status_code == 200, r.text
+    o = db_session.get(Ordem, os_lab); db_session.refresh(o)
+    assert o.calib_situacao == "Reprovado"
+    assert {k: getattr(o, k) for k in LEITURAS if k != "calib_situacao"} == \
+           {k: v for k, v in LEITURAS.items() if k != "calib_situacao"}
+
+
+def test_tela_com_corpo_parcial_segue_como_era(client, usuario_lab, fases_seed, os_lab, db_session):
+    # A tela manda sempre o conjunto inteiro; corpo parcial ali ainda zera o omitido.
+    _com_leituras(db_session, os_lab)
+    tok = client.post("/auth/login", json={"email": "lab@hs.com", "senha": "senha123"}).json()
+    r = client.post(f"/ordens/{os_lab}/gerar-certificado", json={"calib_situacao": "Reprovado"},
+                    headers={"Authorization": f"Bearer {tok['access_token']}"})
+    assert r.status_code == 200
+    o = db_session.get(Ordem, os_lab); db_session.refresh(o)
+    assert o.calib_situacao == "Reprovado" and o.calib_cert is None
+
+
+@pytest.mark.parametrize("fase", [6, 10, 7, 8])
+def test_agente_fora_do_laboratorio_409(como, usuario_lab, os_lab, db_session, fase):
+    o = db_session.get(Ordem, os_lab)
+    o.fase = fase; o.desfecho_lab = "concluido"
+    db_session.commit()
+    _com_leituras(db_session, os_lab)
+    r = como("lab@hs.com").post(f"/ordens/{os_lab}/gerar-certificado", json=LEITURAS | {"calib_cert": "NOVO"})
+    assert r.status_code == 409
+    assert "Laboratório" in r.json()["detail"]
+    db_session.refresh(o)
+    assert o.calib_cert == "C-77"
+
+
+@pytest.mark.parametrize("fase", [6, 8])
+def test_tela_regera_fora_do_laboratorio(client, usuario_lab, fases_seed, os_lab, db_session, fase):
+    o = db_session.get(Ordem, os_lab)
+    o.fase = fase; o.desfecho_lab = "concluido"
+    db_session.commit()
+    tok = client.post("/auth/login", json={"email": "lab@hs.com", "senha": "senha123"}).json()
+    r = client.post(f"/ordens/{os_lab}/gerar-certificado", json={},
+                    headers={"Authorization": f"Bearer {tok['access_token']}"})
+    assert r.status_code == 200

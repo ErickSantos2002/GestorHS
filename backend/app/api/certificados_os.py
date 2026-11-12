@@ -73,6 +73,15 @@ _LABEL_TIPO = {"C": "Calibração", "M": "Manutenção"}
 @router.post("/ordens/{ordem_id}/gerar-certificado", response_model=list[OSCertificadoOut])
 def gerar(ordem_id: int, dados: GerarCertificadoIn | None = None, db: Session = Depends(get_db), usuario: Usuario = Depends(_gerar)):
     ordem = _os_ou_404(db, ordem_id)
+    agente = via_agente(usuario) is not None
+    # Pelo Guardi, so no Laboratorio: regerar OS antiga continua pela tela, com o
+    # tecnico. O HS.OS recusa antes do cartao com a mesma regra (conferir_os_para_certificado).
+    if agente and ordem.fase != wf.FASE_LABORATORIO:
+        raise HTTPException(
+            status_code=409,
+            detail="Pelo Guardi o certificado só é gerado com a OS no Laboratório. "
+                   "Para regerar o de uma OS que já saiu, use a tela do GestorHS.",
+        )
     # Sem modelo cadastrado para o aparelho não há o que preencher: recusa com mensagem
     # clara em vez de gerar nada e responder 200 (falha silenciosa).
     faltando = tipos_sem_modelo(db, ordem, tipos_para(ordem))
@@ -100,8 +109,12 @@ def gerar(ordem_id: int, dados: GerarCertificadoIn | None = None, db: Session = 
                        "antes de gerar o relatório de manutenção.",
             )
     if dados is not None:
+        # Pelo Guardi grava SO o que veio no corpo: campo omitido nao apaga a leitura
+        # gravada (a tela sempre manda o conjunto inteiro, e segue como era).
+        enviados = dados.model_fields_set if agente else _CAMPOS_CALIB
         for campo in _CAMPOS_CALIB:
-            setattr(ordem, campo, getattr(dados, campo))
+            if campo in enviados:
+                setattr(ordem, campo, getattr(dados, campo))
         if dados.data_calibracao is not None:
             ordem.data_calibracao = datetime(
                 dados.data_calibracao.year, dados.data_calibracao.month, dados.data_calibracao.day,
@@ -109,7 +122,7 @@ def gerar(ordem_id: int, dados: GerarCertificadoIn | None = None, db: Session = 
             )
         # Pelo Guardi o cabecalho NAO muda: os campos de override do corpo sao
         # ignorados e o gravado fica (corpo sem override zeraria o ajuste feito na tela).
-        if not via_agente(usuario):
+        if not agente:
             overrides = {k: getattr(dados, k) for k in _CAMPOS_OVERRIDE if getattr(dados, k)}
             ordem.cert_overrides = overrides or None
     if ordem.data_calibracao is None:
@@ -132,11 +145,10 @@ def gerar(ordem_id: int, dados: GerarCertificadoIn | None = None, db: Session = 
     if ordem.fase == wf.FASE_LABORATORIO and ordem.desfecho_lab == wf.DESFECHO_PENDENTE:
         concluir_laboratorio(db, ordem)
         registrar_log(db, ordem, usuario, "Laboratório concluído — certificado gerado")
-    elif via_agente(usuario):
+    elif agente:
         # Regerar pela tela nao deixa log; pelo Guardi deixa, para o historico mostrar o bot.
         registrar_log(db, ordem, usuario, "Certificado regerado")
     db.commit()
-    agente = via_agente(usuario) is not None
     saida = []
     for g in gerados:
         db.refresh(g)
