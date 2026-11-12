@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.63.1',
+    data: '12/11/2026',
+    itens: [
+      { tipo: 'correcao', texto: 'Pelo Guardi, o certificado só é gerado com a OS no Laboratório (regerar o de uma OS que já saiu continua pela tela), e uma leitura que não vier no pedido nunca apaga a que já estava gravada.' },
+    ],
+  },
+  {
     versao: '1.63.0',
     data: '12/11/2026',
     itens: [
