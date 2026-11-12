@@ -142,12 +142,13 @@ def test_allowlist_do_agente_so_tem_get_de_rota_que_existe():
     assert ROTAS_AGENTE - gets == set()
 
 
-def test_escritas_do_agente_existem_e_sao_so_as_tres():
+def test_escritas_do_agente_existem_e_sao_so_as_conhecidas():
     # Fase 2a: abrir outra escrita ao Guardi e' decisao de spec, nao de passagem.
     from app.core.agente import ESCRITAS_AGENTE
     from app.main import app
     assert ESCRITAS_AGENTE == {("POST", "/ordens"), ("POST", "/caixas/{caixa_id}/avancar"),
-                               ("POST", "/equipamentos-cliente")}
+                               ("POST", "/equipamentos-cliente"),
+                               ("POST", "/ordens/{ordem_id}/gerar-certificado")}
     existentes = {(m, r.path) for r in _api_routes(app.routes) for m in r.methods
                   if _depende_de_usuario(r.dependant)}
     assert ESCRITAS_AGENTE - existentes == set()

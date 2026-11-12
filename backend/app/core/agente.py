@@ -29,6 +29,7 @@ ROTAS_AGENTE = frozenset({
     "/ordens",
     "/ordens/{ordem_id}",
     "/ordens/{ordem_id}/certificados",
+    "/ordens/{ordem_id}/certificado-campos",  # fase 2b
     "/fases",
     "/caixas",
     "/caixas/{caixa_id}",
@@ -44,6 +45,10 @@ ESCRITAS_AGENTE = frozenset({
     ("POST", "/ordens"),
     ("POST", "/caixas/{caixa_id}/avancar"),
     ("POST", "/equipamentos-cliente"),
+    # Fase 2b (12/11/2026): o Laboratorio gera certificado pelo Guardi. O agente NAO
+    # toca em cert_overrides (certificados_os.gerar). desfecho-lab segue FECHADO.
+    # Spec: HS.OS/docs/superpowers/specs/2026-11-12-guardi-gestorhs-laboratorio-design.md
+    ("POST", "/ordens/{ordem_id}/gerar-certificado"),
 })
 
 

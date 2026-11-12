@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.models.database import get_db
 from app.models import Usuario, Ordem, OSCertificado
-from app.api.deps import eh_agente, get_current_usuario, require_funcao
+from app.api.deps import eh_agente, get_current_usuario, require_funcao, via_agente
 from app.api.ordens_acoes import agora, concluir_laboratorio, registrar_log
 from app.core import certificado_link, os_workflow as wf
 from app.core.certificado_config import padrao_vigente
@@ -107,8 +107,11 @@ def gerar(ordem_id: int, dados: GerarCertificadoIn | None = None, db: Session = 
                 dados.data_calibracao.year, dados.data_calibracao.month, dados.data_calibracao.day,
                 tzinfo=timezone.utc,
             )
-        overrides = {k: getattr(dados, k) for k in _CAMPOS_OVERRIDE if getattr(dados, k)}
-        ordem.cert_overrides = overrides or None
+        # Pelo Guardi o cabecalho NAO muda: os campos de override do corpo sao
+        # ignorados e o gravado fica (corpo sem override zeraria o ajuste feito na tela).
+        if not via_agente(usuario):
+            overrides = {k: getattr(dados, k) for k in _CAMPOS_OVERRIDE if getattr(dados, k)}
+            ordem.cert_overrides = overrides or None
     if ordem.data_calibracao is None:
         ordem.data_calibracao = agora()
     # Congela o cilindro usado NESTA calibracao. Sem isso, regerar o certificado
@@ -129,10 +132,20 @@ def gerar(ordem_id: int, dados: GerarCertificadoIn | None = None, db: Session = 
     if ordem.fase == wf.FASE_LABORATORIO and ordem.desfecho_lab == wf.DESFECHO_PENDENTE:
         concluir_laboratorio(db, ordem)
         registrar_log(db, ordem, usuario, "Laboratório concluído — certificado gerado")
+    elif via_agente(usuario):
+        # Regerar pela tela nao deixa log; pelo Guardi deixa, para o historico mostrar o bot.
+        registrar_log(db, ordem, usuario, "Certificado regerado")
     db.commit()
+    agente = via_agente(usuario) is not None
+    saida = []
     for g in gerados:
         db.refresh(g)
-    return [OSCertificadoOut.model_validate(c) for c in gerados]
+        item = OSCertificadoOut.model_validate(g)
+        item.link_pdf = certificado_link.link_pdf(g.os, g.tipo)
+        if agente:
+            item.html = None  # mesmo criterio da listagem: o agente fica com o link
+        saida.append(item)
+    return saida
 
 
 _NOME_TIPO = {"C": "calibracao", "M": "manutencao"}
