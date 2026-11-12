@@ -148,7 +148,8 @@ def test_escritas_do_agente_existem_e_sao_so_as_conhecidas():
     from app.main import app
     assert ESCRITAS_AGENTE == {("POST", "/ordens"), ("POST", "/caixas/{caixa_id}/avancar"),
                                ("POST", "/equipamentos-cliente"),
-                               ("POST", "/ordens/{ordem_id}/gerar-certificado")}
+                               ("POST", "/ordens/{ordem_id}/gerar-certificado"),
+                               ("POST", "/propostas"), ("PUT", "/propostas/{proposta_id}")}
     existentes = {(m, r.path) for r in _api_routes(app.routes) for m in r.methods
                   if _depende_de_usuario(r.dependant)}
     assert ESCRITAS_AGENTE - existentes == set()

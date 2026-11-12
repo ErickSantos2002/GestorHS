@@ -1,6 +1,6 @@
 import re
 from datetime import date as date_type, datetime
-from typing import Literal, Optional, List
+from typing import Literal, Optional, List, Union
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
@@ -103,10 +103,24 @@ class PropostaBase(BaseModel):
     assinatura: Optional[str] = None
 
 
+class DestinatarioVinculoIn(BaseModel):
+    """So {tipo, id}: vincula a proposta ao cadastro sem mexer nele. E' a unica forma
+    de destinatario que o token de agente (Guardi) pode mandar; a tela manda sempre o
+    bloco inteiro (DestinatarioIn) e recebe 422 com esta. extra="forbid" e' o que
+    separa as duas no Union: qualquer campo a mais cai no DestinatarioIn."""
+    model_config = ConfigDict(extra="forbid")
+
+    tipo: Literal["cliente", "empresa", "nova_empresa"]
+    id: Optional[int] = None
+
+
+DestinatarioPayload = Union[DestinatarioVinculoIn, DestinatarioIn]
+
+
 class PropostaCreate(PropostaBase):
     itens: List[PropostaItemCreate] = Field(default_factory=list)
     aparelhos: List[PropostaAparelhoCreate] = Field(default_factory=list)
-    destinatario: Optional[DestinatarioIn] = None
+    destinatario: Optional[DestinatarioPayload] = None
 
 
 class PropostaUpdate(BaseModel):
@@ -131,7 +145,7 @@ class PropostaUpdate(BaseModel):
     assinatura: Optional[str] = None
     itens: Optional[List[PropostaItemCreate]] = None
     aparelhos: Optional[List[PropostaAparelhoCreate]] = None
-    destinatario: Optional[DestinatarioIn] = None
+    destinatario: Optional[DestinatarioPayload] = None
 
 
 class PropostaVersaoOut(BaseModel):

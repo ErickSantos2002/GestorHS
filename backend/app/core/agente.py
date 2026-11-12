@@ -36,6 +36,10 @@ ROTAS_AGENTE = frozenset({
     "/propostas",
     "/propostas/{proposta_id}",
     "/propostas/{proposta_id}/versoes",
+    # fase 2c: o padrao da proposta e os catalogos que viram itens dela
+    "/propostas/padrao",
+    "/servicos",
+    "/produtos",
 })
 # Fase 2a (nov/2026): as UNICAS escritas do agente, para a Expedicao pelo Guardi
 # (sempre depois de a pessoa confirmar um cartao no HS.OS). Nelas a trava "so GET"
@@ -49,6 +53,11 @@ ESCRITAS_AGENTE = frozenset({
     # toca em cert_overrides (certificados_os.gerar). desfecho-lab segue FECHADO.
     # Spec: HS.OS/docs/superpowers/specs/2026-11-12-guardi-gestorhs-laboratorio-design.md
     ("POST", "/ordens/{ordem_id}/gerar-certificado"),
+    # Fase 2c (12/11/2026): Servicos e Financeiro criam e alteram proposta pelo Guardi.
+    # O destinatario so VINCULA ao cadastro (nunca escreve nele) e nada agenda o Tiny.
+    # Spec: HS.OS/docs/superpowers/specs/2026-11-12-guardi-gestorhs-propostas-design.md
+    ("POST", "/propostas"),
+    ("PUT", "/propostas/{proposta_id}"),
 })
 
 

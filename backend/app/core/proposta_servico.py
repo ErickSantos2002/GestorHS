@@ -140,6 +140,30 @@ def _congelar_destinatario(db: Session, proposta: Proposta) -> None:
         proposta.destinatario = dados_destinatario(db.get(Cliente, proposta.cliente), tipo="cliente")
 
 
+def vinculo_do_cadastro(db: Session, tipo: str, cadastro_id: Optional[int]
+                        ) -> tuple[tuple[Optional[int], Optional[int]], dict]:
+    """Destinatario pelo token de agente: so aponta para o cadastro, NUNCA escreve
+    nele. Devolve o `vinculo=(cliente, empresa)` e a `copia` congelada do cadastro
+    como esta — o mesmo par que o duplicar passa a `criar_proposta`. Mesmas recusas
+    do `_aplicar_destinatario` para cadastro inexistente (422) ou desativado (409)."""
+    if tipo == "cliente":
+        cliente = db.get(Cliente, cadastro_id) if cadastro_id is not None else None
+        if cliente is None:
+            raise DestinatarioInvalido("cliente nao encontrado")
+        if not cliente.ativo:
+            raise DestinatarioInativo("cliente desativado")
+        return (cliente.id, None), dados_destinatario(cliente, tipo="cliente")
+    if tipo == "empresa":
+        empresa = db.get(Empresa, cadastro_id) if cadastro_id is not None else None
+        if empresa is None:
+            raise DestinatarioInvalido("empresa nao encontrada")
+        if not empresa.ativo:
+            raise DestinatarioInativo("empresa desativada")
+        matriz = db.get(Cliente, empresa.cliente) if empresa.cliente is not None else None
+        return (empresa.cliente, empresa.id), dados_destinatario(empresa, tipo="empresa", matriz=matriz)
+    raise DestinatarioInvalido("tipo de destinatario invalido")
+
+
 def destinatario_atual(proposta: Proposta) -> Optional[dict]:
     """Copia congelada; proposta anterior as Empresas e ainda nao congelada pelo
     script cai no que o PDF sempre mostrou (cadastro + cliente_override). Proposta

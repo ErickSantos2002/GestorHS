@@ -134,7 +134,7 @@ def test_post_403(client_agente):
     assert resp.json()["detail"] == MSG_403
 
 
-@pytest.mark.parametrize("caminho", ["/empresas", "/usuarios", "/produtos", "/ordens/1/nota-fiscal"])
+@pytest.mark.parametrize("caminho", ["/empresas", "/usuarios", "/propostas/1/pdf", "/ordens/1/nota-fiscal"])
 def test_get_fora_da_allowlist_403(client_agente, caminho):
     resp = client_agente.get(caminho)
     assert resp.status_code == 403, resp.text
