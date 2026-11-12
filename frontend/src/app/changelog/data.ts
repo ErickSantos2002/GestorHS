@@ -23,6 +23,14 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.62.0',
+    data: '12/11/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'A Expedição pode abrir OS, avançar caixa e cadastrar aparelho pelo Guardi, sempre depois de confirmar no HS.OS. Vale a função de quem pede: o Guardi não faz nada que a pessoa não pudesse fazer na tela, e nunca avança caixa sem nota fiscal.' },
+      { tipo: 'melhoria', texto: 'O histórico da OS mostra "via <assistente>" quando a ação veio pelo Guardi.' },
+    ],
+  },
+  {
     versao: '1.61.1',
     data: '11/11/2026',
     itens: [
