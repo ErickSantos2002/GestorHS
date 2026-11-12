@@ -23,6 +23,14 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.64.0',
+    data: '12/11/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'Serviços e Financeiro podem criar e alterar propostas pelo Guardi, depois de confirmar no HS.OS. O Guardi só escolhe o cliente ou a empresa: nunca altera o cadastro, e não mexe em proposta já faturada.' },
+      { tipo: 'melhoria', texto: 'O texto padrão da proposta (observação e os modelos de "Outros itens") passou a vir do servidor, a mesma fonte que o Guardi usa. Na tela nada muda.' },
+    ],
+  },
+  {
     versao: '1.63.1',
     data: '12/11/2026',
     itens: [
