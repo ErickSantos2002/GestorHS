@@ -29,6 +29,18 @@ const produtosListar = vi.fn()
 const propostasCriar = vi.fn()
 const propostasObter = vi.fn()
 const propostasAtualizar = vi.fn()
+const propostasPadrao = vi.fn()
+// O padrao vem do servidor (GET /propostas/padrao); aqui so o formato.
+const padraoFalso = (modelos = '', series = '') => Promise.resolve({
+  observacoes: 'OBS PADRAO DO SERVIDOR',
+  validade_dias: 30,
+  frete_por_regiao: {},
+  regiao_por_uf: {},
+  outros_itens: {
+    padrao: `<p>Serviços de Calibração e Manutenção ${modelos} ${series}</p>`,
+    phoebus: `<p>Calibração Anual e Anuidade da Plataforma do Aparelho Phoebus ${series}</p>`,
+  },
+})
 
 vi.mock('./api', async (orig) => {
   const real = await orig<typeof import('./api')>()
@@ -42,6 +54,7 @@ vi.mock('./api', async (orig) => {
       criar: (...a: unknown[]) => propostasCriar(...a),
       obter: (...a: unknown[]) => propostasObter(...a),
       atualizar: (...a: unknown[]) => propostasAtualizar(...a),
+      padrao: (...a: unknown[]) => propostasPadrao(...a),
     },
   }
 })
@@ -101,6 +114,7 @@ beforeEach(() => {
   servicosListar.mockResolvedValue([])
   produtosListar.mockResolvedValue([])
   propostasCriar.mockResolvedValue({ id: 900 })
+  propostasPadrao.mockImplementation(padraoFalso)
   destinatariosBuscar.mockResolvedValue([RESULTADO_CLIENTE])
   empresasObter.mockResolvedValue(EMPRESA)
 })
@@ -114,8 +128,12 @@ async function selecionarCliente() {
 }
 
 // "Outros Itens ou Serviços" e obrigatorio para salvar — preenche via modelo.
-function aplicarModelo() {
+// O modelo vem do servidor (GET /propostas/padrao): espera o editor preencher.
+async function aplicarModelo() {
   fireEvent.click(screen.getByText('Aplicar modelo'))
+  // re-consulta: o editor remonta (editorKey) quando o texto chega
+  await waitFor(() =>
+    expect((screen.getByLabelText('Outros itens ou serviços') as HTMLTextAreaElement).value).not.toBe(''))
 }
 
 // E-mail, telefone e contato nascem SEMPRE vazios (nunca herdam do cadastro) mas
@@ -147,7 +165,7 @@ describe('PropostaModal', () => {
     expect((screen.getByLabelText(/CNPJ \/ CPF/) as HTMLInputElement).value).toBe('36.312.056/0005-52')
 
     fireEvent.click(screen.getByLabelText('Bafômetro X'))
-    aplicarModelo()
+    await aplicarModelo()
     preencherObrigatorios()
     fireEvent.click(screen.getByText('Criar Proposta'))
 
@@ -165,9 +183,17 @@ describe('PropostaModal', () => {
     fireEvent.change(screen.getByLabelText('Modelo do texto'), { target: { value: 'phoebus' } })
     fireEvent.click(screen.getByText('Aplicar modelo'))
 
-    const editor = screen.getByLabelText('Outros itens ou serviços') as HTMLTextAreaElement
-    await waitFor(() => expect(editor.value).toContain('Calibração Anual e Anuidade da Plataforma do Aparelho Phoebus'))
-    expect(editor.value).toContain('PH-777')
+    const editor = () => screen.getByLabelText('Outros itens ou serviços') as HTMLTextAreaElement
+    await waitFor(() => expect(editor().value).toContain('Calibração Anual e Anuidade da Plataforma do Aparelho Phoebus'))
+    expect(editor().value).toContain('PH-777')
+    expect(propostasPadrao).toHaveBeenLastCalledWith('Phoebus 3000', 'PH-777')
+  })
+
+  it('proposta nova traz a observacao padrao do servidor', async () => {
+    render(<PropostaModal onClose={vi.fn()} />)
+    await waitFor(() => expect(propostasPadrao).toHaveBeenCalledWith())
+    await selecionarCliente()
+    expect(await screen.findByDisplayValue('OBS PADRAO DO SERVIDOR')).toBeInTheDocument()
   })
 
   it('recalcula o total ao adicionar item e informar frete/desconto', async () => {
@@ -219,7 +245,7 @@ describe('PropostaModal', () => {
     expect(screen.queryByLabelText('Bafômetro X')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Phoebus 3000')).toBeInTheDocument()
 
-    aplicarModelo()
+    await aplicarModelo()
     preencherObrigatorios()
     fireEvent.click(screen.getByText('Criar Proposta'))
     await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
@@ -232,7 +258,7 @@ describe('PropostaModal', () => {
     await selecionarCliente()
 
     fireEvent.change(screen.getByLabelText(/introdução/i), { target: { value: 'Texto de introdução digitado.' } })
-    aplicarModelo()
+    await aplicarModelo()
     preencherObrigatorios()
     fireEvent.click(screen.getByText('Criar Proposta'))
 
@@ -335,7 +361,7 @@ describe('PropostaModal — destinatario', () => {
     await selecionarCliente()
     fireEvent.change(screen.getByLabelText(/Bairro/), { target: { value: 'Boa Vista' } })
     preencherObrigatorios()
-    aplicarModelo()
+    await aplicarModelo()
     fireEvent.click(screen.getByText('Criar Proposta'))
     await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
     const payload = propostasCriar.mock.calls[0][0]
@@ -353,7 +379,7 @@ describe('PropostaModal — destinatario', () => {
     // nem grava. Antes este caminho era bloqueado pela validacao do modal.
     render(<PropostaModal onClose={vi.fn()} />)
     await selecionarCliente()
-    aplicarModelo()
+    await aplicarModelo()
     fireEvent.click(screen.getByText('Criar Proposta'))
     await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
     const payload = propostasCriar.mock.calls[0][0]
@@ -384,7 +410,7 @@ describe('PropostaModal — destinatario', () => {
     fireEvent.change(screen.getByLabelText(/Município/), { target: { value: 'Joao Neiva' } })
     fireEvent.change(screen.getByLabelText(/Estado/), { target: { value: 'ES' } })
     preencherObrigatorios()
-    aplicarModelo()
+    await aplicarModelo()
     fireEvent.click(screen.getByText('Criar Proposta'))
     await waitFor(() => expect(propostasCriar).toHaveBeenCalled())
     expect(propostasCriar.mock.calls[0][0].destinatario).toMatchObject({
@@ -404,7 +430,7 @@ describe('PropostaModal — destinatario', () => {
     fireEvent.change(screen.getByLabelText(/Município/), { target: { value: 'Joao Neiva' } })
     fireEvent.change(screen.getByLabelText(/Estado/), { target: { value: 'ES' } })
     preencherObrigatorios('filial@teste.com')
-    aplicarModelo()
+    await aplicarModelo()
     fireEvent.click(screen.getByText('Criar Proposta'))
     expect(await screen.findByText('Documento já cadastrado como Empresa: Filial Norte')).toBeInTheDocument()
     fireEvent.click(await screen.findByRole('button', { name: 'Usar este cadastro' }))
@@ -438,7 +464,7 @@ describe('PropostaModal — destinatario', () => {
     const caixa = (await screen.findByLabelText('Bafômetro X')) as HTMLInputElement
     expect(caixa.checked).toBe(true)
     expect(screen.queryByText(/não estão mais na frota/)).toBeNull()
-    aplicarModelo()
+    await aplicarModelo()
     preencherObrigatorios()
     fireEvent.click(screen.getByText('Salvar Alterações'))
     await waitFor(() => expect(propostasAtualizar).toHaveBeenCalled())
@@ -454,7 +480,7 @@ describe('PropostaModal — destinatario', () => {
     render(<PropostaModal propostaId={900} onClose={vi.fn()} />)
     expect(await screen.findByText(/Não foi possível carregar a frota/)).toBeInTheDocument()
     expect(screen.queryByText(/não estão mais na frota/)).toBeNull()
-    aplicarModelo()
+    await aplicarModelo()
     preencherObrigatorios()
     fireEvent.click(screen.getByText('Salvar Alterações'))
     await waitFor(() => expect(propostasAtualizar).toHaveBeenCalled())
@@ -469,7 +495,7 @@ describe('PropostaModal — destinatario', () => {
     render(<PropostaModal propostaId={900} onClose={vi.fn()} />)
     await screen.findByLabelText('Bafômetro X')
     expect(await screen.findByText('1 aparelho(s) não estão mais na frota e foram retirados da proposta.')).toBeInTheDocument()
-    aplicarModelo()
+    await aplicarModelo()
     preencherObrigatorios()
     fireEvent.click(screen.getByText('Salvar Alterações'))
     await waitFor(() => expect(propostasAtualizar).toHaveBeenCalled())
@@ -490,7 +516,7 @@ describe('PropostaModal — destinatario', () => {
     render(<PropostaModal propostaId={900} onClose={vi.fn()} />)
     await screen.findByText('Cliente matriz (opcional)')
     expect(screen.getByText('Cliente Teste')).toBeInTheDocument()
-    aplicarModelo()
+    await aplicarModelo()
     preencherObrigatorios('filial@teste.com')
     fireEvent.click(screen.getByText('Salvar Alterações'))
     await waitFor(() => expect(propostasAtualizar).toHaveBeenCalled())
@@ -512,7 +538,7 @@ describe('PropostaModal — destinatario', () => {
 
   it('submeter sem destinatario nao cria proposta', async () => {
     render(<PropostaModal onClose={vi.fn()} />)
-    aplicarModelo()
+    await aplicarModelo()
     fireEvent.click(screen.getByText('Criar Proposta'))
     expect(await screen.findByText('Escolha o destinatário antes de salvar a proposta.')).toBeInTheDocument()
     expect(propostasCriar).not.toHaveBeenCalled()

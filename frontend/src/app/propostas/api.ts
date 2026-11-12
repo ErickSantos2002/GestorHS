@@ -156,7 +156,19 @@ export interface PropostasParams {
   incluir_desabilitadas?: boolean
 }
 
+// Padrao da proposta nova: fonte unica no servidor (app/core/proposta_padrao.py),
+// a mesma que o Guardi usa. Substituiu o antigo propostaDefaults.ts.
+export interface PropostaPadrao {
+  observacoes: string
+  validade_dias: number
+  frete_por_regiao: Record<string, number>
+  regiao_por_uf: Record<string, string>
+  outros_itens: { padrao: string; phoebus: string }
+}
+
 export const propostasApi = {
+  padrao: (modelos = '', series = ''): Promise<PropostaPadrao> =>
+    apiJson<PropostaPadrao>(`/propostas/padrao?${new URLSearchParams({ modelos, series })}`),
   listar: (params: PropostasParams = {}): Promise<PropostaPage> => {
     const sp = new URLSearchParams()
     if (params.page != null) sp.set('page', String(params.page))

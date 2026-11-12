@@ -28,7 +28,6 @@ import {
   propostasApi, frotaDoCliente, servicosApi, produtosApi,
   type PropostaCreate, type PropostaItemCreate, type EquipamentoClienteFrota,
 } from './api'
-import { buildDefaultOtherItems, buildPhoebusOtherItems, DEFAULT_NOTES } from './propostaDefaults'
 import { DestinatarioBusca } from './DestinatarioBusca'
 import { clienteDaFrota, descreverSelecao, montarDestinatario, type Selecao } from './destinatario'
 import { htmlTemTexto, obrigatoriosDaProposta, ROTULO_CONTATO, validarProposta } from './validacao'
@@ -290,8 +289,14 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
       data: f.data || hojeISO(),
       vendedor: user?.nome ?? '',
       assinatura: f.assinatura || `Atenciosamente,\n${user?.nome ?? ''}`,
-      observacoes: f.observacoes || DEFAULT_NOTES,
     }))
+    // A observacao padrao vem do servidor (mesma fonte do Guardi). Falhar aqui so
+    // deixa o campo em branco: nao trava a proposta.
+    let vivo = true
+    propostasApi.padrao()
+      .then((p) => { if (vivo) setForm((f) => ({ ...f, observacoes: f.observacoes || p.observacoes })) })
+      .catch(() => {})
+    return () => { vivo = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -425,15 +430,17 @@ export function PropostaModal({ propostaId, duplicarDe, onClose, onSalvo }: {
   }
 
   // ─── Outros itens (bloco técnico) ─────────────────────────────────────
-  function aplicarModeloTexto() {
+  async function aplicarModeloTexto() {
     const marcados = (frota ?? []).filter((a) => aparelhosSelecionados.includes(a.id))
     const modelos = Array.from(new Set(marcados.map((a) => a.equipamento_descricao).filter((v): v is string => !!v)))
     const series = Array.from(new Set(marcados.map((a) => a.serie).filter((v): v is string => !!v)))
-    const texto = modeloTexto === 'phoebus'
-      ? buildPhoebusOtherItems(series.join(', '), '')
-      : buildDefaultOtherItems(modelos.join(', '), series.join(', '))
-    setField('outros_itens', texto)
-    setEditorKey((k) => k + 1)
+    try {
+      const padrao = await propostasApi.padrao(modelos.join(', '), series.join(', '))
+      setField('outros_itens', modeloTexto === 'phoebus' ? padrao.outros_itens.phoebus : padrao.outros_itens.padrao)
+      setEditorKey((k) => k + 1)
+    } catch {
+      setErro('Não foi possível carregar o modelo de texto. Tente de novo.')
+    }
   }
 
   // ─── Itens ─────────────────────────────────────────────────────────────
