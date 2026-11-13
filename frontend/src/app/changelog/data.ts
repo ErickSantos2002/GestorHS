@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.65.0',
+    data: '13/11/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'Botão "Trocar proposta" na tela da caixa, para o Comercial Pós-Vendas e o Administrador corrigirem um número de proposta digitado errado. Vale até Preparando Retorno, só aceita proposta do mesmo cliente da caixa e atualiza o card do TaskHS junto.' },
+    ],
+  },
+  {
     versao: '1.64.1',
     data: '12/11/2026',
     itens: [
