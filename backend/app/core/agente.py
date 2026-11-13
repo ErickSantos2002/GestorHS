@@ -42,25 +42,50 @@ ROTAS_AGENTE = frozenset({
     "/produtos",
     # proposta para empresa/filial: UF, nome e o cliente matriz (dono da frota)
     "/empresas/{empresa_id}",
+    # Capacidade do Guardi (13/11/2026): o que ESTE login alcanca pelo agente
+    "/agente/capacidades",
 })
+# Quem passa pela trava de fase (exige_funcao_da_fase): a funcao responsavel pela
+# fase em que a caixa ESTA, mais o Administrador. A tabela de fases vive no banco.
+POR_FASE = "por_fase"
+
 # Fase 2a (nov/2026): as UNICAS escritas do agente, para a Expedicao pelo Guardi
 # (sempre depois de a pessoa confirmar um cartao no HS.OS). Nelas a trava "so GET"
 # cede e vale o require_funcao / exige_funcao_da_fase da rota, com a funcao do DONO.
 # Spec: HS.OS/docs/superpowers/specs/2026-11-12-guardi-gestorhs-expedicao-design.md
-ESCRITAS_AGENTE = frozenset({
-    ("POST", "/ordens"),
-    ("POST", "/caixas/{caixa_id}/avancar"),
-    ("POST", "/equipamentos-cliente"),
+#
+# O valor e' quem a ROTA aceita (copia declarada do require_funcao dela), usado por
+# GET /agente/capacidades. test_agente_capacidades.py percorre a tabela e confere,
+# funcao a funcao, contra a rota de verdade — mudou o require_funcao, o teste cai.
+FUNCOES_DAS_ESCRITAS: dict[tuple[str, str], tuple[str, ...] | str] = {
+    ("POST", "/ordens"): ("Expedição", "Administrador"),
+    # depende da fase da caixa: entra se a funcao avanca ALGUMA fase
+    ("POST", "/caixas/{caixa_id}/avancar"): POR_FASE,
+    ("POST", "/equipamentos-cliente"): ("Administrador", "Laboratório", "Expedição"),
     # Fase 2b (12/11/2026): o Laboratorio gera certificado pelo Guardi. O agente NAO
     # toca em cert_overrides (certificados_os.gerar). desfecho-lab segue FECHADO.
     # Spec: HS.OS/docs/superpowers/specs/2026-11-12-guardi-gestorhs-laboratorio-design.md
-    ("POST", "/ordens/{ordem_id}/gerar-certificado"),
+    ("POST", "/ordens/{ordem_id}/gerar-certificado"): ("Laboratório", "Administrador"),
     # Fase 2c (12/11/2026): Servicos e Financeiro criam e alteram proposta pelo Guardi.
     # O destinatario so VINCULA ao cadastro (nunca escreve nele) e nada agenda o Tiny.
     # Spec: HS.OS/docs/superpowers/specs/2026-11-12-guardi-gestorhs-propostas-design.md
-    ("POST", "/propostas"),
-    ("PUT", "/propostas/{proposta_id}"),
-})
+    ("POST", "/propostas"): ("Comercial Pós-Vendas", "Administrador", "Financeiro"),
+    ("PUT", "/propostas/{proposta_id}"): ("Comercial Pós-Vendas", "Administrador", "Financeiro"),
+}
+ESCRITAS_AGENTE = frozenset(FUNCOES_DAS_ESCRITAS)
+
+
+def rotas_do_login(funcao: str | None, avanca_alguma_fase: bool) -> list[list[str]]:
+    """Os pares [metodo, template] do allowlist que este login usa pelo agente.
+
+    Os GETs valem para todo login (nenhum tem require_funcao). `avanca_alguma_fase`
+    vem do chamador, que le a tabela de fases. -> lista ordenada, GETs primeiro."""
+    rotas = [["GET", r] for r in sorted(ROTAS_AGENTE)]
+    for (metodo, rota), quem in sorted(FUNCOES_DAS_ESCRITAS.items()):
+        pode = avanca_alguma_fase if quem == POR_FASE else funcao in quem
+        if pode:
+            rotas.append([metodo, rota])
+    return rotas
 
 
 class TokenDeAgenteInvalido(Exception):
