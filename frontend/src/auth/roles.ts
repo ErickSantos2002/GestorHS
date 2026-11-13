@@ -168,6 +168,14 @@ export function podeDesfaturarProposta(user: User | null): boolean {
   return isAdmin(user) || user?.funcao === FUNCAO_FINANCEIRO
 }
 
+// Espelha `_trocar_proposta` (require_funcao("Comercial Pós-Vendas", "Administrador"))
+// + o guard de fase ativa em PUT /caixas/{id}/proposta (backend/app/api/caixas.py).
+// Só até Preparando Retorno: depois o card do TaskHS pode estar em lista que o
+// GestorHS não conhece, e reespelhar o arrastaria de volta.
+export function podeTrocarPropostaCaixa(user: User | null, fase: number | null): boolean {
+  return (isAdmin(user) || user?.funcao === FUNCAO_COMERCIAL) && faseAtiva(fase)
+}
+
 // Espelha require_funcao("Administrador") em backend/app/api/propostas.py
 // (POST /propostas/{id}/reativar). Desabilitar é do mesmo grupo que edita
 // (`podeGerenciarPropostas`); devolver à circulação é só do Admin.

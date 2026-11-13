@@ -4,10 +4,10 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 let mockUser: { funcao: string } = { funcao: 'Financeiro' }
 vi.mock('../../auth/AuthContext', () => ({ useAuth: () => ({ user: mockUser }) }))
 
-const { proposta } = vi.hoisted(() => ({ proposta: vi.fn() }))
+const { proposta, trocarProposta } = vi.hoisted(() => ({ proposta: vi.fn(), trocarProposta: vi.fn() }))
 vi.mock('./api', async (orig) => {
   const real = await orig<typeof import('./api')>()
-  return { ...real, caixasApi: { ...real.caixasApi, proposta } }
+  return { ...real, caixasApi: { ...real.caixasApi, proposta, trocarProposta } }
 })
 
 const { faturar, desfaturar, baixarPdf } = vi.hoisted(() => ({
@@ -133,5 +133,48 @@ describe('PropostaCaixaCard', () => {
     // A modal reusada de propostas busca o PDF ao montar — e a prova de que abriu.
     await waitFor(() => expect(baixarPdf).toHaveBeenCalledWith(42))
     expect(screen.getAllByText('Proposta #189').length).toBe(2)  // card + titulo da modal
+  })
+
+  describe('Trocar proposta', () => {
+    it('Comercial Pos-Vendas ve o botao ate a fase 7', async () => {
+      mockUser = { funcao: 'Comercial Pós-Vendas' }
+      render(<PropostaCaixaCard caixaId={952} numeroProposta={189} fase={7} onTrocada={vi.fn()} />)
+      expect(await screen.findByRole('button', { name: 'Trocar proposta' })).toBeTruthy()
+    })
+
+    it('some na caixa finalizada', async () => {
+      mockUser = { funcao: 'Administrador' }
+      render(<PropostaCaixaCard caixaId={952} numeroProposta={189} fase={8} onTrocada={vi.fn()} />)
+      await screen.findByText('Proposta #189')
+      expect(screen.queryByRole('button', { name: 'Trocar proposta' })).toBeNull()
+    })
+
+    it('Financeiro nao ve o botao', async () => {
+      render(<PropostaCaixaCard caixaId={952} numeroProposta={189} fase={10} onTrocada={vi.fn()} />)
+      await screen.findByText('Proposta #189')
+      expect(screen.queryByRole('button', { name: 'Trocar proposta' })).toBeNull()
+    })
+
+    it('envia o numero novo e avisa a pagina', async () => {
+      mockUser = { funcao: 'Comercial Pós-Vendas' }
+      trocarProposta.mockResolvedValue({})
+      const onTrocada = vi.fn()
+      render(<PropostaCaixaCard caixaId={952} numeroProposta={189} fase={10} onTrocada={onTrocada} />)
+      fireEvent.click(await screen.findByRole('button', { name: 'Trocar proposta' }))
+      fireEvent.change(screen.getByLabelText('Número da proposta correta'), { target: { value: '191' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Trocar' }))
+      await waitFor(() => expect(onTrocada).toHaveBeenCalled())
+      expect(trocarProposta).toHaveBeenCalledWith(952, 191)
+    })
+
+    it('mostra a recusa do servidor', async () => {
+      mockUser = { funcao: 'Comercial Pós-Vendas' }
+      trocarProposta.mockRejectedValue(new ApiError(422, 'proposta 191 e\' do cliente 5'))
+      render(<PropostaCaixaCard caixaId={952} numeroProposta={189} fase={10} onTrocada={vi.fn()} />)
+      fireEvent.click(await screen.findByRole('button', { name: 'Trocar proposta' }))
+      fireEvent.change(screen.getByLabelText('Número da proposta correta'), { target: { value: '191' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Trocar' }))
+      expect(await screen.findByText("proposta 191 e' do cliente 5")).toBeTruthy()
+    })
   })
 })

@@ -3,7 +3,7 @@ import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { Spinner } from '../../components/ui/Spinner'
 import { useAuth } from '../../auth/AuthContext'
-import { podeFaturarProposta, podeDesfaturarProposta } from '../../auth/roles'
+import { podeFaturarProposta, podeDesfaturarProposta, podeTrocarPropostaCaixa } from '../../auth/roles'
 import { ApiError } from '../../lib/api'
 import { formatData } from '../../lib/utils'
 import { formatarDocumento } from '../../lib/documento'
@@ -11,6 +11,7 @@ import { formatarMoeda } from '../../lib/moeda'
 import { propostasApi, type Proposta } from '../propostas/api'
 import { VisualizarPropostaModal } from '../propostas/VisualizarPropostaModal'
 import { caixasApi } from './api'
+import { TrocarPropostaModal } from './TrocarPropostaModal'
 
 /** Bloco da proposta comercial no aside da caixa — para o Financeiro conferir e
  *  faturar sem sair da tela da OS.
@@ -25,9 +26,13 @@ import { caixasApi } from './api'
  *
  *  Proposta DESABILITADA continua aparecendo, marcada e sem acao de faturar — o
  *  Financeiro precisa ver que a proposta daquela caixa saiu de circulacao. */
-export function PropostaCaixaCard({ caixaId, numeroProposta }: {
+export function PropostaCaixaCard({ caixaId, numeroProposta, fase = null, onTrocada }: {
   caixaId: number
   numeroProposta?: number | null
+  /** Fase da caixa: o botao "Trocar proposta" so aparece ate Preparando Retorno. */
+  fase?: number | null
+  /** Chamado depois da troca — a pagina recarrega a caixa e o novo numero chega aqui. */
+  onTrocada?: () => void
 }) {
   const { user } = useAuth()
   const [proposta, setProposta] = useState<Proposta | null>(null)
@@ -35,6 +40,7 @@ export function PropostaCaixaCard({ caixaId, numeroProposta }: {
   const [erro, setErro] = useState('')
   const [ocupado, setOcupado] = useState(false)
   const [visualizar, setVisualizar] = useState(false)
+  const [trocar, setTrocar] = useState(false)
 
   useEffect(() => {
     if (numeroProposta == null) return
@@ -151,6 +157,11 @@ export function PropostaCaixaCard({ caixaId, numeroProposta }: {
             Desfazer faturamento
           </Button>
         )}
+        {onTrocada && podeTrocarPropostaCaixa(user, fase) && (
+          <Button variant="ghost" className="px-3 py-1.5" disabled={ocupado} onClick={() => setTrocar(true)}>
+            Trocar proposta
+          </Button>
+        )}
       </div>
 
       {erro && <p className="mt-2 text-sm text-danger">{erro}</p>}
@@ -160,6 +171,15 @@ export function PropostaCaixaCard({ caixaId, numeroProposta }: {
           propostaId={proposta.id}
           propostaNumero={proposta.numero}
           onClose={() => setVisualizar(false)}
+        />
+      )}
+
+      {trocar && onTrocada && (
+        <TrocarPropostaModal
+          caixaId={caixaId}
+          numeroAtual={proposta.numero}
+          onClose={() => setTrocar(false)}
+          onTrocada={() => { setTrocar(false); onTrocada() }}
         />
       )}
     </section>

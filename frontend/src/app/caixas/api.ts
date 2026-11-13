@@ -117,6 +117,10 @@ export const caixasApi = {
   /** Proposta comercial da caixa (resolvida pelo numero). 404 quando a caixa nao tem
    *  numero ou o numero e de proposta que so existe no CRM antigo. */
   proposta: (id: number): Promise<Proposta> => apiJson<Proposta>(`/caixas/${id}/proposta`),
+  /** Corrige o numero da proposta da caixa (Comercial Pos-Vendas / Admin, ate a fase 7).
+   *  O backend confere o cliente e reespelha o card do TaskHS. */
+  trocarProposta: (id: number, numero: number): Promise<CaixaDetalhe> =>
+    apiJson<CaixaDetalhe>(`/caixas/${id}/proposta`, { method: 'PUT', body: JSON.stringify({ numero }) }),
   criar: (body: { obs?: string | null }): Promise<CaixaListItem> =>
     apiJson<CaixaListItem>('/caixas', { method: 'POST', body: JSON.stringify(body) }),
   atualizar: (id: number, body: { obs?: string | null }): Promise<CaixaListItem> =>

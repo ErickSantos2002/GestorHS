@@ -569,7 +569,8 @@ export function CaixaDetailPage() {
           </section>
 
           {/* Proposta do CRM — so aparece quando a caixa tem numero E a proposta existe aqui */}
-          <PropostaCaixaCard caixaId={caixaId} numeroProposta={caixa.numero_proposta} />
+          <PropostaCaixaCard caixaId={caixaId} numeroProposta={caixa.numero_proposta}
+            fase={caixa.fase} onTrocada={carregar} />
         </DetailAside>
       </DetailGrid>
 
