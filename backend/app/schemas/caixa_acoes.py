@@ -13,3 +13,8 @@ class CaixaAvancarIn(BaseModel):
 
 class CaixaCancelarIn(BaseModel):
     motivo: str
+
+
+class CaixaTrocarPropostaIn(BaseModel):
+    """Numero da proposta correta para a caixa (`PUT /caixas/{id}/proposta`)."""
+    numero: int

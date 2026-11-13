@@ -8,8 +8,10 @@ caixa passou a exibir a proposta da Maringa com o botao "Marcar como Faturada" e
 Financeiro faturou as duas no dia 17/09.
 
 Este script faz a conferencia que faltou: so aceita proposta do MESMO cliente da caixa
-(principal ou de alguma OS). Nao ha outro caminho para corrigir essa coluna — o inbound
-do GrowthHS e' quem escreve nela, e nenhuma tela edita.
+(principal ou de alguma OS). A regra vive em `app.core.proposta_caixa`, compartilhada com
+`PUT /caixas/{id}/proposta` — o botao "Trocar proposta" da tela da caixa, que ja
+reespelha o card do TaskHS. Prefira a tela; o script fica para caixa finalizada ou
+sem bloco de proposta.
 
 SIMULA POR PADRAO. Para gravar: --aplicar
 
@@ -32,34 +34,7 @@ import argparse
 
 from app.models import Caixa, Cliente, Proposta
 from app.models.database import SessionLocal
-
-
-def clientes_da_caixa(caixa: Caixa) -> set[int]:
-    """Clientes que a caixa representa: o principal mais os de todas as OS.
-
-    As canceladas entram de proposito — elas mantem o vinculo com a caixa, e a
-    proposta pode ter sido montada antes do cancelamento.
-    """
-    ids = {o.cliente for o in caixa.ordens if o.cliente is not None}
-    if caixa.cliente_principal is not None:
-        ids.add(caixa.cliente_principal)
-    return ids
-
-
-def conferir(caixa: Caixa, proposta: Proposta) -> str | None:
-    """Motivo da recusa, ou None se a caixa pode apontar para essa proposta."""
-    if proposta.is_deleted:
-        return f"proposta {proposta.numero} esta desabilitada"
-    if proposta.cliente is None:
-        return f"proposta {proposta.numero} esta sem cliente"
-    donos = clientes_da_caixa(caixa)
-    if not donos:
-        return f"caixa {caixa.id} nao tem cliente nenhum — nao da para conferir"
-    if proposta.cliente not in donos:
-        return (f"proposta {proposta.numero} e' do cliente {proposta.cliente}, "
-                f"que nao e' da caixa {caixa.id} (clientes da caixa: "
-                f"{sorted(donos)}) — e' o mesmo erro que se quer corrigir")
-    return None
+from app.core.proposta_caixa import clientes_da_caixa, conferir  # noqa: F401 (reexportados)
 
 
 def _descrever(db, numero: int | None) -> str:

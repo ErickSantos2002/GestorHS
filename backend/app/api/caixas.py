@@ -10,13 +10,14 @@ from app.core import os_workflow as wf
 from app.core import fluxo_modulo
 from app.core.caixa import cliente_unico, contar_outros, principal_valido
 from app.core import proposta_servico
+from app.core.proposta_caixa import conferir as conferir_proposta
 from app.api.deps import ADMIN, get_current_usuario, require_funcao, via_agente
 from app.api.cadastros_common import excluir_protegido
 from app.schemas.caixas import (
     CaixaCreate, CaixaUpdate, CaixaOut, CaixaDetalhe, CaixaPage, VincularOrdemIn,
     CaixaQuadroItem, QuadroCaixaColuna,
 )
-from app.schemas.caixa_acoes import CaixaAvancarIn, CaixaCancelarIn
+from app.schemas.caixa_acoes import CaixaAvancarIn, CaixaCancelarIn, CaixaTrocarPropostaIn
 from app.schemas.proposta import PropostaOut
 from app.api.ordens_acoes import registrar_log, exige_funcao_da_fase, agora, espelhar_calibracao
 from app.api.espelhamento import agendar_espelhamento_caixa
@@ -25,6 +26,8 @@ from app.api.growthhs_cards import agendar_card_caixa
 router = APIRouter(prefix="/caixas", tags=["caixas"])
 
 _escrita = require_funcao("Expedição", "Administrador")
+# Espelhado em `podeTrocarPropostaCaixa` (frontend/src/auth/roles.ts).
+_trocar_proposta = require_funcao("Comercial Pós-Vendas", "Administrador")
 
 
 def sincronizar_principal(db: Session, cx: Caixa) -> None:
@@ -124,6 +127,42 @@ def proposta_da_caixa(caixa_id: int, db: Session = Depends(get_db),
     if proposta is None:
         raise HTTPException(status_code=404, detail="proposta não encontrada")
     return proposta_servico.montar_saida(db, proposta)
+
+
+@router.put("/{caixa_id}/proposta", response_model=CaixaDetalhe)
+def trocar_proposta(caixa_id: int, dados: CaixaTrocarPropostaIn,
+                    background_tasks: BackgroundTasks,
+                    db: Session = Depends(get_db),
+                    usuario: Usuario = Depends(_trocar_proposta)):
+    """Corrige o numero da proposta da caixa — erro de digitacao no card do GrowthHS.
+
+    So ate Preparando Retorno (7): depois dela o card do TaskHS pode estar numa lista
+    que o GestorHS nao conhece (209/210), e reespelhar pela fase o arrastaria de volta.
+    A trava de cliente e' a de `core.proposta_caixa`, a mesma do script
+    `corrigir_proposta_caixa`. Nao desfaz faturamento nem corrige o card do GrowthHS:
+    um novo Ganho la regrava o numero errado."""
+    cx = _get_caixa(db, caixa_id)
+    # `ATIVAS` e' exatamente a janela 4 -> 7 (inclui o Financeiro 10).
+    if cx.fase not in wf.ATIVAS:
+        raise HTTPException(status_code=409,
+                            detail="a proposta só pode ser trocada até Preparando Retorno")
+    if cx.numero_proposta == dados.numero:
+        return cx
+    proposta = db.query(Proposta).filter(Proposta.numero == dados.numero).first()
+    if proposta is None:
+        raise HTTPException(status_code=404, detail=f"proposta {dados.numero} não encontrada")
+    motivo = conferir_proposta(cx, proposta)
+    if motivo:
+        raise HTTPException(status_code=422, detail=motivo)
+    anterior = cx.numero_proposta
+    cx.numero_proposta = dados.numero
+    de = f"#{anterior}" if anterior is not None else "(nenhuma)"
+    for o in _ordens_ativas(cx):
+        registrar_log(db, o, usuario, f"Caixa #{cx.id}: proposta {de} -> #{dados.numero}")
+    db.commit()
+    db.refresh(cx)
+    agendar_espelhamento_caixa(db, background_tasks, cx)
+    return cx
 
 
 @router.get("/{caixa_id}", response_model=CaixaDetalhe)
