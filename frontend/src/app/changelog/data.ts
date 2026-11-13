@@ -23,6 +23,13 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.66.0',
+    data: '13/11/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'O Guardi passa a saber o que consegue fazer no GestorHS com o seu login: a tela "Capacidade" do HS.OS mostra só as consultas e ações que a sua função permite (abrir OS, avançar caixa, gerar certificado, criar proposta…).' },
+    ],
+  },
+  {
     versao: '1.65.0',
     data: '13/11/2026',
     itens: [
