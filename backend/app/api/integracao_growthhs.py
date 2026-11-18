@@ -3,6 +3,9 @@ o card correspondente precisa mover a caixa de Pos-Vendas(6) para Financeiro(10)
 no GestorHS. Autenticado por API key fixa (`require_growthhs_inbound`, T1), nao
 por JWT — quem chama e o GrowthHS, nao um usuario logado.
 
+Tambem expoe `PUT /caixas/{id}/proposta`: o CRM troca o numero da proposta da caixa
+(erro de digitacao no card) com a mesma regra da tela — `aplicar_troca_proposta`.
+
 A regra "essa caixa pode avancar agora?" vive em `core/avanco_inbound.py`, e e'
 compartilhada com o inbound do TaskHS (`api/integracao_taskhs.py`)."""
 import logging
@@ -14,7 +17,7 @@ from sqlalchemy.orm import Session
 from app.models.database import get_db
 from app.models import Caixa
 from app.api.deps import require_growthhs_inbound
-from app.api.caixas import executar_avanco_caixa, _ordens_ativas
+from app.api.caixas import aplicar_troca_proposta, executar_avanco_caixa, _ordens_ativas
 from app.core import os_workflow as wf
 from app.core import avanco_inbound as ai
 
@@ -76,3 +79,37 @@ def ganho(
     )
     logger.info("GrowthHS ganho: caixa %s movida para Financeiro", caixa_id)
     return GanhoOut(movida=True, caixa_id=cx.id, fase=cx.fase)
+
+
+class TrocaPropostaIn(BaseModel):
+    numero: int
+    observacao: str | None = None
+
+
+class TrocaPropostaOut(BaseModel):
+    caixa_id: int
+    numero_proposta: int
+    alterada: bool
+
+
+@router.put("/caixas/{caixa_id}/proposta", response_model=TrocaPropostaOut)
+def trocar_proposta(
+    caixa_id: int,
+    dados: TrocaPropostaIn,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_growthhs_inbound),
+):
+    """O CRM chama ANTES de gravar o numero da proposta no card e so grava se aqui
+    aceitar; o `detail` das recusas vira o toast do usuario la. Mesma regra da tela
+    (`aplicar_troca_proposta`), valida em qualquer fase ativa — inclusive antes do
+    Ganho. Nao mexe em faturamento nem avanca a caixa."""
+    cx = db.query(Caixa).filter(Caixa.id == caixa_id).first()
+    if cx is None:
+        raise HTTPException(status_code=404, detail=f"caixa #{caixa_id} não encontrada no GestorHS")
+    origem = "via GrowthHS"
+    if dados.observacao and dados.observacao.strip():
+        origem = f"via GrowthHS: {dados.observacao.strip()}"
+    alterada = aplicar_troca_proposta(db, cx, dados.numero, None, background_tasks, origem=origem)
+    logger.info("GrowthHS proposta: caixa %s -> #%s (alterada=%s)", caixa_id, dados.numero, alterada)
+    return TrocaPropostaOut(caixa_id=cx.id, numero_proposta=cx.numero_proposta, alterada=alterada)

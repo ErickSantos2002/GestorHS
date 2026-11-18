@@ -230,6 +230,14 @@ aquele numero resolver. Em 17/09/2026 isso fez o Financeiro faturar a proposta 2
 `app.scripts.corrigir_proposta_caixa`, que tem em `conferir()`/`clientes_da_caixa()` a
 regra que **ainda falta no inbound**.
 
+**A troca do numero tem duas portas e um miolo** (`aplicar_troca_proposta` em
+[caixas.py](backend/app/api/caixas.py)): a tela (`PUT /caixas/{id}/proposta`) e o CRM
+(`PUT /integracao/growthhs/caixas/{id}/proposta`, mesma API key do Ganho, nov/2026). O CRM
+chama **antes** de gravar o numero no card e so grava se o GestorHS aceitar — o `detail`
+das recusas (404/409/422) vira o toast do usuario la, entao as mensagens de `conferir()`
+citam clientes pelo **nome** e precisam continuar legiveis. Numero igual devolve
+`alterada: false` sem gravar nem reespelhar. O Ganho continua gravando sem conferir.
+
 **Inbound: o card no Financeiro avança a caixa.** `POST /integracao/taskhs/caixas/{id}/financeiro` ([integracao_taskhs.py](backend/app/api/integracao_taskhs.py)) move a caixa de Pós-Vendas(6) para Financeiro(10), disparado pela automação do TaskHS quando o card entra na lista **205**. Existe porque a caixa com Phoebus não tem proposta no GrowthHS, logo não tem o gatilho de "Ganho". Chave **própria** (`TASKHS_INBOUND_API_KEY`), vazia = 503.
 
 - ⚠️ **Recusa 409 caixa sem Phoebus.** A trava é positiva (`_tem_phoebus`), não `not caixa_so_de_modulo(...)` — a negação deixaria passar a caixa **normal**, e sair da fase 6 grava `aceite`/`data_aceite`. Na caixa normal esse aval vem do "Ganho" no GrowthHS; deixar o TaskHS gravá-lo forjaria aprovação comercial.

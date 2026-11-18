@@ -91,6 +91,7 @@ ESCRITA_SEM_USUARIO = {
     ("POST", "/auth/sso/exchange"),
     ("POST", "/portal/solicitar-recalibracao"),
     ("POST", "/integracao/growthhs/caixas/{caixa_id}/ganho"),
+    ("PUT", "/integracao/growthhs/caixas/{caixa_id}/proposta"),
     ("POST", "/integracao/taskhs/caixas/{caixa_id}/financeiro"),
 }
 

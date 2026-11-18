@@ -142,12 +142,42 @@ def trocar_proposta(caixa_id: int, dados: CaixaTrocarPropostaIn,
     `corrigir_proposta_caixa`. Nao desfaz faturamento nem corrige o card do GrowthHS:
     um novo Ganho la regrava o numero errado."""
     cx = _get_caixa(db, caixa_id)
+    aplicar_troca_proposta(db, cx, dados.numero, usuario, background_tasks)
+    return cx
+
+
+def aplicar_troca_proposta(db: Session, cx: Caixa, numero: int, usuario: Usuario | None,
+                           background_tasks: BackgroundTasks,
+                           origem: str | None = None) -> bool:
+    """Miolo da troca do numero da proposta, compartilhado pela tela
+    (`PUT /caixas/{id}/proposta`) e pelo inbound do GrowthHS. Devolve se mudou.
+
+    `origem` vai entre parenteses no fim do log (ex.: "via GrowthHS: card #88").
+    As mensagens das recusas aparecem cruas no toast do GrowthHS."""
     # `ATIVAS` e' exatamente a janela 4 -> 7 (inclui o Financeiro 10).
     if cx.fase not in wf.ATIVAS:
         raise HTTPException(status_code=409,
                             detail="a proposta só pode ser trocada até Preparando Retorno")
-    if cx.numero_proposta == dados.numero:
-        return cx
+    if cx.numero_proposta == numero:
+        return False
+    proposta = db.query(Proposta).filter(Proposta.numero == numero).first()
+    if proposta is None:
+        raise HTTPException(status_code=404, detail=f"proposta #{numero} não encontrada")
+    motivo = conferir_proposta(cx, proposta)
+    if motivo:
+        raise HTTPException(status_code=422, detail=motivo)
+    anterior = cx.numero_proposta
+    cx.numero_proposta = numero
+    de = f"#{anterior}" if anterior is not None else "(nenhuma)"
+    texto = f"Caixa #{cx.id}: proposta {de} -> #{numero}"
+    if origem:
+        texto = f"{texto} ({origem})"
+    for o in _ordens_ativas(cx):
+        registrar_log(db, o, usuario, texto)
+    db.commit()
+    db.refresh(cx)
+    agendar_espelhamento_caixa(db, background_tasks, cx)
+    return True
     proposta = db.query(Proposta).filter(Proposta.numero == dados.numero).first()
     if proposta is None:
         raise HTTPException(status_code=404, detail=f"proposta {dados.numero} não encontrada")
