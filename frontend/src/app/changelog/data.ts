@@ -23,6 +23,14 @@ export const TIPO_MUDANCA: Record<TipoMudanca, { label: string; tone: 'warning' 
 
 export const CHANGELOG: VersaoChangelog[] = [
   {
+    versao: '1.67.0',
+    data: '18/11/2026',
+    itens: [
+      { tipo: 'novidade', texto: 'Corrigir o número da proposta no card do GrowthHS agora corrige a caixa aqui também — com a mesma conferência do botão "Trocar proposta": só aceita proposta do mesmo cliente da caixa e vale até Preparando Retorno.' },
+      { tipo: 'melhoria', texto: 'A recusa de uma proposta de outro cliente passa a citar os clientes pelo nome.' },
+    ],
+  },
+  {
     versao: '1.66.0',
     data: '13/11/2026',
     itens: [
